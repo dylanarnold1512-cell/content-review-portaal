@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Content review portaal</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<div id="loginScreen" class="login-screen">
+  <div class="login-box">
+    <div class="logo">CR</div>
+    <h1>Content review</h1>
+    <p class="login-sub">Log in om de contentplanning te bekijken.</p>
+    <form id="loginForm">
+      <label for="clientSelect">Klant</label>
+      <select id="clientSelect" required></select>
+      <label for="passwordInput">Wachtwoord</label>
+      <input id="passwordInput" type="password" required autocomplete="current-password">
+      <button type="submit">Inloggen</button>
+      <p id="loginError" class="login-error"></p>
+    </form>
+  </div>
+</div>
+
+<div id="app" class="app hidden">
+  <div class="top">
+    <div class="top-left">
+      <div class="logo" id="clientLogo">--</div>
+      <div>
+        <div class="top-title" id="clientName">—</div>
+        <div class="top-sub">Contentreview, gekoppeld aan Notion</div>
+      </div>
+    </div>
+    <button id="logoutBtn" class="btn-plain">Uitloggen</button>
+  </div>
+
+  <div class="layout">
+    <div>
+      <div class="col-title" id="listTitle">Blogs</div>
+      <div class="filters" id="filters"></div>
+      <div class="list" id="list"></div>
+    </div>
+    <div class="detail" id="detail"></div>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>
