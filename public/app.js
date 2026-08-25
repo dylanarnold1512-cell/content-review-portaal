@@ -56,7 +56,6 @@ async function enterApp(clientId, clientMeta) {
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('clientName').textContent = clientMeta ? clientMeta.naam : clientId;
-  document.getElementById('clientLogo').textContent = (clientMeta ? clientMeta.naam : clientId).slice(0, 2).toUpperCase();
   await loadItems();
 }
 
@@ -135,7 +134,7 @@ async function renderDetail() {
 
   const isReviewStatus = item.status === state.statusValues.review;
   const feedbackBlock = item.opmerkingenKlant
-    ? `<div class="feedback-box"><span class="seo-label" style="color:var(--red);">Opmerkingen klant</span>${item.opmerkingenKlant}</div>`
+    ? `<div class="feedback-box"><span class="seo-label" style="color:var(--accent);">Opmerkingen klant</span>${item.opmerkingenKlant}</div>`
     : '';
 
   let actionsBlock = '';
