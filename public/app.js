@@ -24,6 +24,19 @@ async function init() {
   const select = document.getElementById('clientSelect');
   select.innerHTML = clients.map((c) => `<option value="${c.id}">${c.naam}</option>`).join('');
 
+  // Een link als /basecamp-utrecht selecteert die klant automatisch, zodat je
+  // per klant een eigen inlogadres kunt versturen zonder los te hoeven kiezen.
+  const slug = decodeURIComponent(location.pathname.replace(/^\/+|\/+$/g, ''));
+  const preset = clients.find((c) => c.id === slug);
+  if (preset) {
+    select.value = preset.id;
+    document.getElementById('clientSelectGroup').classList.add('hidden');
+    const badge = document.getElementById('presetClientBadge');
+    badge.textContent = preset.naam;
+    badge.classList.remove('hidden');
+    document.getElementById('passwordInput').focus();
+  }
+
   const me = await api('/me');
   if (me.clientId) {
     await enterApp(me.clientId, clients.find((c) => c.id === me.clientId));

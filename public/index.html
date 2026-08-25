@@ -14,9 +14,12 @@
     <img class="brand-logo" src="https://advertisr.nl/wp-content/uploads/2025/03/Logo_Advertisr_new_2025.svg" alt="Advertisr.">
     <h1>Content Review Portaal</h1>
     <p class="login-sub">Log in om de contentplanning te bekijken.</p>
+    <div id="presetClientBadge" class="preset-badge hidden"></div>
     <form id="loginForm">
-      <label for="clientSelect">Klant</label>
-      <select id="clientSelect" required></select>
+      <div id="clientSelectGroup">
+        <label for="clientSelect">Klant</label>
+        <select id="clientSelect" required></select>
+      </div>
       <label for="passwordInput">Wachtwoord</label>
       <input id="passwordInput" type="password" required autocomplete="current-password">
       <button type="submit">Inloggen</button>
