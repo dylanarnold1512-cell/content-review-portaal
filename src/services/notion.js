@@ -35,6 +35,10 @@ function readProperty(page, propName) {
       return prop.select?.name || '';
     case 'date':
       return prop.date?.start || '';
+    case 'url':
+      return prop.url || '';
+    case 'number':
+      return typeof prop.number === 'number' ? prop.number : null;
     default:
       return '';
   }
@@ -52,6 +56,11 @@ function summarizePage(page, fields) {
     publicatiedatum: readProperty(page, fields.publishDate),
     opmerkingenKlant: readProperty(page, fields.customerNotes),
     wordpressPostId: readProperty(page, fields.wordpressPostId),
+    liveUrl: fields.liveUrl ? readProperty(page, fields.liveUrl) : '',
+    clicks30d: fields.clicks30d ? readProperty(page, fields.clicks30d) : null,
+    impressions30d: fields.impressions30d ? readProperty(page, fields.impressions30d) : null,
+    avgPosition30d: fields.avgPosition30d ? readProperty(page, fields.avgPosition30d) : null,
+    pageviews30d: fields.pageviews30d ? readProperty(page, fields.pageviews30d) : null,
     laatstGewijzigd: page.last_edited_time
   };
 }
@@ -154,4 +163,32 @@ async function rejectItem(clientId, pageId, feedback) {
   });
 }
 
-module.exports = { listItems, getItemDetail, approveItem, rejectItem };
+// Leest de dagelijkse aggregate prestatie-log (vaste kolomnamen, niet per klant
+// configureerbaar zoals de contentplanning — deze database heeft altijd dezelfde
+// vorm, gevuld door de dagelijkse n8n-sync).
+async function getPerformanceLog(clientId, days = 90) {
+  const config = getClient(clientId);
+  if (!config.performanceLogDatabaseId) return [];
+  const notion = getNotionClient(clientId);
+  const res = await notion.databases.query({
+    database_id: config.performanceLogDatabaseId,
+    sorts: [{ property: 'Datum', direction: 'descending' }],
+    page_size: days
+  });
+  return res.results
+    .map((page) => {
+      const p = page.properties;
+      return {
+        datum: p['Datum']?.date?.start || '',
+        totaalClicks: p['Totaal clicks']?.number ?? 0,
+        totaalVertoningen: p['Totaal vertoningen']?.number ?? 0,
+        totaalPaginaweergaven: p['Totaal paginaweergaven']?.number ?? 0,
+        blogsGepubliceerd: p['Blogs gepubliceerd (cumulatief)']?.number ?? 0,
+        blogsPipeline: p['Blogs in pipeline']?.number ?? 0
+      };
+    })
+    .filter((row) => row.datum)
+    .reverse(); // weer oplopend van oud naar nieuw voor de grafiek
+}
+
+module.exports = { listItems, getItemDetail, approveItem, rejectItem, getPerformanceLog };

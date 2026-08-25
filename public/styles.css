@@ -177,4 +177,48 @@ body {
 .btn-plain-sm { background: var(--gray-soft); color: var(--text-muted); }
 .btn-save-sm { background: var(--accent); color: #fff; }
 
+/* Prestaties: totaalbeeld van alle content samen (Search Console + GA4) */
+.performance-panel {
+  max-width: 1280px; margin: 20px auto 0 auto; padding: 0 28px;
+}
+.performance-panel > * { background: var(--panel); }
+.performance-header {
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius) var(--radius) 0 0;
+  box-shadow: var(--shadow-card); padding: 18px 22px 14px 22px; border-bottom: none;
+}
+.performance-title { font-weight: 700; font-size: 15px; color: var(--text); margin-bottom: 4px; }
+.performance-sub { color: var(--text-muted); font-size: 12.5px; line-height: 1.5; }
+.performance-stats {
+  background: var(--panel); border-left: 1px solid var(--border); border-right: 1px solid var(--border);
+  display: flex; flex-wrap: wrap; gap: 0; border-top: 1px solid var(--border);
+}
+.stat-tile {
+  flex: 1 1 140px; padding: 14px 22px; border-right: 1px solid var(--border);
+}
+.stat-tile:last-child { border-right: none; }
+.stat-tile-activity .stat-value { color: var(--purple); }
+.stat-value { font-size: 22px; font-weight: 700; color: var(--accent); line-height: 1.2; }
+.stat-label { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; font-weight: 600; }
+.trend-chart-wrap {
+  background: var(--panel); border: 1px solid var(--border); border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius); box-shadow: var(--shadow-card); padding: 14px 22px 18px 22px;
+}
+.trend-chart { width: 100%; height: 140px; display: block; }
+.trend-chart-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+.trend-chart-empty { color: var(--text-muted); font-size: 13px; text-align: center; padding: 30px 0; }
+
+/* Prestaties per gepubliceerde blog */
+.post-performance {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px 16px; margin-bottom: 18px;
+}
+.post-performance-title { font-size: 12.5px; font-weight: 700; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: .03em; }
+.post-performance-grid { display: flex; flex-wrap: wrap; gap: 18px; margin-bottom: 10px; }
+.post-performance-stat { display: flex; flex-direction: column; }
+.stat-value-sm { font-size: 17px; font-weight: 700; color: var(--text); }
+.stat-label-sm { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+.post-performance-link { font-size: 12.5px; color: var(--accent); font-weight: 600; text-decoration: none; }
+.post-performance-link:hover { text-decoration: underline; }
+
 @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .performance-panel { padding: 0 16px; } }

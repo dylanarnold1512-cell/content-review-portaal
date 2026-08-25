@@ -90,6 +90,7 @@ async function enterApp(clientId, clientMeta) {
 async function loadItems() {
   const data = await api(`/${state.clientId}/items`);
   state.reviewEnabled = data.reviewEnabled;
+  state.performanceEnabled = Boolean(data.performanceEnabled);
   state.statusValues = data.statusValues;
   state.items = data.items;
   if (!state.selectedId && state.items.length) {
@@ -101,6 +102,114 @@ async function loadItems() {
   renderFilters();
   renderList();
   renderDetail();
+  loadPerformancePanel();
+}
+
+// Prestaties: totaalbeeld van alle content samen (Search Console + GA4),
+// dagelijks bijgewerkt door n8n. Blijft verborgen zolang performanceEnabled
+// uit staat voor deze klant (zie clients.js — bewust pas aanzetten zodra er
+// genoeg data is).
+async function loadPerformancePanel() {
+  const panel = document.getElementById('performancePanel');
+  if (!panel) return;
+  if (!state.performanceEnabled) {
+    panel.classList.add('hidden');
+    return;
+  }
+  try {
+    const data = await api(`/${state.clientId}/performance`);
+    renderPerformancePanel(data.log);
+  } catch (err) {
+    panel.classList.add('hidden');
+  }
+}
+
+function formatDatumKort(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' });
+}
+
+function buildTrendSvg(log) {
+  const w = 640;
+  const h = 160;
+  const padL = 8;
+  const padR = 8;
+  const padT = 16;
+  const padB = 8;
+  const innerW = w - padL - padR;
+  const innerH = h - padT - padB;
+  const values = log.map((d) => d.totaalPaginaweergaven);
+  const max = Math.max(1, ...values);
+  const x = (i) => padL + (log.length === 1 ? innerW / 2 : (i / (log.length - 1)) * innerW);
+  const y = (v) => padT + innerH - (v / max) * innerH;
+
+  const points = log.map((d, i) => [x(i), y(d.totaalPaginaweergaven)]);
+  const linePath = points.map((p, i) => (i === 0 ? `M${p[0]},${p[1]}` : `L${p[0]},${p[1]}`)).join(' ');
+  const areaPath = `${linePath} L${points[points.length - 1][0]},${padT + innerH} L${points[0][0]},${padT + innerH} Z`;
+  const dots = points
+    .map(
+      (p, i) =>
+        `<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="var(--accent)"><title>${formatDatumKort(log[i].datum)}: ${log[i].totaalPaginaweergaven} paginaweergaven</title></circle>`
+    )
+    .join('');
+
+  return `
+    <svg viewBox="0 0 ${w} ${h}" class="trend-chart" preserveAspectRatio="none" role="img" aria-label="Trend van totale paginaweergaven over tijd">
+      <path d="${areaPath}" fill="var(--accent-soft)" stroke="none"></path>
+      <path d="${linePath}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+      ${dots}
+    </svg>
+    <div class="trend-chart-labels">
+      <span>${formatDatumKort(log[0].datum)}</span>
+      <span>${formatDatumKort(log[log.length - 1].datum)}</span>
+    </div>
+  `;
+}
+
+function renderPerformancePanel(log) {
+  const panel = document.getElementById('performancePanel');
+  if (!panel) return;
+  if (!log || !log.length) {
+    panel.classList.add('hidden');
+    return;
+  }
+  const latest = log[log.length - 1];
+  const chartHtml =
+    log.length >= 2
+      ? buildTrendSvg(log)
+      : `<div class="trend-chart-empty">Nog te weinig data voor een grafiek — kom over een paar dagen terug.</div>`;
+
+  panel.innerHTML = `
+    <div class="performance-header">
+      <div class="performance-title">Prestaties — alle content samen</div>
+      <div class="performance-sub">SEO-resultaten bouwen op. De meeste content laat na 2-3 maanden de eerste groei zien — vertoningen in Google komen meestal eerder dan clicks.</div>
+    </div>
+    <div class="performance-stats">
+      <div class="stat-tile">
+        <div class="stat-value">${latest.totaalPaginaweergaven}</div>
+        <div class="stat-label">Paginaweergaven (30d)</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-value">${latest.totaalVertoningen}</div>
+        <div class="stat-label">Vertoningen (30d)</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-value">${latest.totaalClicks}</div>
+        <div class="stat-label">Clicks (30d)</div>
+      </div>
+      <div class="stat-tile stat-tile-activity">
+        <div class="stat-value">${latest.blogsGepubliceerd}</div>
+        <div class="stat-label">Blogs gepubliceerd</div>
+      </div>
+      <div class="stat-tile stat-tile-activity">
+        <div class="stat-value">${latest.blogsPipeline}</div>
+        <div class="stat-label">Blogs in de planning</div>
+      </div>
+    </div>
+    <div class="trend-chart-wrap">${chartHtml}</div>
+  `;
+  panel.classList.remove('hidden');
 }
 
 // Houdt de adresbalk in sync met de geopende blog, zodat je 'm ook los kunt
@@ -196,6 +305,23 @@ async function renderDetail() {
     ? `<div class="feedback-box"><span class="seo-label" style="color:var(--accent);">Opmerkingen klant</span>${item.opmerkingenKlant}</div>`
     : '';
 
+  const isPublished = item.status === state.statusValues.published;
+  const performanceBlock =
+    state.performanceEnabled && isPublished && item.liveUrl
+      ? `
+    <div class="post-performance">
+      <div class="post-performance-title">Prestaties van deze blog (laatste 30 dagen)</div>
+      <div class="post-performance-grid">
+        <div class="post-performance-stat"><span class="stat-value-sm">${item.clicks30d ?? '—'}</span><span class="stat-label-sm">Clicks</span></div>
+        <div class="post-performance-stat"><span class="stat-value-sm">${item.impressions30d ?? '—'}</span><span class="stat-label-sm">Vertoningen</span></div>
+        <div class="post-performance-stat"><span class="stat-value-sm">${item.avgPosition30d != null ? item.avgPosition30d.toFixed(1) : '—'}</span><span class="stat-label-sm">Gem. positie</span></div>
+        <div class="post-performance-stat"><span class="stat-value-sm">${item.pageviews30d ?? '—'}</span><span class="stat-label-sm">Paginaweergaven</span></div>
+      </div>
+      <a href="${item.liveUrl}" target="_blank" rel="noopener" class="post-performance-link">Bekijk live →</a>
+    </div>
+  `
+      : '';
+
   let actionsBlock = '';
   if (!state.reviewEnabled) {
     actionsBlock = `<div class="no-review-note">Voor deze klant staat review uit — dit is een leesweergave.</div>`;
@@ -231,6 +357,7 @@ async function renderDetail() {
       <div><span class="seo-label">CTA</span>${item.cta || '—'}</div>
     </div>
     ${feedbackBlock}
+    ${performanceBlock}
     <div class="content-body">${item.contentHtml || '<p><em>Geen inhoud gevonden.</em></p>'}</div>
     ${actionsBlock}
   `;
