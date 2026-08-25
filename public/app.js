@@ -398,7 +398,7 @@ document.addEventListener('mousedown', (e) => {
   }
 });
 
-document.getElementById('annotationPopoverCancel').addEventListener('click', hideAnnotationPopover);
-document.getElementById('annotationPopoverSave').addEventListener('click', saveAnnotation);
+document.getElementById('annotationPopoverCancel')?.addEventListener('click', hideAnnotationPopover);
+document.getElementById('annotationPopoverSave')?.addEventListener('click', saveAnnotation);
 
 init();
