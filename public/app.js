@@ -7,6 +7,17 @@ let state = {
   selectedId: null
 };
 
+// Tekst-specifieke opmerkingen bij het afwijzen van een blog (los van de
+// hoofd-state omdat ze alleen tijdens het bewerken van één item bestaan).
+let annotations = [];
+let annotationIdCounter = 0;
+let pendingRange = null;
+
+// Een link als /basecamp-utrecht/<pagina-id> opent na het inloggen meteen
+// die specifieke blog, zodat een e-mail rechtstreeks naar het portaal kan
+// verwijzen in plaats van naar Notion.
+let deepLinkItemId = null;
+
 const badgeClass = (status) => 'badge-' + (status || '').toLowerCase().replace(/\s+/g, '-');
 
 async function api(path, options) {
@@ -26,7 +37,11 @@ async function init() {
 
   // Een link als /basecamp-utrecht selecteert die klant automatisch, zodat je
   // per klant een eigen inlogadres kunt versturen zonder los te hoeven kiezen.
-  const slug = decodeURIComponent(location.pathname.replace(/^\/+|\/+$/g, ''));
+  // Een tweede pad-onderdeel (/basecamp-utrecht/<pagina-id>) is een directe
+  // link naar één specifieke blog, bijvoorbeeld vanuit een e-mailmelding.
+  const pathParts = location.pathname.split('/').filter(Boolean).map(decodeURIComponent);
+  const slug = pathParts[0] || '';
+  if (pathParts[1]) deepLinkItemId = pathParts[1];
   const preset = clients.find((c) => c.id === slug);
   if (preset) {
     select.value = preset.id;
@@ -77,11 +92,38 @@ async function loadItems() {
   state.reviewEnabled = data.reviewEnabled;
   state.statusValues = data.statusValues;
   state.items = data.items;
-  if (!state.selectedId && state.items.length) state.selectedId = state.items[0].id;
+  if (!state.selectedId && state.items.length) {
+    const deepLinked = deepLinkItemId && state.items.find((i) => i.id === deepLinkItemId);
+    state.selectedId = deepLinked ? deepLinked.id : state.items[0].id;
+    deepLinkItemId = null;
+  }
+  updateUrlForSelection();
   renderFilters();
   renderList();
   renderDetail();
 }
+
+// Houdt de adresbalk in sync met de geopende blog, zodat je 'm ook los kunt
+// kopiëren/delen, en zodat de vorige/volgende-knoppen van de browser werken.
+function updateUrlForSelection() {
+  if (!state.clientId || !state.selectedId) return;
+  const url = '/' + encodeURIComponent(state.clientId) + '/' + encodeURIComponent(state.selectedId);
+  if (location.pathname !== url) {
+    history.pushState({ clientId: state.clientId, itemId: state.selectedId }, '', url);
+  }
+}
+
+window.addEventListener('popstate', () => {
+  if (!state.clientId || !state.items.length) return;
+  const parts = location.pathname.split('/').filter(Boolean).map(decodeURIComponent);
+  const itemId = parts[1];
+  const match = itemId && state.items.find((i) => i.id === itemId);
+  if (match) {
+    state.selectedId = match.id;
+    renderList();
+    renderDetail();
+  }
+});
 
 function renderFilters() {
   const statuses = ['alle', ...Object.values(state.statusValues)];
@@ -124,6 +166,7 @@ function renderList() {
   listEl.querySelectorAll('.card').forEach((card) => {
     card.addEventListener('click', () => {
       state.selectedId = card.dataset.id;
+      updateUrlForSelection();
       renderList();
       renderDetail();
     });
@@ -132,6 +175,9 @@ function renderList() {
 
 async function renderDetail() {
   const detailEl = document.getElementById('detail');
+  hideAnnotationPopover();
+  annotations = [];
+  annotationIdCounter = 0;
   if (!state.selectedId) {
     detailEl.innerHTML = `<div class="empty-state">Selecteer een blog links.</div>`;
     return;
@@ -160,7 +206,9 @@ async function renderDetail() {
         <button class="btn btn-reject" id="rejectToggle">Afwijzen met feedback</button>
       </div>
       <div class="reject-box" id="rejectBox">
-        <textarea id="rejectText" placeholder="Wat moet er aangepast worden?"></textarea>
+        <p class="reject-hint">Selecteer een stuk tekst hierboven en voeg er een gerichte opmerking aan toe. Algemene opmerkingen kun je hieronder kwijt.</p>
+        <div class="annotation-list" id="annotationList"></div>
+        <textarea id="rejectText" placeholder="Overige opmerkingen (optioneel)…"></textarea>
         <button class="btn btn-send" id="rejectSend">Feedback versturen</button>
       </div>
     `;
@@ -206,11 +254,16 @@ async function renderDetail() {
       document.getElementById('rejectBox').classList.toggle('open');
     });
   }
+  if (document.getElementById('annotationList')) renderAnnotationList();
   const rejectSend = document.getElementById('rejectSend');
   if (rejectSend) {
     rejectSend.addEventListener('click', async () => {
-      const feedback = document.getElementById('rejectText').value.trim();
-      if (!feedback) return;
+      const general = document.getElementById('rejectText').value.trim();
+      const feedback = buildFeedbackText(general);
+      if (!feedback) {
+        alert('Voeg minstens één opmerking toe — selecteer tekst hierboven, of typ een algemene opmerking.');
+        return;
+      }
       rejectSend.disabled = true;
       try {
         await api(`/${state.clientId}/items/${item.id}/reject`, {
@@ -225,5 +278,127 @@ async function renderDetail() {
     });
   }
 }
+
+function buildFeedbackText(general) {
+  const parts = annotations.map((a) => `Over "${a.quote}": ${a.comment}`);
+  if (general) parts.push(general);
+  return parts.join('\n\n');
+}
+
+function truncateText(str, max) {
+  return str.length > max ? str.slice(0, max).trim() + '…' : str;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function renderAnnotationList() {
+  const el = document.getElementById('annotationList');
+  if (!el) return;
+  el.innerHTML = annotations
+    .map(
+      (a) => `
+    <div class="annotation-item">
+      <div>
+        <p class="annotation-quote">${escapeHtml(truncateText(a.quote, 90))}</p>
+        <p class="annotation-comment">${escapeHtml(a.comment)}</p>
+      </div>
+      <button type="button" class="annotation-remove" data-id="${a.id}" title="Verwijderen">×</button>
+    </div>
+  `
+    )
+    .join('');
+  el.querySelectorAll('.annotation-remove').forEach((btn) => {
+    btn.addEventListener('click', () => removeAnnotation(Number(btn.dataset.id)));
+  });
+}
+
+function removeAnnotation(id) {
+  const idx = annotations.findIndex((a) => a.id === id);
+  if (idx === -1) return;
+  annotations.splice(idx, 1);
+  const mark = document.querySelector(`.review-mark[data-ann-id="${id}"]`);
+  if (mark) {
+    const parent = mark.parentNode;
+    while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+    parent.removeChild(mark);
+    parent.normalize();
+  }
+  renderAnnotationList();
+}
+
+function hideAnnotationPopover() {
+  const popover = document.getElementById('annotationPopover');
+  if (popover) popover.classList.add('hidden');
+  pendingRange = null;
+}
+
+function showAnnotationPopover(range) {
+  pendingRange = range;
+  const popover = document.getElementById('annotationPopover');
+  const textEl = document.getElementById('annotationPopoverText');
+  textEl.value = '';
+  const rect = range.getBoundingClientRect();
+  const popW = 260;
+  let left = rect.left;
+  if (left + popW > window.innerWidth - 12) left = window.innerWidth - popW - 12;
+  if (left < 12) left = 12;
+  let top = rect.bottom + 8;
+  if (top + 150 > window.innerHeight) top = Math.max(12, rect.top - 158);
+  popover.style.left = left + 'px';
+  popover.style.top = top + 'px';
+  popover.classList.remove('hidden');
+  textEl.focus();
+}
+
+function saveAnnotation() {
+  if (!pendingRange) return;
+  const comment = document.getElementById('annotationPopoverText').value.trim();
+  if (!comment) return;
+  const quote = pendingRange.toString().trim();
+  const id = ++annotationIdCounter;
+  try {
+    const mark = document.createElement('mark');
+    mark.className = 'review-mark';
+    mark.dataset.annId = id;
+    mark.title = comment;
+    pendingRange.surroundContents(mark);
+  } catch (err) {
+    // Selectie liep over meerdere elementen heen — opmerking blijft geldig, alleen zonder highlight.
+  }
+  annotations.push({ id, quote, comment });
+  renderAnnotationList();
+  hideAnnotationPopover();
+  window.getSelection().removeAllRanges();
+}
+
+// Eenmalig, globaal: tekstselectie binnen een geopende reject-box toont het
+// opmerking-popovertje; klikken buiten het popovertje sluit het weer.
+document.addEventListener('mouseup', (e) => {
+  const rejectBox = document.getElementById('rejectBox');
+  if (!rejectBox || !rejectBox.classList.contains('open')) return;
+  const popover = document.getElementById('annotationPopover');
+  if (popover.contains(e.target)) return;
+  const contentBody = document.querySelector('.content-body');
+  if (!contentBody || !contentBody.contains(e.target)) return;
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+  const range = sel.getRangeAt(0);
+  if (!contentBody.contains(range.commonAncestorContainer) || range.toString().trim() === '') return;
+  showAnnotationPopover(range.cloneRange());
+});
+
+document.addEventListener('mousedown', (e) => {
+  const popover = document.getElementById('annotationPopover');
+  if (popover && !popover.classList.contains('hidden') && !popover.contains(e.target)) {
+    hideAnnotationPopover();
+  }
+});
+
+document.getElementById('annotationPopoverCancel').addEventListener('click', hideAnnotationPopover);
+document.getElementById('annotationPopoverSave').addEventListener('click', saveAnnotation);
 
 init();
