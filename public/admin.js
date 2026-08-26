@@ -29,6 +29,7 @@ document.getElementById('adminLoginForm').addEventListener('submit', async (e) =
     await adminApi('/login', { method: 'POST', body: JSON.stringify({ password }) });
     showAdminApp();
     await loadSettings();
+    await loadIdeaProposals();
   } catch (err) {
     errorEl.textContent = err.message;
   }
@@ -87,6 +88,10 @@ function renderTable() {
           'Geen prestatie-koppeling ingesteld voor deze klant'
         )}
       </div>
+      <div class="admin-row-setting">
+        <span class="admin-row-label">Ideeën</span>
+        ${toggleSwitch('idea-' + c.id, c.id, 'ideaEnrichmentEnabled', c.ideaEnrichmentEnabled, false)}
+      </div>
     </div>
   `).join('');
 
@@ -95,6 +100,7 @@ function renderTable() {
       <div class="admin-row-name">Klant</div>
       <div class="admin-row-setting"><span class="admin-row-label">Review</span></div>
       <div class="admin-row-setting"><span class="admin-row-label">Prestaties</span></div>
+      <div class="admin-row-setting"><span class="admin-row-label">Ideeën</span></div>
     </div>
     ${rows}
   `;
@@ -112,6 +118,7 @@ function renderTable() {
         const entry = adminState.clients.find((c) => c.id === client);
         if (entry) entry[field] = value;
         renderError('');
+        if (field === 'ideaEnrichmentEnabled') await loadIdeaProposals();
       } catch (err) {
         input.checked = !value; // terugzetten bij een fout
         renderError(err.message);
@@ -120,6 +127,98 @@ function renderTable() {
       }
     });
   });
+}
+
+function escapeHtmlAdmin(str) {
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+
+function renderIdeaProposals(byClient) {
+  const container = document.getElementById('ideaProposals');
+  const clientsWithFeature = adminState.clients.filter((c) => c.ideaEnrichmentEnabled);
+
+  if (!clientsWithFeature.length) {
+    container.innerHTML = `<p class="admin-footnote">Geen enkele klant heeft ideeën-verrijking aanstaan.</p>`;
+    return;
+  }
+
+  const sections = clientsWithFeature.map((c) => {
+    const proposals = byClient[c.id] || [];
+    const cards = proposals.length
+      ? proposals.map((p) => `
+        <div class="proposal-card" data-page-id="${p.id}">
+          <div class="proposal-header">
+            <div class="proposal-title">${escapeHtmlAdmin(p.titel)}</div>
+            <span class="tag">${escapeHtmlAdmin(p.categorie)} / ${escapeHtmlAdmin(p.cluster)}</span>
+          </div>
+          <div class="proposal-meta">
+            <div><span class="seo-label">Hoofdkeyword</span>${escapeHtmlAdmin(p.mainKeyword || '')}</div>
+            <div><span class="seo-label">Secundaire keywords</span>${escapeHtmlAdmin(p.secundaireKeywords)}</div>
+            <div><span class="seo-label">Zoekintentie</span>${escapeHtmlAdmin(p.zoekintentie)}</div>
+            <div><span class="seo-label">SEO titel</span>${escapeHtmlAdmin(p.seoTitle)}</div>
+            <div><span class="seo-label">Meta omschrijving</span>${escapeHtmlAdmin(p.seoDescription)}</div>
+            <div><span class="seo-label">Voorgestelde publicatiedatum</span>${escapeHtmlAdmin(p.publicatiedatum)}</div>
+            ${p.opmerkingenKlant ? `<div><span class="seo-label">Toelichting klant</span>${escapeHtmlAdmin(p.opmerkingenKlant)}</div>` : ''}
+          </div>
+          <div class="proposal-actions">
+            <button type="button" class="btn btn-approve proposal-approve">Goedkeuren</button>
+            <button type="button" class="btn btn-reject proposal-reject">Afwijzen</button>
+          </div>
+        </div>
+      `).join('')
+      : `<p class="admin-footnote">Geen ideeën ter beoordeling voor ${escapeHtmlAdmin(c.naam)}.</p>`;
+
+    return `
+      <div class="proposal-client-block">
+        <div class="proposal-client-name">${escapeHtmlAdmin(c.naam)}</div>
+        <div class="proposal-list">${cards}</div>
+      </div>
+    `;
+  }).join('');
+
+  container.innerHTML = sections;
+
+  container.querySelectorAll('.proposal-card').forEach((card) => {
+    const pageId = card.dataset.pageId;
+    const clientBlock = card.closest('.proposal-client-block');
+    const clientName = clientBlock ? clientBlock.querySelector('.proposal-client-name').textContent : '';
+    const client = adminState.clients.find((c) => c.naam === clientName);
+    if (!client) return;
+
+    const handleDecision = async (decision, btn) => {
+      btn.disabled = true;
+      try {
+        await adminApi(`/${encodeURIComponent(client.id)}/idea-proposals/${encodeURIComponent(pageId)}/${decision}`, {
+          method: 'POST'
+        });
+        card.remove();
+      } catch (err) {
+        renderError(err.message);
+        btn.disabled = false;
+      }
+    };
+
+    card.querySelector('.proposal-approve')?.addEventListener('click', (e) => handleDecision('approve', e.target));
+    card.querySelector('.proposal-reject')?.addEventListener('click', (e) => handleDecision('reject', e.target));
+  });
+}
+
+async function loadIdeaProposals() {
+  const clientsWithFeature = adminState.clients.filter((c) => c.ideaEnrichmentEnabled);
+  const byClient = {};
+  try {
+    await Promise.all(
+      clientsWithFeature.map(async (c) => {
+        const data = await adminApi(`/${encodeURIComponent(c.id)}/idea-proposals`);
+        byClient[c.id] = data.proposals;
+      })
+    );
+    renderIdeaProposals(byClient);
+  } catch (err) {
+    renderError(err.message);
+  }
 }
 
 async function loadSettings() {
@@ -139,6 +238,7 @@ async function loadSettings() {
     if (me.isAdmin) {
       showAdminApp();
       await loadSettings();
+      await loadIdeaProposals();
     } else {
       showAdminLogin();
     }

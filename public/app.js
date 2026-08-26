@@ -4,7 +4,8 @@ let state = {
   statusValues: {},
   items: [],
   filter: 'alle',
-  selectedId: null
+  selectedId: null,
+  searchQuery: ''
 };
 
 // Tekst-specifieke opmerkingen bij het afwijzen van een blog (los van de
@@ -91,8 +92,11 @@ async function loadItems() {
   const data = await api(`/${state.clientId}/items`);
   state.reviewEnabled = data.reviewEnabled;
   state.performanceEnabled = Boolean(data.performanceEnabled);
+  state.ideaEnrichmentEnabled = Boolean(data.ideaEnrichmentEnabled);
   state.statusValues = data.statusValues;
   state.items = data.items;
+  const newIdeaBtn = document.getElementById('newIdeaBtn');
+  if (newIdeaBtn) newIdeaBtn.classList.toggle('hidden', !state.ideaEnrichmentEnabled);
   if (!state.selectedId && state.items.length) {
     const deepLinked = deepLinkItemId && state.items.find((i) => i.id === deepLinkItemId);
     state.selectedId = deepLinked ? deepLinked.id : state.items[0].id;
@@ -250,9 +254,20 @@ function renderFilters() {
 }
 
 function getFiltered() {
-  if (state.filter === 'alle') return state.items;
-  return state.items.filter((i) => i.status === state.filter);
+  let items = state.filter === 'alle' ? state.items : state.items.filter((i) => i.status === state.filter);
+  const q = state.searchQuery.trim().toLowerCase();
+  if (q) {
+    items = items.filter(
+      (i) => (i.titel || '').toLowerCase().includes(q) || (i.categorie || '').toLowerCase().includes(q)
+    );
+  }
+  return items;
 }
+
+document.getElementById('searchInput')?.addEventListener('input', (e) => {
+  state.searchQuery = e.target.value;
+  renderList();
+});
 
 function renderList() {
   const listEl = document.getElementById('list');
@@ -527,5 +542,59 @@ document.addEventListener('mousedown', (e) => {
 
 document.getElementById('annotationPopoverCancel')?.addEventListener('click', hideAnnotationPopover);
 document.getElementById('annotationPopoverSave')?.addEventListener('click', saveAnnotation);
+
+// "Idee aandragen": geeft de klant zelf een manier om een onderwerp aan te
+// dragen. Komt gewoon als normaal "Idee" in de Notion-planning terecht, dus
+// geen aparte flow nodig — het portaal toont het straks vanzelf zodra het
+// verder de pijplijn ingaat.
+function openIdeaModal() {
+  const modal = document.getElementById('ideaModal');
+  if (!modal) return;
+  document.getElementById('ideaForm').reset();
+  document.getElementById('ideaError').textContent = '';
+  document.getElementById('ideaSuccess').classList.add('hidden');
+  document.getElementById('ideaForm').classList.remove('hidden');
+  modal.classList.remove('hidden');
+  document.getElementById('ideaTitel').focus();
+}
+
+function closeIdeaModal() {
+  document.getElementById('ideaModal')?.classList.add('hidden');
+}
+
+document.getElementById('newIdeaBtn')?.addEventListener('click', openIdeaModal);
+document.getElementById('ideaCancelBtn')?.addEventListener('click', closeIdeaModal);
+document.getElementById('ideaModal')?.addEventListener('mousedown', (e) => {
+  if (e.target.id === 'ideaModal') closeIdeaModal();
+});
+
+document.getElementById('ideaForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const titel = document.getElementById('ideaTitel').value.trim();
+  const hoofdkeyword = document.getElementById('ideaKeyword').value.trim();
+  const toelichting = document.getElementById('ideaToelichting').value.trim();
+  const errorEl = document.getElementById('ideaError');
+  const submitBtn = document.getElementById('ideaSubmitBtn');
+  errorEl.textContent = '';
+  if (!titel) {
+    errorEl.textContent = 'Vul een onderwerp of titel in.';
+    return;
+  }
+  submitBtn.disabled = true;
+  try {
+    await api(`/${state.clientId}/ideas`, {
+      method: 'POST',
+      body: JSON.stringify({ titel, hoofdkeyword, toelichting })
+    });
+    document.getElementById('ideaForm').classList.add('hidden');
+    document.getElementById('ideaSuccess').classList.remove('hidden');
+    await loadItems();
+    setTimeout(closeIdeaModal, 1400);
+  } catch (err) {
+    errorEl.textContent = err.message;
+  } finally {
+    submitBtn.disabled = false;
+  }
+});
 
 init();

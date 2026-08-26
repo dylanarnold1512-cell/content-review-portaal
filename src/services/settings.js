@@ -15,7 +15,8 @@ const CACHE_TTL_MS = 30 * 1000;
 
 const PROPERTY_BY_FIELD = {
   reviewEnabled: 'Review ingeschakeld',
-  performanceEnabled: 'Prestaties ingeschakeld'
+  performanceEnabled: 'Prestaties ingeschakeld',
+  ideaEnrichmentEnabled: 'Ideeën-verrijking ingeschakeld'
 };
 
 let notion = null;
@@ -51,7 +52,8 @@ async function fetchAllFromNotion() {
         pageId: page.id,
         naam: (props['Klant']?.title || []).map((t) => t.plain_text).join('') || clientId,
         reviewEnabled: Boolean(props['Review ingeschakeld']?.checkbox),
-        performanceEnabled: Boolean(props['Prestaties ingeschakeld']?.checkbox)
+        performanceEnabled: Boolean(props['Prestaties ingeschakeld']?.checkbox),
+        ideaEnrichmentEnabled: Boolean(props['Ideeën-verrijking ingeschakeld']?.checkbox)
       });
     }
     cursor = res.has_more ? res.next_cursor : undefined;
@@ -80,12 +82,20 @@ async function getClientSettings(clientId, fallback = {}) {
     const map = await getSettingsMap();
     const settings = map.get(clientId);
     if (settings) {
-      return { reviewEnabled: settings.reviewEnabled, performanceEnabled: settings.performanceEnabled };
+      return {
+        reviewEnabled: settings.reviewEnabled,
+        performanceEnabled: settings.performanceEnabled,
+        ideaEnrichmentEnabled: settings.ideaEnrichmentEnabled
+      };
     }
   } catch (err) {
     console.error(`Kon portaalinstellingen niet ophalen voor "${clientId}", val terug op clients.js:`, err.message);
   }
-  return { reviewEnabled: Boolean(fallback.reviewEnabled), performanceEnabled: Boolean(fallback.performanceEnabled) };
+  return {
+    reviewEnabled: Boolean(fallback.reviewEnabled),
+    performanceEnabled: Boolean(fallback.performanceEnabled),
+    ideaEnrichmentEnabled: Boolean(fallback.ideaEnrichmentEnabled)
+  };
 }
 
 // Voor het adminpaneel: overzicht van alle klanten uit clients.js met hun
@@ -100,6 +110,7 @@ async function listAllSettings(clientsConfig) {
       heeftPrestaties: Boolean(c.performanceLogDatabaseId),
       reviewEnabled: settings ? settings.reviewEnabled : Boolean(c.reviewEnabled),
       performanceEnabled: settings ? settings.performanceEnabled : Boolean(c.performanceEnabled),
+      ideaEnrichmentEnabled: settings ? settings.ideaEnrichmentEnabled : Boolean(c.ideaEnrichmentEnabled),
       inNotion: Boolean(settings)
     };
   });

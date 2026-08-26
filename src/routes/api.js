@@ -41,6 +41,7 @@ router.get('/:clientId/items', requireLogin, async (req, res) => {
     res.json({
       reviewEnabled: settings.reviewEnabled,
       performanceEnabled: settings.performanceEnabled,
+      ideaEnrichmentEnabled: settings.ideaEnrichmentEnabled,
       statusValues: config.statusValues,
       items
     });
@@ -99,6 +100,30 @@ router.post('/:clientId/items/:pageId/reject', requireLogin, async (req, res) =>
     }
     await notionService.rejectItem(req.params.clientId, req.params.pageId, feedback);
     res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/:clientId/ideas', requireLogin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    const settings = await settingsService.getClientSettings(req.params.clientId, config);
+    if (!settings.ideaEnrichmentEnabled) {
+      return res.status(400).json({ error: 'Ideeën aandragen staat uit voor deze klant.' });
+    }
+    const titel = (req.body?.titel || '').trim();
+    if (!titel) {
+      return res.status(400).json({ error: 'Titel/onderwerp is verplicht.' });
+    }
+    const hoofdkeyword = (req.body?.hoofdkeyword || '').trim();
+    const toelichting = (req.body?.toelichting || '').trim();
+    const result = await notionService.createIdea(req.params.clientId, {
+      titel,
+      hoofdkeyword,
+      toelichting
+    });
+    res.json({ ok: true, id: result.id });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

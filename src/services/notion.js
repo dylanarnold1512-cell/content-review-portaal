@@ -57,6 +57,11 @@ function summarizePage(page, fields) {
     opmerkingenKlant: readProperty(page, fields.customerNotes),
     wordpressPostId: readProperty(page, fields.wordpressPostId),
     liveUrl: fields.liveUrl ? readProperty(page, fields.liveUrl) : '',
+    mainKeyword: fields.mainKeyword ? readProperty(page, fields.mainKeyword) : '',
+    slug: fields.slug ? readProperty(page, fields.slug) : '',
+    secundaireKeywords: fields.secondaryKeywords ? readProperty(page, fields.secondaryKeywords) : '',
+    zoekintentie: fields.searchIntent ? readProperty(page, fields.searchIntent) : '',
+    cluster: fields.cluster ? readProperty(page, fields.cluster) : '',
     clicks30d: fields.clicks30d ? readProperty(page, fields.clicks30d) : null,
     impressions30d: fields.impressions30d ? readProperty(page, fields.impressions30d) : null,
     avgPosition30d: fields.avgPosition30d ? readProperty(page, fields.avgPosition30d) : null,
@@ -163,6 +168,65 @@ async function rejectItem(clientId, pageId, feedback) {
   });
 }
 
+// Nieuw blogidee van de klant zelf: maakt een nieuwe pagina aan in de
+// contentplanning met status "Idee", zodat het gewoon in de normale
+// planningsflow terechtkomt (net als elk ander idee dat wij zelf aandragen).
+async function createIdea(clientId, { titel, hoofdkeyword, toelichting }) {
+  const config = getClient(clientId);
+  const notion = getNotionClient(clientId);
+  const properties = {
+    [config.fields.title]: { title: [{ text: { content: (titel || '').slice(0, 2000) } }] },
+    [config.fields.status]: { select: { name: config.statusValues.idea } }
+  };
+  if (config.fields.mainKeyword && hoofdkeyword) {
+    properties[config.fields.mainKeyword] = {
+      rich_text: [{ text: { content: hoofdkeyword.slice(0, 2000) } }]
+    };
+  }
+  if (config.fields.customerNotes && toelichting) {
+    properties[config.fields.customerNotes] = {
+      rich_text: [{ text: { content: toelichting.slice(0, 2000) } }]
+    };
+  }
+  const page = await notion.pages.create({
+    parent: { database_id: config.databaseId },
+    properties
+  });
+  return { id: page.id };
+}
+
+// Admin-kant: ideeën die de idee-verrijkingsworkflow al heeft aangevuld met
+// keyword/cluster/slug/SEO-teksten en publicatiedatum, en die dus klaarstaan
+// voor Dylans ja/nee. Status staat nog op "Idee" — Slug ingevuld is het
+// signaal dat de verrijking is gebeurd (zie de n8n-workflow).
+async function listIdeaProposals(clientId) {
+  const config = getClient(clientId);
+  const notion = getNotionClient(clientId);
+  const res = await notion.databases.query({
+    database_id: config.databaseId,
+    filter: { property: config.fields.status, select: { equals: config.statusValues.idea } },
+    page_size: 100
+  });
+  return res.results
+    .map((page) => summarizePage(page, config.fields))
+    .filter((item) => item.slug);
+}
+
+// decision: 'approve' zet 'm op Gepland (loopt gewoon de bestaande planning
+// in), 'reject' zet 'm op Afgewezen.
+async function decideIdeaProposal(clientId, pageId, decision) {
+  const config = getClient(clientId);
+  const notion = getNotionClient(clientId);
+  const statusValue = decision === 'approve' ? config.statusValues.planned : config.statusValues.rejected;
+  if (!statusValue) throw new Error(`Geen statuswaarde geconfigureerd voor "${decision}" bij klant "${clientId}".`);
+  await notion.pages.update({
+    page_id: pageId,
+    properties: {
+      [config.fields.status]: { select: { name: statusValue } }
+    }
+  });
+}
+
 // Leest de dagelijkse aggregate prestatie-log (vaste kolomnamen, niet per klant
 // configureerbaar zoals de contentplanning — deze database heeft altijd dezelfde
 // vorm, gevuld door de dagelijkse n8n-sync).
@@ -191,4 +255,13 @@ async function getPerformanceLog(clientId, days = 90) {
     .reverse(); // weer oplopend van oud naar nieuw voor de grafiek
 }
 
-module.exports = { listItems, getItemDetail, approveItem, rejectItem, getPerformanceLog };
+module.exports = {
+  listItems,
+  getItemDetail,
+  approveItem,
+  rejectItem,
+  createIdea,
+  listIdeaProposals,
+  decideIdeaProposal,
+  getPerformanceLog
+};

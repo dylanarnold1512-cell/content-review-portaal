@@ -16,6 +16,10 @@ const clients = [
     // bereikbaar is. In het dagelijks gebruik zet je deze aan/uit via het
     // adminpaneel op /admin — zie README, "Klantinstellingen aan/uit zetten".
     reviewEnabled: true,
+    // Zelfde soort fallback: bepaalt of de klant de "Idee aandragen"-knop en
+    // de automatische idee-verrijking (GPT + jouw goedkeuring) krijgt. Live
+    // aan/uit zetten via /admin.
+    ideaEnrichmentEnabled: true,
     loginPasswordEnv: 'PORTAL_PASSWORD_BASECAMP',
     // Database met de dagelijkse aggregate prestatie-snapshot (Search Console +
     // GA4), gevuld door een losse n8n-workflow. Leeg laten bij een klant zonder
@@ -39,6 +43,13 @@ const clients = [
       customerNotes: 'Opmerkingen klant',
       wordpressPostId: 'WordPress Post ID',
       liveUrl: 'Live URL',
+      mainKeyword: 'Hoofdkeyword',
+      // Alleen gebruikt voor de idee-verrijking (admin-kant) — niet getoond
+      // aan de klant, alleen relevant zodra Status = Idee.
+      slug: 'Slug',
+      secondaryKeywords: 'Secundaire keywords',
+      searchIntent: 'Zoekintentie',
+      cluster: 'Cluster',
       clicks30d: 'Clicks (30d)',
       impressions30d: 'Vertoningen (30d)',
       avgPosition30d: 'Gem. positie (30d)',
@@ -49,7 +60,9 @@ const clients = [
       review: 'Ter review',
       approved: 'Goedgekeurd',
       rejected: 'Afgewezen',
-      published: 'Gepubliceerd'
+      published: 'Gepubliceerd',
+      idea: 'Idee',
+      planned: 'Gepland'
     }
   },
   {
@@ -65,6 +78,7 @@ const clients = [
     // PORTAL_PASSWORD_PPE), net als bij Basecamp Utrecht: goedkeuren zet
     // de blog direct live, geen tussenstap.
     reviewEnabled: false,
+    ideaEnrichmentEnabled: false,
     loginPasswordEnv: 'PORTAL_PASSWORD_PPE',
     fields: {
       title: 'Titel',
@@ -76,7 +90,8 @@ const clients = [
       publishDate: 'Publicatiedatum',
       customerNotes: 'Opmerkingen',
       wordpressPostId: 'WordPress Post ID',
-      liveUrl: 'URL'
+      liveUrl: 'URL',
+      mainKeyword: 'Hoofdkeyword'
     },
     // Statuswaarden zoals ze echt in Notion staan (bijgewerkt op 25-08-2026:
     // "Review" hernoemd naar "Ter review", "Goedgekeurd"/"Afgewezen" toegevoegd).
@@ -84,7 +99,9 @@ const clients = [
       review: 'Ter review',
       approved: 'Goedgekeurd',
       rejected: 'Afgewezen',
-      published: 'Gepubliceerd'
+      published: 'Gepubliceerd',
+      idea: 'Idee',
+      planned: 'Gepland'
     }
   }
 ];
