@@ -56,8 +56,15 @@ const clients = [
     id: 'ppe',
     naam: 'PPExport',
     notionTokenEnv: 'NOTION_TOKEN_PPE',
-    databaseId: '', // nog in te vullen zodra we de PPE-contentplanning database-ID hebben
-    reviewEnabled: false, // Dylan beoordeelt zelf in WordPress, geen klant-reviewer
+    databaseId: 'e85219a5-27a4-44f8-8651-4ef6b957658e', // "PPE Commercial Content Database"
+    // reviewEnabled hieronder is alleen nog de fallback-waarde voor als de
+    // "Portaal Instellingen"-database in Notion niet bereikbaar is. Sta uit
+    // tot de nieuwe n8n-workflows ("PPE - SEO - Blog Automation" concept +
+    // "PPE - Publicatie Sync") getest en geactiveerd zijn — pas daarna zelf
+    // aanzetten via /admin. Dylan is de reviewer (logt in met
+    // PORTAL_PASSWORD_PPE), net als bij Basecamp Utrecht: goedkeuren zet
+    // de blog direct live, geen tussenstap.
+    reviewEnabled: false,
     loginPasswordEnv: 'PORTAL_PASSWORD_PPE',
     fields: {
       title: 'Titel',
@@ -67,9 +74,12 @@ const clients = [
       seoTitle: 'SEO Meta Title',
       seoDescription: 'SEO Meta Description',
       publishDate: 'Publicatiedatum',
-      customerNotes: 'Opmerkingen klant',
-      wordpressPostId: 'WordPress Post ID'
+      customerNotes: 'Opmerkingen',
+      wordpressPostId: 'WordPress Post ID',
+      liveUrl: 'URL'
     },
+    // Statuswaarden zoals ze echt in Notion staan (bijgewerkt op 25-08-2026:
+    // "Review" hernoemd naar "Ter review", "Goedgekeurd"/"Afgewezen" toegevoegd).
     statusValues: {
       review: 'Ter review',
       approved: 'Goedgekeurd',
