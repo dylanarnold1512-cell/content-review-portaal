@@ -11,14 +11,19 @@ const clients = [
     naam: 'Basecamp Utrecht',
     notionTokenEnv: 'NOTION_TOKEN_BASECAMP',
     databaseId: '41d12e87-c0ac-4f4f-816f-bd2f65f9bb8b', // "Basecamp Utrecht - Content Planning"
+    // reviewEnabled/performanceEnabled hieronder zijn alleen nog de fallback-
+    // waarden voor als de "Portaal Instellingen"-database in Notion niet
+    // bereikbaar is. In het dagelijks gebruik zet je deze aan/uit via het
+    // adminpaneel op /admin — zie README, "Klantinstellingen aan/uit zetten".
     reviewEnabled: true,
     loginPasswordEnv: 'PORTAL_PASSWORD_BASECAMP',
     // Database met de dagelijkse aggregate prestatie-snapshot (Search Console +
     // GA4), gevuld door een losse n8n-workflow. Leeg laten bij een klant zonder
     // prestatie-koppeling — het portaal toont dan simpelweg geen Prestaties-blok.
     performanceLogDatabaseId: '93a731433ea6446fb31a6ba4ba9dc9cb',
-    // Zet dit pas op true zodra er minstens ~1 maand aan data in de Prestatie
-    // Log staat — anders ziet de klant vooral nullen. Zie gesprek 25-08-2026.
+    // Fallback-waarde (zie opmerking bij reviewEnabled hierboven). Pas 'm live
+    // aan op /admin — pas aanzetten zodra er minstens ~1 maand aan data in de
+    // Prestatie Log staat, anders ziet de klant vooral nullen.
     performanceEnabled: false,
     // Namen van de Notion-properties zoals ze in deze database heten.
     // Per klant configureerbaar, want niet elke database zal exact dezelfde

@@ -1,6 +1,7 @@
 const express = require('express');
 const { getClient, listClients } = require('../config/clients');
 const notionService = require('../services/notion');
+const settingsService = require('../services/settings');
 const { checkPassword, requireLogin } = require('../middleware/auth');
 
 const router = express.Router();
@@ -34,11 +35,12 @@ router.get('/me', (req, res) => {
 router.get('/:clientId/items', requireLogin, async (req, res) => {
   try {
     const config = getClient(req.params.clientId);
+    const settings = await settingsService.getClientSettings(req.params.clientId, config);
     const status = req.query.status || undefined;
     const items = await notionService.listItems(req.params.clientId, status);
     res.json({
-      reviewEnabled: config.reviewEnabled,
-      performanceEnabled: Boolean(config.performanceEnabled),
+      reviewEnabled: settings.reviewEnabled,
+      performanceEnabled: settings.performanceEnabled,
       statusValues: config.statusValues,
       items
     });
@@ -50,7 +52,8 @@ router.get('/:clientId/items', requireLogin, async (req, res) => {
 router.get('/:clientId/performance', requireLogin, async (req, res) => {
   try {
     const config = getClient(req.params.clientId);
-    if (!config.performanceEnabled) {
+    const settings = await settingsService.getClientSettings(req.params.clientId, config);
+    if (!settings.performanceEnabled) {
       return res.status(404).json({ error: 'Prestatiegegevens staan nog niet aan voor deze klant.' });
     }
     const log = await notionService.getPerformanceLog(req.params.clientId);
@@ -72,7 +75,8 @@ router.get('/:clientId/items/:pageId', requireLogin, async (req, res) => {
 router.post('/:clientId/items/:pageId/approve', requireLogin, async (req, res) => {
   try {
     const config = getClient(req.params.clientId);
-    if (!config.reviewEnabled) {
+    const settings = await settingsService.getClientSettings(req.params.clientId, config);
+    if (!settings.reviewEnabled) {
       return res.status(400).json({ error: 'Review staat uit voor deze klant.' });
     }
     await notionService.approveItem(req.params.clientId, req.params.pageId);
@@ -85,7 +89,8 @@ router.post('/:clientId/items/:pageId/approve', requireLogin, async (req, res) =
 router.post('/:clientId/items/:pageId/reject', requireLogin, async (req, res) => {
   try {
     const config = getClient(req.params.clientId);
-    if (!config.reviewEnabled) {
+    const settings = await settingsService.getClientSettings(req.params.clientId, config);
+    if (!settings.reviewEnabled) {
       return res.status(400).json({ error: 'Review staat uit voor deze klant.' });
     }
     const feedback = (req.body?.feedback || '').trim();

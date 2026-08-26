@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Instellingen — Content Review Portaal</title>
+<link rel="icon" href="https://advertisr.nl/wp-content/uploads/2025/03/Logo_Advertisr_new_2025.svg">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<div id="adminLoginScreen" class="login-screen">
+  <div class="login-box">
+    <img class="brand-logo" src="https://advertisr.nl/wp-content/uploads/2025/03/Logo_Advertisr_new_2025.svg" alt="Advertisr.">
+    <h1>Instellingen</h1>
+    <p class="login-sub">Alleen voor Advertisr — los van de klantwachtwoorden.</p>
+    <form id="adminLoginForm">
+      <label for="adminPasswordInput">Wachtwoord</label>
+      <input id="adminPasswordInput" type="password" required autocomplete="current-password">
+      <button type="submit">Inloggen</button>
+      <p id="adminLoginError" class="login-error"></p>
+    </form>
+  </div>
+</div>
+
+<div id="adminApp" class="app hidden">
+  <div class="top">
+    <div class="top-left">
+      <img class="brand-logo-small" src="https://advertisr.nl/wp-content/uploads/2025/03/Logo_Advertisr_new_2025.svg" alt="Advertisr.">
+      <div class="top-divider"></div>
+      <div>
+        <div class="top-title">Portaalinstellingen</div>
+        <div class="top-sub">Wijzigingen werken direct door — geen deploy nodig</div>
+      </div>
+    </div>
+    <button id="adminLogoutBtn" class="btn-plain">Uitloggen</button>
+  </div>
+
+  <div class="admin-layout">
+    <div id="adminError" class="admin-error hidden"></div>
+    <div id="adminTable" class="admin-table"></div>
+    <p class="admin-footnote">
+      Wordt gelezen en geschreven vanuit de Notion-database "Portaal Instellingen".
+      Nieuwe klant nog niet in de lijst? Voeg 'm eerst toe in <code>src/config/clients.js</code>
+      (zie README) — dan verschijnt hij hier vanzelf.
+    </p>
+  </div>
+</div>
+
+<script src="/admin.js"></script>
+</body>
+</html>

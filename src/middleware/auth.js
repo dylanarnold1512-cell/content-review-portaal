@@ -22,4 +22,21 @@ function requireLogin(req, res, next) {
   return res.status(401).json({ error: 'Niet ingelogd voor deze klant.' });
 }
 
-module.exports = { checkPassword, requireLogin };
+// Eén los admin-wachtwoord voor het instellingenpaneel (/admin), volledig
+// gescheiden van de klantwachtwoorden.
+function checkAdminPassword(password) {
+  const expected = process.env.ADMIN_PASSWORD;
+  if (!expected) {
+    throw new Error('ADMIN_PASSWORD is niet gezet in de environment variables.');
+  }
+  return password === expected;
+}
+
+function requireAdmin(req, res, next) {
+  if (req.session && req.session.isAdmin) {
+    return next();
+  }
+  return res.status(401).json({ error: 'Niet ingelogd als admin.' });
+}
+
+module.exports = { checkPassword, requireLogin, checkAdminPassword, requireAdmin };

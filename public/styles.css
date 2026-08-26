@@ -82,6 +82,55 @@ body {
 }
 .btn-plain:hover { border-color: var(--text-faint); color: var(--text); }
 
+/* Adminpaneel (/admin) — overzicht + aan/uit-schakelaars per klant */
+.admin-layout { max-width: 640px; margin: 0 auto; padding: 8px 20px 40px; }
+.admin-error {
+  background: var(--accent-soft); color: var(--accent); border: 1px solid #ffd4da; border-radius: 12px;
+  padding: 12px 14px; margin-bottom: 16px; font-size: 13.5px;
+}
+.admin-table {
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow-card); overflow: hidden;
+}
+.admin-row {
+  display: grid; grid-template-columns: 1fr 140px 140px; align-items: center;
+  padding: 16px 20px; border-bottom: 1px solid var(--border); gap: 12px;
+}
+.admin-row:last-child { border-bottom: none; }
+.admin-row-head { padding: 12px 20px; background: var(--bg); }
+.admin-row-head .admin-row-name { font-size: 12px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
+.admin-row-head .admin-row-label { display: block; font-size: 12px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
+.admin-row-name { font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; }
+.admin-row-badge {
+  font-size: 10.5px; font-weight: 700; color: var(--purple); background: var(--purple-soft);
+  padding: 2px 8px; border-radius: var(--radius-pill); text-transform: uppercase; letter-spacing: 0.02em;
+}
+.admin-row-setting { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.admin-row-label { font-size: 11.5px; color: var(--text-faint); }
+.admin-row-head .admin-row-setting { align-items: flex-start; }
+
+.admin-toggle { position: relative; display: inline-flex; align-items: center; cursor: pointer; }
+.admin-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+.admin-toggle-track {
+  width: 42px; height: 24px; border-radius: var(--radius-pill); background: var(--gray-soft);
+  border: 1px solid var(--border); position: relative; transition: background 0.15s ease;
+}
+.admin-toggle-track::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 3px rgba(20, 20, 43, 0.25); transition: transform 0.15s ease;
+}
+.admin-toggle input:checked + .admin-toggle-track { background: var(--accent); border-color: var(--accent); }
+.admin-toggle input:checked + .admin-toggle-track::after { transform: translateX(18px); }
+.admin-toggle input:disabled + .admin-toggle-track { opacity: 0.6; cursor: not-allowed; }
+.admin-toggle-disabled { cursor: default; align-items: center; gap: 8px; }
+.admin-toggle-disabled .admin-toggle-track { opacity: 0.5; }
+.admin-toggle-hint { display: none; }
+@media (min-width: 720px) {
+  .admin-toggle-disabled { flex-direction: row; }
+}
+.admin-footnote { color: var(--text-faint); font-size: 12px; margin-top: 18px; line-height: 1.6; }
+.admin-footnote code { background: var(--gray-soft); padding: 1px 6px; border-radius: 6px; font-size: 11.5px; }
+
 .layout {
   display: grid; grid-template-columns: 380px 1fr; gap: 20px;
   padding: 20px 28px 40px 28px; max-width: 1280px; margin: 0 auto; align-items: start;
