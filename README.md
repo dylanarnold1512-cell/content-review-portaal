@@ -48,6 +48,80 @@ Gebouwd als een gewone Node/Express-webservice — te draaien op Render
 (Web Service, build command `npm install`, start command `npm start`) met
 dezelfde environment variables als in `.env.example`.
 
+## Klantinstellingen aan/uit zetten
+
+**Sinds 25-08-2026: gebruik hiervoor het adminpaneel op `/admin`**
+(dus `portaal.advertisr.nl/admin`), met een eigen wachtwoord
+(environment variable `ADMIN_PASSWORD`, los van de klantwachtwoorden).
+Daar staat een overzicht van alle klanten met simpele aan/uit-knoppen:
+
+- **Review** — toont wel/geen goedkeur- en afwijs-knoppen.
+- **Prestaties** — toont wel/geen prestatiepaneel (Search Console/GA4-
+  cijfers + trendgrafiek). Staat op basecamp Utrecht bewust uit tot er
+  minstens ~1 maand aan data in de "BCU — Prestatie Log"-database in
+  Notion staat, anders ziet de klant vooral nullen. Alleen togglebaar
+  voor klanten met een `performanceLogDatabaseId` in `clients.js`; voor
+  klanten zonder prestatie-koppeling staat de knop grijs/uit.
+
+Een toggle werkt **direct door** — geen deploy, geen GitHub, geen
+Claude nodig. De waardes staan in een eigen Notion-database "Portaal
+Instellingen" (in de Advertisr AI OS-werkruimte, onder "Workflows &
+Automatiseringen"), niet in `clients.js` zelf — de waardes daar
+(`reviewEnabled`/`performanceEnabled`) zijn alleen nog de fallback voor
+als die Notion-database onbereikbaar is.
+
+**Eenmalig opzetwerk** (al gedaan op 25-08-2026, hieronder voor
+referentie/een volgende omgeving):
+1. In de Notion-werkruimte van "Advertisr AI OS": een interne integratie
+   aanmaken (Notion instellingen → Connections → Develop or manage
+   integrations → New integration) en de database "Portaal Instellingen"
+   ermee delen (··· menu op de database → Connections).
+2. Dat integratietoken als environment variable `NOTION_TOKEN_ADMIN`
+   zetten op Render.
+3. Een zelfgekozen wachtwoord als environment variable `ADMIN_PASSWORD`
+   zetten op Render.
+
+Nieuwe klant nog niet in de "Portaal Instellingen"-lijst? Voeg 'm eerst
+toe aan `src/config/clients.js` (zie "Nieuwe klant toevoegen" hierboven)
+— hij verschijnt dan vanzelf op `/admin`, en er wordt automatisch een
+rij voor 'm aangemaakt in Notion zodra je voor het eerst een knop voor
+die klant aanraakt.
+
+## Prestatie-tracking (Search Console + GA4)
+
+Sinds 25-08-2026 haalt het portaal live SEO/traffic-cijfers per blog op
+via twee n8n-workflows (niet in deze repo, staan in n8n):
+
+- **"Basecamp Utrecht — Publicatie Sync"** (bestaand) — schrijft bij
+  publicatie de live-URL terug naar het Notion-veld "Live URL".
+- **"BCU — Dagelijkse Prestatie Sync"** (workflow-id `vv8rtOobBopeQcfo`) —
+  draait dagelijks om 06:00, haalt per gepubliceerde blog (met Live URL)
+  de Search Console- en GA4-cijfers van de laatste 30 dagen op, schrijft
+  die naar de Notion-pagina van die blog, en logt een dagtotaal in de
+  Notion-database "BCU — Prestatie Log" (databaseId
+  `93a731433ea6446fb31a6ba4ba9dc9cb`) — die voedt de trendgrafiek in het
+  prestatiepaneel.
+
+Blogs die vóór 25-08-2026 al gepubliceerd waren, hebben nooit een Live
+URL teruggeschreven gekregen en worden dus niet meegenomen door de
+dagelijkse sync, tenzij dat veld handmatig in Notion wordt ingevuld.
+
+## Wijzigingen publiceren (deploy)
+
+Render is gekoppeld aan de `main`-branch op GitHub en deployt automatisch
+bij elke push. Deze Claude-omgeving heeft doorgaans geen directe
+push-toegang tot deze repo — wijzigingen die Claude maakt, komen dus als
+zip-bestand terug, dat je zelf toepast:
+
+1. Bestanden uit de zip in de projectmap zetten, met behoud van de
+   mapstructuur (bijv. `src/middleware/auth.js` hoort ín `src/`, niet in
+   de hoofdmap — sleep submappen dus rechtstreeks in hun tegenhanger, niet
+   los in de hoofdmap).
+2. Dubbelklik `publiceren.command` (voegt zowel `public/` als `src/` toe,
+   commit en pusht).
+3. Render bouwt en deployt automatisch (1-2 minuten). Status is te volgen
+   op het Render-dashboard.
+
 ## Later uitbreiden
 
 - **Individuele accounts in plaats van één gedeeld wachtwoord per klant**:

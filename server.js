@@ -3,6 +3,7 @@ const path = require('path');
 const express = require('express');
 const cookieSession = require('cookie-session');
 const apiRoutes = require('./src/routes/api');
+const adminRoutes = require('./src/routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -25,8 +26,13 @@ app.use(
   })
 );
 
+app.use('/api/admin', adminRoutes);
 app.use('/api', apiRoutes);
 app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
