@@ -41,19 +41,29 @@
     <button id="logoutBtn" class="btn-plain">Uitloggen</button>
   </div>
 
-  <div id="performancePanel" class="performance-panel hidden"></div>
+  <div class="tab-nav" id="tabNav">
+    <button type="button" class="tab-btn active" data-tab="blogs">Blogs</button>
+    <button type="button" class="tab-btn hidden" data-tab="prestaties" id="prestatiesTabBtn">Prestaties</button>
+  </div>
 
-  <div class="layout">
-    <div>
-      <div class="list-header">
-        <div class="col-title" id="listTitle">Blogs</div>
-        <button type="button" id="newIdeaBtn" class="btn-idea">+ Idee aandragen</button>
+  <div id="blogsTab" class="tab-panel">
+    <div class="layout">
+      <div>
+        <div class="list-header">
+          <div class="col-title" id="listTitle">Blogs</div>
+          <button type="button" id="newIdeaBtn" class="btn-idea">+ Idee aandragen</button>
+        </div>
+        <input type="text" id="searchInput" class="search-input" placeholder="Zoek op titel of onderwerp...">
+        <div class="filters" id="filters"></div>
+        <div class="list" id="list"></div>
       </div>
-      <input type="text" id="searchInput" class="search-input" placeholder="Zoek op titel of onderwerp...">
-      <div class="filters" id="filters"></div>
-      <div class="list" id="list"></div>
+      <div class="detail" id="detail"></div>
     </div>
-    <div class="detail" id="detail"></div>
+  </div>
+
+  <div id="prestatiesTab" class="tab-panel hidden">
+    <div id="performancePanel" class="performance-panel hidden"></div>
+    <div class="post-performance-list" id="postPerformanceList"></div>
   </div>
 </div>
 

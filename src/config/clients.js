@@ -53,7 +53,12 @@ const clients = [
       clicks30d: 'Clicks (30d)',
       impressions30d: 'Vertoningen (30d)',
       avgPosition30d: 'Gem. positie (30d)',
-      pageviews30d: 'Paginaweergaven (30d)'
+      pageviews30d: 'Paginaweergaven (30d)',
+      // Onderbouwing die de AI meegeeft bij het genereren van een topic: welk
+      // cluster achterloopt, en/of het zoekvolume en de moeilijkheidsscore van
+      // het gekozen hoofdkeyword. Gevuld door de maandelijkse n8n-workflow,
+      // getoond op de Blogs-tab in het "Contentstrategie"-blok.
+      strategyRationale: 'Onderbouwing'
     },
     // Statuswaarden zoals ze echt in Notion staan (bevestigd op 24-08-2026).
     statusValues: {

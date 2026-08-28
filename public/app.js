@@ -5,7 +5,8 @@ let state = {
   items: [],
   filter: 'alle',
   selectedId: null,
-  searchQuery: ''
+  searchQuery: '',
+  activeTab: 'blogs'
 };
 
 // Tekst-specifieke opmerkingen bij het afwijzen van een blog (los van de
@@ -85,8 +86,30 @@ async function enterApp(clientId, clientMeta) {
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('clientName').textContent = clientMeta ? clientMeta.naam : clientId;
+  switchTab('blogs');
   await loadItems();
 }
+
+// Blogs = de contentplanning zelf (ideeën t/m gepubliceerd, incl. de
+// contentstrategie erachter). Prestaties = losstaand, puur de meetbare
+// resultaten van wat al live staat — bewust gescheiden zodat het ene niet
+// het andere verdringt.
+function switchTab(tab) {
+  state.activeTab = tab;
+  document.querySelectorAll('.tab-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+  document.getElementById('blogsTab').classList.toggle('hidden', tab !== 'blogs');
+  document.getElementById('prestatiesTab').classList.toggle('hidden', tab !== 'prestaties');
+  if (tab === 'prestaties') {
+    loadPerformancePanel();
+    renderPostPerformanceList();
+  }
+}
+
+document.querySelectorAll('.tab-btn').forEach((btn) => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
 
 async function loadItems() {
   const data = await api(`/${state.clientId}/items`);
@@ -97,6 +120,9 @@ async function loadItems() {
   state.items = data.items;
   const newIdeaBtn = document.getElementById('newIdeaBtn');
   if (newIdeaBtn) newIdeaBtn.classList.toggle('hidden', !state.ideaEnrichmentEnabled);
+  const prestatiesTabBtn = document.getElementById('prestatiesTabBtn');
+  if (prestatiesTabBtn) prestatiesTabBtn.classList.toggle('hidden', !state.performanceEnabled);
+  if (!state.performanceEnabled && state.activeTab === 'prestaties') switchTab('blogs');
   if (!state.selectedId && state.items.length) {
     const deepLinked = deepLinkItemId && state.items.find((i) => i.id === deepLinkItemId);
     state.selectedId = deepLinked ? deepLinked.id : state.items[0].id;
@@ -106,7 +132,10 @@ async function loadItems() {
   renderFilters();
   renderList();
   renderDetail();
-  loadPerformancePanel();
+  if (state.performanceEnabled) {
+    loadPerformancePanel();
+    renderPostPerformanceList();
+  }
 }
 
 // Prestaties: totaalbeeld van alle content samen (Search Console + GA4),
@@ -216,6 +245,40 @@ function renderPerformancePanel(log) {
   panel.classList.remove('hidden');
 }
 
+// Per-blog cijfers op de Prestaties-tab. Bewust strenger dan "status =
+// Gepubliceerd": een blog die vandaag net live is gegaan heeft die status al
+// wel, maar zijn vertoningen/clicks pas na de eerstvolgende nachtelijke sync.
+// Tot die tijd zou hij hier met een rij nullen staan, wat oogt als "doet het
+// slecht" terwijl er simpelweg nog geen meting is geweest — dus pas tonen
+// zodra er echt een cijfer binnen is (vertoningen niet null).
+function renderPostPerformanceList() {
+  const listEl = document.getElementById('postPerformanceList');
+  if (!listEl) return;
+  const published = state.items.filter(
+    (i) => i.status === state.statusValues.published && i.impressions30d != null
+  );
+  if (!published.length) {
+    listEl.innerHTML = `<div class="empty-state">Nog geen gepubliceerde blog met gemeten data.</div>`;
+    return;
+  }
+  listEl.innerHTML = published
+    .map(
+      (item) => `
+    <div class="post-performance">
+      <div class="post-performance-title">${item.titel || '(geen titel)'}</div>
+      <div class="post-performance-grid">
+        <div class="post-performance-stat"><span class="stat-value-sm">${item.clicks30d ?? '—'}</span><span class="stat-label-sm">Clicks</span></div>
+        <div class="post-performance-stat"><span class="stat-value-sm">${item.impressions30d ?? '—'}</span><span class="stat-label-sm">Vertoningen</span></div>
+        <div class="post-performance-stat"><span class="stat-value-sm">${item.avgPosition30d != null ? Number(item.avgPosition30d).toFixed(1) : '—'}</span><span class="stat-label-sm">Gem. positie</span></div>
+        <div class="post-performance-stat"><span class="stat-value-sm">${item.pageviews30d ?? '—'}</span><span class="stat-label-sm">Paginaweergaven</span></div>
+      </div>
+      ${item.liveUrl ? `<a href="${item.liveUrl}" target="_blank" rel="noopener" class="post-performance-link">Bekijk live →</a>` : ''}
+    </div>
+  `
+    )
+    .join('');
+}
+
 // Houdt de adresbalk in sync met de geopende blog, zodat je 'm ook los kunt
 // kopiëren/delen, en zodat de vorige/volgende-knoppen van de browser werken.
 function updateUrlForSelection() {
@@ -320,22 +383,19 @@ async function renderDetail() {
     ? `<div class="feedback-box"><span class="seo-label" style="color:var(--accent);">Opmerkingen klant</span>${item.opmerkingenKlant}</div>`
     : '';
 
-  const isPublished = item.status === state.statusValues.published;
-  const performanceBlock =
-    state.performanceEnabled && isPublished && item.liveUrl
-      ? `
-    <div class="post-performance">
-      <div class="post-performance-title">Prestaties van deze blog (laatste 30 dagen)</div>
-      <div class="post-performance-grid">
-        <div class="post-performance-stat"><span class="stat-value-sm">${item.clicks30d ?? '—'}</span><span class="stat-label-sm">Clicks</span></div>
-        <div class="post-performance-stat"><span class="stat-value-sm">${item.impressions30d ?? '—'}</span><span class="stat-label-sm">Vertoningen</span></div>
-        <div class="post-performance-stat"><span class="stat-value-sm">${item.avgPosition30d != null ? item.avgPosition30d.toFixed(1) : '—'}</span><span class="stat-label-sm">Gem. positie</span></div>
-        <div class="post-performance-stat"><span class="stat-value-sm">${item.pageviews30d ?? '—'}</span><span class="stat-label-sm">Paginaweergaven</span></div>
-      </div>
-      <a href="${item.liveUrl}" target="_blank" rel="noopener" class="post-performance-link">Bekijk live →</a>
-    </div>
-  `
-      : '';
+  // Contentstrategie: waarom dit onderwerp, op basis van welk keyword en
+  // welke data. Los van de meetbare resultaten (die staan op de Prestaties-
+  // tab) — dit blok laat zien hóe het onderwerp tot stand kwam, dus ook
+  // relevant vóór publicatie (Idee/Gepland).
+  const strategyRows = [
+    item.mainKeyword ? `<div><span class="seo-label">Hoofdkeyword</span>${item.mainKeyword}</div>` : '',
+    item.secundaireKeywords ? `<div><span class="seo-label">Secundaire keywords</span>${item.secundaireKeywords}</div>` : '',
+    item.cluster || item.zoekintentie
+      ? `<div><span class="seo-label">Cluster / zoekintentie</span>${[item.cluster, item.zoekintentie].filter(Boolean).join(' · ')}</div>`
+      : '',
+    item.strategieOnderbouwing ? `<div><span class="seo-label">Onderbouwing</span>${item.strategieOnderbouwing}</div>` : ''
+  ].join('');
+  const strategyBlock = strategyRows ? `<div class="seo-box strategy-box">${strategyRows}</div>` : '';
 
   let actionsBlock = '';
   if (!state.reviewEnabled) {
@@ -372,7 +432,7 @@ async function renderDetail() {
       <div><span class="seo-label">CTA</span>${item.cta || '—'}</div>
     </div>
     ${feedbackBlock}
-    ${performanceBlock}
+    ${strategyBlock}
     <div class="content-body">${item.contentHtml || '<p><em>Geen inhoud gevonden.</em></p>'}</div>
     ${actionsBlock}
   `;

@@ -82,6 +82,24 @@ body {
 }
 .btn-plain:hover { border-color: var(--text-faint); color: var(--text); }
 
+/* Tabbladen: Blogs (contentplanning + strategie) los van Prestaties (meetbare
+   resultaten), zodat het ene verhaal het andere niet verdringt. */
+.tab-nav {
+  display: flex; gap: 4px; padding: 16px 28px 0 28px; max-width: 1280px; margin: 0 auto;
+  border-bottom: 1px solid var(--border);
+}
+.tab-btn {
+  background: none; border: none; padding: 10px 4px; margin-right: 20px; cursor: pointer;
+  font-size: 14px; font-weight: 600; color: var(--text-muted); border-bottom: 2px solid transparent;
+}
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-btn.hidden { display: none; }
+.tab-panel.hidden { display: none; }
+#prestatiesTab { max-width: 1280px; margin: 0 auto; padding: 20px 28px 40px 28px; }
+.post-performance-list { display: flex; flex-direction: column; gap: 14px; margin-top: 20px; }
+.post-performance-list .post-performance { margin-bottom: 0; }
+.post-performance-list .post-performance-title { font-size: 14px; text-transform: none; letter-spacing: 0; color: var(--text); font-weight: 700; }
+
 /* Adminpaneel (/admin) — overzicht + aan/uit-schakelaars per klant */
 .admin-layout { max-width: 640px; margin: 0 auto; padding: 8px 20px 40px; }
 .admin-error {
