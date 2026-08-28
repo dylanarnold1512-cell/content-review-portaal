@@ -269,6 +269,9 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
     businessOmschrijving: document.getElementById('intakeBusiness').value.trim(),
     toneOfVoice: document.getElementById('intakeTone').value.trim(),
     onderwerpsrichtingen: document.getElementById('intakeTopics').value.trim(),
+    blogsPerMaand: document.getElementById('intakeBlogsPerMaand').value,
+    driveMapUrl: document.getElementById('intakeDriveUrl').value.trim(),
+    notificatieEmails: document.getElementById('intakeNotificatieEmails').value.trim(),
     wordpressVanToepassing: document.getElementById('intakeWordpress').checked,
     wordpressUrl: document.getElementById('intakeWordpressUrl').value.trim(),
     searchConsoleUrl: document.getElementById('intakeGsc').value.trim(),
@@ -308,6 +311,9 @@ function renderIntakeList(intakes) {
         ${i.website ? `<div><span class="seo-label">Website</span>${escapeHtmlAdmin(i.website)}</div>` : ''}
         ${i.businessOmschrijving ? `<div><span class="seo-label">Business</span>${escapeHtmlAdmin(i.businessOmschrijving)}</div>` : ''}
         ${i.onderwerpsrichtingen ? `<div><span class="seo-label">Onderwerpsrichtingen</span>${escapeHtmlAdmin(i.onderwerpsrichtingen)}</div>` : ''}
+        ${i.blogsPerMaand ? `<div><span class="seo-label">Blogs per maand</span>${escapeHtmlAdmin(i.blogsPerMaand)}</div>` : ''}
+        ${i.driveMapUrl ? `<div><span class="seo-label">Drive-map</span>${escapeHtmlAdmin(i.driveMapUrl)}</div>` : ''}
+        ${i.notificatieEmails ? `<div><span class="seo-label">Notificatie e-mail</span>${escapeHtmlAdmin(i.notificatieEmails)}</div>` : ''}
         ${i.notities ? `<div><span class="seo-label">Notities</span>${escapeHtmlAdmin(i.notities)}</div>` : ''}
       </div>
       <div class="proposal-actions">

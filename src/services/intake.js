@@ -57,6 +57,9 @@ function summarizeIntake(page) {
     searchConsoleUrl: p['Search Console property URL']?.url || '',
     ga4PropertyId: plainText(p['GA4 property ID']?.rich_text),
     portalWachtwoord: plainText(p['Portal wachtwoord wens']?.rich_text),
+    blogsPerMaand: p['Blogs per maand']?.select?.name || '',
+    driveMapUrl: p['Content Drive-map URL']?.url || '',
+    notificatieEmails: plainText(p['Notificatie e-mailadres(sen)']?.rich_text),
     reviewEnabled: Boolean(p['Review inschakelen']?.checkbox),
     performanceEnabled: Boolean(p['Prestaties inschakelen']?.checkbox),
     ideaEnrichmentEnabled: Boolean(p['Ideeen-verrijking inschakelen']?.checkbox),
@@ -93,10 +96,15 @@ async function createIntake(input) {
     'Review inschakelen': { checkbox: input.reviewEnabled !== false },
     'Prestaties inschakelen': { checkbox: Boolean(input.performanceEnabled) },
     'Ideeen-verrijking inschakelen': { checkbox: Boolean(input.ideaEnrichmentEnabled) },
+    'Content Drive-map URL': urlProp(input.driveMapUrl),
+    'Notificatie e-mailadres(sen)': richText(input.notificatieEmails),
     Notities: richText(input.notities)
   };
   if (input.tier) {
     properties.Tier = { select: { name: input.tier } };
+  }
+  if (input.blogsPerMaand) {
+    properties['Blogs per maand'] = { select: { name: input.blogsPerMaand.toString() } };
   }
   const page = await client.pages.create({
     parent: { database_id: INTAKE_DATABASE_ID },
