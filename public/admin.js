@@ -40,6 +40,19 @@ document.getElementById('adminLogoutBtn').addEventListener('click', async () => 
   showAdminLogin();
 });
 
+function switchAdminTab(tab) {
+  document.querySelectorAll('#adminTabNav .tab-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.adminTab === tab);
+  });
+  document.getElementById('instellingenTab').classList.toggle('hidden', tab !== 'instellingen');
+  document.getElementById('intakeTab').classList.toggle('hidden', tab !== 'intake');
+  if (tab === 'intake') loadIntakes();
+}
+
+document.querySelectorAll('#adminTabNav .tab-btn').forEach((btn) => {
+  btn.addEventListener('click', () => switchAdminTab(btn.dataset.adminTab));
+});
+
 function renderError(message) {
   const el = document.getElementById('adminError');
   if (!message) {
@@ -229,6 +242,111 @@ async function loadSettings() {
     renderTable();
   } catch (err) {
     renderError(err.message);
+  }
+}
+
+const INTAKE_STATUS_OPTIONS = ['Nieuw', 'In behandeling', 'Afgerond'];
+
+function renderIntakeError(message) {
+  const el = document.getElementById('intakeError');
+  if (!message) {
+    el.classList.add('hidden');
+    el.textContent = '';
+    return;
+  }
+  el.textContent = message;
+  el.classList.remove('hidden');
+}
+
+document.getElementById('intakeForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  renderIntakeError('');
+  const payload = {
+    klant: document.getElementById('intakeKlant').value.trim(),
+    clientId: document.getElementById('intakeClientId').value.trim(),
+    tier: document.getElementById('intakeTier').value,
+    website: document.getElementById('intakeWebsite').value.trim(),
+    businessOmschrijving: document.getElementById('intakeBusiness').value.trim(),
+    toneOfVoice: document.getElementById('intakeTone').value.trim(),
+    onderwerpsrichtingen: document.getElementById('intakeTopics').value.trim(),
+    wordpressVanToepassing: document.getElementById('intakeWordpress').checked,
+    wordpressUrl: document.getElementById('intakeWordpressUrl').value.trim(),
+    searchConsoleUrl: document.getElementById('intakeGsc').value.trim(),
+    ga4PropertyId: document.getElementById('intakeGa4').value.trim(),
+    portalWachtwoord: document.getElementById('intakePassword').value.trim(),
+    reviewEnabled: document.getElementById('intakeReview').checked,
+    performanceEnabled: document.getElementById('intakePerformance').checked,
+    ideaEnrichmentEnabled: document.getElementById('intakeIdea').checked,
+    notities: document.getElementById('intakeNotes').value.trim()
+  };
+  try {
+    await adminApi('/intake', { method: 'POST', body: JSON.stringify(payload) });
+    document.getElementById('intakeForm').reset();
+    document.getElementById('intakeReview').checked = true;
+    await loadIntakes();
+  } catch (err) {
+    renderIntakeError(err.message);
+  }
+});
+
+function renderIntakeList(intakes) {
+  const listEl = document.getElementById('intakeList');
+  if (!intakes.length) {
+    listEl.innerHTML = `<p class="admin-footnote">Nog geen intakes ingevuld.</p>`;
+    return;
+  }
+  listEl.innerHTML = intakes
+    .map(
+      (i) => `
+    <div class="proposal-card" data-page-id="${i.id}">
+      <div class="proposal-header">
+        <div class="proposal-title">${escapeHtmlAdmin(i.klant)}</div>
+        <span class="tag">${escapeHtmlAdmin(i.tier || 'geen tier')}</span>
+      </div>
+      <div class="proposal-meta">
+        ${i.clientId ? `<div><span class="seo-label">Client ID</span>${escapeHtmlAdmin(i.clientId)}</div>` : ''}
+        ${i.website ? `<div><span class="seo-label">Website</span>${escapeHtmlAdmin(i.website)}</div>` : ''}
+        ${i.businessOmschrijving ? `<div><span class="seo-label">Business</span>${escapeHtmlAdmin(i.businessOmschrijving)}</div>` : ''}
+        ${i.onderwerpsrichtingen ? `<div><span class="seo-label">Onderwerpsrichtingen</span>${escapeHtmlAdmin(i.onderwerpsrichtingen)}</div>` : ''}
+        ${i.notities ? `<div><span class="seo-label">Notities</span>${escapeHtmlAdmin(i.notities)}</div>` : ''}
+      </div>
+      <div class="proposal-actions">
+        <label class="intake-status-label">Status
+          <select class="intake-status-select" data-page-id="${i.id}">
+            ${INTAKE_STATUS_OPTIONS.map((s) => `<option value="${s}" ${s === i.status ? 'selected' : ''}>${s}</option>`).join('')}
+          </select>
+        </label>
+      </div>
+    </div>
+  `
+    )
+    .join('');
+
+  listEl.querySelectorAll('.intake-status-select').forEach((select) => {
+    select.addEventListener('change', async () => {
+      const pageId = select.dataset.pageId;
+      select.disabled = true;
+      try {
+        await adminApi(`/intake/${encodeURIComponent(pageId)}/status`, {
+          method: 'POST',
+          body: JSON.stringify({ status: select.value })
+        });
+        renderIntakeError('');
+      } catch (err) {
+        renderIntakeError(err.message);
+      } finally {
+        select.disabled = false;
+      }
+    });
+  });
+}
+
+async function loadIntakes() {
+  try {
+    const data = await adminApi('/intake');
+    renderIntakeList(data.intakes);
+  } catch (err) {
+    renderIntakeError(err.message);
   }
 }
 

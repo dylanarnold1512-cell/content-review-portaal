@@ -36,17 +36,90 @@
     <button id="adminLogoutBtn" class="btn-plain">Uitloggen</button>
   </div>
 
-  <div class="admin-layout">
-    <div id="adminError" class="admin-error hidden"></div>
-    <div id="adminTable" class="admin-table"></div>
-    <p class="admin-footnote">
-      Wordt gelezen en geschreven vanuit de Notion-database "Portaal Instellingen".
-      Nieuwe klant nog niet in de lijst? Voeg 'm eerst toe in <code>src/config/clients.js</code>
-      (zie README) — dan verschijnt hij hier vanzelf.
-    </p>
+  <div class="tab-nav" id="adminTabNav">
+    <button type="button" class="tab-btn active" data-admin-tab="instellingen">Instellingen</button>
+    <button type="button" class="tab-btn" data-admin-tab="intake">Nieuwe klant</button>
+  </div>
 
-    <div class="admin-section-title">Ideeën ter beoordeling</div>
-    <div id="ideaProposals"></div>
+  <div id="instellingenTab" class="tab-panel">
+    <div class="admin-layout">
+      <div id="adminError" class="admin-error hidden"></div>
+      <div id="adminTable" class="admin-table"></div>
+      <p class="admin-footnote">
+        Wordt gelezen en geschreven vanuit de Notion-database "Portaal Instellingen".
+        Nieuwe klant nog niet in de lijst? Voeg 'm eerst toe in <code>src/config/clients.js</code>
+        (zie README) — dan verschijnt hij hier vanzelf.
+      </p>
+
+      <div class="admin-section-title">Ideeën ter beoordeling</div>
+      <div id="ideaProposals"></div>
+    </div>
+  </div>
+
+  <div id="intakeTab" class="tab-panel hidden">
+    <div class="admin-layout">
+      <div id="intakeError" class="admin-error hidden"></div>
+      <div class="admin-section-title">Intake nieuwe klant</div>
+      <p class="admin-footnote">
+        Grove input is genoeg — Claude verfijnt de contentclusters daarna zelf met DataForSEO-onderzoek
+        en bouwt op basis hiervan de Notion-database, de n8n-workflows en de portal-entry.
+        OAuth-koppelingen (Search Console, GA4, WordPress) blijven een handmatige stap.
+      </p>
+      <form id="intakeForm" class="intake-form">
+        <label for="intakeKlant">Klantnaam *</label>
+        <input type="text" id="intakeKlant" required autocomplete="off">
+
+        <label for="intakeClientId">Client ID (slug)</label>
+        <input type="text" id="intakeClientId" placeholder="bijv. bedrijfsnaam-stad" autocomplete="off">
+
+        <label for="intakeTier">Tier</label>
+        <select id="intakeTier">
+          <option value="Volledig (DataForSEO + auto-topics)">Volledig (DataForSEO + auto-topics)</option>
+          <option value="Licht (alleen Search Console)">Licht (alleen Search Console)</option>
+        </select>
+
+        <label for="intakeWebsite">Website</label>
+        <input type="url" id="intakeWebsite" placeholder="https://...">
+
+        <label for="intakeBusiness">Business omschrijving</label>
+        <textarea id="intakeBusiness" placeholder="Wat doet de klant, voor wie, waarin onderscheiden ze zich?"></textarea>
+
+        <label for="intakeTone">Tone of voice (optioneel)</label>
+        <textarea id="intakeTone" placeholder="Merkrichtlijnen / schrijfstijl"></textarea>
+
+        <label for="intakeTopics">Voorlopige onderwerpsrichtingen</label>
+        <textarea id="intakeTopics" placeholder="2-4 ruwe richtingen, één per regel"></textarea>
+
+        <label class="intake-checkbox"><input type="checkbox" id="intakeWordpress"> WordPress van toepassing</label>
+        <label for="intakeWordpressUrl">WordPress site URL</label>
+        <input type="url" id="intakeWordpressUrl" placeholder="https://...">
+
+        <label for="intakeGsc">Search Console property URL</label>
+        <input type="url" id="intakeGsc" placeholder="https://...">
+
+        <label for="intakeGa4">GA4 property ID</label>
+        <input type="text" id="intakeGa4" placeholder="bijv. 303860041">
+
+        <label for="intakePassword">Portal wachtwoord wens</label>
+        <input type="text" id="intakePassword" autocomplete="off">
+
+        <div class="intake-toggles">
+          <label class="intake-checkbox"><input type="checkbox" id="intakeReview" checked> Review inschakelen</label>
+          <label class="intake-checkbox"><input type="checkbox" id="intakePerformance"> Prestaties inschakelen</label>
+          <label class="intake-checkbox"><input type="checkbox" id="intakeIdea"> Ideeën-verrijking inschakelen</label>
+        </div>
+
+        <label for="intakeNotes">Notities (optioneel)</label>
+        <textarea id="intakeNotes"></textarea>
+
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-approve">Intake opslaan</button>
+        </div>
+      </form>
+
+      <div class="admin-section-title">Eerdere intakes</div>
+      <div id="intakeList"></div>
+    </div>
   </div>
 </div>
 
