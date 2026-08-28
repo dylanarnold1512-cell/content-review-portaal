@@ -58,7 +58,11 @@ const clients = [
       // cluster achterloopt, en/of het zoekvolume en de moeilijkheidsscore van
       // het gekozen hoofdkeyword. Gevuld door de maandelijkse n8n-workflow,
       // getoond op de Blogs-tab in het "Contentstrategie"-blok.
-      strategyRationale: 'Onderbouwing'
+      strategyRationale: 'Onderbouwing',
+      // Top 5 zoekwoorden (30d) waar deze blog op scoort in Search Console,
+      // één regel per zoekwoord met positie/clicks/vertoningen. Gevuld door
+      // de dagelijkse n8n-sync, getoond per blog op de Prestaties-tab.
+      topKeywords30d: 'Top zoekwoorden (30d)'
     },
     // Statuswaarden zoals ze echt in Notion staan (bevestigd op 24-08-2026).
     statusValues: {

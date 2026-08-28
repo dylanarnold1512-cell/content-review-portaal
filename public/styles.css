@@ -100,6 +100,19 @@ body {
 .post-performance-list .post-performance { margin-bottom: 0; }
 .post-performance-list .post-performance-title { font-size: 14px; text-transform: none; letter-spacing: 0; color: var(--text); font-weight: 700; }
 
+/* Top zoekwoorden per blog, onder de kern-cijfers op de Prestaties-tab. */
+.post-performance-keywords { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.keywords-label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted);
+  font-weight: 700; margin-bottom: 6px;
+}
+.keyword-row {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  padding: 4px 0; font-size: 13px;
+}
+.keyword-row .keyword-name { color: var(--text); font-weight: 600; }
+.keyword-row .keyword-meta { color: var(--text-muted); font-size: 12px; white-space: nowrap; }
+
 /* Adminpaneel (/admin) — overzicht + aan/uit-schakelaars per klant */
 .admin-layout { max-width: 640px; margin: 0 auto; padding: 8px 20px 40px; }
 .admin-error {

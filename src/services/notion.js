@@ -67,6 +67,7 @@ function summarizePage(page, fields) {
     avgPosition30d: fields.avgPosition30d ? readProperty(page, fields.avgPosition30d) : null,
     pageviews30d: fields.pageviews30d ? readProperty(page, fields.pageviews30d) : null,
     strategieOnderbouwing: fields.strategyRationale ? readProperty(page, fields.strategyRationale) : '',
+    topKeywords30d: fields.topKeywords30d ? readProperty(page, fields.topKeywords30d) : '',
     laatstGewijzigd: page.last_edited_time
   };
 }

@@ -251,6 +251,30 @@ function renderPerformancePanel(log) {
 // Tot die tijd zou hij hier met een rij nullen staan, wat oogt als "doet het
 // slecht" terwijl er simpelweg nog geen meting is geweest — dus pas tonen
 // zodra er echt een cijfer binnen is (vertoningen niet null).
+// Elke regel in topKeywords30d heeft de vorm "keyword — positie X, Y clicks,
+// Z vertoningen" (zo geschreven door de dagelijkse n8n-sync). Splitst 'm in
+// een keyword-naam en de bijbehorende cijfers voor een nette rij per zoekwoord.
+function renderTopKeywords(raw) {
+  if (!raw) return '';
+  const lines = raw.split('\n').filter(Boolean);
+  if (!lines.length) return '';
+  const rows = lines
+    .map((line) => {
+      const [keyword, meta] = line.split(' — ');
+      return `
+      <div class="keyword-row">
+        <span class="keyword-name">${keyword || line}</span>
+        ${meta ? `<span class="keyword-meta">${meta}</span>` : ''}
+      </div>`;
+    })
+    .join('');
+  return `
+    <div class="post-performance-keywords">
+      <div class="keywords-label">Rankt op</div>
+      ${rows}
+    </div>`;
+}
+
 function renderPostPerformanceList() {
   const listEl = document.getElementById('postPerformanceList');
   if (!listEl) return;
@@ -272,6 +296,7 @@ function renderPostPerformanceList() {
         <div class="post-performance-stat"><span class="stat-value-sm">${item.avgPosition30d != null ? Number(item.avgPosition30d).toFixed(1) : '—'}</span><span class="stat-label-sm">Gem. positie</span></div>
         <div class="post-performance-stat"><span class="stat-value-sm">${item.pageviews30d ?? '—'}</span><span class="stat-label-sm">Paginaweergaven</span></div>
       </div>
+      ${renderTopKeywords(item.topKeywords30d)}
       ${item.liveUrl ? `<a href="${item.liveUrl}" target="_blank" rel="noopener" class="post-performance-link">Bekijk live →</a>` : ''}
     </div>
   `
