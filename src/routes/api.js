@@ -1,13 +1,23 @@
 const express = require('express');
-const { getClient, listClients } = require('../config/clients');
+const { getClient } = require('../config/clients');
 const notionService = require('../services/notion');
 const settingsService = require('../services/settings');
 const { checkPassword, requireLogin } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.get('/clients', (req, res) => {
-  res.json(listClients());
+// Publiek endpoint, maar geeft NOOIT de volledige klantenlijst terug — alleen
+// de naam van de klant wiens slug expliciet is opgegeven. Zo kan een
+// verkeerde of onbekende URL nooit de namen van andere klanten laten zien.
+router.get('/client-info', (req, res) => {
+  const slug = (req.query.slug || '').toString();
+  let client;
+  try {
+    client = getClient(slug);
+  } catch (err) {
+    return res.status(404).json({ error: 'Onbekende klant.' });
+  }
+  res.json({ id: client.id, naam: client.naam });
 });
 
 router.post('/login', (req, res) => {

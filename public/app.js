@@ -32,44 +32,50 @@ async function api(path, options) {
   return data;
 }
 
-async function init() {
-  const clients = await api('/clients');
-  const select = document.getElementById('clientSelect');
-  select.innerHTML = clients.map((c) => `<option value="${c.id}">${c.naam}</option>`).join('');
+// Iedere klant logt in via zijn eigen slug-URL (/basecamp-utrecht, /ppe) —
+// er is bewust geen klantkeuzelijst meer. Zo kan een verkeerde of onbekende
+// URL nooit de namen van andere klanten laten zien: het endpoint hieronder
+// geeft alleen iets terug als de opgegeven slug echt bestaat.
+let presetClientId = null;
+let presetClientName = null;
 
-  // Een link als /basecamp-utrecht selecteert die klant automatisch, zodat je
-  // per klant een eigen inlogadres kunt versturen zonder los te hoeven kiezen.
+async function init() {
+  // Een link als /basecamp-utrecht selecteert die klant automatisch.
   // Een tweede pad-onderdeel (/basecamp-utrecht/<pagina-id>) is een directe
   // link naar één specifieke blog, bijvoorbeeld vanuit een e-mailmelding.
   const pathParts = location.pathname.split('/').filter(Boolean).map(decodeURIComponent);
   const slug = pathParts[0] || '';
   if (pathParts[1]) deepLinkItemId = pathParts[1];
-  const preset = clients.find((c) => c.id === slug);
-  if (preset) {
-    select.value = preset.id;
-    document.getElementById('clientSelectGroup').classList.add('hidden');
+
+  const info = slug ? await api('/client-info?slug=' + encodeURIComponent(slug)).catch(() => null) : null;
+  if (info && info.id) {
+    presetClientId = info.id;
+    presetClientName = info.naam;
     const badge = document.getElementById('presetClientBadge');
-    badge.textContent = preset.naam;
+    badge.textContent = info.naam;
     badge.classList.remove('hidden');
     document.getElementById('passwordInput').focus();
+  } else {
+    document.getElementById('loginForm').classList.add('hidden');
+    document.getElementById('invalidLinkMessage').classList.remove('hidden');
   }
 
   const me = await api('/me');
   if (me.clientId) {
-    await enterApp(me.clientId, clients.find((c) => c.id === me.clientId));
+    const meInfo = await api('/client-info?slug=' + encodeURIComponent(me.clientId)).catch(() => null);
+    await enterApp(me.clientId, meInfo);
   }
 }
 
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const clientId = document.getElementById('clientSelect').value;
+  const clientId = presetClientId;
   const password = document.getElementById('passwordInput').value;
   const errorEl = document.getElementById('loginError');
   errorEl.textContent = '';
   try {
     await api('/login', { method: 'POST', body: JSON.stringify({ clientId, password }) });
-    const clients = await api('/clients');
-    await enterApp(clientId, clients.find((c) => c.id === clientId));
+    await enterApp(clientId, { naam: presetClientName });
   } catch (err) {
     errorEl.textContent = err.message;
   }
