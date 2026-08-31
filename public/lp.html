@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LP Fabriek — Content Review Portaal</title>
+<link rel="icon" href="https://advertisr.nl/wp-content/uploads/2025/03/Logo_Advertisr_new_2025.svg">
+<link rel="stylesheet" href="/styles.css">
+<style>
+  .lp-columns { display: flex; gap: 24px; align-items: flex-start; }
+  .lp-col { flex: 1; min-width: 0; }
+  .lp-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  .lp-table th, .lp-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #e3e1dc; font-size: 14px; }
+  .lp-table tr.lp-row { cursor: pointer; }
+  .lp-table tr.lp-row:hover { background: #f6f6f4; }
+  .lp-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; background: #eee; }
+  .lp-field-row { display: flex; flex-direction: column; margin-bottom: 12px; }
+  .lp-field-row label { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .lp-field-row input, .lp-field-row textarea, .lp-field-row select { font: inherit; padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; }
+  .lp-subtabs { display: flex; gap: 8px; margin: 16px 0; border-bottom: 1px solid #e3e1dc; }
+  .lp-subtab-btn { background: none; border: none; padding: 8px 4px; cursor: pointer; font-size: 14px; border-bottom: 2px solid transparent; }
+  .lp-subtab-btn.active { border-bottom-color: #111; font-weight: 600; }
+  .lp-subpanel.hidden { display: none; }
+  #lpContentJson { width: 100%; min-height: 320px; font-family: monospace; font-size: 13px; }
+  #lpPreviewFrame { width: 100%; height: 600px; border: 1px solid #e3e1dc; background: #fff; }
+  .lp-feit-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+  .lp-feit-row .lp-feit-bron { color: #888; font-size: 12px; }
+  .lp-msg-list { margin: 0; padding-left: 18px; }
+  .lp-msg-list.errors li { color: #b00020; }
+  .lp-msg-list.warnings li { color: #8a6100; }
+  .lp-detail-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+
+<div id="lpLoginScreen" class="login-screen">
+  <div class="login-box">
+    <img class="brand-logo" src="https://advertisr.nl/wp-content/uploads/2025/03/Logo_Advertisr_new_2025.svg" alt="Advertisr.">
+    <h1>LP Fabriek</h1>
+    <p class="login-sub">Alleen voor Dylan en Marc — los van de klant- en adminwachtwoorden.</p>
+    <form id="lpLoginForm">
+      <label for="lpPasswordInput">Wachtwoord</label>
+      <input id="lpPasswordInput" type="password" required autocomplete="current-password">
+      <button type="submit">Inloggen</button>
+      <p id="lpLoginError" class="login-error"></p>
+    </form>
+  </div>
+</div>
+
+<div id="lpApp" class="app hidden">
+  <div class="top">
+    <div class="top-left">
+      <img class="brand-logo-small" src="https://advertisr.nl/wp-content/uploads/2025/03/Logo_Advertisr_new_2025.svg" alt="Advertisr.">
+      <div class="top-divider"></div>
+      <div>
+        <div class="top-title">LP Fabriek</div>
+        <div class="top-sub">Landingspagina's — interne generator</div>
+      </div>
+    </div>
+    <button id="lpLogoutBtn" class="btn-plain">Uitloggen</button>
+  </div>
+
+  <div class="tab-nav" id="lpTabNav">
+    <button type="button" class="tab-btn active" data-lp-tab="paginas">Pagina's</button>
+    <button type="button" class="tab-btn" data-lp-tab="nieuw">Nieuwe pagina</button>
+  </div>
+
+  <div id="lpPaginasTab" class="tab-panel">
+    <div class="admin-layout">
+      <div id="lpListError" class="admin-error hidden"></div>
+      <div class="lp-field-row" style="max-width:240px;">
+        <label for="lpFilterKlant">Filter op klant</label>
+        <select id="lpFilterKlant"><option value="">Alle klanten</option></select>
+      </div>
+      <table class="lp-table">
+        <thead><tr><th>Titel</th><th>Klant</th><th>Blueprint</th><th>Status</th><th>Laatst gewijzigd</th></tr></thead>
+        <tbody id="lpPagesTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="lpNieuwTab" class="tab-panel hidden">
+    <div class="admin-layout">
+      <div id="lpNewError" class="admin-error hidden"></div>
+      <div class="admin-section-title">Nieuwe landingspagina</div>
+      <form id="lpNewForm">
+        <div class="lp-field-row">
+          <label for="lpNewKlant">Klant</label>
+          <select id="lpNewKlant" required></select>
+        </div>
+        <div class="lp-field-row">
+          <label for="lpNewBlueprint">Blueprint</label>
+          <select id="lpNewBlueprint" required></select>
+        </div>
+        <div class="lp-field-row">
+          <label for="lpNewTitel">Titel (Notion / werktitel)</label>
+          <input type="text" id="lpNewTitel" required autocomplete="off">
+        </div>
+        <div class="lp-field-row">
+          <label for="lpNewSlug">Slug (optioneel, wordt anders afgeleid van de titel)</label>
+          <input type="text" id="lpNewSlug" autocomplete="off">
+        </div>
+        <div id="lpNewInvoerFields"></div>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-approve">Aanmaken</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="lpDetailSection" class="tab-panel hidden">
+    <div class="admin-layout">
+      <button type="button" id="lpBackBtn" class="btn-plain">&larr; Terug naar overzicht</button>
+      <div class="lp-detail-header">
+        <div>
+          <div class="admin-section-title" id="lpDetailTitel">—</div>
+          <span class="lp-badge" id="lpDetailStatusBadge">—</span>
+        </div>
+        <div class="lp-field-row" style="max-width:220px;margin:0;">
+          <label for="lpStatusSelect">Status handmatig zetten</label>
+          <select id="lpStatusSelect">
+            <option>Idee</option>
+            <option>Formulier ingevuld</option>
+            <option>Feitensheet ter review</option>
+            <option>Content klaar</option>
+            <option>Ter review</option>
+            <option>Goedgekeurd</option>
+            <option>Afgewezen</option>
+            <option>Gepubliceerd</option>
+            <option>Fout</option>
+          </select>
+        </div>
+      </div>
+      <p class="admin-footnote">
+        Let op: deze status-schakelaar raakt WordPress niet aan. "Gepubliceerd" hier betekent dat
+        Dylan/Marc de pagina zelf live hebben gezet in WordPress — dat blijft altijd een bewuste,
+        handmatige stap (zie besluiten.md).
+      </p>
+
+      <div class="lp-subtabs" id="lpSubtabs">
+        <button type="button" class="lp-subtab-btn active" data-lp-subtab="invoer">Invoer</button>
+        <button type="button" class="lp-subtab-btn" data-lp-subtab="feitensheet">Feitensheet</button>
+        <button type="button" class="lp-subtab-btn" data-lp-subtab="content">Content JSON</button>
+        <button type="button" class="lp-subtab-btn" data-lp-subtab="publiceren">Voorbeeld &amp; publiceren</button>
+      </div>
+
+      <div id="lpSub-invoer" class="lp-subpanel">
+        <div id="lpInvoerFields"></div>
+        <button type="button" id="lpSaveInvoerBtn" class="btn btn-approve">Invoer opslaan</button>
+        <span id="lpInvoerSaved" class="admin-footnote"></span>
+      </div>
+
+      <div id="lpSub-feitensheet" class="lp-subpanel hidden">
+        <p class="admin-footnote">Vink de feiten aan die in deze pagina gebruikt worden. Elk feit heeft een bron (bronprincipe, zie besluiten.md).</p>
+        <div id="lpFeitenList"></div>
+        <div class="admin-section-title" style="margin-top:16px;">Extra feit toevoegen (met bron verplicht)</div>
+        <div class="lp-field-row"><label>Label</label><input type="text" id="lpExtraFeitLabel"></div>
+        <div class="lp-field-row"><label>Waarde</label><input type="text" id="lpExtraFeitWaarde"></div>
+        <div class="lp-field-row"><label>Bron</label><input type="text" id="lpExtraFeitBron"></div>
+        <button type="button" id="lpAddExtraFeitBtn" class="btn-plain">+ Toevoegen aan lijst</button>
+        <ul id="lpExtraFeitenList"></ul>
+        <button type="button" id="lpSaveFeitensheetBtn" class="btn btn-approve">Feitensheet opslaan</button>
+        <span id="lpFeitensheetSaved" class="admin-footnote"></span>
+      </div>
+
+      <div id="lpSub-content" class="lp-subpanel hidden">
+        <div class="lp-field-row"><label for="lpMetaTitle">Meta title</label><input type="text" id="lpMetaTitle"></div>
+        <div class="lp-field-row"><label for="lpMetaDescription">Meta description</label><textarea id="lpMetaDescription" rows="2"></textarea></div>
+        <div class="lp-field-row" style="max-width:320px;">
+          <label for="lpBlockTemplateSelect">Blokvoorbeeld invoegen</label>
+          <select id="lpBlockTemplateSelect"></select>
+        </div>
+        <button type="button" id="lpInsertBlockBtn" class="btn-plain">+ Invoegen in JSON hieronder</button>
+        <div class="lp-field-row" style="margin-top:8px;">
+          <label for="lpContentJson">Content JSON (blocks array)</label>
+          <textarea id="lpContentJson" spellcheck="false"></textarea>
+        </div>
+        <button type="button" id="lpSaveContentBtn" class="btn btn-approve">Content JSON opslaan</button>
+        <span id="lpContentSaved" class="admin-footnote"></span>
+      </div>
+
+      <div id="lpSub-publiceren" class="lp-subpanel hidden">
+        <div class="lp-columns">
+          <div class="lp-col">
+            <button type="button" id="lpPreviewBtn" class="btn-plain">Ververs voorbeeld</button>
+            <iframe id="lpPreviewFrame"></iframe>
+          </div>
+          <div class="lp-col">
+            <button type="button" id="lpValidateBtn" class="btn-plain">Valideer</button>
+            <div id="lpValidationResult"></div>
+            <hr>
+            <p class="admin-footnote">
+              Zet de pagina als CONCEPT in WordPress (nooit direct live). Weigert als de validator fouten geeft.
+            </p>
+            <button type="button" id="lpPublishBtn" class="btn btn-approve">Publiceer als concept naar WordPress</button>
+            <div id="lpPublishResult"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/lp.js"></script>
+</body>
+</html>

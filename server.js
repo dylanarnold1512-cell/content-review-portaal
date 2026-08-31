@@ -4,6 +4,7 @@ const express = require('express');
 const cookieSession = require('cookie-session');
 const apiRoutes = require('./src/routes/api');
 const adminRoutes = require('./src/routes/admin');
+const lpRoutes = require('./src/routes/lp');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -27,11 +28,17 @@ app.use(
 );
 
 app.use('/api/admin', adminRoutes);
+app.use('/api/lp', lpRoutes);
 app.use('/api', apiRoutes);
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+// LP Fabriek: interne zone, zie besluiten.md "Portaal: een app, twee zones".
+app.get('/lp', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'lp.html'));
 });
 
 app.get('*', (req, res) => {

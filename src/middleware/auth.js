@@ -39,4 +39,29 @@ function requireAdmin(req, res, next) {
   return res.status(401).json({ error: 'Niet ingelogd als admin.' });
 }
 
-module.exports = { checkPassword, requireLogin, checkAdminPassword, requireAdmin };
+// LP Fabriek (/lp): weer een eigen, los wachtwoord — bewust GEEN hergebruik
+// van ADMIN_PASSWORD. Alleen Dylan en Marc, klanten kunnen hier nooit bij.
+// Zie besluiten.md "Aanvulling 30-08-2026 — Portaal: een app, twee zones".
+function checkLpPassword(password) {
+  const expected = process.env.LP_PASSWORD;
+  if (!expected) {
+    throw new Error('LP_PASSWORD is niet gezet in de environment variables.');
+  }
+  return password === expected;
+}
+
+function requireLpInternal(req, res, next) {
+  if (req.session && req.session.isLpInternal) {
+    return next();
+  }
+  return res.status(401).json({ error: 'Niet ingelogd bij LP Fabriek.' });
+}
+
+module.exports = {
+  checkPassword,
+  requireLogin,
+  checkAdminPassword,
+  requireAdmin,
+  checkLpPassword,
+  requireLpInternal
+};

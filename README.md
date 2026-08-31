@@ -87,6 +87,52 @@ toe aan `src/config/clients.js` (zie "Nieuwe klant toevoegen" hierboven)
 rij voor 'm aangemaakt in Notion zodra je voor het eerst een knop voor
 die klant aanraakt.
 
+## LP Fabriek (/lp) — landingspagina's
+
+Sinds 31-08-2026: een interne zone naast de klant- en adminzone, voor het
+bouwen van SEO/GEO-landingspagina's voor agencyklanten (eerste testcases:
+Hostel Roots, later JMB). Alleen bereikbaar op `/lp`, met een eigen wachtwoord
+(environment variable `LP_PASSWORD`) — helemaal los van de klant- en
+adminwachtwoorden, klanten kunnen hier nooit bij. Zie `claude/lp-fabriek-besluiten.md`
+in het Claude-project "Landingpage automation" voor de volledige architectuur
+en alle besluiten.
+
+**Wat blijft in Git (code), wat staat in Notion (data):**
+- In de repo: klantprofielen, feiten-bibliotheken en blueprints per klant
+  (`src/lp/clients/<klant>/`), de 13 herbruikbare blokken (`src/lp/blocks/`),
+  designtokens (`src/lp/tokens.js`) en de renderer/validator/WordPress-publisher
+  (`src/lp/render.js`, `src/lp/validator.js`, `src/lp/wordpress.js`).
+- In Notion: per landingspagina de status, invoer, feitensheet en content JSON
+  — in de gedeelde database "Landingspagina's" (onder de pagina "LP Fabriek"
+  in de "Advertisr AI OS"-werkruimte). Eén database voor alle klanten (Klant
+  als property), geen database per klant.
+
+**Eenmalig opzetwerk:**
+1. De Notion-database "Landingspagina's" delen met dezelfde interne integratie
+   die ook bij `NOTION_TOKEN_ADMIN` hoort (··· menu op de database, of op de
+   "LP Fabriek"-pagina erboven, → Connections → voeg de integratie toe). Zonder
+   deze stap krijgt `/lp` een foutmelding zodra je pagina's probeert te laden.
+2. Een zelfgekozen wachtwoord als environment variable `LP_PASSWORD` zetten op
+   Render.
+3. Per WordPress-klant de site-URL, gebruikersnaam en applicatiewachtwoord als
+   environment variables zetten — voor Roots: `WP_URL_ROOTS`,
+   `WP_USERNAME_ROOTS`, `WP_APP_PASSWORD_ROOTS` (zie `.env.example`).
+
+**Werkstappen per pagina** (in `/lp`): Nieuwe pagina (formulier, velden komen
+uit de blueprint) → Feitensheet (feiten uit de feiten-bibliotheek aanvinken,
+eventueel aanvullen met een los feit + verplichte bron) → Content JSON
+(momenteel handmatig/geassisteerd ingevuld, geen AI-generatie — dat komt als
+aparte bouwstap) → Voorbeeld & publiceren (validator tegen de blueprint-regels,
+dan als CONCEPT naar WordPress).
+
+**Veiligheidsgrens, bewust zo gebouwd:** de publiceerknop in `/lp` zet een
+WordPress-pagina ALTIJD op status "concept" (draft) — er zit geen functie in
+deze tool die een pagina live zet. Een pagina echt live zetten (WordPress-status
+"publish", plus de eenmalige "SWP Builder"-klik bij Roots, zie besluiten.md)
+blijft een bewuste, handmatige stap door Dylan of Marc. De status-schakelaar in
+`/lp` zelf (Idee t/m Gepubliceerd) is alleen een label in Notion en raakt
+WordPress niet aan.
+
 ## Prestatie-tracking (Search Console + GA4)
 
 Sinds 25-08-2026 haalt het portaal live SEO/traffic-cijfers per blog op
