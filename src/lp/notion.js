@@ -211,11 +211,59 @@ async function createPage({ klant, blueprint, titel, slug, invoer }) {
   return getPage(page.id);
 }
 
+function buildSectionUpdatePayload(value) {
+  const text = JSON.stringify(value === undefined ? null : value, null, 2);
+  return {
+    code: {
+      rich_text: chunkText(text).map((chunk) => ({ type: 'text', text: { content: chunk } }))
+    }
+  };
+}
+
+// Update een enkele sectie in-place, zonder de andere twee secties' blocks
+// aan te raken. Voorheen deed updateSection dit via readSections() +
+// replaceBody() (ALLE children verwijderen en 3 nieuwe aanmaken) -- dat bleek
+// fragiel: door Notion API eventual consistency kon readSections() vlak na
+// een eerdere delete+append-cyclus (van een net daarvoor gedaan verzoek op
+// dezelfde pagina) nog stale/lege children teruggeven. Dan werd de niet-
+// aangeraakte sectie stilletjes overschreven met null in de daaropvolgende
+// replaceBody(). Dit is precies wat er is gebeurd bij het eerste live testje
+// (Invoer en Feitensheet werden null nadat Content JSON was opgeslagen).
+//
+// Nu wordt het bestaande code-block van de gevraagde sectie rechtstreeks
+// gepatcht via blocks.update -- de andere twee blocks worden nooit gelezen-en-
+// teruggeschreven, dus er is geen race meer mogelijk tussen twee secties.
 async function updateSection(pageId, sectionKey, value) {
   if (!SECTION_KEYS.includes(sectionKey)) throw new Error(`Onbekende sectie: ${sectionKey}`);
-  const current = await readSections(pageId);
-  current[sectionKey] = value;
-  await replaceBody(pageId, current);
+  const client = getNotionClient();
+  const children = await listChildrenAll(client, pageId);
+  const codeBlocks = children.filter((b) => b.type === 'code');
+
+  if (codeBlocks.length === SECTION_KEYS.length) {
+    const targetIndex = SECTION_KEYS.indexOf(sectionKey);
+    const targetBlock = codeBlocks[targetIndex];
+    await client.blocks.update({ block_id: targetBlock.id, ...buildSectionUpdatePayload(value) });
+  } else {
+    // Structuur ontbreekt of is onvolledig (bv. een beschadigde pagina) --
+    // herstel de volledige body in een keer op basis van wat er nu al staat
+    // plus de nieuwe waarde. Dit pad raakt de body alleen aan als die niet in
+    // de verwachte vorm staat, dus geen extra race met een gezonde pagina.
+    const current = { invoer: null, feitensheet: null, content: null };
+    SECTION_KEYS.forEach((key, i) => {
+      const block = codeBlocks[i];
+      if (!block) return;
+      const raw = plainText(block.code.rich_text);
+      if (!raw) return;
+      try {
+        current[key] = JSON.parse(raw);
+      } catch (err) {
+        current[key] = { __parseError: err.message, __raw: raw };
+      }
+    });
+    current[sectionKey] = value;
+    await replaceBody(pageId, current);
+  }
+
   return getPage(pageId);
 }
 
