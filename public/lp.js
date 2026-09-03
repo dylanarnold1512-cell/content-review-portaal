@@ -476,6 +476,7 @@ function renderTemplatesTable() {
 }
 
 document.getElementById('lpTplGenerateBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('lpTplGenerateBtn');
   const statusEl = document.getElementById('lpTplGenerateStatus');
   const errorEl = document.getElementById('lpTemplateNewError');
   errorEl.classList.add('hidden');
@@ -488,7 +489,8 @@ document.getElementById('lpTplGenerateBtn').addEventListener('click', async () =
   }
   const paginatype = document.getElementById('lpTplNewPaginatype').value;
   const wens = document.getElementById('lpTplNewWens').value;
-  statusEl.textContent = 'Bezig met genereren...';
+  btn.disabled = true;
+  statusEl.textContent = 'Bezig met genereren... (dit kan 10-30 seconden duren)';
   try {
     const { blueprint, voorbeeldBlocks } = await lpApi('/templates/generate', {
       method: 'POST',
@@ -506,6 +508,8 @@ document.getElementById('lpTplGenerateBtn').addEventListener('click', async () =
     statusEl.textContent = '';
     errorEl.textContent = err.message;
     errorEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
   }
 });
 
@@ -548,6 +552,15 @@ document.getElementById('lpTplCreateBtn').addEventListener('click', async () => 
     errorEl.textContent = 'Ongeldige JSON in de Blueprint JSON: ' + err.message;
     errorEl.classList.remove('hidden');
     return;
+  }
+  const heeftBlokken = Array.isArray(blueprint.verplichteBlokken) && blueprint.verplichteBlokken.length > 0;
+  if (!heeftBlokken) {
+    const doorgaan = confirm(
+      'Deze Blueprint JSON heeft nog geen verplichteBlokken — dit lijkt het onaangepaste standaard-skelet ' +
+      '(je hebt waarschijnlijk nog niet op "Stap 1: genereer voorstel met AI" geklikt, of het genereren ' +
+      'is niet gelukt). Toch zo opslaan?'
+    );
+    if (!doorgaan) return;
   }
   try {
     const { template } = await lpApi('/templates', {
