@@ -8,7 +8,7 @@ const lpNotion = require('../lp/notion');
 const templates = require('../lp/templates');
 const ai = require('../lp/ai');
 const { renderPageHtml } = require('../lp/render');
-const { validatePage } = require('../lp/validator');
+const { validatePage, validateTemplateStructure } = require('../lp/validator');
 const { pushDraft } = require('../lp/wordpress');
 const { checkLpPassword, requireLpInternal } = require('../middleware/auth');
 
@@ -75,9 +75,13 @@ router.get('/clients/:clientId/feiten', requireLpInternal, (req, res) => {
   }
 });
 
+// Vaste opties voor de "vaste onderdelen"-checklist in het sjabloon-scherm
+// (Stap 1, vraag 3) — zie besluiten.md, "Openstaand: concrete vraagset".
+router.get('/templates/onderdelen-opties', requireLpInternal, (req, res) => {
+  res.json({ opties: ai.VASTE_ONDERDELEN_OPTIES });
+});
+
 // Sjablonen (in Notion, database "Sjablonen") — los van Pagina's hieronder.
-// Bouwstap 6, bouwvolgorde-stap 2: lijst + handmatig aanmaken/bewerken, nog
-// zonder AI (AI komt in bouwvolgorde-stap 3). Zie besluiten.md.
 router.get('/templates', requireLpInternal, async (req, res) => {
   try {
     const items = await templates.listTemplates({ klant: req.query.klant, status: req.query.status });
@@ -92,6 +96,10 @@ router.post('/templates', requireLpInternal, async (req, res) => {
     const { klant, naam, blueprintId, status, blueprint } = req.body || {};
     if (!klant || !naam || !blueprintId || !blueprint) {
       return res.status(400).json({ error: 'klant, naam, blueprintId en blueprint zijn verplicht.' });
+    }
+    const structuur = validateTemplateStructure(blueprint);
+    if (!structuur.ok) {
+      return res.status(400).json({ error: 'Sjabloon voldoet niet aan de structuur-eisen.', structuurFouten: structuur.errors });
     }
     const template = await templates.createTemplate({ klant, naam, blueprintId, status, blueprint });
     res.json({ template });
@@ -111,7 +119,12 @@ router.get('/templates/:templateId', requireLpInternal, async (req, res) => {
 
 router.put('/templates/:templateId/blueprint', requireLpInternal, async (req, res) => {
   try {
-    const template = await templates.updateTemplateBlueprint(req.params.templateId, req.body?.blueprint ?? null);
+    const blueprint = req.body?.blueprint ?? null;
+    const structuur = validateTemplateStructure(blueprint);
+    if (!structuur.ok) {
+      return res.status(400).json({ error: 'Sjabloon voldoet niet aan de structuur-eisen.', structuurFouten: structuur.errors });
+    }
+    const template = await templates.updateTemplateBlueprint(req.params.templateId, blueprint);
     res.json({ template });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -130,17 +143,20 @@ router.put('/templates/:templateId/status', requireLpInternal, async (req, res) 
   }
 });
 
-// AI-gestuurde sjabloongeneratie (bouwvolgorde-stap 3). Levert alleen een
-// voorstel terug (blueprint + placeholder-voorbeeldblokken) — slaat niets
-// op. Dylan bekijkt/finetunet het voorstel en slaat het pas op via de
-// bestaande POST /templates hierboven. Zie src/lp/ai.js.
+// AI-gestuurde sjabloongeneratie (bouwvolgorde-stap 3, koerswijziging naar
+// vrije templates). Levert alleen een voorstel terug (blueprint +
+// placeholder-voorbeeldSlotData) — slaat niets op. Dylan bekijkt/finetunet
+// het voorstel en slaat het pas op via de bestaande POST /templates
+// hierboven (die de structuur-eisen alsnog afdwingt). Zie src/lp/ai.js.
 router.post('/templates/generate', requireLpInternal, async (req, res) => {
   try {
-    const { klant, naam, paginatype, wens } = req.body || {};
+    const { klant, naam, referentieUrl, paginatype, verplichteOnderdelen, visueleRichting, conversiedoel, overigeWensen } = req.body || {};
     if (!klant || !naam) {
       return res.status(400).json({ error: 'klant en naam zijn verplicht om een voorstel te genereren.' });
     }
-    const proposal = await ai.generateBlueprintProposal({ klant, naam, paginatype, wens });
+    const proposal = await ai.generateTemplateProposal({
+      klant, naam, referentieUrl, paginatype, verplichteOnderdelen, visueleRichting, conversiedoel, overigeWensen
+    });
     res.json(proposal);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -148,39 +164,66 @@ router.post('/templates/generate', requireLpInternal, async (req, res) => {
 });
 
 // Finetune-ronde op een al gegenereerd (of handmatig aangepast) voorstel —
-// zie src/lp/ai.js, refineBlueprintProposal.
+// zie src/lp/ai.js, refineTemplateProposal.
 router.post('/templates/refine', requireLpInternal, async (req, res) => {
   try {
-    const { klant, naam, huidigBlueprint, huidigeVoorbeeldBlocks, feedback } = req.body || {};
+    const { klant, naam, huidigBlueprint, huidigeVoorbeeldSlotData, feedback } = req.body || {};
     if (!klant || !naam) {
       return res.status(400).json({ error: 'klant en naam zijn verplicht.' });
     }
-    const proposal = await ai.refineBlueprintProposal({ klant, naam, huidigBlueprint, huidigeVoorbeeldBlocks, feedback });
+    const proposal = await ai.refineTemplateProposal({ klant, naam, huidigBlueprint, huidigeVoorbeeldSlotData, feedback });
     res.json(proposal);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-// Rendert losse blokken (bv. de AI-voorbeeldblokken, of handmatig getweakte
-// voorbeeldcontent) met de echte klant-branding — voor het live voorbeeld in
-// het Sjablonen-scherm. Raakt geen Notion/WordPress aan, analoog aan
-// /pages/:pageId/preview hieronder maar niet gebonden aan een opgeslagen
-// pagina.
+// Rendert een voorstel/sjabloon met de echte klant-branding — voor het live
+// voorbeeld in het Sjablonen-scherm. Raakt geen Notion/WordPress aan.
+// Ondersteunt beide formaten: geef "blocks" mee voor het oude blokken-pad,
+// of "blueprint" (met templateFormat 'slots') + "slotData" voor het nieuwe
+// slot-pad.
 router.post('/templates/preview', requireLpInternal, async (req, res) => {
   try {
-    const { klant, blocks } = req.body || {};
+    const { klant, blocks, blueprint, slotData } = req.body || {};
     if (!klant) return res.status(400).json({ error: 'klant is verplicht.' });
+
+    if (blueprint && blueprint.templateFormat === 'slots') {
+      const html = renderPageHtml({ clientId: klant, slug: 'sjabloon-voorbeeld', template: blueprint, slotData: slotData || {} });
+      return res.json({ html: wrapPreviewDoc(html) });
+    }
+
     const list = Array.isArray(blocks) ? blocks : [];
     if (!list.length) {
       return res.json({ html: '<p style="font-family:sans-serif;padding:2rem;color:#666;">Nog geen voorbeeldblokken.</p>' });
     }
     const html = renderPageHtml({ clientId: klant, slug: 'sjabloon-voorbeeld', blocks: list });
-    res.json({ html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${html}</body></html>` });
+    res.json({ html: wrapPreviewDoc(html) });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
+
+function wrapPreviewDoc(html) {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${html}</body></html>`;
+}
+
+// Bouwt de juiste render-invoer op basis van het sjabloonformaat — gebruikt
+// door /pages/:pageId/preview en /pages/:pageId/publish hieronder.
+function buildRenderPage({ blueprint, content, clientId, slug }) {
+  if (blueprint.templateFormat === 'slots') {
+    return { clientId, slug, template: blueprint, slotData: (content && content.slotData) || {} };
+  }
+  return { clientId, slug, blocks: (content && content.blocks) || [] };
+}
+
+function contentIsEmpty(blueprint, content) {
+  if (!content) return true;
+  if (blueprint.templateFormat === 'slots') {
+    return !content.slotData || !Object.keys(content.slotData).length;
+  }
+  return !Array.isArray(content.blocks) || !content.blocks.length;
+}
 
 // Pagina's (in Notion, database "Landingspagina's").
 router.get('/pages', requireLpInternal, async (req, res) => {
@@ -256,25 +299,65 @@ router.put('/pages/:pageId/status', requireLpInternal, async (req, res) => {
   }
 });
 
-// Rendert de huidige content JSON tot HTML, puur voor het voorbeeldscherm
-// (iframe) — raakt WordPress niet aan.
-router.get('/pages/:pageId/preview', requireLpInternal, async (req, res) => {
+// AI genereert een content-voorstel voor deze pagina (bouwvolgorde-stap 4,
+// alleen bruikbaar voor sjablonen in het nieuwe slot-formaat). Slaat zelf
+// niets op — Dylan bekijkt/past aan en slaat pas op via de bestaande
+// PUT /pages/:pageId/content hierboven. Kiest zelf relevante zusterpagina's
+// voor de linksItems-slot uit de overige pagina's van deze klant.
+router.post('/pages/:pageId/generate-content', requireLpInternal, async (req, res) => {
   try {
     const page = await lpNotion.getPage(req.params.pageId);
-    const content = page.content;
-    if (!content || !Array.isArray(content.blocks) || !content.blocks.length) {
-      return res.json({ html: '<p style="font-family:sans-serif;padding:2rem;color:#666;">Nog geen content JSON ingevuld.</p>' });
+    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    if (blueprint.templateFormat !== 'slots') {
+      return res.status(400).json({ error: 'AI-contentgeneratie is alleen beschikbaar voor sjablonen in het nieuwe (slot-gebaseerde) formaat.' });
     }
-    const html = renderPageHtml({ clientId: page.klant, slug: page.slug, blocks: content.blocks });
-    res.json({ html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${html}</body></html>` });
+    const { watGaatDezePaginaOver, ctaOverride } = req.body || {};
+    const invoer = page.invoer || {};
+    const client = getLpClient(page.klant);
+    const feitensheet = page.feitensheet || { gebruikt: [], extra: [] };
+    const feitenById = new Map((client.feiten || []).map((f) => [f.id, f]));
+    const gebruikteFeiten = (feitensheet.gebruikt || []).map((id) => feitenById.get(id)).filter(Boolean);
+    const feiten = [...gebruikteFeiten, ...(feitensheet.extra || [])];
+
+    const allePaginas = await lpNotion.listPages({ klant: page.klant });
+    const bestaandePaginas = allePaginas
+      .filter((p) => p.id !== page.id && p.titel)
+      .map((p) => ({ titel: p.titel, slug: p.slug, wpUrl: p.wpUrl || null }));
+
+    const result = await ai.generatePageContent({
+      klant: page.klant,
+      template: blueprint,
+      invoer,
+      feiten,
+      watGaatDezePaginaOver,
+      ctaOverride,
+      bestaandePaginas
+    });
+    res.json(result);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-// Controleert de content JSON tegen de blueprint-regels (variabelen/meta
-// lengte/interne links/CTA/exact 1 H1). Blokkeert niet zelf — /publish doet
-// dat door dezelfde check voor de WordPress-push te draaien.
+// Rendert de huidige content JSON tot HTML, puur voor het voorbeeldscherm
+// (iframe) — raakt WordPress niet aan.
+router.get('/pages/:pageId/preview', requireLpInternal, async (req, res) => {
+  try {
+    const page = await lpNotion.getPage(req.params.pageId);
+    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const content = page.content;
+    if (contentIsEmpty(blueprint, content)) {
+      return res.json({ html: '<p style="font-family:sans-serif;padding:2rem;color:#666;">Nog geen content JSON ingevuld.</p>' });
+    }
+    const html = renderPageHtml(buildRenderPage({ blueprint, content, clientId: page.klant, slug: page.slug }));
+    res.json({ html: wrapPreviewDoc(html) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Controleert de content JSON tegen de blueprint-regels. Blokkeert niet zelf
+// — /publish doet dat door dezelfde check voor de WordPress-push te draaien.
 router.get('/pages/:pageId/validate', requireLpInternal, async (req, res) => {
   try {
     const page = await lpNotion.getPage(req.params.pageId);
@@ -294,7 +377,7 @@ router.post('/pages/:pageId/publish', requireLpInternal, async (req, res) => {
     const page = await lpNotion.getPage(req.params.pageId);
     const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
     const content = page.content;
-    if (!content || !Array.isArray(content.blocks) || !content.blocks.length) {
+    if (contentIsEmpty(blueprint, content)) {
       return res.status(400).json({ error: 'Geen content JSON om te publiceren.' });
     }
     const validation = validatePage({ blueprint, contentJson: content });
@@ -302,7 +385,7 @@ router.post('/pages/:pageId/publish', requireLpInternal, async (req, res) => {
       return res.status(400).json({ error: 'Validatie faalt, nog niet gepubliceerd.', validation });
     }
     const client = getLpClient(page.klant);
-    const html = renderPageHtml({ clientId: page.klant, slug: page.slug, blocks: content.blocks });
+    const html = renderPageHtml(buildRenderPage({ blueprint, content, clientId: page.klant, slug: page.slug }));
     const result = await pushDraft({
       profile: client.profile,
       wpPaginaId: page.wpPaginaId || undefined,

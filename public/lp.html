@@ -31,6 +31,9 @@
   .lp-msg-list.warnings li { color: #8a6100; }
   .lp-detail-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
   .lp-json-textarea { width: 100%; min-height: 320px; font-family: monospace; font-size: 13px; }
+  .lp-checklist { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-bottom: 4px; }
+  .lp-checklist label { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: normal; }
+  .hidden { display: none; }
 </style>
 </head>
 <body>
@@ -144,20 +147,41 @@
         <input type="text" id="lpTplNewKlant" required autocomplete="off">
       </div>
 
-      <div class="admin-section-title" style="margin-top:20px;">Voorstel laten genereren met AI (optioneel)</div>
+      <div class="admin-section-title" style="margin-top:20px;">Voorstel laten genereren met AI</div>
       <p class="admin-footnote">
-        Vul hieronder in wat voor pagina dit moet worden, laat een voorstel genereren, bekijk het
-        voorbeeld en pas de Blueprint JSON en de voorbeeldblokken hieronder verder aan tot het goed is
-        &mdash; pas daarna klik je op "Aanmaken". Je kunt dit ook overslaan en de Blueprint JSON meteen
-        handmatig invullen.
+        De AI ontwerpt een compleet, op maat gemaakt HTML/CSS-sjabloon (geen vast blokkenpalet meer) —
+        geinformeerd door de branding van de klant (automatisch, geen aparte vraag) en de onderstaande
+        vijf korte vragen. Bekijk daarna het voorbeeld en verfijn met feedback tot het goed is, pas dan
+        klik je op "Aanmaken".
       </p>
       <div class="lp-field-row">
-        <label for="lpTplNewPaginatype">Paginatype / referentie</label>
-        <input type="text" id="lpTplNewPaginatype" placeholder="bv. festivalpagina, of een link/omschrijving van een pagina die je aanspreekt" autocomplete="off">
+        <label for="lpTplNewReferentieUrl">1. Referentie-URL (aanbevolen)</label>
+        <input type="url" id="lpTplNewReferentieUrl" placeholder="https://... een bestaande pagina die qua structuur/stijl als basis moet dienen" autocomplete="off">
       </div>
       <div class="lp-field-row">
-        <label for="lpTplNewWens">Structuurwensen</label>
-        <textarea id="lpTplNewWens" rows="4" placeholder="bv. moet een hero, praktische info, 3 interne links en een duidelijke CTA hebben"></textarea>
+        <label for="lpTplNewPaginatype">2. Paginatype / doel</label>
+        <input type="text" id="lpTplNewPaginatype" placeholder="bv. festivalpagina, dienstpagina per bouwstap" autocomplete="off">
+      </div>
+      <div class="lp-field-row">
+        <label>3. Vaste onderdelen (vink aan wat VERPLICHT moet zijn op elke pagina van dit type)</label>
+        <div class="lp-checklist" id="lpTplOnderdelenChecklist"></div>
+      </div>
+      <div class="lp-field-row">
+        <label for="lpTplNewVisueleRichting">4. Visuele richting</label>
+        <select id="lpTplNewVisueleRichting">
+          <option value="">(geen voorkeur, AI kiest zelf iets passends)</option>
+          <option value="fotografie-gedreven">Fotografie-gedreven</option>
+          <option value="icoon-gedreven-zakelijk">Icoon-gedreven, zakelijk</option>
+          <option value="minimalistisch-tekstueel">Minimalistisch, tekstueel</option>
+        </select>
+      </div>
+      <div class="lp-field-row">
+        <label for="lpTplNewConversiedoel">5. Belangrijkste conversiedoel</label>
+        <input type="text" id="lpTplNewConversiedoel" placeholder="bv. boeken, offerte aanvragen, contact opnemen" autocomplete="off">
+      </div>
+      <div class="lp-field-row">
+        <label for="lpTplNewWens">Overige wensen (optioneel)</label>
+        <textarea id="lpTplNewWens" rows="2" placeholder="alles wat hierboven nog niet aan bod kwam"></textarea>
       </div>
       <button type="button" id="lpTplGenerateBtn" class="btn btn-approve">Stap 1: genereer voorstel met AI</button>
       <span id="lpTplGenerateStatus" class="admin-footnote"></span>
@@ -170,7 +194,7 @@
       </p>
       <div class="lp-field-row">
         <label for="lpTplFeedback">Feedback / aanpassing</label>
-        <textarea id="lpTplFeedback" rows="3" placeholder="bv. maak de hero groter, voeg een reviews-blok toe, minder tekst in de intro"></textarea>
+        <textarea id="lpTplFeedback" rows="3" placeholder="bv. maak de hero groter, voeg een reviews-sectie toe, minder tekst in de intro"></textarea>
       </div>
       <button type="button" id="lpTplRefineBtn" class="btn-plain">Verwerk feedback in voorstel</button>
       <span id="lpTplRefineStatus" class="admin-footnote"></span>
@@ -194,14 +218,14 @@
             <textarea id="lpTplNewBlueprintJson" class="lp-json-textarea" spellcheck="false"></textarea>
           </div>
           <p class="admin-footnote">
-            Verwachte velden: invoerVelden, verplichteBlokken, optioneleBlokken, uniciteitsbudget,
-            linkRegels, ctaRegel, seoRegels. Kopieer eventueel eerst een bestaand sjabloon (open het in
-            de lijst, kopieer de Blueprint JSON) als startpunt.
+            Nieuwe sjablonen gebruiken het slot-formaat: templateFormat, htmlTemplate, cssTemplate,
+            slots, invoerVelden, uniciteitsbudget, linkRegels, ctaRegel, seoRegels. Meestal vul je dit
+            niet handmatig in maar laat je 'm hierboven genereren.
           </p>
         </div>
         <div class="lp-col">
           <div class="lp-field-row">
-            <label for="lpTplNewVoorbeeldJson">Voorbeeldcontent (voor het voorbeeld hieronder, wordt niet opgeslagen)</label>
+            <label for="lpTplNewVoorbeeldJson">Voorbeeldcontent / voorbeeldSlotData (voor het voorbeeld hieronder, wordt niet opgeslagen)</label>
             <textarea id="lpTplNewVoorbeeldJson" class="lp-json-textarea" spellcheck="false"></textarea>
           </div>
         </div>
@@ -254,28 +278,34 @@
       <button type="button" id="lpTplSaveBlueprintBtn" class="btn btn-approve">Blueprint opslaan</button>
       <span id="lpTplSaved" class="admin-footnote"></span>
 
-      <div class="admin-section-title" style="margin-top:24px;">Verder finetunen met AI (optioneel)</div>
-      <p class="admin-footnote">
-        Pas dit BESTAANDE sjabloon aan via een prompt, zonder een nieuw sjabloon aan te hoeven maken.
-        Werkt met de Blueprint JSON hierboven en wordt pas opgeslagen als je zelf op "Blueprint opslaan"
-        klikt &mdash; zo kun je hier net zo vaak op testen zonder dat er telkens een nieuw sjabloon in
-        Notion bijkomt.
-      </p>
-      <div class="lp-field-row">
-        <label for="lpTplDetailVoorbeeldJson">Voorbeeldcontent (voor het voorbeeld hieronder, wordt niet opgeslagen)</label>
-        <textarea id="lpTplDetailVoorbeeldJson" class="lp-json-textarea" spellcheck="false">[]</textarea>
-      </div>
-      <div class="lp-field-row">
-        <label for="lpTplDetailFeedback">Feedback / aanpassing</label>
-        <textarea id="lpTplDetailFeedback" rows="3" placeholder="bv. maak de hero groter, voeg een reviews-blok toe, minder tekst in de intro"></textarea>
-      </div>
-      <button type="button" id="lpTplDetailRefineBtn" class="btn-plain">Verwerk feedback in voorstel</button>
-      <span id="lpTplDetailRefineStatus" class="admin-footnote"></span>
+      <div id="lpTplDetailAiSection">
+        <div class="admin-section-title" style="margin-top:24px;">Verder finetunen met AI</div>
+        <p class="admin-footnote">
+          Pas dit BESTAANDE sjabloon aan via een prompt, zonder een nieuw sjabloon aan te hoeven maken.
+          Werkt met de Blueprint JSON hierboven en wordt pas opgeslagen als je zelf op "Blueprint opslaan"
+          klikt &mdash; zo kun je hier net zo vaak op testen zonder dat er telkens een nieuw sjabloon in
+          Notion bijkomt.
+        </p>
+        <div class="lp-field-row">
+          <label for="lpTplDetailVoorbeeldJson">Voorbeeldcontent / voorbeeldSlotData (voor het voorbeeld hieronder, wordt niet opgeslagen)</label>
+          <textarea id="lpTplDetailVoorbeeldJson" class="lp-json-textarea" spellcheck="false">{}</textarea>
+        </div>
+        <div class="lp-field-row">
+          <label for="lpTplDetailFeedback">Feedback / aanpassing</label>
+          <textarea id="lpTplDetailFeedback" rows="3" placeholder="bv. maak de hero groter, voeg een reviews-sectie toe, minder tekst in de intro"></textarea>
+        </div>
+        <button type="button" id="lpTplDetailRefineBtn" class="btn-plain">Verwerk feedback in voorstel</button>
+        <span id="lpTplDetailRefineStatus" class="admin-footnote"></span>
 
-      <div class="admin-section-title" style="margin-top:16px;">Voorbeeld</div>
-      <button type="button" id="lpTplDetailPreviewBtn" class="btn-plain">Ververs voorbeeld</button>
-      <button type="button" id="lpTplDetailPreviewOpenBtn" class="btn-plain">Open in nieuw tabblad</button>
-      <iframe id="lpTplDetailPreviewFrame"></iframe>
+        <div class="admin-section-title" style="margin-top:16px;">Voorbeeld</div>
+        <button type="button" id="lpTplDetailPreviewBtn" class="btn-plain">Ververs voorbeeld</button>
+        <button type="button" id="lpTplDetailPreviewOpenBtn" class="btn-plain">Open in nieuw tabblad</button>
+        <iframe id="lpTplDetailPreviewFrame"></iframe>
+      </div>
+      <p id="lpTplDetailLegacyNote" class="admin-footnote hidden">
+        Dit is een sjabloon in het oude blokken-formaat — AI-verfijning is hier niet beschikbaar, pas de
+        Blueprint JSON hierboven zo nodig handmatig aan.
+      </p>
     </div>
   </div>
 
@@ -316,6 +346,14 @@
       </div>
 
       <div id="lpSub-invoer" class="lp-subpanel">
+        <div class="lp-field-row">
+          <label for="lpInvoerOnderwerp">Waar gaat deze pagina over?</label>
+          <textarea id="lpInvoerOnderwerp" rows="4" placeholder="- Onderwerp (bv. festivalnaam, dienst, bouwstap)&#10;- Wat is er aan dit specifieke geval anders dan vergelijkbare pagina's (datum, thema, doelgroep, aanbod)?&#10;- Iets dat zeker genoemd moet worden?"></textarea>
+        </div>
+        <div class="lp-field-row">
+          <label for="lpInvoerCtaOverride">CTA voor deze pagina (optioneel, anders sjabloon-default)</label>
+          <input type="text" id="lpInvoerCtaOverride" placeholder="bv. Schrijf je nu in voor de wachtlijst">
+        </div>
         <div id="lpInvoerFields"></div>
         <button type="button" id="lpSaveInvoerBtn" class="btn btn-approve">Invoer opslaan</button>
         <span id="lpInvoerSaved" class="admin-footnote"></span>
@@ -337,13 +375,24 @@
       <div id="lpSub-content" class="lp-subpanel hidden">
         <div class="lp-field-row"><label for="lpMetaTitle">Meta title</label><input type="text" id="lpMetaTitle"></div>
         <div class="lp-field-row"><label for="lpMetaDescription">Meta description</label><textarea id="lpMetaDescription" rows="2"></textarea></div>
-        <div class="lp-field-row" style="max-width:320px;">
+
+        <div id="lpContentAiSection" class="hidden">
+          <p class="admin-footnote">
+            Genereert een voorstel voor alle slots van dit sjabloon, op basis van "Waar gaat deze pagina
+            over" (Invoer-tab), de feitensheet, en kiest zelf relevante zusterpagina's voor interne
+            links. Vul die tabs eerst in voor het beste resultaat.
+          </p>
+          <button type="button" id="lpGenerateContentBtn" class="btn btn-approve">Genereer content met AI</button>
+          <span id="lpGenerateContentStatus" class="admin-footnote"></span>
+        </div>
+
+        <div id="lpContentBlockHelper" class="lp-field-row" style="max-width:320px;">
           <label for="lpBlockTemplateSelect">Blokvoorbeeld invoegen</label>
           <select id="lpBlockTemplateSelect"></select>
         </div>
         <button type="button" id="lpInsertBlockBtn" class="btn-plain">+ Invoegen in JSON hieronder</button>
         <div class="lp-field-row" style="margin-top:8px;">
-          <label for="lpContentJson">Content JSON (blocks array)</label>
+          <label for="lpContentJson" id="lpContentJsonLabel">Content JSON (blocks array)</label>
           <textarea id="lpContentJson" spellcheck="false"></textarea>
         </div>
         <button type="button" id="lpSaveContentBtn" class="btn btn-approve">Content JSON opslaan</button>

@@ -1,0 +1,88 @@
+// LP Fabriek: minimale, dependency-vrije "template engine" voor de nieuwe
+// AI-ontworpen bespoke sjablonen (bouwvolgorde-stap 3, koerswijziging naar
+// vrije templates — zie besluiten.md). Een sjabloon is nu een los stuk HTML
+// (met genoemde "slots") plus CSS, in plaats van een vast blokkenpalet.
+//
+// Syntax in htmlTemplate:
+//   {{veldNaam}}                     tekstwaarde van data.veldNaam, ALTIJD
+//                                    HTML-geescaped (ook veilig voor gebruik
+//                                    in href/src-attributen).
+//   {{#each lijstNaam}} ... {{veld}} ... {{/each}}
+//                                    herhaalt het binnenste stuk voor elk
+//                                    item in data.lijstNaam, met {{veld}}
+//                                    verwijzend naar item.veld. Geen geneste
+//                                    {{#each}} — bewust simpel gehouden.
+//
+// Er is GEEN "rauwe" ({{{ }}}) variant — alles wordt geescaped. Dat is een
+// bewuste veiligheidskeuze: slot-inhoud komt uiteindelijk (deels) uit
+// AI-gegenereerde paginacontent, en we willen nooit dat daar HTML/JS in kan
+// zitten die als opmaak of script wordt uitgevoerd.
+
+const { escapeHtml } = require('./utils');
+
+function getPath(obj, path) {
+  if (obj === null || obj === undefined) return undefined;
+  return path.split('.').reduce((acc, key) => (acc === null || acc === undefined ? undefined : acc[key]), obj);
+}
+
+const EACH_RE = /{{#each\s+([\w.]+)\s*}}([\s\S]*?){{\/each}}/g;
+const VAR_RE = /{{\s*([\w.]+)\s*}}/g;
+
+function renderSlotTemplate(html, data) {
+  const withLoops = String(html || '').replace(EACH_RE, (match, listKey, inner) => {
+    const list = getPath(data, listKey);
+    if (!Array.isArray(list) || !list.length) return '';
+    return list
+      .map((item) =>
+        inner.replace(VAR_RE, (m, field) => {
+          const value = field === 'this' ? item : getPath(item, field);
+          return escapeHtml(value === undefined || value === null ? '' : value);
+        })
+      )
+      .join('');
+  });
+  return withLoops.replace(VAR_RE, (match, field) => {
+    const value = getPath(data, field);
+    return escapeHtml(value === undefined || value === null ? '' : value);
+  });
+}
+
+// Veiligheidscheck voor een door AI gegenereerd (of handmatig geplakt)
+// sjabloon, VOORDAT het opgeslagen wordt. Zie besluiten.md, "Veiligheidseisen
+// voor AI-gegenereerde templates": geen <script>, geen externe resources,
+// geen inline event-handlers, geen javascript:-links. Dit is een blokkade
+// bij het opslaan van een sjabloon (POST/PUT /templates), niet per pagina.
+function templateSafetyCheck(html, css) {
+  const errors = [];
+  const htmlStr = String(html || '');
+  const cssStr = String(css || '');
+
+  if (/<script\b/i.test(htmlStr) || /<script\b/i.test(cssStr)) {
+    errors.push('Bevat een <script>-tag — niet toegestaan in een sjabloon.');
+  }
+  if (/<link\b/i.test(htmlStr)) {
+    errors.push('Bevat een <link>-tag — externe resources zijn niet toegestaan, alles moet inline CSS zijn.');
+  }
+  if (/<iframe\b|<object\b|<embed\b/i.test(htmlStr)) {
+    errors.push('Bevat een <iframe>/<object>/<embed>-tag — niet toegestaan.');
+  }
+  if (/\son\w+\s*=/i.test(htmlStr)) {
+    errors.push('Bevat een inline event-handler (bv. onclick=) — niet toegestaan.');
+  }
+  if (/javascript\s*:/i.test(htmlStr)) {
+    errors.push('Bevat een "javascript:"-link — niet toegestaan.');
+  }
+  if (/@import/i.test(cssStr)) {
+    errors.push('CSS bevat @import — externe resources zijn niet toegestaan.');
+  }
+  if (/url\(\s*['"]?https?:\/\//i.test(cssStr)) {
+    errors.push('CSS verwijst naar een externe URL via url(...) — niet toegestaan, afbeeldingen lopen via slots.');
+  }
+  if (/<img\b[^>]*\ssrc\s*=\s*["']https?:\/\//i.test(htmlStr)) {
+    errors.push('HTML bevat een hardcoded externe afbeelding-URL — afbeeldingen moeten via een slot (bv. {{heroImageSrc}}) ingevuld worden, niet vast in het sjabloon staan.');
+  }
+
+  return { ok: errors.length === 0, errors };
+}
+
+module.exports = { renderSlotTemplate, templateSafetyCheck };

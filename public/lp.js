@@ -1,8 +1,34 @@
 // LP Fabriek frontend — vanilla JS, zelfde patroon als admin.js. Alles praat
 // met /api/lp/*, die achter requireLpInternal zit (los wachtwoord, zie
 // besluiten.md "Portaal: een app, twee zones").
+//
+// Sinds bouwvolgorde-stap 3 (koerswijziging naar vrije templates) bestaan er
+// twee sjabloonformaten naast elkaar: het OUDE blokken-formaat (bv. "Roots
+// Event", blijft ongewijzigd werken) en het NIEUWE slot-formaat (bespoke
+// HTML/CSS met genoemde slots). lpState.currentPageBlueprint / het geopende
+// sjabloon zelf bepalen welk formaat van toepassing is; de UI schakelt daar
+// stilzwijgend tussen (zie renderContentJson, openTemplateDetail).
 
-let lpState = { clients: [], pages: [], currentPage: null, feitenById: new Map(), templates: [], currentTemplate: null };
+let lpState = {
+  clients: [],
+  pages: [],
+  currentPage: null,
+  currentPageBlueprint: null,
+  feitenById: new Map(),
+  templates: [],
+  currentTemplate: null,
+  onderdelenOpties: []
+};
+
+const ONDERDEEL_LABELS = {
+  usps: "USP's",
+  stappen: 'Stappenplan',
+  aanbod: 'Aanbod/kaarten',
+  praktisch: 'Praktische info',
+  reviews: 'Reviews',
+  faq: 'FAQ',
+  doelgroep: 'Doelgroeptekst'
+};
 
 const BLOCK_TEMPLATES = {
   hero: { type: 'hero', data: { title: '', intro: '', cta: { label: '', href: '' } } },
@@ -20,6 +46,20 @@ const BLOCK_TEMPLATES = {
   cta: { type: 'cta', data: { heading: '', text: '', cta: { label: '', href: '' } } }
 };
 
+function emptySlotBlueprintSkeleton() {
+  return {
+    templateFormat: 'slots',
+    htmlTemplate: '',
+    cssTemplate: '',
+    slots: [],
+    invoerVelden: [],
+    uniciteitsbudget: {},
+    linkRegels: {},
+    ctaRegel: {},
+    seoRegels: {}
+  };
+}
+
 async function lpApi(path, options) {
   const res = await fetch('/api/lp' + path, {
     headers: { 'Content-Type': 'application/json' },
@@ -32,6 +72,13 @@ async function lpApi(path, options) {
     throw err;
   }
   return data;
+}
+
+function formatApiError(err) {
+  if (err.data && Array.isArray(err.data.structuurFouten) && err.data.structuurFouten.length) {
+    return `${err.message}: ${err.data.structuurFouten.join('; ')}`;
+  }
+  return err.message;
 }
 
 function showLpApp() {
@@ -118,6 +165,16 @@ async function bootLpApp() {
 
   const blockSelect = document.getElementById('lpBlockTemplateSelect');
   blockSelect.innerHTML = Object.keys(BLOCK_TEMPLATES).map((t) => `<option value="${t}">${t}</option>`).join('');
+
+  try {
+    const { opties } = await lpApi('/templates/onderdelen-opties');
+    lpState.onderdelenOpties = opties;
+    document.getElementById('lpTplOnderdelenChecklist').innerHTML = opties.map((key) => `
+      <label><input type="checkbox" value="${key}" data-onderdeel="${key}"> ${ONDERDEEL_LABELS[key] || key}</label>
+    `).join('');
+  } catch (err) {
+    // Niet blokkerend — het formulier werkt ook zonder deze checklist.
+  }
 
   fillBlueprintSelect(newKlant.value);
   newKlant.addEventListener('change', () => fillBlueprintSelect(newKlant.value));
@@ -223,12 +280,26 @@ async function openPageDetail(pageId) {
   document.getElementById('lpStatusSelect').value = page.status;
   switchLpSubtab('invoer');
 
-  await renderInvoerFields(page);
+  let blueprint = null;
+  try {
+    const res = await lpApi(`/clients/${page.klant}/blueprints/${page.blueprint}`);
+    blueprint = res.blueprint;
+  } catch (err) {
+    // Wordt hieronder per subtab getoond als foutmelding waar relevant.
+  }
+  lpState.currentPageBlueprint = blueprint;
+
+  const invoer = page.invoer || {};
+  document.getElementById('lpInvoerOnderwerp').value = invoer._watGaatDezePaginaOver || '';
+  document.getElementById('lpInvoerCtaOverride').value = invoer._ctaOverride || '';
+
+  renderInvoerFields(page, blueprint);
   await renderFeitenList(page);
-  renderContentJson(page);
+  renderContentJson(page, blueprint);
   document.getElementById('lpPreviewFrame').srcdoc = '';
   document.getElementById('lpValidationResult').innerHTML = '';
   document.getElementById('lpPublishResult').innerHTML = '';
+  document.getElementById('lpGenerateContentStatus').textContent = '';
 }
 
 document.getElementById('lpStatusSelect').addEventListener('change', async (e) => {
@@ -240,20 +311,18 @@ document.getElementById('lpStatusSelect').addEventListener('change', async (e) =
 });
 
 // -- Invoer --
-async function renderInvoerFields(page) {
+function renderInvoerFields(page, blueprint) {
   const container = document.getElementById('lpInvoerFields');
-  container.innerHTML = 'Laden...';
-  try {
-    const { blueprint } = await lpApi(`/clients/${page.klant}/blueprints/${page.blueprint}`);
-    const invoer = page.invoer || {};
-    container.innerHTML = (blueprint.invoerVelden || []).map((veld) => `
-      <div class="lp-field-row">
-        <label for="lpInvoerVeld_${veld.key}">${veld.label}${veld.verplicht ? ' *' : ''}</label>
-        <input type="text" id="lpInvoerVeld_${veld.key}" data-veld-key="${veld.key}" value="${(invoer[veld.key] || '').toString().replace(/"/g, '&quot;')}">
-      </div>`).join('');
-  } catch (err) {
-    container.innerHTML = `<p class="admin-error">${err.message}</p>`;
+  if (!blueprint) {
+    container.innerHTML = '<p class="admin-error">Blueprint kon niet geladen worden.</p>';
+    return;
   }
+  const invoer = page.invoer || {};
+  container.innerHTML = (blueprint.invoerVelden || []).map((veld) => `
+    <div class="lp-field-row">
+      <label for="lpInvoerVeld_${veld.key}">${veld.label}${veld.verplicht ? ' *' : ''}</label>
+      <input type="text" id="lpInvoerVeld_${veld.key}" data-veld-key="${veld.key}" value="${(invoer[veld.key] || '').toString().replace(/"/g, '&quot;')}">
+    </div>`).join('');
 }
 
 document.getElementById('lpSaveInvoerBtn').addEventListener('click', async () => {
@@ -262,6 +331,8 @@ document.getElementById('lpSaveInvoerBtn').addEventListener('click', async () =>
   document.querySelectorAll('#lpInvoerFields [data-veld-key]').forEach((input) => {
     invoer[input.dataset.veldKey] = input.value;
   });
+  invoer._watGaatDezePaginaOver = document.getElementById('lpInvoerOnderwerp').value;
+  invoer._ctaOverride = document.getElementById('lpInvoerCtaOverride').value;
   await lpApi(`/pages/${page.id}/invoer`, { method: 'PUT', body: JSON.stringify({ invoer }) });
   page.invoer = invoer;
   const savedEl = document.getElementById('lpInvoerSaved');
@@ -273,7 +344,6 @@ document.getElementById('lpSaveInvoerBtn').addEventListener('click', async () =>
 async function renderFeitenList(page) {
   const container = document.getElementById('lpFeitenList');
   container.innerHTML = 'Laden...';
-  const extraListEl = document.getElementById('lpExtraFeitenList');
   const { feiten } = await lpApi(`/clients/${page.klant}/feiten`);
   lpState.feitenById = new Map(feiten.map((f) => [f.id, f]));
   const feitensheet = page.feitensheet || { gebruikt: [], extra: [] };
@@ -335,11 +405,17 @@ document.getElementById('lpSaveFeitensheetBtn').addEventListener('click', async 
 });
 
 // -- Content JSON --
-function renderContentJson(page) {
-  const content = page.content || { meta: { metaTitle: '', metaDescription: '' }, blocks: [] };
+function renderContentJson(page, blueprint) {
+  const isSlot = Boolean(blueprint && blueprint.templateFormat === 'slots');
+  const content = page.content || { meta: { metaTitle: '', metaDescription: '' } };
   document.getElementById('lpMetaTitle').value = content.meta?.metaTitle || '';
   document.getElementById('lpMetaDescription').value = content.meta?.metaDescription || '';
-  document.getElementById('lpContentJson').value = JSON.stringify(content.blocks || [], null, 2);
+  document.getElementById('lpContentAiSection').classList.toggle('hidden', !isSlot);
+  document.getElementById('lpContentBlockHelper').classList.toggle('hidden', isSlot);
+  document.getElementById('lpInsertBlockBtn').classList.toggle('hidden', isSlot);
+  document.getElementById('lpContentJsonLabel').textContent = isSlot ? 'Content JSON (slotData object)' : 'Content JSON (blocks array)';
+  const value = isSlot ? (content.slotData || {}) : (content.blocks || []);
+  document.getElementById('lpContentJson').value = JSON.stringify(value, null, 2);
 }
 
 document.getElementById('lpInsertBlockBtn').addEventListener('click', () => {
@@ -356,11 +432,36 @@ document.getElementById('lpInsertBlockBtn').addEventListener('click', () => {
   textarea.value = JSON.stringify(blocks, null, 2);
 });
 
+document.getElementById('lpGenerateContentBtn').addEventListener('click', async () => {
+  const page = lpState.currentPage;
+  const btn = document.getElementById('lpGenerateContentBtn');
+  const statusEl = document.getElementById('lpGenerateContentStatus');
+  btn.disabled = true;
+  statusEl.textContent = 'Bezig met genereren... (dit kan 10-30 seconden duren)';
+  try {
+    const watGaatDezePaginaOver = document.getElementById('lpInvoerOnderwerp').value;
+    const ctaOverride = document.getElementById('lpInvoerCtaOverride').value;
+    const { slotData } = await lpApi(`/pages/${page.id}/generate-content`, {
+      method: 'POST',
+      body: JSON.stringify({ watGaatDezePaginaOver, ctaOverride })
+    });
+    document.getElementById('lpContentJson').value = JSON.stringify(slotData, null, 2);
+    statusEl.textContent = 'Voorstel gegenereerd — controleer en pas aan waar nodig, klik daarna op "Content JSON opslaan".';
+  } catch (err) {
+    statusEl.textContent = '';
+    alert(formatApiError(err));
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 document.getElementById('lpSaveContentBtn').addEventListener('click', async () => {
   const page = lpState.currentPage;
-  let blocks;
+  const blueprint = lpState.currentPageBlueprint;
+  const isSlot = Boolean(blueprint && blueprint.templateFormat === 'slots');
+  let parsed;
   try {
-    blocks = JSON.parse(document.getElementById('lpContentJson').value || '[]');
+    parsed = JSON.parse(document.getElementById('lpContentJson').value || (isSlot ? '{}' : '[]'));
   } catch (err) {
     alert('Ongeldige JSON: ' + err.message);
     return;
@@ -370,7 +471,7 @@ document.getElementById('lpSaveContentBtn').addEventListener('click', async () =
       metaTitle: document.getElementById('lpMetaTitle').value,
       metaDescription: document.getElementById('lpMetaDescription').value
     },
-    blocks
+    ...(isSlot ? { slotData: parsed } : { blocks: parsed })
   };
   await lpApi(`/pages/${page.id}/content`, { method: 'PUT', body: JSON.stringify({ content }) });
   lpState.currentPage.content = content;
@@ -421,25 +522,20 @@ document.getElementById('lpPublishBtn').addEventListener('click', async () => {
   }
 });
 
-// ---- Sjablonen (bouwstap 6). Stap 2 (lijst + handmatig aanmaken/bewerken)
-// en stap 3 (AI-voorstel + live voorbeeld + finetunen) — zie besluiten.md.
+// ---- Sjablonen (bouwstap 6) ----
 document.getElementById('lpNewTemplateBtn').addEventListener('click', () => {
   document.getElementById('lpTplNewNaam').value = '';
   document.getElementById('lpTplNewKlant').value = '';
+  document.getElementById('lpTplNewReferentieUrl').value = '';
   document.getElementById('lpTplNewPaginatype').value = '';
+  document.querySelectorAll('#lpTplOnderdelenChecklist input[type="checkbox"]').forEach((cb) => { cb.checked = false; });
+  document.getElementById('lpTplNewVisueleRichting').value = '';
+  document.getElementById('lpTplNewConversiedoel').value = '';
   document.getElementById('lpTplNewWens').value = '';
   document.getElementById('lpTplNewStatus').value = 'Concept';
   document.getElementById('lpTplNewBlueprintId').value = '';
-  document.getElementById('lpTplNewBlueprintJson').value = JSON.stringify({
-    invoerVelden: [],
-    verplichteBlokken: [],
-    optioneleBlokken: [],
-    uniciteitsbudget: {},
-    linkRegels: {},
-    ctaRegel: {},
-    seoRegels: {}
-  }, null, 2);
-  document.getElementById('lpTplNewVoorbeeldJson').value = '[]';
+  document.getElementById('lpTplNewBlueprintJson').value = JSON.stringify(emptySlotBlueprintSkeleton(), null, 2);
+  document.getElementById('lpTplNewVoorbeeldJson').value = '{}';
   document.getElementById('lpTplFeedback').value = '';
   document.getElementById('lpTplPreviewFrame').srcdoc = '';
   document.getElementById('lpTplGenerateStatus').textContent = '';
@@ -477,6 +573,10 @@ function renderTemplatesTable() {
   });
 }
 
+function collectVerplichteOnderdelen() {
+  return Array.from(document.querySelectorAll('#lpTplOnderdelenChecklist input[type="checkbox"]:checked')).map((cb) => cb.value);
+}
+
 document.getElementById('lpTplGenerateBtn').addEventListener('click', async () => {
   const btn = document.getElementById('lpTplGenerateBtn');
   const statusEl = document.getElementById('lpTplGenerateStatus');
@@ -489,17 +589,22 @@ document.getElementById('lpTplGenerateBtn').addEventListener('click', async () =
     errorEl.classList.remove('hidden');
     return;
   }
-  const paginatype = document.getElementById('lpTplNewPaginatype').value;
-  const wens = document.getElementById('lpTplNewWens').value;
+  const body = {
+    klant,
+    naam,
+    referentieUrl: document.getElementById('lpTplNewReferentieUrl').value,
+    paginatype: document.getElementById('lpTplNewPaginatype').value,
+    verplichteOnderdelen: collectVerplichteOnderdelen(),
+    visueleRichting: document.getElementById('lpTplNewVisueleRichting').value,
+    conversiedoel: document.getElementById('lpTplNewConversiedoel').value,
+    overigeWensen: document.getElementById('lpTplNewWens').value
+  };
   btn.disabled = true;
   statusEl.textContent = 'Bezig met genereren... (dit kan 10-30 seconden duren)';
   try {
-    const { blueprint, voorbeeldBlocks } = await lpApi('/templates/generate', {
-      method: 'POST',
-      body: JSON.stringify({ klant, naam, paginatype, wens })
-    });
+    const { blueprint, voorbeeldSlotData } = await lpApi('/templates/generate', { method: 'POST', body: JSON.stringify(body) });
     document.getElementById('lpTplNewBlueprintJson').value = JSON.stringify(blueprint, null, 2);
-    document.getElementById('lpTplNewVoorbeeldJson').value = JSON.stringify(voorbeeldBlocks, null, 2);
+    document.getElementById('lpTplNewVoorbeeldJson').value = JSON.stringify(voorbeeldSlotData, null, 2);
     if (!document.getElementById('lpTplNewBlueprintId').value) {
       document.getElementById('lpTplNewBlueprintId').value = naam
         .toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -508,12 +613,19 @@ document.getElementById('lpTplGenerateBtn').addEventListener('click', async () =
     await refreshTemplatePreview();
   } catch (err) {
     statusEl.textContent = '';
-    errorEl.textContent = err.message;
+    errorEl.textContent = formatApiError(err);
     errorEl.classList.remove('hidden');
   } finally {
     btn.disabled = false;
   }
 });
+
+function buildPreviewBody(klant, blueprint, sample) {
+  if (blueprint && blueprint.templateFormat === 'slots') {
+    return { klant, blueprint, slotData: sample && !Array.isArray(sample) ? sample : {} };
+  }
+  return { klant, blocks: Array.isArray(sample) ? sample : [] };
+}
 
 async function refreshTemplatePreview() {
   const klant = document.getElementById('lpTplNewKlant').value;
@@ -522,14 +634,16 @@ async function refreshTemplatePreview() {
     frame.srcdoc = '<p style="font-family:sans-serif;padding:2rem;color:#666;">Vul eerst Klant in.</p>';
     return;
   }
-  let blocks;
+  let blueprint;
+  let sample;
   try {
-    blocks = JSON.parse(document.getElementById('lpTplNewVoorbeeldJson').value || '[]');
+    blueprint = JSON.parse(document.getElementById('lpTplNewBlueprintJson').value || '{}');
+    sample = JSON.parse(document.getElementById('lpTplNewVoorbeeldJson').value || '{}');
   } catch (err) {
     frame.srcdoc = `<p style="font-family:sans-serif;padding:2rem;color:#b00020;">Ongeldige JSON: ${err.message}</p>`;
     return;
   }
-  const { html } = await lpApi('/templates/preview', { method: 'POST', body: JSON.stringify({ klant, blocks }) });
+  const { html } = await lpApi('/templates/preview', { method: 'POST', body: JSON.stringify(buildPreviewBody(klant, blueprint, sample)) });
   frame.srcdoc = html;
 }
 
@@ -541,14 +655,16 @@ document.getElementById('lpTplPreviewOpenBtn').addEventListener('click', async (
     alert('Vul eerst Klant in.');
     return;
   }
-  let blocks;
+  let blueprint;
+  let sample;
   try {
-    blocks = JSON.parse(document.getElementById('lpTplNewVoorbeeldJson').value || '[]');
+    blueprint = JSON.parse(document.getElementById('lpTplNewBlueprintJson').value || '{}');
+    sample = JSON.parse(document.getElementById('lpTplNewVoorbeeldJson').value || '{}');
   } catch (err) {
     alert('Ongeldige JSON in Voorbeeldcontent: ' + err.message);
     return;
   }
-  const { html } = await lpApi('/templates/preview', { method: 'POST', body: JSON.stringify({ klant, blocks }) });
+  const { html } = await lpApi('/templates/preview', { method: 'POST', body: JSON.stringify(buildPreviewBody(klant, blueprint, sample)) });
   const blob = new Blob([html], { type: 'text/html' });
   window.open(URL.createObjectURL(blob), '_blank');
 });
@@ -572,10 +688,10 @@ document.getElementById('lpTplRefineBtn').addEventListener('click', async () => 
     return;
   }
   let huidigBlueprint;
-  let huidigeVoorbeeldBlocks;
+  let huidigeVoorbeeldSlotData;
   try {
     huidigBlueprint = JSON.parse(document.getElementById('lpTplNewBlueprintJson').value || '{}');
-    huidigeVoorbeeldBlocks = JSON.parse(document.getElementById('lpTplNewVoorbeeldJson').value || '[]');
+    huidigeVoorbeeldSlotData = JSON.parse(document.getElementById('lpTplNewVoorbeeldJson').value || '{}');
   } catch (err) {
     errorEl.textContent = 'Ongeldige JSON in Blueprint JSON of Voorbeeldcontent: ' + err.message;
     errorEl.classList.remove('hidden');
@@ -584,18 +700,18 @@ document.getElementById('lpTplRefineBtn').addEventListener('click', async () => 
   btn.disabled = true;
   statusEl.textContent = 'Bezig met verwerken... (dit kan 10-30 seconden duren)';
   try {
-    const { blueprint, voorbeeldBlocks } = await lpApi('/templates/refine', {
+    const { blueprint, voorbeeldSlotData } = await lpApi('/templates/refine', {
       method: 'POST',
-      body: JSON.stringify({ klant, naam, huidigBlueprint, huidigeVoorbeeldBlocks, feedback })
+      body: JSON.stringify({ klant, naam, huidigBlueprint, huidigeVoorbeeldSlotData, feedback })
     });
     document.getElementById('lpTplNewBlueprintJson').value = JSON.stringify(blueprint, null, 2);
-    document.getElementById('lpTplNewVoorbeeldJson').value = JSON.stringify(voorbeeldBlocks, null, 2);
+    document.getElementById('lpTplNewVoorbeeldJson').value = JSON.stringify(voorbeeldSlotData, null, 2);
     statusEl.textContent = 'Voorstel aangepast — bekijk het voorbeeld hieronder.';
     document.getElementById('lpTplFeedback').value = '';
     await refreshTemplatePreview();
   } catch (err) {
     statusEl.textContent = '';
-    errorEl.textContent = err.message;
+    errorEl.textContent = formatApiError(err);
     errorEl.classList.remove('hidden');
   } finally {
     btn.disabled = false;
@@ -622,12 +738,14 @@ document.getElementById('lpTplCreateBtn').addEventListener('click', async () => 
     errorEl.classList.remove('hidden');
     return;
   }
-  const heeftBlokken = Array.isArray(blueprint.verplichteBlokken) && blueprint.verplichteBlokken.length > 0;
-  if (!heeftBlokken) {
+  const isSlot = blueprint.templateFormat === 'slots';
+  const heeftInhoud = isSlot
+    ? Boolean(blueprint.htmlTemplate && blueprint.htmlTemplate.trim())
+    : Array.isArray(blueprint.verplichteBlokken) && blueprint.verplichteBlokken.length > 0;
+  if (!heeftInhoud) {
     const doorgaan = confirm(
-      'Deze Blueprint JSON heeft nog geen verplichteBlokken — dit lijkt het onaangepaste standaard-skelet ' +
-      '(je hebt waarschijnlijk nog niet op "Stap 1: genereer voorstel met AI" geklikt, of het genereren ' +
-      'is niet gelukt). Toch zo opslaan?'
+      'Deze Blueprint JSON lijkt nog het onaangepaste standaard-skelet (je hebt waarschijnlijk nog niet ' +
+      'op "Stap 1: genereer voorstel met AI" geklikt, of het genereren is niet gelukt). Toch zo opslaan?'
     );
     if (!doorgaan) return;
   }
@@ -641,7 +759,7 @@ document.getElementById('lpTplCreateBtn').addEventListener('click', async () => 
     await loadTemplates();
     openTemplateDetail(template.id);
   } catch (err) {
-    errorEl.textContent = err.message;
+    errorEl.textContent = formatApiError(err);
     errorEl.classList.remove('hidden');
   }
 });
@@ -653,13 +771,17 @@ async function openTemplateDetail(templateId) {
   document.getElementById('lpSjablonenTab').classList.add('hidden');
   document.getElementById('lpTemplateDetailSection').classList.remove('hidden');
 
+  const isSlot = Boolean(template.blueprint && template.blueprint.templateFormat === 'slots');
+  document.getElementById('lpTplDetailAiSection').classList.toggle('hidden', !isSlot);
+  document.getElementById('lpTplDetailLegacyNote').classList.toggle('hidden', isSlot);
+
   document.getElementById('lpTplDetailNaam').textContent = template.naam;
   document.getElementById('lpTplDetailStatusBadge').textContent = template.status;
   document.getElementById('lpTplStatusSelect').value = template.status;
   document.getElementById('lpTplDetailKlant').value = template.klant || '';
   document.getElementById('lpTplDetailBlueprintId').value = template.blueprintId || '';
   document.getElementById('lpTplDetailBlueprintJson').value = JSON.stringify(template.blueprint || {}, null, 2);
-  document.getElementById('lpTplDetailVoorbeeldJson').value = '[]';
+  document.getElementById('lpTplDetailVoorbeeldJson').value = isSlot ? '{}' : '[]';
   document.getElementById('lpTplDetailFeedback').value = '';
   document.getElementById('lpTplDetailRefineStatus').textContent = '';
   document.getElementById('lpTplDetailPreviewFrame').srcdoc = '';
@@ -674,14 +796,16 @@ async function refreshTemplateDetailPreview() {
     frame.srcdoc = '<p style="font-family:sans-serif;padding:2rem;color:#666;">Geen klant bekend voor dit sjabloon.</p>';
     return;
   }
-  let blocks;
+  let blueprint;
+  let sample;
   try {
-    blocks = JSON.parse(document.getElementById('lpTplDetailVoorbeeldJson').value || '[]');
+    blueprint = JSON.parse(document.getElementById('lpTplDetailBlueprintJson').value || '{}');
+    sample = JSON.parse(document.getElementById('lpTplDetailVoorbeeldJson').value || '{}');
   } catch (err) {
     frame.srcdoc = `<p style="font-family:sans-serif;padding:2rem;color:#b00020;">Ongeldige JSON: ${err.message}</p>`;
     return;
   }
-  const { html } = await lpApi('/templates/preview', { method: 'POST', body: JSON.stringify({ klant, blocks }) });
+  const { html } = await lpApi('/templates/preview', { method: 'POST', body: JSON.stringify(buildPreviewBody(klant, blueprint, sample)) });
   frame.srcdoc = html;
 }
 
@@ -693,14 +817,16 @@ document.getElementById('lpTplDetailPreviewOpenBtn').addEventListener('click', a
     alert('Geen klant bekend voor dit sjabloon.');
     return;
   }
-  let blocks;
+  let blueprint;
+  let sample;
   try {
-    blocks = JSON.parse(document.getElementById('lpTplDetailVoorbeeldJson').value || '[]');
+    blueprint = JSON.parse(document.getElementById('lpTplDetailBlueprintJson').value || '{}');
+    sample = JSON.parse(document.getElementById('lpTplDetailVoorbeeldJson').value || '{}');
   } catch (err) {
     alert('Ongeldige JSON in Voorbeeldcontent: ' + err.message);
     return;
   }
-  const { html } = await lpApi('/templates/preview', { method: 'POST', body: JSON.stringify({ klant, blocks }) });
+  const { html } = await lpApi('/templates/preview', { method: 'POST', body: JSON.stringify(buildPreviewBody(klant, blueprint, sample)) });
   const blob = new Blob([html], { type: 'text/html' });
   window.open(URL.createObjectURL(blob), '_blank');
 });
@@ -719,10 +845,10 @@ document.getElementById('lpTplDetailRefineBtn').addEventListener('click', async 
     return;
   }
   let huidigBlueprint;
-  let huidigeVoorbeeldBlocks;
+  let huidigeVoorbeeldSlotData;
   try {
     huidigBlueprint = JSON.parse(document.getElementById('lpTplDetailBlueprintJson').value || '{}');
-    huidigeVoorbeeldBlocks = JSON.parse(document.getElementById('lpTplDetailVoorbeeldJson').value || '[]');
+    huidigeVoorbeeldSlotData = JSON.parse(document.getElementById('lpTplDetailVoorbeeldJson').value || '{}');
   } catch (err) {
     errorEl.textContent = 'Ongeldige JSON in Blueprint JSON of Voorbeeldcontent: ' + err.message;
     errorEl.classList.remove('hidden');
@@ -731,24 +857,24 @@ document.getElementById('lpTplDetailRefineBtn').addEventListener('click', async 
   btn.disabled = true;
   statusEl.textContent = 'Bezig met verwerken... (dit kan 10-30 seconden duren)';
   try {
-    const { blueprint, voorbeeldBlocks } = await lpApi('/templates/refine', {
+    const { blueprint, voorbeeldSlotData } = await lpApi('/templates/refine', {
       method: 'POST',
       body: JSON.stringify({
         klant: document.getElementById('lpTplDetailKlant').value,
         naam: template.naam,
         huidigBlueprint,
-        huidigeVoorbeeldBlocks,
+        huidigeVoorbeeldSlotData,
         feedback
       })
     });
     document.getElementById('lpTplDetailBlueprintJson').value = JSON.stringify(blueprint, null, 2);
-    document.getElementById('lpTplDetailVoorbeeldJson').value = JSON.stringify(voorbeeldBlocks, null, 2);
+    document.getElementById('lpTplDetailVoorbeeldJson').value = JSON.stringify(voorbeeldSlotData, null, 2);
     statusEl.textContent = 'Voorstel aangepast — bekijk het voorbeeld en klik op "Blueprint opslaan" als je het wilt bewaren.';
     document.getElementById('lpTplDetailFeedback').value = '';
     await refreshTemplateDetailPreview();
   } catch (err) {
     statusEl.textContent = '';
-    errorEl.textContent = err.message;
+    errorEl.textContent = formatApiError(err);
     errorEl.classList.remove('hidden');
   } finally {
     btn.disabled = false;
@@ -785,11 +911,14 @@ document.getElementById('lpTplSaveBlueprintBtn').addEventListener('click', async
       body: JSON.stringify({ blueprint })
     });
     lpState.currentTemplate = updated;
+    const isSlot = Boolean(updated.blueprint && updated.blueprint.templateFormat === 'slots');
+    document.getElementById('lpTplDetailAiSection').classList.toggle('hidden', !isSlot);
+    document.getElementById('lpTplDetailLegacyNote').classList.toggle('hidden', isSlot);
     const savedEl = document.getElementById('lpTplSaved');
     savedEl.textContent = 'Opgeslagen.';
     setTimeout(() => (savedEl.textContent = ''), 2000);
   } catch (err) {
-    errorEl.textContent = err.message;
+    errorEl.textContent = formatApiError(err);
     errorEl.classList.remove('hidden');
   }
 });
