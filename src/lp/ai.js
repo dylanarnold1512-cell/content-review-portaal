@@ -85,8 +85,10 @@ async function callOpenAi({ systemPrompt, userPrompt }) {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
-      response_format: { type: 'json_object' },
-      temperature: 0.6
+      response_format: { type: 'json_object' }
+      // Geen temperature-parameter: GPT-5.5 (redeneermodel) ondersteunt alleen
+      // de standaardwaarde (1) en geeft een 400 "unsupported_value" bij elke
+      // andere waarde — bevestigd in productie (03-09-2026), zie besluiten.md.
     })
   });
   if (!res.ok) {
