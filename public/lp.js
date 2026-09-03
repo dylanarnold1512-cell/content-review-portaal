@@ -659,9 +659,101 @@ async function openTemplateDetail(templateId) {
   document.getElementById('lpTplDetailKlant').value = template.klant || '';
   document.getElementById('lpTplDetailBlueprintId').value = template.blueprintId || '';
   document.getElementById('lpTplDetailBlueprintJson').value = JSON.stringify(template.blueprint || {}, null, 2);
+  document.getElementById('lpTplDetailVoorbeeldJson').value = '[]';
+  document.getElementById('lpTplDetailFeedback').value = '';
+  document.getElementById('lpTplDetailRefineStatus').textContent = '';
+  document.getElementById('lpTplDetailPreviewFrame').srcdoc = '';
   document.getElementById('lpTemplateDetailError').classList.add('hidden');
   document.getElementById('lpTplSaved').textContent = '';
 }
+
+async function refreshTemplateDetailPreview() {
+  const klant = document.getElementById('lpTplDetailKlant').value;
+  const frame = document.getElementById('lpTplDetailPreviewFrame');
+  if (!klant) {
+    frame.srcdoc = '<p style="font-family:sans-serif;padding:2rem;color:#666;">Geen klant bekend voor dit sjabloon.</p>';
+    return;
+  }
+  let blocks;
+  try {
+    blocks = JSON.parse(document.getElementById('lpTplDetailVoorbeeldJson').value || '[]');
+  } catch (err) {
+    frame.srcdoc = `<p style="font-family:sans-serif;padding:2rem;color:#b00020;">Ongeldige JSON: ${err.message}</p>`;
+    return;
+  }
+  const { html } = await lpApi('/templates/preview', { method: 'POST', body: JSON.stringify({ klant, blocks }) });
+  frame.srcdoc = html;
+}
+
+document.getElementById('lpTplDetailPreviewBtn').addEventListener('click', refreshTemplateDetailPreview);
+
+document.getElementById('lpTplDetailPreviewOpenBtn').addEventListener('click', async () => {
+  const klant = document.getElementById('lpTplDetailKlant').value;
+  if (!klant) {
+    alert('Geen klant bekend voor dit sjabloon.');
+    return;
+  }
+  let blocks;
+  try {
+    blocks = JSON.parse(document.getElementById('lpTplDetailVoorbeeldJson').value || '[]');
+  } catch (err) {
+    alert('Ongeldige JSON in Voorbeeldcontent: ' + err.message);
+    return;
+  }
+  const { html } = await lpApi('/templates/preview', { method: 'POST', body: JSON.stringify({ klant, blocks }) });
+  const blob = new Blob([html], { type: 'text/html' });
+  window.open(URL.createObjectURL(blob), '_blank');
+});
+
+document.getElementById('lpTplDetailRefineBtn').addEventListener('click', async () => {
+  const template = lpState.currentTemplate;
+  if (!template) return;
+  const btn = document.getElementById('lpTplDetailRefineBtn');
+  const statusEl = document.getElementById('lpTplDetailRefineStatus');
+  const errorEl = document.getElementById('lpTemplateDetailError');
+  errorEl.classList.add('hidden');
+  const feedback = document.getElementById('lpTplDetailFeedback').value;
+  if (!feedback.trim()) {
+    errorEl.textContent = 'Vul feedback in om het voorstel aan te passen.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+  let huidigBlueprint;
+  let huidigeVoorbeeldBlocks;
+  try {
+    huidigBlueprint = JSON.parse(document.getElementById('lpTplDetailBlueprintJson').value || '{}');
+    huidigeVoorbeeldBlocks = JSON.parse(document.getElementById('lpTplDetailVoorbeeldJson').value || '[]');
+  } catch (err) {
+    errorEl.textContent = 'Ongeldige JSON in Blueprint JSON of Voorbeeldcontent: ' + err.message;
+    errorEl.classList.remove('hidden');
+    return;
+  }
+  btn.disabled = true;
+  statusEl.textContent = 'Bezig met verwerken... (dit kan 10-30 seconden duren)';
+  try {
+    const { blueprint, voorbeeldBlocks } = await lpApi('/templates/refine', {
+      method: 'POST',
+      body: JSON.stringify({
+        klant: document.getElementById('lpTplDetailKlant').value,
+        naam: template.naam,
+        huidigBlueprint,
+        huidigeVoorbeeldBlocks,
+        feedback
+      })
+    });
+    document.getElementById('lpTplDetailBlueprintJson').value = JSON.stringify(blueprint, null, 2);
+    document.getElementById('lpTplDetailVoorbeeldJson').value = JSON.stringify(voorbeeldBlocks, null, 2);
+    statusEl.textContent = 'Voorstel aangepast — bekijk het voorbeeld en klik op "Blueprint opslaan" als je het wilt bewaren.';
+    document.getElementById('lpTplDetailFeedback').value = '';
+    await refreshTemplateDetailPreview();
+  } catch (err) {
+    statusEl.textContent = '';
+    errorEl.textContent = err.message;
+    errorEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 document.getElementById('lpTplStatusSelect').addEventListener('change', async (e) => {
   const template = lpState.currentTemplate;

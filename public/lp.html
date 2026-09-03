@@ -23,7 +23,7 @@
   .lp-subpanel.hidden { display: none; }
   #lpContentJson { width: 100%; min-height: 320px; font-family: monospace; font-size: 13px; }
   #lpPreviewFrame { width: 100%; height: 600px; border: 1px solid #e3e1dc; background: #fff; }
-  #lpTplPreviewFrame { width: 100%; height: 900px; border: 1px solid #e3e1dc; background: #fff; margin-top: 8px; }
+  #lpTplPreviewFrame, #lpTplDetailPreviewFrame { width: 100%; height: 900px; border: 1px solid #e3e1dc; background: #fff; margin-top: 8px; }
   .lp-feit-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
   .lp-feit-row .lp-feit-bron { color: #888; font-size: 12px; }
   .lp-msg-list { margin: 0; padding-left: 18px; }
@@ -253,6 +253,29 @@
       </div>
       <button type="button" id="lpTplSaveBlueprintBtn" class="btn btn-approve">Blueprint opslaan</button>
       <span id="lpTplSaved" class="admin-footnote"></span>
+
+      <div class="admin-section-title" style="margin-top:24px;">Verder finetunen met AI (optioneel)</div>
+      <p class="admin-footnote">
+        Pas dit BESTAANDE sjabloon aan via een prompt, zonder een nieuw sjabloon aan te hoeven maken.
+        Werkt met de Blueprint JSON hierboven en wordt pas opgeslagen als je zelf op "Blueprint opslaan"
+        klikt &mdash; zo kun je hier net zo vaak op testen zonder dat er telkens een nieuw sjabloon in
+        Notion bijkomt.
+      </p>
+      <div class="lp-field-row">
+        <label for="lpTplDetailVoorbeeldJson">Voorbeeldcontent (voor het voorbeeld hieronder, wordt niet opgeslagen)</label>
+        <textarea id="lpTplDetailVoorbeeldJson" class="lp-json-textarea" spellcheck="false">[]</textarea>
+      </div>
+      <div class="lp-field-row">
+        <label for="lpTplDetailFeedback">Feedback / aanpassing</label>
+        <textarea id="lpTplDetailFeedback" rows="3" placeholder="bv. maak de hero groter, voeg een reviews-blok toe, minder tekst in de intro"></textarea>
+      </div>
+      <button type="button" id="lpTplDetailRefineBtn" class="btn-plain">Verwerk feedback in voorstel</button>
+      <span id="lpTplDetailRefineStatus" class="admin-footnote"></span>
+
+      <div class="admin-section-title" style="margin-top:16px;">Voorbeeld</div>
+      <button type="button" id="lpTplDetailPreviewBtn" class="btn-plain">Ververs voorbeeld</button>
+      <button type="button" id="lpTplDetailPreviewOpenBtn" class="btn-plain">Open in nieuw tabblad</button>
+      <iframe id="lpTplDetailPreviewFrame"></iframe>
     </div>
   </div>
 
