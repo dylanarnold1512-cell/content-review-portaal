@@ -124,4 +124,40 @@ Structuurwensen: ${wens || '(niet opgegeven)'}`;
   };
 }
 
-module.exports = { generateBlueprintProposal };
+// Finetune-ronde: past een AL BESTAAND voorstel aan op basis van Dylans
+// feedback, in plaats van opnieuw vanaf nul te genereren — zodat wat al goed
+// was (bijv. de tone-of-voice van de teksten) niet verloren gaat bij een
+// kleine aanpassing ("maak de hero groter", "voeg een reviews-blok toe").
+async function refineBlueprintProposal({ klant, naam, huidigBlueprint, huidigeVoorbeeldBlocks, feedback }) {
+  if (!feedback || !feedback.trim()) {
+    throw new Error('Vul feedback in om het voorstel aan te passen.');
+  }
+  const systemPrompt = `${buildSystemPrompt()}
+
+Dit keer krijg je ook het HUIDIGE voorstel en feedback van de gebruiker daarop. Pas het voorstel aan
+volgens de feedback en laat de rest ongewijzigd waar de feedback er niet over gaat — dit is een
+finetune-ronde, geen nieuw ontwerp vanaf nul. Geef het VOLLEDIGE aangepaste resultaat terug, in
+hetzelfde JSON-formaat als hierboven omschreven ({ "blueprint": ..., "voorbeeldBlocks": ... }).`;
+
+  const userPrompt = `Klant: ${klant}
+Naam van dit sjabloon: ${naam}
+
+Huidig blueprint:
+${JSON.stringify(huidigBlueprint, null, 2)}
+
+Huidige voorbeeldBlocks:
+${JSON.stringify(huidigeVoorbeeldBlocks, null, 2)}
+
+Feedback van de gebruiker: ${feedback}`;
+
+  const result = await callOpenAi({ systemPrompt, userPrompt });
+  if (!result || typeof result !== 'object' || !result.blueprint) {
+    throw new Error('OpenAI-antwoord miste het verwachte veld "blueprint".');
+  }
+  return {
+    blueprint: result.blueprint,
+    voorbeeldBlocks: Array.isArray(result.voorbeeldBlocks) ? result.voorbeeldBlocks : []
+  };
+}
+
+module.exports = { generateBlueprintProposal, refineBlueprintProposal };

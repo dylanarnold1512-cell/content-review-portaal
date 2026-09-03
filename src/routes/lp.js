@@ -147,6 +147,21 @@ router.post('/templates/generate', requireLpInternal, async (req, res) => {
   }
 });
 
+// Finetune-ronde op een al gegenereerd (of handmatig aangepast) voorstel —
+// zie src/lp/ai.js, refineBlueprintProposal.
+router.post('/templates/refine', requireLpInternal, async (req, res) => {
+  try {
+    const { klant, naam, huidigBlueprint, huidigeVoorbeeldBlocks, feedback } = req.body || {};
+    if (!klant || !naam) {
+      return res.status(400).json({ error: 'klant en naam zijn verplicht.' });
+    }
+    const proposal = await ai.refineBlueprintProposal({ klant, naam, huidigBlueprint, huidigeVoorbeeldBlocks, feedback });
+    res.json(proposal);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // Rendert losse blokken (bv. de AI-voorbeeldblokken, of handmatig getweakte
 // voorbeeldcontent) met de echte klant-branding — voor het live voorbeeld in
 // het Sjablonen-scherm. Raakt geen Notion/WordPress aan, analoog aan
