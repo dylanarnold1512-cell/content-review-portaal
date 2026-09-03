@@ -22,7 +22,7 @@
   .lp-subtab-btn.active { border-bottom-color: #111; font-weight: 600; }
   .lp-subpanel.hidden { display: none; }
   #lpContentJson { width: 100%; min-height: 320px; font-family: monospace; font-size: 13px; }
-  #lpPreviewFrame { width: 100%; height: 600px; border: 1px solid #e3e1dc; background: #fff; }
+  #lpPreviewFrame, #lpTplPreviewFrame { width: 100%; height: 600px; border: 1px solid #e3e1dc; background: #fff; }
   .lp-feit-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
   .lp-feit-row .lp-feit-bron { color: #888; font-size: 12px; }
   .lp-msg-list { margin: 0; padding-left: 18px; }
@@ -133,40 +133,71 @@
       <button type="button" id="lpTemplateNewBackBtn" class="btn-plain">&larr; Terug naar sjablonen</button>
       <div id="lpTemplateNewError" class="admin-error hidden"></div>
       <div class="admin-section-title">Nieuw sjabloon</div>
-      <form id="lpTemplateNewForm">
-        <div class="lp-field-row">
-          <label for="lpTplNewNaam">Naam</label>
-          <input type="text" id="lpTplNewNaam" required autocomplete="off">
+
+      <div class="lp-field-row">
+        <label for="lpTplNewNaam">Naam</label>
+        <input type="text" id="lpTplNewNaam" required autocomplete="off">
+      </div>
+      <div class="lp-field-row">
+        <label for="lpTplNewKlant">Klant (bv. roots, jmb)</label>
+        <input type="text" id="lpTplNewKlant" required autocomplete="off">
+      </div>
+
+      <div class="admin-section-title" style="margin-top:20px;">Voorstel laten genereren met AI (optioneel)</div>
+      <p class="admin-footnote">
+        Vul hieronder in wat voor pagina dit moet worden, laat een voorstel genereren, bekijk het
+        voorbeeld en pas de Blueprint JSON en de voorbeeldblokken hieronder verder aan tot het goed is
+        &mdash; pas daarna klik je op "Aanmaken". Je kunt dit ook overslaan en de Blueprint JSON meteen
+        handmatig invullen.
+      </p>
+      <div class="lp-field-row">
+        <label for="lpTplNewPaginatype">Paginatype / referentie</label>
+        <input type="text" id="lpTplNewPaginatype" placeholder="bv. festivalpagina, of een link/omschrijving van een pagina die je aanspreekt" autocomplete="off">
+      </div>
+      <div class="lp-field-row">
+        <label for="lpTplNewWens">Structuurwensen</label>
+        <textarea id="lpTplNewWens" rows="4" placeholder="bv. moet een hero, praktische info, 3 interne links en een duidelijke CTA hebben"></textarea>
+      </div>
+      <button type="button" id="lpTplGenerateBtn" class="btn-plain">Genereer voorstel met AI</button>
+      <span id="lpTplGenerateStatus" class="admin-footnote"></span>
+
+      <div class="lp-columns" style="margin-top:16px;">
+        <div class="lp-col">
+          <div class="lp-field-row">
+            <label for="lpTplNewStatus">Status</label>
+            <select id="lpTplNewStatus">
+              <option>Concept</option>
+              <option>Actief</option>
+              <option>Gearchiveerd</option>
+            </select>
+          </div>
+          <div class="lp-field-row">
+            <label for="lpTplNewBlueprintId">BlueprintId (bv. roots-event)</label>
+            <input type="text" id="lpTplNewBlueprintId" required autocomplete="off">
+          </div>
+          <div class="lp-field-row">
+            <label for="lpTplNewBlueprintJson">Blueprint JSON</label>
+            <textarea id="lpTplNewBlueprintJson" class="lp-json-textarea" spellcheck="false"></textarea>
+          </div>
+          <p class="admin-footnote">
+            Verwachte velden: invoerVelden, verplichteBlokken, optioneleBlokken, uniciteitsbudget,
+            linkRegels, ctaRegel, seoRegels. Kopieer eventueel eerst een bestaand sjabloon (open het in
+            de lijst, kopieer de Blueprint JSON) als startpunt.
+          </p>
         </div>
-        <div class="lp-field-row">
-          <label for="lpTplNewKlant">Klant (bv. roots, jmb)</label>
-          <input type="text" id="lpTplNewKlant" required autocomplete="off">
+        <div class="lp-col">
+          <div class="lp-field-row">
+            <label for="lpTplNewVoorbeeldJson">Voorbeeldcontent (voor het voorbeeld hieronder, wordt niet opgeslagen)</label>
+            <textarea id="lpTplNewVoorbeeldJson" class="lp-json-textarea" spellcheck="false"></textarea>
+          </div>
+          <button type="button" id="lpTplPreviewBtn" class="btn-plain">Ververs voorbeeld</button>
+          <iframe id="lpTplPreviewFrame"></iframe>
         </div>
-        <div class="lp-field-row">
-          <label for="lpTplNewBlueprintId">BlueprintId (bv. roots-event)</label>
-          <input type="text" id="lpTplNewBlueprintId" required autocomplete="off">
-        </div>
-        <div class="lp-field-row">
-          <label for="lpTplNewStatus">Status</label>
-          <select id="lpTplNewStatus">
-            <option>Concept</option>
-            <option>Actief</option>
-            <option>Gearchiveerd</option>
-          </select>
-        </div>
-        <div class="lp-field-row">
-          <label for="lpTplNewBlueprintJson">Blueprint JSON</label>
-          <textarea id="lpTplNewBlueprintJson" class="lp-json-textarea" spellcheck="false"></textarea>
-        </div>
-        <p class="admin-footnote">
-          Verwachte velden: invoerVelden, verplichteBlokken, optioneleBlokken, uniciteitsbudget,
-          linkRegels, ctaRegel, seoRegels. Kopieer eventueel eerst een bestaand sjabloon (open het in de
-          lijst, kopieer de Blueprint JSON) als startpunt.
-        </p>
-        <div class="modal-actions">
-          <button type="submit" class="btn btn-approve">Aanmaken</button>
-        </div>
-      </form>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" id="lpTplCreateBtn" class="btn btn-approve">Aanmaken</button>
+      </div>
     </div>
   </div>
 

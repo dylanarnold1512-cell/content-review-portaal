@@ -421,10 +421,15 @@ document.getElementById('lpPublishBtn').addEventListener('click', async () => {
   }
 });
 
-// ---- Sjablonen (bouwstap 6, bouwvolgorde-stap 2: lijst + handmatig
-// aanmaken/bewerken, nog zonder AI — zie besluiten.md) ----
+// ---- Sjablonen (bouwstap 6). Stap 2 (lijst + handmatig aanmaken/bewerken)
+// en stap 3 (AI-voorstel + live voorbeeld + finetunen) — zie besluiten.md.
 document.getElementById('lpNewTemplateBtn').addEventListener('click', () => {
-  document.getElementById('lpTemplateNewForm').reset();
+  document.getElementById('lpTplNewNaam').value = '';
+  document.getElementById('lpTplNewKlant').value = '';
+  document.getElementById('lpTplNewPaginatype').value = '';
+  document.getElementById('lpTplNewWens').value = '';
+  document.getElementById('lpTplNewStatus').value = 'Concept';
+  document.getElementById('lpTplNewBlueprintId').value = '';
   document.getElementById('lpTplNewBlueprintJson').value = JSON.stringify({
     invoerVelden: [],
     verplichteBlokken: [],
@@ -434,6 +439,9 @@ document.getElementById('lpNewTemplateBtn').addEventListener('click', () => {
     ctaRegel: {},
     seoRegels: {}
   }, null, 2);
+  document.getElementById('lpTplNewVoorbeeldJson').value = '[]';
+  document.getElementById('lpTplPreviewFrame').srcdoc = '';
+  document.getElementById('lpTplGenerateStatus').textContent = '';
   document.getElementById('lpTemplateNewError').classList.add('hidden');
   document.getElementById('lpSjablonenTab').classList.add('hidden');
   document.getElementById('lpTemplateNewSection').classList.remove('hidden');
@@ -467,19 +475,77 @@ function renderTemplatesTable() {
   });
 }
 
-document.getElementById('lpTemplateNewForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
+document.getElementById('lpTplGenerateBtn').addEventListener('click', async () => {
+  const statusEl = document.getElementById('lpTplGenerateStatus');
+  const errorEl = document.getElementById('lpTemplateNewError');
+  errorEl.classList.add('hidden');
+  const naam = document.getElementById('lpTplNewNaam').value;
+  const klant = document.getElementById('lpTplNewKlant').value;
+  if (!naam || !klant) {
+    errorEl.textContent = 'Vul eerst Naam en Klant in voordat je een voorstel laat genereren.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+  const paginatype = document.getElementById('lpTplNewPaginatype').value;
+  const wens = document.getElementById('lpTplNewWens').value;
+  statusEl.textContent = 'Bezig met genereren...';
+  try {
+    const { blueprint, voorbeeldBlocks } = await lpApi('/templates/generate', {
+      method: 'POST',
+      body: JSON.stringify({ klant, naam, paginatype, wens })
+    });
+    document.getElementById('lpTplNewBlueprintJson').value = JSON.stringify(blueprint, null, 2);
+    document.getElementById('lpTplNewVoorbeeldJson').value = JSON.stringify(voorbeeldBlocks, null, 2);
+    if (!document.getElementById('lpTplNewBlueprintId').value) {
+      document.getElementById('lpTplNewBlueprintId').value = naam
+        .toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    }
+    statusEl.textContent = 'Voorstel gegenereerd — bekijk het voorbeeld en pas aan waar nodig.';
+    await refreshTemplatePreview();
+  } catch (err) {
+    statusEl.textContent = '';
+    errorEl.textContent = err.message;
+    errorEl.classList.remove('hidden');
+  }
+});
+
+async function refreshTemplatePreview() {
+  const klant = document.getElementById('lpTplNewKlant').value;
+  const frame = document.getElementById('lpTplPreviewFrame');
+  if (!klant) {
+    frame.srcdoc = '<p style="font-family:sans-serif;padding:2rem;color:#666;">Vul eerst Klant in.</p>';
+    return;
+  }
+  let blocks;
+  try {
+    blocks = JSON.parse(document.getElementById('lpTplNewVoorbeeldJson').value || '[]');
+  } catch (err) {
+    frame.srcdoc = `<p style="font-family:sans-serif;padding:2rem;color:#b00020;">Ongeldige JSON: ${err.message}</p>`;
+    return;
+  }
+  const { html } = await lpApi('/templates/preview', { method: 'POST', body: JSON.stringify({ klant, blocks }) });
+  frame.srcdoc = html;
+}
+
+document.getElementById('lpTplPreviewBtn').addEventListener('click', refreshTemplatePreview);
+
+document.getElementById('lpTplCreateBtn').addEventListener('click', async () => {
   const errorEl = document.getElementById('lpTemplateNewError');
   errorEl.classList.add('hidden');
   const naam = document.getElementById('lpTplNewNaam').value;
   const klant = document.getElementById('lpTplNewKlant').value;
   const blueprintId = document.getElementById('lpTplNewBlueprintId').value;
   const status = document.getElementById('lpTplNewStatus').value;
+  if (!naam || !klant || !blueprintId) {
+    errorEl.textContent = 'Naam, Klant en BlueprintId zijn verplicht.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
   let blueprint;
   try {
     blueprint = JSON.parse(document.getElementById('lpTplNewBlueprintJson').value || '{}');
   } catch (err) {
-    errorEl.textContent = 'Ongeldige JSON: ' + err.message;
+    errorEl.textContent = 'Ongeldige JSON in de Blueprint JSON: ' + err.message;
     errorEl.classList.remove('hidden');
     return;
   }

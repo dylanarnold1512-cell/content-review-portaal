@@ -6,6 +6,7 @@ const express = require('express');
 const { getLpClient, clients: lpClients } = require('../lp/clients');
 const lpNotion = require('../lp/notion');
 const templates = require('../lp/templates');
+const ai = require('../lp/ai');
 const { renderPageHtml } = require('../lp/render');
 const { validatePage } = require('../lp/validator');
 const { pushDraft } = require('../lp/wordpress');
@@ -124,6 +125,43 @@ router.put('/templates/:templateId/status', requireLpInternal, async (req, res) 
     await templates.setTemplateStatus(req.params.templateId, status);
     const template = await templates.getTemplate(req.params.templateId);
     res.json({ template });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// AI-gestuurde sjabloongeneratie (bouwvolgorde-stap 3). Levert alleen een
+// voorstel terug (blueprint + placeholder-voorbeeldblokken) — slaat niets
+// op. Dylan bekijkt/finetunet het voorstel en slaat het pas op via de
+// bestaande POST /templates hierboven. Zie src/lp/ai.js.
+router.post('/templates/generate', requireLpInternal, async (req, res) => {
+  try {
+    const { klant, naam, paginatype, wens } = req.body || {};
+    if (!klant || !naam) {
+      return res.status(400).json({ error: 'klant en naam zijn verplicht om een voorstel te genereren.' });
+    }
+    const proposal = await ai.generateBlueprintProposal({ klant, naam, paginatype, wens });
+    res.json(proposal);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Rendert losse blokken (bv. de AI-voorbeeldblokken, of handmatig getweakte
+// voorbeeldcontent) met de echte klant-branding — voor het live voorbeeld in
+// het Sjablonen-scherm. Raakt geen Notion/WordPress aan, analoog aan
+// /pages/:pageId/preview hieronder maar niet gebonden aan een opgeslagen
+// pagina.
+router.post('/templates/preview', requireLpInternal, async (req, res) => {
+  try {
+    const { klant, blocks } = req.body || {};
+    if (!klant) return res.status(400).json({ error: 'klant is verplicht.' });
+    const list = Array.isArray(blocks) ? blocks : [];
+    if (!list.length) {
+      return res.json({ html: '<p style="font-family:sans-serif;padding:2rem;color:#666;">Nog geen voorbeeldblokken.</p>' });
+    }
+    const html = renderPageHtml({ clientId: klant, slug: 'sjabloon-voorbeeld', blocks: list });
+    res.json({ html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${html}</body></html>` });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
