@@ -1,13 +1,15 @@
 // Register van LP Fabriek klanten. Analoog aan blocks/index.js: hier een
-// klant bijzetten (profiel + feiten + blueprints) om 'm beschikbaar te maken,
-// verder niks elders aanpassen. JMB komt hier bij in bouwstap 5.
+// klant bijzetten (profiel + feiten) om 'm beschikbaar te maken, verder niks
+// elders aanpassen. JMB komt hier bij in bouwstap 5.
+//
+// Blueprints staan HIER NIET MEER (voorheen src/lp/clients/*/blueprints/*.js)
+// — die zijn verhuisd naar de Notion-database "Sjablonen" (src/lp/templates.js),
+// zodat ze via het portaal zelf ontworpen/aangepast kunnen worden zonder
+// deploy. Zie besluiten.md, "Verduidelijking: tweestappenproces per klant".
 
 const roots = {
   profile: require('./roots/profile'),
-  feiten: require('./roots/feiten').feiten,
-  blueprints: {
-    'roots-event': require('./roots/blueprints/event')
-  }
+  feiten: require('./roots/feiten').feiten
 };
 
 const clients = { roots };
@@ -18,11 +20,4 @@ function getLpClient(clientId) {
   return client;
 }
 
-function getBlueprint(clientId, blueprintId) {
-  const client = getLpClient(clientId);
-  const blueprint = client.blueprints[blueprintId];
-  if (!blueprint) throw new Error(`Onbekende blueprint "${blueprintId}" voor klant "${clientId}"`);
-  return blueprint;
-}
-
-module.exports = { clients, getLpClient, getBlueprint };
+module.exports = { clients, getLpClient };

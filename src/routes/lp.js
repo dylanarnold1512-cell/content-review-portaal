@@ -3,8 +3,9 @@
 // kunnen hier nooit bij, zie besluiten.md "Portaal: een app, twee zones".
 
 const express = require('express');
-const { getLpClient, getBlueprint, clients: lpClients } = require('../lp/clients');
+const { getLpClient, clients: lpClients } = require('../lp/clients');
 const lpNotion = require('../lp/notion');
+const templates = require('../lp/templates');
 const { renderPageHtml } = require('../lp/render');
 const { validatePage } = require('../lp/validator');
 const { pushDraft } = require('../lp/wordpress');
@@ -35,24 +36,29 @@ router.get('/me', (req, res) => {
 });
 
 // Klanten + hun blueprints, voor de dropdowns in het formulier-scherm.
-router.get('/clients', requireLpInternal, (req, res) => {
-  const overzicht = Object.keys(lpClients).map((clientId) => {
-    const client = lpClients[clientId];
-    return {
-      id: clientId,
-      naam: client.profile.naam,
-      blueprints: Object.keys(client.blueprints).map((blueprintId) => ({
-        id: blueprintId,
-        naam: client.blueprints[blueprintId].naam
-      }))
-    };
-  });
-  res.json({ clients: overzicht });
+router.get('/clients', requireLpInternal, async (req, res) => {
+  try {
+    const overzicht = await Promise.all(Object.keys(lpClients).map(async (clientId) => {
+      const client = lpClients[clientId];
+      const actieveSjablonen = await templates.listTemplates({ klant: clientId, status: 'Actief' });
+      return {
+        id: clientId,
+        naam: client.profile.naam,
+        blueprints: actieveSjablonen.map((sjabloon) => ({
+          id: sjabloon.blueprintId,
+          naam: sjabloon.naam
+        }))
+      };
+    }));
+    res.json({ clients: overzicht });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-router.get('/clients/:clientId/blueprints/:blueprintId', requireLpInternal, (req, res) => {
+router.get('/clients/:clientId/blueprints/:blueprintId', requireLpInternal, async (req, res) => {
   try {
-    const blueprint = getBlueprint(req.params.clientId, req.params.blueprintId);
+    const blueprint = await templates.getActiveTemplateByBlueprintId(req.params.clientId, req.params.blueprintId);
     res.json({ blueprint });
   } catch (err) {
     res.status(404).json({ error: err.message });
@@ -85,7 +91,7 @@ router.post('/pages', requireLpInternal, async (req, res) => {
       return res.status(400).json({ error: 'klant, blueprint en titel zijn verplicht.' });
     }
     // Valideer dat klant/blueprint bestaan voordat we een Notion-pagina aanmaken.
-    getBlueprint(klant, blueprint);
+    await templates.getActiveTemplateByBlueprintId(klant, blueprint);
     const page = await lpNotion.createPage({ klant, blueprint, titel, slug, invoer });
     res.json({ page });
   } catch (err) {
@@ -164,7 +170,7 @@ router.get('/pages/:pageId/preview', requireLpInternal, async (req, res) => {
 router.get('/pages/:pageId/validate', requireLpInternal, async (req, res) => {
   try {
     const page = await lpNotion.getPage(req.params.pageId);
-    const blueprint = getBlueprint(page.klant, page.blueprint);
+    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
     const result = validatePage({ blueprint, contentJson: page.content || {} });
     res.json(result);
   } catch (err) {
@@ -178,7 +184,7 @@ router.get('/pages/:pageId/validate', requireLpInternal, async (req, res) => {
 router.post('/pages/:pageId/publish', requireLpInternal, async (req, res) => {
   try {
     const page = await lpNotion.getPage(req.params.pageId);
-    const blueprint = getBlueprint(page.klant, page.blueprint);
+    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
     const content = page.content;
     if (!content || !Array.isArray(content.blocks) || !content.blocks.length) {
       return res.status(400).json({ error: 'Geen content JSON om te publiceren.' });
