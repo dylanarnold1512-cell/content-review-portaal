@@ -787,6 +787,7 @@ async function openTemplateDetail(templateId) {
   document.getElementById('lpTplDetailPreviewFrame').srcdoc = '';
   document.getElementById('lpTemplateDetailError').classList.add('hidden');
   document.getElementById('lpTplSaved').textContent = '';
+  document.getElementById('lpTplDeleteError').classList.add('hidden');
 }
 
 async function refreshTemplateDetailPreview() {
@@ -890,6 +891,32 @@ document.getElementById('lpTplStatusSelect').addEventListener('change', async (e
   });
   lpState.currentTemplate = updated;
   document.getElementById('lpTplDetailStatusBadge').textContent = updated.status;
+});
+
+document.getElementById('lpTplDeleteBtn').addEventListener('click', async () => {
+  const template = lpState.currentTemplate;
+  if (!template) return;
+  const errorEl = document.getElementById('lpTplDeleteError');
+  errorEl.classList.add('hidden');
+  const zeker = confirm(
+    `Sjabloon "${template.naam}" verwijderen? Dit kan niet ongedaan gemaakt worden vanuit het portaal ` +
+    `(de pagina belandt in Notion's prullenbak). Weet je het zeker?`
+  );
+  if (!zeker) return;
+  const btn = document.getElementById('lpTplDeleteBtn');
+  btn.disabled = true;
+  try {
+    await lpApi(`/templates/${template.id}`, { method: 'DELETE' });
+    document.getElementById('lpTemplateDetailSection').classList.add('hidden');
+    document.getElementById('lpSjablonenTab').classList.remove('hidden');
+    lpState.currentTemplate = null;
+    await loadTemplates();
+  } catch (err) {
+    errorEl.textContent = formatApiError(err);
+    errorEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+  }
 });
 
 document.getElementById('lpTplSaveBlueprintBtn').addEventListener('click', async () => {

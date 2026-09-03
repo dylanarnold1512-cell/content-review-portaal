@@ -143,6 +143,26 @@ router.put('/templates/:templateId/status', requireLpInternal, async (req, res) 
   }
 });
 
+// Verwijdert een sjabloon. Weigert bewust als het sjabloon nog Actief is —
+// eerst op Concept/Gearchiveerd zetten, dan pas verwijderen. Dit voorkomt
+// dat per ongeluk het sjabloon onder bestaande of toekomstige pagina's
+// wordt weggehaald (zie besluiten.md, 03-09-2026: precies dit ging al
+// bijna mis toen een Actief sjabloon per ongeluk op Concept kwam te staan).
+router.delete('/templates/:templateId', requireLpInternal, async (req, res) => {
+  try {
+    const template = await templates.getTemplate(req.params.templateId);
+    if (template.status === 'Actief') {
+      return res.status(400).json({
+        error: 'Dit sjabloon staat op Actief en kan niet verwijderd worden. Zet de status eerst op Concept of Gearchiveerd.'
+      });
+    }
+    await templates.deleteTemplate(req.params.templateId);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // AI-gestuurde sjabloongeneratie (bouwvolgorde-stap 3, koerswijziging naar
 // vrije templates). Levert alleen een voorstel terug (blueprint +
 // placeholder-voorbeeldSlotData) — slaat niets op. Dylan bekijkt/finetunet

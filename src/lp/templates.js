@@ -211,6 +211,15 @@ async function setTemplateStatus(templateId, status) {
   await client.pages.update({ page_id: templateId, properties: { Status: { select: { name: status } } } });
 }
 
+// Verwijdert een sjabloon (archiveert de Notion-pagina — Notion's eigen
+// prullenbak, geen harde delete). De aanroeper (routes/lp.js) weigert dit
+// bewust als het sjabloon nog op Status "Actief" staat, zodat er nooit
+// per ongeluk het sjabloon onder bestaande/live pagina's wordt weggehaald.
+async function deleteTemplate(templateId) {
+  const client = getNotionClient();
+  await client.pages.update({ page_id: templateId, archived: true });
+}
+
 module.exports = {
   TEMPLATES_DATABASE_ID,
   listTemplates,
@@ -218,5 +227,6 @@ module.exports = {
   getActiveTemplateByBlueprintId,
   createTemplate,
   updateTemplateBlueprint,
-  setTemplateStatus
+  setTemplateStatus,
+  deleteTemplate
 };

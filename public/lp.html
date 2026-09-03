@@ -24,6 +24,8 @@
   #lpContentJson { width: 100%; min-height: 320px; font-family: monospace; font-size: 13px; }
   #lpPreviewFrame { width: 100%; height: 600px; border: 1px solid #e3e1dc; background: #fff; }
   #lpTplPreviewFrame, #lpTplDetailPreviewFrame { width: 100%; height: 900px; border: 1px solid #e3e1dc; background: #fff; margin-top: 8px; }
+  .lp-btn-danger { color: #b3261e; border-color: #f2c6c2; }
+  .lp-btn-danger:hover { background: #fdecea; }
   .lp-feit-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
   .lp-feit-row .lp-feit-bron { color: #888; font-size: 12px; }
   .lp-msg-list { margin: 0; padding-left: 18px; }
@@ -262,7 +264,9 @@
             <option>Gearchiveerd</option>
           </select>
         </div>
+        <button type="button" id="lpTplDeleteBtn" class="btn-plain lp-btn-danger">Sjabloon verwijderen</button>
       </div>
+      <div id="lpTplDeleteError" class="admin-error hidden"></div>
       <p class="admin-footnote">
         Naam, klant en BlueprintId zijn hier alleen-lezen &mdash; pas die zo nodig rechtstreeks in Notion aan
         via de pagina-eigenschappen (niet de body, zie besluiten.md). Alleen de blueprint-inhoud en de
