@@ -29,6 +29,7 @@
   .lp-msg-list.errors li { color: #b00020; }
   .lp-msg-list.warnings li { color: #8a6100; }
   .lp-detail-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .lp-json-textarea { width: 100%; min-height: 320px; font-family: monospace; font-size: 13px; }
 </style>
 </head>
 <body>
@@ -63,6 +64,7 @@
   <div class="tab-nav" id="lpTabNav">
     <button type="button" class="tab-btn active" data-lp-tab="paginas">Pagina's</button>
     <button type="button" class="tab-btn" data-lp-tab="nieuw">Nieuwe pagina</button>
+    <button type="button" class="tab-btn" data-lp-tab="sjablonen">Sjablonen</button>
   </div>
 
   <div id="lpPaginasTab" class="tab-panel">
@@ -105,6 +107,100 @@
           <button type="submit" class="btn btn-approve">Aanmaken</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <div id="lpSjablonenTab" class="tab-panel hidden">
+    <div class="admin-layout">
+      <div id="lpTemplatesError" class="admin-error hidden"></div>
+      <div class="lp-detail-header">
+        <div class="admin-section-title">Sjablonen</div>
+        <button type="button" id="lpNewTemplateBtn" class="btn btn-approve">+ Nieuw sjabloon</button>
+      </div>
+      <p class="admin-footnote">
+        Eenmalig per klant/paginatype (bouwstap 6, stap 1 van het tweestappenproces, zie besluiten.md).
+        Alleen een sjabloon met status "Actief" is bruikbaar bij het aanmaken van een nieuwe pagina.
+      </p>
+      <table class="lp-table">
+        <thead><tr><th>Naam</th><th>Klant</th><th>BlueprintId</th><th>Status</th><th>Laatst gewijzigd</th></tr></thead>
+        <tbody id="lpTemplatesTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="lpTemplateNewSection" class="tab-panel hidden">
+    <div class="admin-layout">
+      <button type="button" id="lpTemplateNewBackBtn" class="btn-plain">&larr; Terug naar sjablonen</button>
+      <div id="lpTemplateNewError" class="admin-error hidden"></div>
+      <div class="admin-section-title">Nieuw sjabloon</div>
+      <form id="lpTemplateNewForm">
+        <div class="lp-field-row">
+          <label for="lpTplNewNaam">Naam</label>
+          <input type="text" id="lpTplNewNaam" required autocomplete="off">
+        </div>
+        <div class="lp-field-row">
+          <label for="lpTplNewKlant">Klant (bv. roots, jmb)</label>
+          <input type="text" id="lpTplNewKlant" required autocomplete="off">
+        </div>
+        <div class="lp-field-row">
+          <label for="lpTplNewBlueprintId">BlueprintId (bv. roots-event)</label>
+          <input type="text" id="lpTplNewBlueprintId" required autocomplete="off">
+        </div>
+        <div class="lp-field-row">
+          <label for="lpTplNewStatus">Status</label>
+          <select id="lpTplNewStatus">
+            <option>Concept</option>
+            <option>Actief</option>
+            <option>Gearchiveerd</option>
+          </select>
+        </div>
+        <div class="lp-field-row">
+          <label for="lpTplNewBlueprintJson">Blueprint JSON</label>
+          <textarea id="lpTplNewBlueprintJson" class="lp-json-textarea" spellcheck="false"></textarea>
+        </div>
+        <p class="admin-footnote">
+          Verwachte velden: invoerVelden, verplichteBlokken, optioneleBlokken, uniciteitsbudget,
+          linkRegels, ctaRegel, seoRegels. Kopieer eventueel eerst een bestaand sjabloon (open het in de
+          lijst, kopieer de Blueprint JSON) als startpunt.
+        </p>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-approve">Aanmaken</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="lpTemplateDetailSection" class="tab-panel hidden">
+    <div class="admin-layout">
+      <button type="button" id="lpTemplateBackBtn" class="btn-plain">&larr; Terug naar sjablonen</button>
+      <div class="lp-detail-header">
+        <div>
+          <div class="admin-section-title" id="lpTplDetailNaam">&mdash;</div>
+          <span class="lp-badge" id="lpTplDetailStatusBadge">&mdash;</span>
+        </div>
+        <div class="lp-field-row" style="max-width:220px;margin:0;">
+          <label for="lpTplStatusSelect">Status</label>
+          <select id="lpTplStatusSelect">
+            <option>Concept</option>
+            <option>Actief</option>
+            <option>Gearchiveerd</option>
+          </select>
+        </div>
+      </div>
+      <p class="admin-footnote">
+        Naam, klant en BlueprintId zijn hier alleen-lezen &mdash; pas die zo nodig rechtstreeks in Notion aan
+        via de pagina-eigenschappen (niet de body, zie besluiten.md). Alleen de blueprint-inhoud en de
+        status worden via dit scherm bewerkt.
+      </p>
+      <div id="lpTemplateDetailError" class="admin-error hidden"></div>
+      <div class="lp-field-row"><label>Klant</label><input type="text" id="lpTplDetailKlant" disabled></div>
+      <div class="lp-field-row"><label>BlueprintId</label><input type="text" id="lpTplDetailBlueprintId" disabled></div>
+      <div class="lp-field-row">
+        <label for="lpTplDetailBlueprintJson">Blueprint JSON</label>
+        <textarea id="lpTplDetailBlueprintJson" class="lp-json-textarea" spellcheck="false"></textarea>
+      </div>
+      <button type="button" id="lpTplSaveBlueprintBtn" class="btn btn-approve">Blueprint opslaan</button>
+      <span id="lpTplSaved" class="admin-footnote"></span>
     </div>
   </div>
 

@@ -2,7 +2,7 @@
 // met /api/lp/*, die achter requireLpInternal zit (los wachtwoord, zie
 // besluiten.md "Portaal: een app, twee zones").
 
-let lpState = { clients: [], pages: [], currentPage: null, feitenById: new Map() };
+let lpState = { clients: [], pages: [], currentPage: null, feitenById: new Map(), templates: [], currentTemplate: null };
 
 const BLOCK_TEMPLATES = {
   hero: { type: 'hero', data: { title: '', intro: '', cta: { label: '', href: '' } } },
@@ -69,7 +69,11 @@ function switchLpTab(tab) {
   });
   document.getElementById('lpPaginasTab').classList.toggle('hidden', tab !== 'paginas');
   document.getElementById('lpNieuwTab').classList.toggle('hidden', tab !== 'nieuw');
+  document.getElementById('lpSjablonenTab').classList.toggle('hidden', tab !== 'sjablonen');
   document.getElementById('lpDetailSection').classList.add('hidden');
+  document.getElementById('lpTemplateNewSection').classList.add('hidden');
+  document.getElementById('lpTemplateDetailSection').classList.add('hidden');
+  if (tab === 'sjablonen') loadTemplates();
 }
 document.querySelectorAll('#lpTabNav .tab-btn').forEach((btn) => {
   btn.addEventListener('click', () => switchLpTab(btn.dataset.lpTab));
@@ -77,6 +81,15 @@ document.querySelectorAll('#lpTabNav .tab-btn').forEach((btn) => {
 document.getElementById('lpBackBtn').addEventListener('click', () => {
   document.getElementById('lpDetailSection').classList.add('hidden');
   document.getElementById('lpPaginasTab').classList.remove('hidden');
+});
+document.getElementById('lpTemplateNewBackBtn').addEventListener('click', () => {
+  document.getElementById('lpTemplateNewSection').classList.add('hidden');
+  document.getElementById('lpSjablonenTab').classList.remove('hidden');
+});
+document.getElementById('lpTemplateBackBtn').addEventListener('click', () => {
+  document.getElementById('lpTemplateDetailSection').classList.add('hidden');
+  document.getElementById('lpSjablonenTab').classList.remove('hidden');
+  loadTemplates();
 });
 
 // ---- Subtabs (detailscherm) ----
@@ -405,6 +418,139 @@ document.getElementById('lpPublishBtn').addEventListener('click', async () => {
   } catch (err) {
     if (err.data && err.data.validation) renderValidation(err.data.validation);
     resultEl.innerHTML = `<p class="admin-error">${err.message}</p>`;
+  }
+});
+
+// ---- Sjablonen (bouwstap 6, bouwvolgorde-stap 2: lijst + handmatig
+// aanmaken/bewerken, nog zonder AI — zie besluiten.md) ----
+document.getElementById('lpNewTemplateBtn').addEventListener('click', () => {
+  document.getElementById('lpTemplateNewForm').reset();
+  document.getElementById('lpTplNewBlueprintJson').value = JSON.stringify({
+    invoerVelden: [],
+    verplichteBlokken: [],
+    optioneleBlokken: [],
+    uniciteitsbudget: {},
+    linkRegels: {},
+    ctaRegel: {},
+    seoRegels: {}
+  }, null, 2);
+  document.getElementById('lpTemplateNewError').classList.add('hidden');
+  document.getElementById('lpSjablonenTab').classList.add('hidden');
+  document.getElementById('lpTemplateNewSection').classList.remove('hidden');
+});
+
+async function loadTemplates() {
+  const errorEl = document.getElementById('lpTemplatesError');
+  errorEl.classList.add('hidden');
+  try {
+    const { templates } = await lpApi('/templates');
+    lpState.templates = templates;
+    renderTemplatesTable();
+  } catch (err) {
+    errorEl.textContent = err.message;
+    errorEl.classList.remove('hidden');
+  }
+}
+
+function renderTemplatesTable() {
+  const tbody = document.getElementById('lpTemplatesTableBody');
+  tbody.innerHTML = lpState.templates.map((t) => `
+    <tr class="lp-row" data-template-id="${t.id}">
+      <td>${t.naam || '(zonder naam)'}</td>
+      <td>${t.klant || ''}</td>
+      <td>${t.blueprintId || ''}</td>
+      <td><span class="lp-badge">${t.status || ''}</span></td>
+      <td>${t.laatstGewijzigd ? new Date(t.laatstGewijzigd).toLocaleString('nl-NL') : ''}</td>
+    </tr>`).join('') || '<tr><td colspan="5">Nog geen sjablonen.</td></tr>';
+  tbody.querySelectorAll('tr.lp-row').forEach((row) => {
+    row.addEventListener('click', () => openTemplateDetail(row.dataset.templateId));
+  });
+}
+
+document.getElementById('lpTemplateNewForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorEl = document.getElementById('lpTemplateNewError');
+  errorEl.classList.add('hidden');
+  const naam = document.getElementById('lpTplNewNaam').value;
+  const klant = document.getElementById('lpTplNewKlant').value;
+  const blueprintId = document.getElementById('lpTplNewBlueprintId').value;
+  const status = document.getElementById('lpTplNewStatus').value;
+  let blueprint;
+  try {
+    blueprint = JSON.parse(document.getElementById('lpTplNewBlueprintJson').value || '{}');
+  } catch (err) {
+    errorEl.textContent = 'Ongeldige JSON: ' + err.message;
+    errorEl.classList.remove('hidden');
+    return;
+  }
+  try {
+    const { template } = await lpApi('/templates', {
+      method: 'POST',
+      body: JSON.stringify({ naam, klant, blueprintId, status, blueprint })
+    });
+    document.getElementById('lpTemplateNewSection').classList.add('hidden');
+    document.getElementById('lpSjablonenTab').classList.remove('hidden');
+    await loadTemplates();
+    openTemplateDetail(template.id);
+  } catch (err) {
+    errorEl.textContent = err.message;
+    errorEl.classList.remove('hidden');
+  }
+});
+
+async function openTemplateDetail(templateId) {
+  const { template } = await lpApi(`/templates/${templateId}`);
+  lpState.currentTemplate = template;
+
+  document.getElementById('lpSjablonenTab').classList.add('hidden');
+  document.getElementById('lpTemplateDetailSection').classList.remove('hidden');
+
+  document.getElementById('lpTplDetailNaam').textContent = template.naam;
+  document.getElementById('lpTplDetailStatusBadge').textContent = template.status;
+  document.getElementById('lpTplStatusSelect').value = template.status;
+  document.getElementById('lpTplDetailKlant').value = template.klant || '';
+  document.getElementById('lpTplDetailBlueprintId').value = template.blueprintId || '';
+  document.getElementById('lpTplDetailBlueprintJson').value = JSON.stringify(template.blueprint || {}, null, 2);
+  document.getElementById('lpTemplateDetailError').classList.add('hidden');
+  document.getElementById('lpTplSaved').textContent = '';
+}
+
+document.getElementById('lpTplStatusSelect').addEventListener('change', async (e) => {
+  const template = lpState.currentTemplate;
+  if (!template) return;
+  const { template: updated } = await lpApi(`/templates/${template.id}/status`, {
+    method: 'PUT',
+    body: JSON.stringify({ status: e.target.value })
+  });
+  lpState.currentTemplate = updated;
+  document.getElementById('lpTplDetailStatusBadge').textContent = updated.status;
+});
+
+document.getElementById('lpTplSaveBlueprintBtn').addEventListener('click', async () => {
+  const template = lpState.currentTemplate;
+  if (!template) return;
+  const errorEl = document.getElementById('lpTemplateDetailError');
+  errorEl.classList.add('hidden');
+  let blueprint;
+  try {
+    blueprint = JSON.parse(document.getElementById('lpTplDetailBlueprintJson').value || '{}');
+  } catch (err) {
+    errorEl.textContent = 'Ongeldige JSON: ' + err.message;
+    errorEl.classList.remove('hidden');
+    return;
+  }
+  try {
+    const { template: updated } = await lpApi(`/templates/${template.id}/blueprint`, {
+      method: 'PUT',
+      body: JSON.stringify({ blueprint })
+    });
+    lpState.currentTemplate = updated;
+    const savedEl = document.getElementById('lpTplSaved');
+    savedEl.textContent = 'Opgeslagen.';
+    setTimeout(() => (savedEl.textContent = ''), 2000);
+  } catch (err) {
+    errorEl.textContent = err.message;
+    errorEl.classList.remove('hidden');
   }
 });
 

@@ -74,6 +74,61 @@ router.get('/clients/:clientId/feiten', requireLpInternal, (req, res) => {
   }
 });
 
+// Sjablonen (in Notion, database "Sjablonen") — los van Pagina's hieronder.
+// Bouwstap 6, bouwvolgorde-stap 2: lijst + handmatig aanmaken/bewerken, nog
+// zonder AI (AI komt in bouwvolgorde-stap 3). Zie besluiten.md.
+router.get('/templates', requireLpInternal, async (req, res) => {
+  try {
+    const items = await templates.listTemplates({ klant: req.query.klant, status: req.query.status });
+    res.json({ templates: items });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/templates', requireLpInternal, async (req, res) => {
+  try {
+    const { klant, naam, blueprintId, status, blueprint } = req.body || {};
+    if (!klant || !naam || !blueprintId || !blueprint) {
+      return res.status(400).json({ error: 'klant, naam, blueprintId en blueprint zijn verplicht.' });
+    }
+    const template = await templates.createTemplate({ klant, naam, blueprintId, status, blueprint });
+    res.json({ template });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.get('/templates/:templateId', requireLpInternal, async (req, res) => {
+  try {
+    const template = await templates.getTemplate(req.params.templateId);
+    res.json({ template });
+  } catch (err) {
+    res.status(404).json({ error: err.message });
+  }
+});
+
+router.put('/templates/:templateId/blueprint', requireLpInternal, async (req, res) => {
+  try {
+    const template = await templates.updateTemplateBlueprint(req.params.templateId, req.body?.blueprint ?? null);
+    res.json({ template });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.put('/templates/:templateId/status', requireLpInternal, async (req, res) => {
+  try {
+    const { status } = req.body || {};
+    if (!status) return res.status(400).json({ error: 'status is verplicht.' });
+    await templates.setTemplateStatus(req.params.templateId, status);
+    const template = await templates.getTemplate(req.params.templateId);
+    res.json({ template });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // Pagina's (in Notion, database "Landingspagina's").
 router.get('/pages', requireLpInternal, async (req, res) => {
   try {
