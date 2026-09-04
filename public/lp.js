@@ -331,6 +331,33 @@ document.getElementById('lpStatusSelect').addEventListener('change', async (e) =
   await loadPages();
 });
 
+document.getElementById('lpPageDeleteBtn').addEventListener('click', async () => {
+  const page = lpState.currentPage;
+  if (!page) return;
+  const btn = document.getElementById('lpPageDeleteBtn');
+  if (btn.disabled) return;
+  const errorEl = document.getElementById('lpPageDeleteError');
+  errorEl.classList.add('hidden');
+  const wpMelding = page.wpPaginaId
+    ? ' Dit verwijdert de pagina ook echt uit WordPress (naar de WordPress-prullenbak, dus daar nog terug te halen als het toch niet de bedoeling was).'
+    : ' Deze pagina staat nog niet in WordPress, dus alleen de pagina hier in het portaal verdwijnt.';
+  const zeker = confirm(`Weet je zeker dat je de pagina "${page.titel}" wilt verwijderen?${wpMelding}`);
+  if (!zeker) return;
+  setBtnLoading(btn, true, 'Bezig met verwijderen...');
+  try {
+    await lpApi(`/pages/${page.id}`, { method: 'DELETE' });
+    document.getElementById('lpDetailSection').classList.add('hidden');
+    document.getElementById('lpPaginasTab').classList.remove('hidden');
+    lpState.currentPage = null;
+    await loadPages();
+  } catch (err) {
+    errorEl.textContent = formatApiError(err);
+    errorEl.classList.remove('hidden');
+  } finally {
+    setBtnLoading(btn, false);
+  }
+});
+
 // -- Invoer --
 function renderInvoerFields(page, blueprint) {
   const container = document.getElementById('lpInvoerFields');

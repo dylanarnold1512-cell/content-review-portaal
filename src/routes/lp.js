@@ -11,7 +11,7 @@ const { buildHuisstijlVoorstel } = require('../lp/huisstijl');
 const ai = require('../lp/ai');
 const { renderPageHtml } = require('../lp/render');
 const { validatePage, validateTemplateStructure } = require('../lp/validator');
-const { pushDraft } = require('../lp/wordpress');
+const { pushDraft, deletePage: deleteWpPage } = require('../lp/wordpress');
 const { checkLpPassword, requireLpInternal } = require('../middleware/auth');
 
 const router = express.Router();
@@ -444,6 +444,24 @@ router.get('/pages/:pageId/validate', requireLpInternal, async (req, res) => {
 // Zet de pagina als CONCEPT in WordPress (nooit live, zie src/lp/wordpress.js
 // en het harde uitgangspunt "nooit automatisch publiceren" in besluiten.md).
 // Weigert als de validator fouten geeft.
+router.delete('/pages/:pageId', requireLpInternal, async (req, res) => {
+  try {
+    const page = await lpNotion.getPage(req.params.pageId);
+    // Als de pagina ooit naar WordPress gepusht is (concept of live), eerst
+    // daar verwijderen (naar de WordPress-prullenbak, zie wordpress.js). Lukt
+    // dat niet, dan stoppen we hier en laten we de Notion-pagina met rust —
+    // liever een duidelijke foutmelding dan een weespagina in WordPress.
+    if (page.wpPaginaId) {
+      const client = getLpClient(page.klant);
+      await deleteWpPage({ profile: client.profile, wpPaginaId: page.wpPaginaId });
+    }
+    await lpNotion.deletePage(req.params.pageId);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 router.post('/pages/:pageId/publish', requireLpInternal, async (req, res) => {
   try {
     const page = await lpNotion.getPage(req.params.pageId);

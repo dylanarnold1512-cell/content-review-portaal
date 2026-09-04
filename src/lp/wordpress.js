@@ -57,4 +57,24 @@ async function pushDraft({ profile, wpPaginaId, titel, html }) {
   return { id: data.id, link: data.link };
 }
 
-module.exports = { pushDraft };
+// Verwijdert een pagina uit WordPress. Gebruikt bewust GEEN force=true —
+// de pagina gaat naar de WordPress-prullenbak (30 dagen recover baar via
+// WordPress zelf), net zoals sjablonen in Notion op "Gearchiveerd" gezet
+// worden in plaats van echt weg te gooien. Zie ook de veiligheidsgrens
+// hierboven bij pushDraft: net als publiceren blijft ook verwijderen iets
+// wat je bewust vanuit het portaal doet, met een bevestiging in de UI.
+async function deletePage({ profile, wpPaginaId }) {
+  const { url, username, appPassword } = getWpConfig(profile);
+  const res = await fetch(`${url}/wp-json/wp/v2/pages/${wpPaginaId}`, {
+    method: 'DELETE',
+    headers: { Authorization: authHeader(username, appPassword) }
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const message = data?.message || res.statusText;
+    throw new Error(`WordPress-fout bij verwijderen (${res.status}): ${message}`);
+  }
+  return data;
+}
+
+module.exports = { pushDraft, deletePage };

@@ -280,6 +280,11 @@ async function setWordpressInfo(pageId, { wpPaginaId, wpUrl }) {
   await client.pages.update({ page_id: pageId, properties });
 }
 
+async function deletePage(pageId) {
+  const client = getNotionClient();
+  await client.pages.update({ page_id: pageId, archived: true });
+}
+
 module.exports = {
   LP_DATABASE_ID,
   listPages,
@@ -287,5 +292,6 @@ module.exports = {
   createPage,
   updateSection,
   setStatus,
-  setWordpressInfo
+  setWordpressInfo,
+  deletePage
 };
