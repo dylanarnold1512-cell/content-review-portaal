@@ -50,4 +50,4 @@ function extractStructureOutline(html) {
   return { headings, knoppenEnLinks, aantalAfbeeldingen };
 }
 
-module.exports = { fetchReferenceSummary };
+module.exports = { fetchReferenceSummary, extractStructureOutline };

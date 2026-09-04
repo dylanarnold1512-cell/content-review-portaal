@@ -71,6 +71,7 @@
     <button type="button" class="tab-btn active" data-lp-tab="paginas">Pagina's</button>
     <button type="button" class="tab-btn" data-lp-tab="nieuw">Nieuwe pagina</button>
     <button type="button" class="tab-btn" data-lp-tab="sjablonen">Sjablonen</button>
+    <button type="button" class="tab-btn" data-lp-tab="intake">Nieuwe klant</button>
   </div>
 
   <div id="lpPaginasTab" class="tab-panel">
@@ -131,6 +132,118 @@
         <thead><tr><th>Naam</th><th>Klant</th><th>BlueprintId</th><th>Status</th><th>Laatst gewijzigd</th></tr></thead>
         <tbody id="lpTemplatesTableBody"></tbody>
       </table>
+    </div>
+  </div>
+
+  <div id="lpIntakeTab" class="tab-panel hidden">
+    <div class="admin-layout">
+      <div id="lpIntakeError" class="admin-error hidden"></div>
+      <div class="admin-section-title">Klant-intake</div>
+      <p class="admin-footnote">
+        Nieuwe klant invullen. Na verzenden komt de intake in Notion te staan met status "Nieuw" — de
+        uurlijkse automatische verwerking zet 'm om naar de klantbestanden in de repo (profile.js,
+        feiten.js, tokens.js) en deployed. Git blijft de bron van waarheid voor klantprofielen, deze
+        database is alleen een wachtruimte (zie besluiten.md).
+      </p>
+
+      <table class="lp-table">
+        <thead><tr><th>Klantnaam</th><th>KlantId</th><th>Status</th><th>Aangemaakt</th></tr></thead>
+        <tbody id="lpIntakesTableBody"></tbody>
+      </table>
+
+      <div class="admin-section-title" style="margin-top:24px;">Nieuwe klant toevoegen</div>
+
+      <div class="lp-columns">
+        <div class="lp-col">
+          <div class="lp-field-row">
+            <label for="lpIntakeKlantnaam">Klantnaam</label>
+            <input type="text" id="lpIntakeKlantnaam" placeholder="bv. JMB Meesterwerken" autocomplete="off">
+          </div>
+          <div class="lp-field-row">
+            <label for="lpIntakeKlantId">KlantId (slug, alleen kleine letters/cijfers/koppeltekens)</label>
+            <input type="text" id="lpIntakeKlantId" placeholder="bv. jmb" autocomplete="off">
+          </div>
+          <div class="lp-field-row">
+            <label for="lpIntakeTaal">Taal</label>
+            <select id="lpIntakeTaal">
+              <option value="nl" selected>Nederlands</option>
+              <option value="en">Engels</option>
+            </select>
+          </div>
+          <div class="lp-field-row">
+            <label for="lpIntakeToonNotitie">Toon-notitie</label>
+            <textarea id="lpIntakeToonNotitie" rows="2" placeholder="bv. informeel-vriendelijk, korte zinnen, geen overdreven marketingtaal"></textarea>
+          </div>
+          <div class="lp-field-row">
+            <label for="lpIntakeNietToegestaan">Wat niet mag (één per regel)</label>
+            <textarea id="lpIntakeNietToegestaan" rows="4" placeholder="bv. Concurrenten bij naam noemen."></textarea>
+          </div>
+        </div>
+        <div class="lp-col">
+          <p class="admin-footnote" style="margin-top:0;">
+            WordPress-koppeling: alleen de NAMEN van de env-vars, nooit de echte inloggegevens. Zet de
+            echte waarden zelf in Render/.env zodra de klant is aangemaakt (zelfde patroon als Roots).
+          </p>
+          <div class="lp-field-row">
+            <label for="lpIntakeWpUrlEnv">Env-var naam: site-URL</label>
+            <input type="text" id="lpIntakeWpUrlEnv" placeholder="bv. WP_URL_JMB" autocomplete="off">
+          </div>
+          <div class="lp-field-row">
+            <label for="lpIntakeWpUserEnv">Env-var naam: gebruikersnaam</label>
+            <input type="text" id="lpIntakeWpUserEnv" placeholder="bv. WP_USERNAME_JMB" autocomplete="off">
+          </div>
+          <div class="lp-field-row">
+            <label for="lpIntakeWpPassEnv">Env-var naam: app-wachtwoord</label>
+            <input type="text" id="lpIntakeWpPassEnv" placeholder="bv. WP_APP_PASSWORD_JMB" autocomplete="off">
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-section-title" style="margin-top:20px;">Feitenbibliotheek</div>
+      <p class="admin-footnote">Elk feit heeft een eigen bron (bronprincipe, besluit 8). Zonder bron hoort een feit hier niet in.</p>
+      <div id="lpIntakeFeitenRows"></div>
+      <button type="button" id="lpIntakeFeitAddBtn" class="btn-plain">+ Feit toevoegen</button>
+
+      <div class="admin-section-title" style="margin-top:20px;">Huisstijl-analyse</div>
+      <p class="admin-footnote">
+        Vul de eigen website van de klant in en laat de AI kleuren en lettertype analyseren. Bekijk en
+        pas het voorstel aan voordat je de intake verzendt.
+      </p>
+      <div class="lp-field-row">
+        <label for="lpIntakeReferentieUrl">Website van de klant</label>
+        <input type="url" id="lpIntakeReferentieUrl" placeholder="https://..." autocomplete="off">
+      </div>
+      <button type="button" id="lpIntakeAnalyseerBtn" class="btn-plain">Analyseer huisstijl</button>
+      <span id="lpIntakeAnalyseerStatus" class="admin-footnote"></span>
+
+      <div id="lpIntakeVoorstelSection" class="hidden" style="margin-top:12px;">
+        <p id="lpIntakeSamenvatting" class="admin-footnote"></p>
+        <ul id="lpIntakeTwijfels" class="lp-msg-list warnings"></ul>
+        <div class="lp-columns">
+          <div class="lp-col">
+            <div class="lp-field-row"><label for="lpTokenPrimary">primary</label><input type="text" id="lpTokenPrimary"></div>
+            <div class="lp-field-row"><label for="lpTokenPrimaryDark">primaryDark</label><input type="text" id="lpTokenPrimaryDark"></div>
+            <div class="lp-field-row"><label for="lpTokenSecondary">secondary</label><input type="text" id="lpTokenSecondary"></div>
+            <div class="lp-field-row"><label for="lpTokenText">text</label><input type="text" id="lpTokenText"></div>
+            <div class="lp-field-row"><label for="lpTokenTextMuted">textMuted</label><input type="text" id="lpTokenTextMuted"></div>
+            <div class="lp-field-row"><label for="lpTokenBg">bg</label><input type="text" id="lpTokenBg"></div>
+            <div class="lp-field-row"><label for="lpTokenBgAlt">bgAlt</label><input type="text" id="lpTokenBgAlt"></div>
+          </div>
+          <div class="lp-col">
+            <div class="lp-field-row"><label for="lpTokenBorder">border</label><input type="text" id="lpTokenBorder"></div>
+            <div class="lp-field-row"><label for="lpTokenMaxWidth">maxWidth</label><input type="text" id="lpTokenMaxWidth"></div>
+            <div class="lp-field-row"><label for="lpTokenRadius">radius</label><input type="text" id="lpTokenRadius"></div>
+            <div class="lp-field-row"><label for="lpTokenFontHeading">fontHeading</label><input type="text" id="lpTokenFontHeading"></div>
+            <div class="lp-field-row"><label for="lpTokenFontBody">fontBody</label><input type="text" id="lpTokenFontBody"></div>
+            <div class="lp-field-row"><label for="lpTokenCtaBg">ctaBg</label><input type="text" id="lpTokenCtaBg"></div>
+            <div class="lp-field-row"><label for="lpTokenCtaText">ctaText</label><input type="text" id="lpTokenCtaText"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions" style="margin-top:16px;">
+        <button type="button" id="lpIntakeSubmitBtn" class="btn btn-approve">Intake verzenden</button>
+      </div>
     </div>
   </div>
 

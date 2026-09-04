@@ -333,6 +333,7 @@ ${JSON.stringify(bestaandePaginas || [], null, 2)}`;
 
 module.exports = {
   VASTE_ONDERDELEN_OPTIES,
+  callOpenAi,
   generateTemplateProposal,
   refineTemplateProposal,
   generatePageContent

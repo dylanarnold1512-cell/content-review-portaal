@@ -117,10 +117,12 @@ function switchLpTab(tab) {
   document.getElementById('lpPaginasTab').classList.toggle('hidden', tab !== 'paginas');
   document.getElementById('lpNieuwTab').classList.toggle('hidden', tab !== 'nieuw');
   document.getElementById('lpSjablonenTab').classList.toggle('hidden', tab !== 'sjablonen');
+  document.getElementById('lpIntakeTab').classList.toggle('hidden', tab !== 'intake');
   document.getElementById('lpDetailSection').classList.add('hidden');
   document.getElementById('lpTemplateNewSection').classList.add('hidden');
   document.getElementById('lpTemplateDetailSection').classList.add('hidden');
   if (tab === 'sjablonen') loadTemplates();
+  if (tab === 'intake') loadIntakes();
 }
 document.querySelectorAll('#lpTabNav .tab-btn').forEach((btn) => {
   btn.addEventListener('click', () => switchLpTab(btn.dataset.lpTab));
@@ -947,6 +949,172 @@ document.getElementById('lpTplSaveBlueprintBtn').addEventListener('click', async
   } catch (err) {
     errorEl.textContent = formatApiError(err);
     errorEl.classList.remove('hidden');
+  }
+});
+
+// ---- Klant-intake (nieuwe klant toevoegen) ----
+let lpIntakeFeitRowCount = 0;
+
+function addIntakeFeitRow(prefill) {
+  const container = document.getElementById('lpIntakeFeitenRows');
+  const rowId = 'lpIntakeFeit' + (lpIntakeFeitRowCount++);
+  const wrapper = document.createElement('div');
+  wrapper.className = 'lp-columns';
+  wrapper.dataset.feitRow = rowId;
+  wrapper.style.marginBottom = '8px';
+  wrapper.innerHTML = `
+    <div class="lp-col"><input type="text" class="lp-feit-label" placeholder="Label (bv. Adres receptie)" value="${(prefill && prefill.label) || ''}"></div>
+    <div class="lp-col"><input type="text" class="lp-feit-waarde" placeholder="Waarde" value="${(prefill && prefill.waarde) || ''}"></div>
+    <div class="lp-col"><input type="text" class="lp-feit-bron" placeholder="Bron" value="${(prefill && prefill.bron) || ''}"></div>
+    <button type="button" class="btn-plain lp-feit-remove">Verwijder</button>
+  `;
+  wrapper.querySelector('.lp-feit-remove').addEventListener('click', () => wrapper.remove());
+  container.appendChild(wrapper);
+}
+
+document.getElementById('lpIntakeFeitAddBtn').addEventListener('click', () => addIntakeFeitRow());
+
+function collectIntakeFeiten() {
+  return Array.from(document.querySelectorAll('#lpIntakeFeitenRows [data-feit-row]'))
+    .map((row) => ({
+      label: row.querySelector('.lp-feit-label').value.trim(),
+      waarde: row.querySelector('.lp-feit-waarde').value.trim(),
+      bron: row.querySelector('.lp-feit-bron').value.trim()
+    }))
+    .filter((f) => f.label && f.waarde && f.bron);
+}
+
+const LP_TOKEN_FIELD_IDS = {
+  primary: 'lpTokenPrimary', primaryDark: 'lpTokenPrimaryDark', secondary: 'lpTokenSecondary',
+  text: 'lpTokenText', textMuted: 'lpTokenTextMuted', bg: 'lpTokenBg', bgAlt: 'lpTokenBgAlt',
+  border: 'lpTokenBorder', maxWidth: 'lpTokenMaxWidth', radius: 'lpTokenRadius',
+  fontHeading: 'lpTokenFontHeading', fontBody: 'lpTokenFontBody', ctaBg: 'lpTokenCtaBg', ctaText: 'lpTokenCtaText'
+};
+
+function fillTokenFields(tokensVoorstel) {
+  Object.entries(LP_TOKEN_FIELD_IDS).forEach(([key, id]) => {
+    document.getElementById(id).value = (tokensVoorstel && tokensVoorstel[key]) || '';
+  });
+}
+
+function collectTokenFields() {
+  const tokens = {};
+  Object.entries(LP_TOKEN_FIELD_IDS).forEach(([key, id]) => {
+    tokens[key] = document.getElementById(id).value.trim();
+  });
+  return tokens;
+}
+
+async function loadIntakes() {
+  const errorEl = document.getElementById('lpIntakeError');
+  errorEl.classList.add('hidden');
+  try {
+    const { intakes } = await lpApi('/intake');
+    const tbody = document.getElementById('lpIntakesTableBody');
+    tbody.innerHTML = intakes.map((i) => `
+      <tr>
+        <td>${i.klantnaam || ''}</td>
+        <td>${i.klantId || ''}</td>
+        <td><span class="lp-badge">${i.status || ''}</span></td>
+        <td>${i.aangemaakt ? new Date(i.aangemaakt).toLocaleString('nl-NL') : ''}</td>
+      </tr>`).join('') || '<tr><td colspan="4">Nog geen intakes.</td></tr>';
+  } catch (err) {
+    errorEl.textContent = err.message;
+    errorEl.classList.remove('hidden');
+  }
+}
+
+document.getElementById('lpIntakeAnalyseerBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('lpIntakeAnalyseerBtn');
+  const statusEl = document.getElementById('lpIntakeAnalyseerStatus');
+  const errorEl = document.getElementById('lpIntakeError');
+  errorEl.classList.add('hidden');
+  const referentieUrl = document.getElementById('lpIntakeReferentieUrl').value;
+  if (!referentieUrl.trim()) {
+    errorEl.textContent = 'Vul eerst de website van de klant in.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+  btn.disabled = true;
+  statusEl.textContent = 'Bezig met analyseren... (kan 10-30 seconden duren)';
+  try {
+    const { tokensVoorstel, samenvatting, twijfels } = await lpApi('/intake/analyseer-huisstijl', {
+      method: 'POST',
+      body: JSON.stringify({ referentieUrl })
+    });
+    fillTokenFields(tokensVoorstel);
+    document.getElementById('lpIntakeSamenvatting').textContent = samenvatting || '';
+    const twijfelsEl = document.getElementById('lpIntakeTwijfels');
+    twijfelsEl.innerHTML = (twijfels || []).map((t) => `<li>${t}</li>`).join('');
+    document.getElementById('lpIntakeVoorstelSection').classList.remove('hidden');
+    statusEl.textContent = 'Voorstel klaar — controleer de kleuren en het lettertype hieronder.';
+  } catch (err) {
+    statusEl.textContent = '';
+    errorEl.textContent = err.message;
+    errorEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('lpIntakeSubmitBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('lpIntakeSubmitBtn');
+  const errorEl = document.getElementById('lpIntakeError');
+  errorEl.classList.add('hidden');
+
+  const klantnaam = document.getElementById('lpIntakeKlantnaam').value.trim();
+  const klantId = document.getElementById('lpIntakeKlantId').value.trim().toLowerCase();
+  if (!klantnaam || !klantId) {
+    errorEl.textContent = 'Klantnaam en KlantId zijn verplicht.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+  if (!/^[a-z0-9-]+$/.test(klantId)) {
+    errorEl.textContent = 'KlantId mag alleen kleine letters, cijfers en koppeltekens bevatten.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  const intake = {
+    klantnaam,
+    taal: document.getElementById('lpIntakeTaal').value,
+    wpEnvNamen: {
+      urlEnv: document.getElementById('lpIntakeWpUrlEnv').value.trim(),
+      usernameEnv: document.getElementById('lpIntakeWpUserEnv').value.trim(),
+      appPasswordEnv: document.getElementById('lpIntakeWpPassEnv').value.trim()
+    },
+    nietToegestaan: document.getElementById('lpIntakeNietToegestaan').value.split('\n').map((r) => r.trim()).filter(Boolean),
+    toonNotitie: document.getElementById('lpIntakeToonNotitie').value.trim(),
+    referentieUrl: document.getElementById('lpIntakeReferentieUrl').value.trim(),
+    huisstijlVoorstel: document.getElementById('lpIntakeVoorstelSection').classList.contains('hidden')
+      ? null
+      : {
+          tokensVoorstel: collectTokenFields(),
+          samenvatting: document.getElementById('lpIntakeSamenvatting').textContent
+        },
+    feiten: collectIntakeFeiten()
+  };
+
+  btn.disabled = true;
+  try {
+    await lpApi('/intake', { method: 'POST', body: JSON.stringify({ klantnaam, klantId, intake }) });
+    alert('Intake verzonden. De automatische verwerking pakt hem binnen een uur op.');
+    document.getElementById('lpIntakeKlantnaam').value = '';
+    document.getElementById('lpIntakeKlantId').value = '';
+    document.getElementById('lpIntakeToonNotitie').value = '';
+    document.getElementById('lpIntakeNietToegestaan').value = '';
+    document.getElementById('lpIntakeWpUrlEnv').value = '';
+    document.getElementById('lpIntakeWpUserEnv').value = '';
+    document.getElementById('lpIntakeWpPassEnv').value = '';
+    document.getElementById('lpIntakeReferentieUrl').value = '';
+    document.getElementById('lpIntakeFeitenRows').innerHTML = '';
+    document.getElementById('lpIntakeVoorstelSection').classList.add('hidden');
+    await loadIntakes();
+  } catch (err) {
+    errorEl.textContent = err.message;
+    errorEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
   }
 });
 

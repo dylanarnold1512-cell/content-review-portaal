@@ -6,6 +6,8 @@ const express = require('express');
 const { getLpClient, clients: lpClients } = require('../lp/clients');
 const lpNotion = require('../lp/notion');
 const templates = require('../lp/templates');
+const clientIntake = require('../lp/clientIntake');
+const { buildHuisstijlVoorstel } = require('../lp/huisstijl');
 const ai = require('../lp/ai');
 const { renderPageHtml } = require('../lp/render');
 const { validatePage, validateTemplateStructure } = require('../lp/validator');
@@ -72,6 +74,56 @@ router.get('/clients/:clientId/feiten', requireLpInternal, (req, res) => {
     res.json({ feiten: client.feiten });
   } catch (err) {
     res.status(404).json({ error: err.message });
+  }
+});
+
+// Klant-intake (nieuwe klant toevoegen). Git blijft de bron van waarheid
+// voor klantprofielen (besluit 4) — deze database in Notion is alleen een
+// wachtruimte tussen "Dylan heeft de intake ingevuld/bevestigd" en "de
+// bestanden staan in de repo en zijn gedeployed" (zie besluiten.md, "Klant-
+// intake in het portaal"). De uurlijkse automatische verwerking pakt
+// pagina's met Status "Nieuw" hier op.
+router.post('/intake/analyseer-huisstijl', requireLpInternal, async (req, res) => {
+  try {
+    const { referentieUrl } = req.body || {};
+    const voorstel = await buildHuisstijlVoorstel(referentieUrl);
+    res.json(voorstel);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.get('/intake', requireLpInternal, async (req, res) => {
+  try {
+    const items = await clientIntake.listIntakes({ status: req.query.status });
+    res.json({ intakes: items });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/intake/:intakeId', requireLpInternal, async (req, res) => {
+  try {
+    const item = await clientIntake.getIntake(req.params.intakeId);
+    res.json({ intake: item });
+  } catch (err) {
+    res.status(404).json({ error: err.message });
+  }
+});
+
+router.post('/intake', requireLpInternal, async (req, res) => {
+  try {
+    const { klantnaam, klantId, intake } = req.body || {};
+    if (!klantnaam || !klantId || !intake) {
+      return res.status(400).json({ error: 'klantnaam, klantId en intake zijn verplicht.' });
+    }
+    if (!/^[a-z0-9-]+$/.test(klantId)) {
+      return res.status(400).json({ error: 'klantId mag alleen kleine letters, cijfers en koppeltekens bevatten (bv. "jmb").' });
+    }
+    const item = await clientIntake.createIntake({ klantnaam, klantId, intake: { ...intake, klantId } });
+    res.json({ intake: item });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 
