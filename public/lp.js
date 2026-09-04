@@ -494,6 +494,14 @@ document.getElementById('lpGenerateContentBtn').addEventListener('click', async 
       body: JSON.stringify({ watGaatDezePaginaOver, ctaOverride })
     });
     document.getElementById('lpContentJson').value = JSON.stringify(slotData, null, 2);
+    // Het sjabloon definieert metaTitle/metaDescription als gewone slots (zo
+    // kan de AI ze meteen goed genereren), maar opgeslagen/gevalideerd wordt
+    // vanuit de aparte Meta title/Meta description velden hierboven. Zonder
+    // deze twee regels bleven die velden leeg na genereren, en zag de
+    // validator "Meta title ontbreekt" terwijl er wel degelijk een goede
+    // titel was gegenereerd (hij stond alleen nog niet op de juiste plek).
+    if (slotData.metaTitle) document.getElementById('lpMetaTitle').value = slotData.metaTitle;
+    if (slotData.metaDescription) document.getElementById('lpMetaDescription').value = slotData.metaDescription;
     statusEl.textContent = 'Voorstel gegenereerd — controleer en pas aan waar nodig, klik daarna op "Content JSON opslaan".';
   } catch (err) {
     statusEl.textContent = '';
