@@ -18,7 +18,6 @@ let lpState = {
   templates: [],
   currentTemplate: null,
   onderdelenOpties: [],
-  mediaSearch: { search: '', page: 1, totalPages: 1 },
   imageSwapSlotKey: null,
   imageSwapSearch: { search: '', page: 1, totalPages: 1 }
 };
@@ -468,157 +467,6 @@ function renderContentJson(page, blueprint) {
   const value = isSlot ? (content.slotData || {}) : (content.blocks || []);
   document.getElementById('lpContentJson').value = JSON.stringify(value, null, 2);
 
-  const mediaSection = document.getElementById('lpMediaPickerSection');
-  const afbeeldingSlots = isSlot ? (blueprint.slots || []).filter((s) => /ImageSrc$/.test(s.key)) : [];
-  mediaSection.classList.toggle('hidden', !isSlot || !afbeeldingSlots.length);
-  document.getElementById('lpMediaTargetSlot').innerHTML = afbeeldingSlots
-    .map((s) => `<option value="${s.key}">${s.label || s.key}</option>`).join('');
-  document.getElementById('lpMediaResults').innerHTML = '';
-  document.getElementById('lpMediaError').classList.add('hidden');
-  document.getElementById('lpMediaUploadInput').value = '';
-  document.getElementById('lpMediaResultsInfo').classList.add('hidden');
-  document.getElementById('lpMediaLoadMoreBtn').classList.add('hidden');
-  lpState.mediaSearch = { search: '', page: 1, totalPages: 1 };
-}
-
-function renderMediaItems(items, { append } = {}) {
-  const resultsEl = document.getElementById('lpMediaResults');
-  const infoEl = document.getElementById('lpMediaResultsInfo');
-  const loadMoreBtn = document.getElementById('lpMediaLoadMoreBtn');
-  if (!append) resultsEl.innerHTML = '';
-  if (!items.length && !append) {
-    resultsEl.innerHTML = '<p class="admin-footnote">Niets gevonden.</p>';
-  } else {
-    items.forEach((item) => {
-      const el = document.createElement('div');
-      el.className = 'lp-media-item';
-      el.innerHTML = `
-        <img src="${item.thumbnail}" alt="${item.alt || ''}" loading="lazy">
-        <span>${item.titel || '(zonder titel)'}</span>`;
-      el.addEventListener('click', () => gebruikMediaItem(item));
-      resultsEl.appendChild(el);
-    });
-  }
-  const { page, totalPages, total } = lpState.mediaSearch;
-  const nogMeer = page < totalPages;
-  loadMoreBtn.classList.toggle('hidden', !nogMeer);
-  if (total) {
-    infoEl.textContent = `Pagina ${page} van ${totalPages} (${total} afbeeldingen in totaal in de mediabibliotheek).`;
-    infoEl.classList.remove('hidden');
-  } else {
-    infoEl.classList.add('hidden');
-  }
-}
-
-document.getElementById('lpMediaSearchBtn').addEventListener('click', async () => {
-  const page = lpState.currentPage;
-  if (!page) return;
-  const btn = document.getElementById('lpMediaSearchBtn');
-  const errorEl = document.getElementById('lpMediaError');
-  errorEl.classList.add('hidden');
-  setBtnLoading(btn, true, 'Zoeken...');
-  try {
-    const search = document.getElementById('lpMediaSearch').value.trim();
-    const qs = new URLSearchParams({ page: '1' });
-    if (search) qs.set('search', search);
-    const { media, page: huidigePagina, totalPages, total } = await lpApi(`/clients/${page.klant}/media?${qs.toString()}`);
-    lpState.mediaSearch = { search, page: huidigePagina, totalPages, total };
-    renderMediaItems(media, { append: false });
-  } catch (err) {
-    errorEl.textContent = formatApiError(err);
-    errorEl.classList.remove('hidden');
-  } finally {
-    setBtnLoading(btn, false);
-  }
-});
-
-document.getElementById('lpMediaLoadMoreBtn').addEventListener('click', async () => {
-  const page = lpState.currentPage;
-  if (!page) return;
-  const btn = document.getElementById('lpMediaLoadMoreBtn');
-  const errorEl = document.getElementById('lpMediaError');
-  errorEl.classList.add('hidden');
-  const volgendePagina = lpState.mediaSearch.page + 1;
-  setBtnLoading(btn, true, 'Bezig met laden...');
-  try {
-    const qs = new URLSearchParams({ page: String(volgendePagina) });
-    if (lpState.mediaSearch.search) qs.set('search', lpState.mediaSearch.search);
-    const { media, page: huidigePagina, totalPages, total } = await lpApi(`/clients/${page.klant}/media?${qs.toString()}`);
-    lpState.mediaSearch = { search: lpState.mediaSearch.search, page: huidigePagina, totalPages, total };
-    renderMediaItems(media, { append: true });
-  } catch (err) {
-    errorEl.textContent = formatApiError(err);
-    errorEl.classList.remove('hidden');
-  } finally {
-    setBtnLoading(btn, false);
-  }
-});
-
-document.getElementById('lpMediaUploadBtn').addEventListener('click', async () => {
-  const page = lpState.currentPage;
-  if (!page) return;
-  const input = document.getElementById('lpMediaUploadInput');
-  const file = input.files && input.files[0];
-  const errorEl = document.getElementById('lpMediaError');
-  errorEl.classList.add('hidden');
-  if (!file) {
-    errorEl.textContent = 'Kies eerst een bestand om te uploaden.';
-    errorEl.classList.remove('hidden');
-    return;
-  }
-  const slotKey = document.getElementById('lpMediaTargetSlot').value;
-  if (!slotKey) {
-    errorEl.textContent = 'Kies eerst in welk veld de foto moet komen.';
-    errorEl.classList.remove('hidden');
-    return;
-  }
-  const btn = document.getElementById('lpMediaUploadBtn');
-  if (btn.disabled) return;
-  setBtnLoading(btn, true, 'Bezig met uploaden...');
-  try {
-    const dataUrl = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(reader.error || new Error('Bestand lezen is mislukt.'));
-      reader.readAsDataURL(file);
-    });
-    const dataBase64 = String(dataUrl).split(',')[1] || '';
-    const { media: item } = await lpApi(`/clients/${page.klant}/media/upload`, {
-      method: 'POST',
-      body: JSON.stringify({ filename: file.name, contentType: file.type, dataBase64 })
-    });
-    gebruikMediaItem(item);
-    document.getElementById('lpMediaResults').insertAdjacentHTML('afterbegin', `
-      <div class="lp-media-item">
-        <img src="${item.thumbnail}" alt="${item.alt || ''}" loading="lazy">
-        <span>${item.titel || file.name}</span>
-      </div>`);
-    input.value = '';
-  } catch (err) {
-    errorEl.textContent = formatApiError(err);
-    errorEl.classList.remove('hidden');
-  } finally {
-    setBtnLoading(btn, false);
-  }
-});
-
-function gebruikMediaItem(item) {
-  const textarea = document.getElementById('lpContentJson');
-  const slotKey = document.getElementById('lpMediaTargetSlot').value;
-  if (!slotKey) return;
-  let slotData;
-  try {
-    slotData = JSON.parse(textarea.value || '{}');
-  } catch (err) {
-    alert('De huidige Content JSON is ongeldig, fix dat eerst voordat je een afbeelding invult: ' + err.message);
-    return;
-  }
-  slotData[slotKey] = item.url;
-  const altKey = slotKey.replace(/ImageSrc$/, 'ImageAlt');
-  if (item.alt && altKey !== slotKey && (altKey in slotData)) {
-    slotData[altKey] = item.alt;
-  }
-  textarea.value = JSON.stringify(slotData, null, 2);
 }
 
 document.getElementById('lpInsertBlockBtn').addEventListener('click', () => {
@@ -644,7 +492,7 @@ document.getElementById('lpGenerateContentBtn').addEventListener('click', async 
   try {
     const watGaatDezePaginaOver = document.getElementById('lpInvoerOnderwerp').value;
     const ctaOverride = document.getElementById('lpInvoerCtaOverride').value;
-    const { slotData } = await lpApi(`/pages/${page.id}/generate-content`, {
+    const { slotData, imageWarning } = await lpApi(`/pages/${page.id}/generate-content`, {
       method: 'POST',
       body: JSON.stringify({ watGaatDezePaginaOver, ctaOverride })
     });
@@ -657,58 +505,14 @@ document.getElementById('lpGenerateContentBtn').addEventListener('click', async 
     // titel was gegenereerd (hij stond alleen nog niet op de juiste plek).
     if (slotData.metaTitle) document.getElementById('lpMetaTitle').value = slotData.metaTitle;
     if (slotData.metaDescription) document.getElementById('lpMetaDescription').value = slotData.metaDescription;
-    statusEl.textContent = 'Voorstel gegenereerd — controleer en pas aan waar nodig, klik daarna op "Content JSON opslaan".';
+    statusEl.textContent = imageWarning
+      ? `Voorstel gegenereerd (tekst + meta) — ${imageWarning} Controleer en klik daarna op "Content JSON opslaan".`
+      : `Voorstel gegenereerd (tekst, meta en afbeeldingen) — controleer en pas aan waar nodig (klik in het voorbeeldscherm op een afbeelding om te wisselen), klik daarna op "Content JSON opslaan".`;
   } catch (err) {
     statusEl.textContent = '';
     alert(formatApiError(err));
   } finally {
     btn.disabled = false;
-  }
-});
-
-document.getElementById('lpAutoImagesBtn').addEventListener('click', async () => {
-  const page = lpState.currentPage;
-  if (!page) return;
-  const btn = document.getElementById('lpAutoImagesBtn');
-  const statusEl = document.getElementById('lpAutoImagesStatus');
-  if (btn.disabled) return;
-  let slotData;
-  try {
-    slotData = JSON.parse(document.getElementById('lpContentJson').value || '{}');
-  } catch (err) {
-    alert('Ongeldige Content JSON, fix dat eerst: ' + err.message);
-    return;
-  }
-  const watGaatDezePaginaOver = document.getElementById('lpInvoerOnderwerp').value;
-  statusEl.textContent = '';
-  setBtnLoading(btn, true, 'Bezig met kiezen...');
-  try {
-    const { picks } = await lpApi(`/pages/${page.id}/auto-images`, {
-      method: 'POST',
-      body: JSON.stringify({ watGaatDezePaginaOver })
-    });
-    const gekozen = [];
-    const overgeslagen = [];
-    for (const [slotKey, pick] of Object.entries(picks || {})) {
-      if (pick && pick.url) {
-        slotData[slotKey] = pick.url;
-        const altKey = slotKey.replace(/ImageSrc$/, 'ImageAlt');
-        if (pick.alt && altKey !== slotKey) slotData[altKey] = pick.alt;
-        gekozen.push(slotKey);
-      } else {
-        overgeslagen.push(slotKey);
-      }
-    }
-    document.getElementById('lpContentJson').value = JSON.stringify(slotData, null, 2);
-    const extra = overgeslagen.length ? ` Geen goede match voor: ${overgeslagen.join(', ')}, vul die zelf in.` : '';
-    statusEl.textContent = gekozen.length
-      ? `Gekozen voor: ${gekozen.join(', ')}.${extra} Controleer en klik daarna op "Content JSON opslaan".`
-      : `Geen van de foto's in de mediabibliotheek paste goed genoeg, vul de afbeeldingen zelf in.`;
-  } catch (err) {
-    statusEl.textContent = '';
-    alert(formatApiError(err));
-  } finally {
-    setBtnLoading(btn, false);
   }
 });
 

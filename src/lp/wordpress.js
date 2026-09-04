@@ -83,6 +83,12 @@ async function deletePage({ profile, wpPaginaId }) {
 // foto's gewoon zoals altijd in wp-admin, dit doorzoekt alleen wat er al
 // staat zodat je niet hoeft te wisselen tussen het portaal en wp-admin om
 // een afbeelding-URL voor een slot te vinden.
+// Formaten die zowel gewoon in een browser tonen als door OpenAI's beeldherkenning worden
+// geaccepteerd (zie besluiten.md n.a.v. de "invalid_image_format"-fout) — een enkel oud
+// bestand in een ander formaat (svg/bmp/heic/pdf) in de mediabibliotheek van de klant mag
+// nooit de hele foto-keuze laten vastlopen.
+const ONDERSTEUNDE_AFBEELDING_MIMETYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+
 async function searchMedia({ profile, search, page, perPage }) {
   const { url, username, appPassword } = getWpConfig(profile);
   const huidigePagina = Number(page) > 0 ? Number(page) : 1;
@@ -90,7 +96,7 @@ async function searchMedia({ profile, search, page, perPage }) {
   const params = new URLSearchParams({
     per_page: String(aantalPerPagina),
     page: String(huidigePagina),
-    _fields: 'id,source_url,alt_text,title,media_details'
+    _fields: 'id,source_url,alt_text,title,media_details,mime_type'
   });
   if (search) params.set('search', search);
   const res = await fetch(`${url}/wp-json/wp/v2/media?${params.toString()}`, {
@@ -101,13 +107,18 @@ async function searchMedia({ profile, search, page, perPage }) {
     const message = data?.message || res.statusText;
     throw new Error(`WordPress-fout bij mediabibliotheek doorzoeken (${res.status}): ${message}`);
   }
-  const items = (Array.isArray(data) ? data : []).map((item) => ({
-    id: item.id,
-    url: item.source_url,
-    alt: item.alt_text || '',
-    titel: item.title?.rendered || '',
-    thumbnail: item.media_details?.sizes?.thumbnail?.source_url || item.source_url
-  }));
+  const items = (Array.isArray(data) ? data : [])
+    .filter((item) => ONDERSTEUNDE_AFBEELDING_MIMETYPES.has(item.mime_type))
+    .map((item) => ({
+      id: item.id,
+      url: item.source_url,
+      alt: item.alt_text || '',
+      titel: item.title?.rendered || '',
+      thumbnail: item.media_details?.sizes?.thumbnail?.source_url || item.source_url
+    }));
+  // Let op: de X-WP-Total(Pages) headers hieronder tellen alle mediabestanden (dus ook een
+  // enkel uitgefilterd bestand), de "Meer laden"-paginering kan daardoor een fractie
+  // optimistischer tellen dan wat er echt te zien is — geen praktisch probleem gebleken.
   // WordPress geeft het totaal aantal items en pagina's mee in de headers,
   // zo weet de frontend of "Meer laden" nog zin heeft.
   return {

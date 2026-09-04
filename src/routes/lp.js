@@ -407,7 +407,13 @@ router.put('/pages/:pageId/status', requireLpInternal, async (req, res) => {
 // alleen bruikbaar voor sjablonen in het nieuwe slot-formaat). Slaat zelf
 // niets op — Dylan bekijkt/past aan en slaat pas op via de bestaande
 // PUT /pages/:pageId/content hierboven. Kiest zelf relevante zusterpagina's
-// voor de linksItems-slot uit de overige pagina's van deze klant.
+// voor de linksItems-slot uit de overige pagina's van deze klant. Kiest in
+// dezelfde stap ook automatisch een passende foto uit de mediabibliotheek van
+// de klant voor elke ImageSrc-slot (geen aparte knop meer, zie besluiten.md:
+// "zo slim en simpel mogelijk") — als dat onderdeel om wat voor reden dan ook
+// mislukt (bv. een WordPress- of OpenAI-fout), gaat de rest van de content
+// gewoon door en komt er een korte waarschuwing mee terug in plaats van dat
+// de hele generatie faalt.
 router.post('/pages/:pageId/generate-content', requireLpInternal, async (req, res) => {
   try {
     const page = await lpNotion.getPage(req.params.pageId);
@@ -437,41 +443,29 @@ router.post('/pages/:pageId/generate-content', requireLpInternal, async (req, re
       ctaOverride,
       bestaandePaginas
     });
-    res.json(result);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
 
-// Kiest automatisch een passende foto uit de mediabibliotheek van de klant voor elke
-// ImageSrc-slot van dit sjabloon (aanvulling op generate-content hierboven, dat
-// afbeelding-slots expres leeg laat, zie ai.js). Slaat zelf niets op — komt terug als
-// { picks } en Dylan bekijkt/past aan net als bij generate-content, voordat hij zelf op
-// "Content JSON opslaan" klikt.
-router.post('/pages/:pageId/auto-images', requireLpInternal, async (req, res) => {
-  try {
-    const page = await lpNotion.getPage(req.params.pageId);
-    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
-    if (blueprint.templateFormat !== 'slots') {
-      return res.status(400).json({ error: 'Automatisch afbeeldingen kiezen is alleen beschikbaar voor sjablonen in het nieuwe (slot-gebaseerde) formaat.' });
+    let imageWarning = null;
+    try {
+      const { items: kandidaten } = await searchMedia({ profile: client.profile, perPage: 100 });
+      const { picks } = await ai.pickImagesForPage({
+        template: blueprint,
+        invoer,
+        feiten,
+        watGaatDezePaginaOver,
+        kandidaten
+      });
+      for (const [slotKey, pick] of Object.entries(picks || {})) {
+        if (pick && pick.url) {
+          result.slotData[slotKey] = pick.url;
+          const altKey = slotKey.replace(/ImageSrc$/, 'ImageAlt');
+          if (pick.alt && altKey !== slotKey) result.slotData[altKey] = pick.alt;
+        }
+      }
+    } catch (imgErr) {
+      imageWarning = `Automatisch afbeeldingen kiezen is niet gelukt (${imgErr.message}) — vul afbeeldingen zelf in via het voorbeeldscherm.`;
     }
-    const { watGaatDezePaginaOver } = req.body || {};
-    const invoer = page.invoer || {};
-    const client = getLpClient(page.klant);
-    const feitensheet = page.feitensheet || { gebruikt: [], extra: [] };
-    const feitenById = new Map((client.feiten || []).map((f) => [f.id, f]));
-    const gebruikteFeiten = (feitensheet.gebruikt || []).map((id) => feitenById.get(id)).filter(Boolean);
-    const feiten = [...gebruikteFeiten, ...(feitensheet.extra || [])];
 
-    const { items: kandidaten } = await searchMedia({ profile: client.profile, perPage: 100 });
-    const result = await ai.pickImagesForPage({
-      template: blueprint,
-      invoer,
-      feiten,
-      watGaatDezePaginaOver,
-      kandidaten
-    });
-    res.json(result);
+    res.json({ ...result, imageWarning });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
