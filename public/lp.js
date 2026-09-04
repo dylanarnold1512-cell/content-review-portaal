@@ -81,6 +81,25 @@ function formatApiError(err) {
   return err.message;
 }
 
+// Voorkomt dubbel indienen bij knoppen die iets aanmaken/opslaan: schakelt de
+// knop meteen uit en toont een laadcirkeltje + eigen tekst, tot de actie klaar
+// is (ook bij een fout). Zonder dit kon herhaald klikken tijdens een trage
+// aanroep (bv. een Notion-aanroep die lang duurt) meerdere keren hetzelfde
+// aanmaken.
+function setBtnLoading(btn, isLoading, loadingLabel) {
+  if (isLoading) {
+    if (btn.dataset.lpOrigLabel === undefined) btn.dataset.lpOrigLabel = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<span class="btn-spinner"></span>${loadingLabel || 'Bezig...'}`;
+  } else {
+    btn.disabled = false;
+    if (btn.dataset.lpOrigLabel !== undefined) {
+      btn.innerHTML = btn.dataset.lpOrigLabel;
+      delete btn.dataset.lpOrigLabel;
+    }
+  }
+}
+
 function showLpApp() {
   document.getElementById('lpLoginScreen').classList.add('hidden');
   document.getElementById('lpApp').classList.remove('hidden');
@@ -562,7 +581,10 @@ async function loadTemplates() {
 
 function renderTemplatesTable() {
   const tbody = document.getElementById('lpTemplatesTableBody');
-  tbody.innerHTML = lpState.templates.map((t) => `
+  // Gearchiveerde sjablonen (bv. na opruimen van per ongeluk dubbel aangemaakte
+  // sjablonen) blijven in Notion staan maar rommelen deze lijst niet meer op.
+  const zichtbaar = lpState.templates.filter((t) => t.status !== 'Gearchiveerd');
+  tbody.innerHTML = zichtbaar.map((t) => `
     <tr class="lp-row" data-template-id="${t.id}">
       <td>${t.naam || '(zonder naam)'}</td>
       <td>${t.klant || ''}</td>
@@ -721,6 +743,8 @@ document.getElementById('lpTplRefineBtn').addEventListener('click', async () => 
 });
 
 document.getElementById('lpTplCreateBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('lpTplCreateBtn');
+  if (btn.disabled) return; // voorkomt dubbel aanmaken bij snel herhaald klikken
   const errorEl = document.getElementById('lpTemplateNewError');
   errorEl.classList.add('hidden');
   const naam = document.getElementById('lpTplNewNaam').value;
@@ -751,6 +775,7 @@ document.getElementById('lpTplCreateBtn').addEventListener('click', async () => 
     );
     if (!doorgaan) return;
   }
+  setBtnLoading(btn, true, 'Bezig met opslaan...');
   try {
     const { template } = await lpApi('/templates', {
       method: 'POST',
@@ -763,6 +788,8 @@ document.getElementById('lpTplCreateBtn').addEventListener('click', async () => 
   } catch (err) {
     errorEl.textContent = formatApiError(err);
     errorEl.classList.remove('hidden');
+  } finally {
+    setBtnLoading(btn, false);
   }
 });
 
