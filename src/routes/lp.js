@@ -62,8 +62,12 @@ router.get('/clients', requireLpInternal, async (req, res) => {
 router.get('/clients/:clientId/media', requireLpInternal, async (req, res) => {
   try {
     const client = getLpClient(req.params.clientId);
-    const items = await searchMedia({ profile: client.profile, search: req.query.search });
-    res.json({ media: items });
+    const { items, page, totalPages, total } = await searchMedia({
+      profile: client.profile,
+      search: req.query.search,
+      page: req.query.page
+    });
+    res.json({ media: items, page, totalPages, total });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

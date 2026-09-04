@@ -17,7 +17,8 @@ let lpState = {
   feitenById: new Map(),
   templates: [],
   currentTemplate: null,
-  onderdelenOpties: []
+  onderdelenOpties: [],
+  mediaSearch: { search: '', page: 1, totalPages: 1 }
 };
 
 const ONDERDEEL_LABELS = {
@@ -473,6 +474,38 @@ function renderContentJson(page, blueprint) {
   document.getElementById('lpMediaResults').innerHTML = '';
   document.getElementById('lpMediaError').classList.add('hidden');
   document.getElementById('lpMediaUploadInput').value = '';
+  document.getElementById('lpMediaResultsInfo').classList.add('hidden');
+  document.getElementById('lpMediaLoadMoreBtn').classList.add('hidden');
+  lpState.mediaSearch = { search: '', page: 1, totalPages: 1 };
+}
+
+function renderMediaItems(items, { append } = {}) {
+  const resultsEl = document.getElementById('lpMediaResults');
+  const infoEl = document.getElementById('lpMediaResultsInfo');
+  const loadMoreBtn = document.getElementById('lpMediaLoadMoreBtn');
+  if (!append) resultsEl.innerHTML = '';
+  if (!items.length && !append) {
+    resultsEl.innerHTML = '<p class="admin-footnote">Niets gevonden.</p>';
+  } else {
+    items.forEach((item) => {
+      const el = document.createElement('div');
+      el.className = 'lp-media-item';
+      el.innerHTML = `
+        <img src="${item.thumbnail}" alt="${item.alt || ''}" loading="lazy">
+        <span>${item.titel || '(zonder titel)'}</span>`;
+      el.addEventListener('click', () => gebruikMediaItem(item));
+      resultsEl.appendChild(el);
+    });
+  }
+  const { page, totalPages, total } = lpState.mediaSearch;
+  const nogMeer = page < totalPages;
+  loadMoreBtn.classList.toggle('hidden', !nogMeer);
+  if (total) {
+    infoEl.textContent = `Pagina ${page} van ${totalPages} (${total} afbeeldingen in totaal in de mediabibliotheek).`;
+    infoEl.classList.remove('hidden');
+  } else {
+    infoEl.classList.add('hidden');
+  }
 }
 
 document.getElementById('lpMediaSearchBtn').addEventListener('click', async () => {
@@ -480,24 +513,37 @@ document.getElementById('lpMediaSearchBtn').addEventListener('click', async () =
   if (!page) return;
   const btn = document.getElementById('lpMediaSearchBtn');
   const errorEl = document.getElementById('lpMediaError');
-  const resultsEl = document.getElementById('lpMediaResults');
   errorEl.classList.add('hidden');
   setBtnLoading(btn, true, 'Zoeken...');
   try {
     const search = document.getElementById('lpMediaSearch').value.trim();
-    const { media } = await lpApi(`/clients/${page.klant}/media${search ? '?search=' + encodeURIComponent(search) : ''}`);
-    if (!media.length) {
-      resultsEl.innerHTML = '<p class="admin-footnote">Niets gevonden.</p>';
-    } else {
-      resultsEl.innerHTML = media.map((item, i) => `
-        <div class="lp-media-item" data-media-index="${i}">
-          <img src="${item.thumbnail}" alt="${item.alt || ''}" loading="lazy">
-          <span>${item.titel || '(zonder titel)'}</span>
-        </div>`).join('');
-      resultsEl.querySelectorAll('[data-media-index]').forEach((el) => {
-        el.addEventListener('click', () => gebruikMediaItem(media[Number(el.dataset.mediaIndex)]));
-      });
-    }
+    const qs = new URLSearchParams({ page: '1' });
+    if (search) qs.set('search', search);
+    const { media, page: huidigePagina, totalPages, total } = await lpApi(`/clients/${page.klant}/media?${qs.toString()}`);
+    lpState.mediaSearch = { search, page: huidigePagina, totalPages, total };
+    renderMediaItems(media, { append: false });
+  } catch (err) {
+    errorEl.textContent = formatApiError(err);
+    errorEl.classList.remove('hidden');
+  } finally {
+    setBtnLoading(btn, false);
+  }
+});
+
+document.getElementById('lpMediaLoadMoreBtn').addEventListener('click', async () => {
+  const page = lpState.currentPage;
+  if (!page) return;
+  const btn = document.getElementById('lpMediaLoadMoreBtn');
+  const errorEl = document.getElementById('lpMediaError');
+  errorEl.classList.add('hidden');
+  const volgendePagina = lpState.mediaSearch.page + 1;
+  setBtnLoading(btn, true, 'Bezig met laden...');
+  try {
+    const qs = new URLSearchParams({ page: String(volgendePagina) });
+    if (lpState.mediaSearch.search) qs.set('search', lpState.mediaSearch.search);
+    const { media, page: huidigePagina, totalPages, total } = await lpApi(`/clients/${page.klant}/media?${qs.toString()}`);
+    lpState.mediaSearch = { search: lpState.mediaSearch.search, page: huidigePagina, totalPages, total };
+    renderMediaItems(media, { append: true });
   } catch (err) {
     errorEl.textContent = formatApiError(err);
     errorEl.classList.remove('hidden');

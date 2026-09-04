@@ -83,10 +83,12 @@ async function deletePage({ profile, wpPaginaId }) {
 // foto's gewoon zoals altijd in wp-admin, dit doorzoekt alleen wat er al
 // staat zodat je niet hoeft te wisselen tussen het portaal en wp-admin om
 // een afbeelding-URL voor een slot te vinden.
-async function searchMedia({ profile, search }) {
+async function searchMedia({ profile, search, page }) {
   const { url, username, appPassword } = getWpConfig(profile);
+  const huidigePagina = Number(page) > 0 ? Number(page) : 1;
   const params = new URLSearchParams({
-    per_page: '20',
+    per_page: '60', // WP's maximum is 100, maar 60 houdt een laadbeurt vlot
+    page: String(huidigePagina),
     _fields: 'id,source_url,alt_text,title,media_details'
   });
   if (search) params.set('search', search);
@@ -98,13 +100,21 @@ async function searchMedia({ profile, search }) {
     const message = data?.message || res.statusText;
     throw new Error(`WordPress-fout bij mediabibliotheek doorzoeken (${res.status}): ${message}`);
   }
-  return (Array.isArray(data) ? data : []).map((item) => ({
+  const items = (Array.isArray(data) ? data : []).map((item) => ({
     id: item.id,
     url: item.source_url,
     alt: item.alt_text || '',
     titel: item.title?.rendered || '',
     thumbnail: item.media_details?.sizes?.thumbnail?.source_url || item.source_url
   }));
+  // WordPress geeft het totaal aantal items en pagina's mee in de headers,
+  // zo weet de frontend of "Meer laden" nog zin heeft.
+  return {
+    items,
+    page: huidigePagina,
+    totalPages: Number(res.headers.get('X-WP-TotalPages')) || huidigePagina,
+    total: Number(res.headers.get('X-WP-Total')) || items.length
+  };
 }
 
 // Uploadt een nieuwe foto vanaf Dylan's eigen computer rechtstreeks naar de
