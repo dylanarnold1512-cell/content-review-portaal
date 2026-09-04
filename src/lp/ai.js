@@ -546,5 +546,8 @@ module.exports = {
   generateTemplateProposal,
   refineTemplateProposal,
   generatePageContent,
-  pickImagesForPage
+  pickImagesForPage,
+  // Puur voor de geautomatiseerde tests (test/ai.test.js) - geen aparte OpenAI-aanroep nodig om
+  // de anti-hallucinatie-filtering op linkvelden te controleren.
+  verwijderVerzonnenLinks
 };

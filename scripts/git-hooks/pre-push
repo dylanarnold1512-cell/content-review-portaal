@@ -1,0 +1,16 @@
+#!/bin/sh
+# Draait de geautomatiseerde tests (zie test/) vóór elke push naar welke remote dan ook, en
+# blokkeert de push als er iets breekt. Zie besluiten.md, "Geautomatiseerde tests" (04-09-2026):
+# dit moet precies dit soort bugs (een nieuwe feature die per ongeluk bestaand gedrag stukmaakt,
+# zoals het FAQ-uitklappen of het "Volledig scherm"-bewerken) automatisch opvangen, zonder dat
+# iemand het handmatig moet dubbelchecken vóór het live gaat.
+echo "lp-fabriek: tests draaien voor push..."
+npm test
+STATUS=$?
+if [ $STATUS -ne 0 ]; then
+  echo ""
+  echo "Push geblokkeerd: er faalt minstens 1 test (zie hierboven). Fix de test of de code," >&2
+  echo "en probeer daarna opnieuw te pushen." >&2
+  exit 1
+fi
+exit 0

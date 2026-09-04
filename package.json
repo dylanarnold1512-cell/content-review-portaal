@@ -7,7 +7,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "test": "node --test",
+    "prepare": "node scripts/install-git-hooks.js"
   },
   "dependencies": {
     "@notionhq/client": "^2.2.15",
