@@ -526,11 +526,10 @@
         <div id="lpMediaPickerSection" class="hidden">
           <div class="admin-section-title" style="margin-top:16px;">Afbeelding kiezen uit mediabibliotheek</div>
           <p class="admin-footnote">
-            Zoekt in de bestaande WordPress mediabibliotheek van de klant (besluit 7, besluiten.md).
-            Uploaden doe je gewoon zoals altijd in wp-admin, dit helpt alleen om een afbeelding-URL voor
-            een slot te vinden zonder het portaal te verlaten. Werkt nu alleen voor de losse
-            afbeelding-slots hierboven in het sjabloon, niet voor afbeeldingen binnen een lijst (zoals
-            per kamer), die vul je nog handmatig in de JSON hieronder.
+            Zoek in de bestaande WordPress mediabibliotheek van de klant, of upload direct een nieuwe
+            foto vanaf je computer. Werkt nu alleen voor de losse afbeelding-slots hierboven in het
+            sjabloon, niet voor afbeeldingen binnen een lijst (zoals per kamer), die vul je nog
+            handmatig in de JSON hieronder.
           </p>
           <div class="lp-field-row" style="max-width:320px;">
             <label for="lpMediaTargetSlot">Invullen in veld</label>
@@ -541,6 +540,11 @@
             <input type="text" id="lpMediaSearch" autocomplete="off">
           </div>
           <button type="button" id="lpMediaSearchBtn" class="btn-plain">Zoeken</button>
+          <div class="lp-field-row" style="max-width:320px; margin-top:14px;">
+            <label for="lpMediaUploadInput">Of upload een nieuwe foto vanaf je computer</label>
+            <input type="file" id="lpMediaUploadInput" accept="image/*">
+          </div>
+          <button type="button" id="lpMediaUploadBtn" class="btn-plain">Uploaden</button>
           <p id="lpMediaError" class="admin-error hidden"></p>
           <div id="lpMediaResults" class="lp-media-grid"></div>
         </div>

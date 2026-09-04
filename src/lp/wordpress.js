@@ -107,4 +107,35 @@ async function searchMedia({ profile, search }) {
   }));
 }
 
-module.exports = { pushDraft, deletePage, searchMedia };
+// Uploadt een nieuwe foto vanaf Dylan's eigen computer rechtstreeks naar de
+// WordPress-mediabibliotheek van de klant (aanvulling op searchMedia
+// hierboven, dat alleen kon zoeken in wat er al stond). WordPress accepteert
+// de ruwe bestandsbytes hier zonder multipart-formulier, zolang je de
+// bestandsnaam meegeeft via de Content-Disposition header.
+async function uploadMedia({ profile, filename, contentType, buffer }) {
+  const { url, username, appPassword } = getWpConfig(profile);
+  const veiligeNaam = (filename || 'upload').replace(/"/g, '');
+  const res = await fetch(`${url}/wp-json/wp/v2/media`, {
+    method: 'POST',
+    headers: {
+      Authorization: authHeader(username, appPassword),
+      'Content-Type': contentType || 'application/octet-stream',
+      'Content-Disposition': `attachment; filename="${veiligeNaam}"`
+    },
+    body: buffer
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const message = data?.message || res.statusText;
+    throw new Error(`WordPress-fout bij uploaden (${res.status}): ${message}`);
+  }
+  return {
+    id: data.id,
+    url: data.source_url,
+    alt: data.alt_text || '',
+    titel: data.title?.rendered || '',
+    thumbnail: data.media_details?.sizes?.thumbnail?.source_url || data.source_url
+  };
+}
+
+module.exports = { pushDraft, deletePage, searchMedia, uploadMedia };

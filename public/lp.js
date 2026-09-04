@@ -472,6 +472,7 @@ function renderContentJson(page, blueprint) {
     .map((s) => `<option value="${s.key}">${s.label || s.key}</option>`).join('');
   document.getElementById('lpMediaResults').innerHTML = '';
   document.getElementById('lpMediaError').classList.add('hidden');
+  document.getElementById('lpMediaUploadInput').value = '';
 }
 
 document.getElementById('lpMediaSearchBtn').addEventListener('click', async () => {
@@ -497,6 +498,54 @@ document.getElementById('lpMediaSearchBtn').addEventListener('click', async () =
         el.addEventListener('click', () => gebruikMediaItem(media[Number(el.dataset.mediaIndex)]));
       });
     }
+  } catch (err) {
+    errorEl.textContent = formatApiError(err);
+    errorEl.classList.remove('hidden');
+  } finally {
+    setBtnLoading(btn, false);
+  }
+});
+
+document.getElementById('lpMediaUploadBtn').addEventListener('click', async () => {
+  const page = lpState.currentPage;
+  if (!page) return;
+  const input = document.getElementById('lpMediaUploadInput');
+  const file = input.files && input.files[0];
+  const errorEl = document.getElementById('lpMediaError');
+  errorEl.classList.add('hidden');
+  if (!file) {
+    errorEl.textContent = 'Kies eerst een bestand om te uploaden.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+  const slotKey = document.getElementById('lpMediaTargetSlot').value;
+  if (!slotKey) {
+    errorEl.textContent = 'Kies eerst in welk veld de foto moet komen.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+  const btn = document.getElementById('lpMediaUploadBtn');
+  if (btn.disabled) return;
+  setBtnLoading(btn, true, 'Bezig met uploaden...');
+  try {
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error || new Error('Bestand lezen is mislukt.'));
+      reader.readAsDataURL(file);
+    });
+    const dataBase64 = String(dataUrl).split(',')[1] || '';
+    const { media: item } = await lpApi(`/clients/${page.klant}/media/upload`, {
+      method: 'POST',
+      body: JSON.stringify({ filename: file.name, contentType: file.type, dataBase64 })
+    });
+    gebruikMediaItem(item);
+    document.getElementById('lpMediaResults').insertAdjacentHTML('afterbegin', `
+      <div class="lp-media-item">
+        <img src="${item.thumbnail}" alt="${item.alt || ''}" loading="lazy">
+        <span>${item.titel || file.name}</span>
+      </div>`);
+    input.value = '';
   } catch (err) {
     errorEl.textContent = formatApiError(err);
     errorEl.classList.remove('hidden');

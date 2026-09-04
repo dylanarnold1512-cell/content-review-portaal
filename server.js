@@ -16,7 +16,7 @@ if (!SESSION_SECRET) {
   );
 }
 
-app.use(express.json());
+app.use(express.json({ limit: '20mb' })); // ruimer i.v.m. foto-uploads via de LP Fabriek mediakiezer
 app.use(
   cookieSession({
     name: 'portal_session',

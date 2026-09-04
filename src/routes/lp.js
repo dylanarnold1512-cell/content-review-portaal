@@ -11,7 +11,7 @@ const { buildHuisstijlVoorstel } = require('../lp/huisstijl');
 const ai = require('../lp/ai');
 const { renderPageHtml } = require('../lp/render');
 const { validatePage, validateTemplateStructure } = require('../lp/validator');
-const { pushDraft, deletePage: deleteWpPage, searchMedia } = require('../lp/wordpress');
+const { pushDraft, deletePage: deleteWpPage, searchMedia, uploadMedia } = require('../lp/wordpress');
 const { checkLpPassword, requireLpInternal } = require('../middleware/auth');
 
 const router = express.Router();
@@ -64,6 +64,21 @@ router.get('/clients/:clientId/media', requireLpInternal, async (req, res) => {
     const client = getLpClient(req.params.clientId);
     const items = await searchMedia({ profile: client.profile, search: req.query.search });
     res.json({ media: items });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/clients/:clientId/media/upload', requireLpInternal, async (req, res) => {
+  try {
+    const { filename, contentType, dataBase64 } = req.body || {};
+    if (!filename || !dataBase64) {
+      return res.status(400).json({ error: 'Bestandsnaam en bestandsdata zijn verplicht.' });
+    }
+    const client = getLpClient(req.params.clientId);
+    const buffer = Buffer.from(dataBase64, 'base64');
+    const item = await uploadMedia({ profile: client.profile, filename, contentType, buffer });
+    res.json({ media: item });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
