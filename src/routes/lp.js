@@ -306,10 +306,12 @@ router.post('/templates/preview', requireLpInternal, async (req, res) => {
 });
 
 function wrapPreviewDoc(html) {
-  // De hover-stijl hieronder maakt zichtbaar welke afbeeldingen klikbaar zijn (alleen degene met
-  // een data-lp-slot-attribuut, zie tagImageSlotsForPreview) — volledig onschadelijk als een
-  // pagina geen enkele getagde afbeelding heeft.
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>[data-lp-slot]{cursor:pointer;transition:outline .15s ease;}[data-lp-slot]:hover{outline:3px solid #2f6fed;outline-offset:-3px;}</style></head><body>${html}</body></html>`;
+  // De hover-stijl hieronder maakt zichtbaar welke afbeeldingen en tekst-slots klikbaar zijn
+  // (data-lp-slot voor afbeeldingen, zie tagImageSlotsForPreview; data-lp-text-slot voor tekst,
+  // zie tagTextSlotsForPreview) — volledig onschadelijk als een pagina geen enkele getagde
+  // afbeelding of tekst heeft. Twee losse kleuren zodat meteen duidelijk is wat een foto is en
+  // wat tekst is.
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>[data-lp-slot]{cursor:pointer;transition:outline .15s ease;}[data-lp-slot]:hover{outline:3px solid #2f6fed;outline-offset:-3px;}[data-lp-text-slot]{cursor:pointer;transition:outline .15s ease;}[data-lp-text-slot]:hover{outline:2px dashed #1a8754;outline-offset:2px;}</style></head><body>${html}</body></html>`;
 }
 
 // Bouwt de juiste render-invoer op basis van het sjabloonformaat — gebruikt

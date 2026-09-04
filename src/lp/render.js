@@ -18,7 +18,7 @@
 const { getTokens } = require('./tokens');
 const { renderStyle } = require('./style');
 const { renderBlock, blocks } = require('./blocks');
-const { renderSlotTemplate, tagImageSlotsForPreview } = require('./slotEngine');
+const { renderSlotTemplate, tagImageSlotsForPreview, tagTextSlotsForPreview } = require('./slotEngine');
 const { slugify } = require('./utils');
 
 function renderPageHtml(page, opts) {
@@ -72,10 +72,14 @@ function renderSlotPageHtml(page, opts) {
   const templateCss = String((page.template && page.template.cssTemplate) || '');
   const slotData = page.slotData || {};
   const htmlTemplateRaw = (page.template && page.template.htmlTemplate) || '';
-  // Alleen voor het voorbeeldscherm (opts.forPreview) markeren we afbeeldingen met welke slot ze
-  // zijn, zodat je erop kan klikken om te wisselen — de HTML die naar WordPress gaat blijft schoon.
+  // Alleen voor het voorbeeldscherm (opts.forPreview) markeren we afbeeldingen én tekst-slots met
+  // welke slot ze zijn, zodat je erop kan klikken om te wisselen/aan te passen — de HTML die naar
+  // WordPress gaat blijft schoon (geen data-lp-*-attributen).
   const htmlTemplate = (opts && opts.forPreview)
-    ? tagImageSlotsForPreview(htmlTemplateRaw, page.template && page.template.slots)
+    ? tagTextSlotsForPreview(
+        tagImageSlotsForPreview(htmlTemplateRaw, page.template && page.template.slots),
+        page.template && page.template.slots
+      )
     : htmlTemplateRaw;
   const body = renderSlotTemplate(htmlTemplate, slotData);
   const schemas = collectSlotSchemas(slotData);

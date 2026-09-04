@@ -19,7 +19,8 @@ let lpState = {
   currentTemplate: null,
   onderdelenOpties: [],
   imageSwapSlotKey: null,
-  imageSwapSearch: { search: '', page: 1, totalPages: 1 }
+  imageSwapSearch: { search: '', page: 1, totalPages: 1 },
+  textEditPath: null
 };
 
 const ONDERDEEL_LABELS = {
@@ -574,6 +575,23 @@ document.getElementById('lpPreviewFrame').addEventListener('load', () => {
       openImageSwap(el.getAttribute('data-lp-slot'));
     });
   });
+  doc.querySelectorAll('[data-lp-text-slot]').forEach((el) => {
+    el.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      openTextEdit(el.getAttribute('data-lp-text-slot'));
+    });
+  });
+});
+
+// "Volledig scherm" gebruikt gewoon de native browser-fullscreen op de iframe zelf - geen eigen
+// modal nodig, en Esc om terug te gaan werkt dan automatisch ook al.
+document.getElementById('lpPreviewFullscreenBtn').addEventListener('click', () => {
+  const frame = document.getElementById('lpPreviewFrame');
+  if (frame.requestFullscreen) {
+    frame.requestFullscreen();
+  } else if (frame.webkitRequestFullscreen) {
+    frame.webkitRequestFullscreen();
+  }
 });
 
 function openImageSwap(slotKey) {
@@ -729,6 +747,102 @@ async function applyImageSwap(item) {
     errorEl.classList.remove('hidden');
   }
 }
+
+// -- Tekst rechtstreeks in het voorbeeld aanpassen --
+// Padnotatie: een los tekst-slot is gewoon de sleutel zelf (bv. "heroTitle"), een veld van een
+// list-item is "lijstsleutel.INDEX.veld" (bv. "faqItems.1.answer") - zie tagTextSlotsForPreview in
+// slotEngine.js voor waar deze paden vandaan komen.
+function getSlotValue(slotData, path) {
+  const listMatch = /^([\w.]+)\.(\d+)\.([\w.]+)$/.exec(path);
+  if (listMatch) {
+    const [, listKey, idx, field] = listMatch;
+    const item = Array.isArray(slotData[listKey]) ? slotData[listKey][Number(idx)] : null;
+    return item ? item[field] : '';
+  }
+  return slotData[path];
+}
+
+function setSlotValue(slotData, path, value) {
+  const listMatch = /^([\w.]+)\.(\d+)\.([\w.]+)$/.exec(path);
+  if (listMatch) {
+    const [, listKey, idx, field] = listMatch;
+    if (!Array.isArray(slotData[listKey])) slotData[listKey] = [];
+    if (!slotData[listKey][Number(idx)] || typeof slotData[listKey][Number(idx)] !== 'object') {
+      slotData[listKey][Number(idx)] = {};
+    }
+    slotData[listKey][Number(idx)][field] = value;
+    return;
+  }
+  slotData[path] = value;
+}
+
+// Menselijk leesbaar label bij het pad, puur voor de titel/het label boven het tekstvakje.
+function labelVoorTextEditPad(path) {
+  const blueprint = lpState.currentPageBlueprint;
+  const slots = (blueprint && blueprint.slots) || [];
+  const listMatch = /^([\w.]+)\.(\d+)\.([\w.]+)$/.exec(path);
+  if (listMatch) {
+    const [, listKey, idx, field] = listMatch;
+    const slotDef = slots.find((s) => s.key === listKey);
+    return `${(slotDef && slotDef.label) || listKey} #${Number(idx) + 1} — ${field}`;
+  }
+  const slotDef = slots.find((s) => s.key === path);
+  return (slotDef && slotDef.label) || path;
+}
+
+function openTextEdit(path) {
+  const textarea = document.getElementById('lpContentJson');
+  let slotData;
+  try {
+    slotData = JSON.parse(textarea.value || '{}');
+  } catch (err) {
+    alert('De huidige Content JSON is ongeldig, fix dat eerst op het Content JSON-tabblad: ' + err.message);
+    return;
+  }
+  lpState.textEditPath = path;
+  document.getElementById('lpTextEditTitle').textContent = `Tekst wijzigen: ${labelVoorTextEditPad(path)}`;
+  document.getElementById('lpTextEditLabel').textContent = labelVoorTextEditPad(path);
+  document.getElementById('lpTextEditInput').value = getSlotValue(slotData, path) || '';
+  document.getElementById('lpTextEditError').classList.add('hidden');
+  document.getElementById('lpTextEditOverlay').classList.remove('hidden');
+}
+
+document.getElementById('lpTextEditClose').addEventListener('click', () => {
+  document.getElementById('lpTextEditOverlay').classList.add('hidden');
+});
+document.getElementById('lpTextEditOverlay').addEventListener('click', (ev) => {
+  if (ev.target.id === 'lpTextEditOverlay') ev.currentTarget.classList.add('hidden');
+});
+
+document.getElementById('lpTextEditSaveBtn').addEventListener('click', async () => {
+  const path = lpState.textEditPath;
+  if (!path) return;
+  const errorEl = document.getElementById('lpTextEditError');
+  errorEl.classList.add('hidden');
+  const textarea = document.getElementById('lpContentJson');
+  let slotData;
+  try {
+    slotData = JSON.parse(textarea.value || '{}');
+  } catch (err) {
+    errorEl.textContent = 'De huidige Content JSON is ongeldig, fix dat eerst op het Content JSON-tabblad: ' + err.message;
+    errorEl.classList.remove('hidden');
+    return;
+  }
+  setSlotValue(slotData, path, document.getElementById('lpTextEditInput').value);
+  textarea.value = JSON.stringify(slotData, null, 2);
+  const btn = document.getElementById('lpTextEditSaveBtn');
+  setBtnLoading(btn, true, 'Bezig met opslaan...');
+  try {
+    await saveContentJson({ silent: true });
+    document.getElementById('lpTextEditOverlay').classList.add('hidden');
+    await refreshPreview();
+  } catch (err) {
+    errorEl.textContent = 'Opslaan is mislukt: ' + formatApiError(err);
+    errorEl.classList.remove('hidden');
+  } finally {
+    setBtnLoading(btn, false);
+  }
+});
 
 function renderValidation(result) {
   const el = document.getElementById('lpValidationResult');

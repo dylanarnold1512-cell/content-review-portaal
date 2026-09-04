@@ -87,11 +87,17 @@ function renderSlotTemplate(html, data) {
     const list = getPath(data, listKey);
     if (!Array.isArray(list) || !list.length) return '';
     return list
-      .map((item) =>
-        inner.replace(VAR_RE, (m, field) => {
-          const value = field === 'this' ? item : getPath(item, field);
-          return renderInlineLinks(value);
-        })
+      .map((item, index) =>
+        inner
+          .replace(VAR_RE, (m, field) => {
+            const value = field === 'this' ? item : getPath(item, field);
+            return renderInlineLinks(value);
+          })
+          // Vult de itemindex in op de plek van een eventuele preview-only
+          // data-lp-text-slot-tag (zie tagTextSlotsForPreview) - bij een normale
+          // (niet-preview) render staat deze placeholder nergens in de tekst, dus dan
+          // is dit een no-op.
+          .replace(/__LP_EACH_INDEX__/g, String(index))
       )
       .join('');
   });
@@ -120,6 +126,64 @@ function tagImageSlotsForPreview(html, slots) {
     }
     return tag;
   });
+}
+
+// Zelfde idee als tagImageSlotsForPreview hierboven, maar dan voor tekst-slots: markeert,
+// ALLEEN voor het voorbeeldscherm, elke tag waarvan de VOLLEDIGE inhoud letterlijk {{sleutel}}
+// is met een data-lp-text-slot-attribuut, zodat public/lp.js er een klikbaar bewerkveld van kan
+// maken (een los tekstvakje om de ruwe waarde aan te passen, niet contenteditable op de gerenderde
+// HTML - dat zou de [ankertekst](url)-linksyntax uit slotEngine.js kunnen slopen zodra iemand in
+// een link-bevattende tekst klikt en die er als kale platte tekst weer uitkomt).
+//
+// Bewuste beperking: een slot dat MIDDENIN een langere zin staat (bv. "Welkom bij {{heroTitle}}")
+// wordt niet getagd - we raden niet waar de rand van het bewerkbare stuk ligt, dat veld is dan
+// simpelweg niet los klikbaar in de preview (nog steeds gewoon aan te passen via de Content
+// JSON-tab). Voor list-items (bv. faqItems) wordt de padnaam "lijstsleutel.INDEX.veld"; de INDEX
+// wordt pas ingevuld door renderSlotTemplate op het moment dat de lijst daadwerkelijk gerenderd
+// wordt (zie __LP_EACH_INDEX__ hierboven), omdat het itemsjabloon zelf voor elk item identiek is.
+const TEXT_WRAP_RE = /<([a-zA-Z][\w-]*)((?:\s[^<>]*)?)>\s*\{\{\s*([\w.]+)\s*\}\}\s*<\/\1>/g;
+
+function wrapFieldsMetTextSlot(str, padVoorVeld) {
+  return String(str || '').replace(TEXT_WRAP_RE, (full, tagName, attrs, field) => {
+    if (/data-lp-text-slot=/.test(attrs)) return full; // al getagd (voorkomt dubbel taggen)
+    const pad = padVoorVeld(field);
+    if (!pad) return full;
+    return `<${tagName}${attrs} data-lp-text-slot="${pad}">{{${field}}}</${tagName}>`;
+  });
+}
+
+function tagTextSlotsForPreview(html, slots) {
+  const alleSlots = Array.isArray(slots) ? slots : [];
+  const textSlotKeys = new Set(alleSlots.filter((s) => s.type === 'text').map((s) => s.key));
+  const listItemVelden = new Map(); // listKey -> Set(veldnamen)
+  alleSlots.forEach((s) => {
+    if (s.type === 'list' && Array.isArray(s.itemFields)) {
+      listItemVelden.set(s.key, new Set(s.itemFields));
+    }
+  });
+  if (!textSlotKeys.size && !listItemVelden.size) return html;
+
+  let result = String(html || '');
+  const eachBlocks = [];
+  // Zelfde patroon als EACH_RE hierboven, los gehouden zodat we de nog-ongerenderde
+  // itemsjabloon-tekst eerst apart kunnen taggen voordat renderSlotTemplate 'm herhaalt.
+  const EACH_TOKEN_RE = /{{#each\s+([\w.]+)\s*}}([\s\S]*?){{\/each}}/g;
+  result = result.replace(EACH_TOKEN_RE, (match, listKey, inner) => {
+    const toegestaneVelden = listItemVelden.get(listKey);
+    const taggedInner = toegestaneVelden
+      ? wrapFieldsMetTextSlot(inner, (field) => (toegestaneVelden.has(field) ? `${listKey}.__LP_EACH_INDEX__.${field}` : null))
+      : inner;
+    const token = `@@LP_EACH_BLOCK_${eachBlocks.length}@@`;
+    eachBlocks.push(`{{#each ${listKey}}}${taggedInner}{{/each}}`);
+    return token;
+  });
+
+  result = wrapFieldsMetTextSlot(result, (field) => (textSlotKeys.has(field) ? field : null));
+
+  eachBlocks.forEach((block, i) => {
+    result = result.replace(`@@LP_EACH_BLOCK_${i}@@`, block);
+  });
+  return result;
 }
 
 // Veiligheidscheck voor een door AI gegenereerd (of handmatig geplakt)
@@ -164,6 +228,7 @@ module.exports = {
   renderSlotTemplate,
   templateSafetyCheck,
   tagImageSlotsForPreview,
+  tagTextSlotsForPreview,
   INLINE_LINK_RE,
   forEachTextLeaf
 };
