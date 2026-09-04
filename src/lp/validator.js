@@ -1,3 +1,5 @@
+const { forEachTextLeaf, INLINE_LINK_RE } = require('./slotEngine');
+
 // LP Fabriek: validator voor publicatie. Twee paden naast elkaar sinds
 // bouwvolgorde-stap 3 (koerswijziging naar vrije templates, zie
 // besluiten.md):
@@ -128,19 +130,29 @@ function validateSlotPage({ blueprint, contentJson }) {
   }
 
   if (blueprint.linkRegels) {
+    // Besluit (04-09-2026, zie besluiten.md): kwaliteit boven kwantiteit. Een link moet
+    // inhoudelijk iets toevoegen, dus een laag aantal is GEEN publicatieblokkade meer — alleen
+    // nog een waarschuwing ter info. Links mogen bovendien ook middenin lopende tekst-slots
+    // zitten (niet alleen in de linksItems-lijst), dus die tellen hier mee voor een eerlijk totaal.
     const { minimumInterneLinks, minimumNaarZusterpaginas, reasonRequired } = blueprint.linkRegels;
     const items = Array.isArray(slotData.linksItems) ? slotData.linksItems : [];
-    if (typeof minimumInterneLinks === 'number' && items.length < minimumInterneLinks) {
-      errors.push(`Minimaal ${minimumInterneLinks} interne links vereist, gevonden: ${items.length}.`);
+    const inlineLinkAantal = countInlineLinks(slotData);
+    const totaalInterneLinks = items.length + inlineLinkAantal;
+    if (typeof minimumInterneLinks === 'number' && totaalInterneLinks < minimumInterneLinks) {
+      warnings.push(
+        `Minder interne links dan het richtaantal (${minimumInterneLinks}), gevonden: ${totaalInterneLinks} ` +
+        `(${items.length} in de linksitems-lijst, ${inlineLinkAantal} middenin de tekst). Alleen een ` +
+        'aandachtspunt als er wel degelijk relevante pagina\'s waren om naar te linken.'
+      );
     }
     if (typeof minimumNaarZusterpaginas === 'number') {
       const naarZuster = items.filter((i) => i.zusterpagina).length;
       if (naarZuster < minimumNaarZusterpaginas) {
-        errors.push(`Minimaal ${minimumNaarZusterpaginas} links naar zusterpagina's vereist, gevonden: ${naarZuster}.`);
+        warnings.push(`Minder links naar zusterpagina's dan het richtaantal (${minimumNaarZusterpaginas}), gevonden: ${naarZuster}.`);
       }
     }
     if (reasonRequired && items.some((i) => !i.reason)) {
-      errors.push('Niet elke interne link heeft een reden (reason).');
+      errors.push('Niet elke interne link in de linksitems-lijst heeft een reden (reason).');
     }
   }
 
@@ -148,6 +160,19 @@ function validateSlotPage({ blueprint, contentJson }) {
   validateUniciteitsbudget(blueprint, warnings);
 
   return { errors, warnings, ok: errors.length === 0 };
+}
+
+// Telt [ankertekst](url)-links middenin tekst-slots (dus NIET de losse linksItems-lijst, die telt
+// de aanroeper apart) - voor een eerlijk totaalbeeld nu links niet meer alleen in die ene lijst
+// hoeven te zitten. metaTitle/metaDescription tellen nooit mee (daar hoort sowieso geen link in).
+function countInlineLinks(slotData) {
+  let aantal = 0;
+  forEachTextLeaf(slotData, (path, value) => {
+    if (path === 'metaTitle' || path === 'metaDescription') return;
+    const matches = value.match(INLINE_LINK_RE);
+    if (matches) aantal += matches.length;
+  });
+  return aantal;
 }
 
 function validateSeoRegels(blueprint, meta, errors) {

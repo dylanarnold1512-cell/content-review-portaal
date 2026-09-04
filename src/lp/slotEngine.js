@@ -20,6 +20,60 @@
 
 const { escapeHtml } = require('./utils');
 
+// Kleine, veilige "markdown-achtige" linksyntax voor interne links die de AI (of Dylan
+// handmatig) middenin een lopende tekst-slot kan zetten: [ankertekst](url). Alleen een echte
+// http(s)-URL of een pad dat met "/" begint mag een link worden - dat sluit een "javascript:"
+// of andere vieze schema's al op regex-niveau uit, nog los van de escaping hieronder. Ongeldige
+// of niet-herkende invoer (bv. als de AI zich toch niet aan de syntax hield) wordt gewoon als
+// platte, geescapete tekst weergegeven - er is geen manier waarop dit tot ongefilterde HTML kan
+// leiden.
+const INLINE_LINK_RE = /\[([^\[\]]{1,120})\]\((https?:\/\/[^\s()]+|\/[^\s()]*)\)/g;
+
+function renderInlineLinks(value) {
+  const str = String(value === undefined || value === null ? '' : value);
+  if (!INLINE_LINK_RE.test(str)) return escapeHtml(str);
+  INLINE_LINK_RE.lastIndex = 0;
+  let result = '';
+  let lastIndex = 0;
+  let match;
+  while ((match = INLINE_LINK_RE.exec(str))) {
+    const [full, label, href] = match;
+    result += escapeHtml(str.slice(lastIndex, match.index));
+    result += `<a href="${escapeHtml(href)}">${escapeHtml(label)}</a>`;
+    lastIndex = match.index + full.length;
+  }
+  result += escapeHtml(str.slice(lastIndex));
+  return result;
+}
+
+// Loopt over alle tekstwaarden in slotData (top-level text-slots EN velden van list-items) en
+// geeft elke waarde door aan fn(pad, waarde, setter). Gebruikt zowel om verzonnen links eruit te
+// filteren na AI-generatie (ai.js) als om het aantal interne links te tellen voor de validator
+// (validator.js) - één plek die weet hoe slotData is opgebouwd, in plaats van dat elders opnieuw
+// te laten uitzoeken.
+function forEachTextLeaf(slotData, fn) {
+  if (!slotData || typeof slotData !== 'object') return;
+  for (const [key, value] of Object.entries(slotData)) {
+    if (typeof value === 'string') {
+      fn(key, value, (nieuweWaarde) => {
+        slotData[key] = nieuweWaarde;
+      });
+    } else if (Array.isArray(value)) {
+      value.forEach((item) => {
+        if (item && typeof item === 'object') {
+          for (const [itemKey, itemValue] of Object.entries(item)) {
+            if (typeof itemValue === 'string') {
+              fn(`${key}.${itemKey}`, itemValue, (nieuweWaarde) => {
+                item[itemKey] = nieuweWaarde;
+              });
+            }
+          }
+        }
+      });
+    }
+  }
+}
+
 function getPath(obj, path) {
   if (obj === null || obj === undefined) return undefined;
   return path.split('.').reduce((acc, key) => (acc === null || acc === undefined ? undefined : acc[key]), obj);
@@ -36,14 +90,14 @@ function renderSlotTemplate(html, data) {
       .map((item) =>
         inner.replace(VAR_RE, (m, field) => {
           const value = field === 'this' ? item : getPath(item, field);
-          return escapeHtml(value === undefined || value === null ? '' : value);
+          return renderInlineLinks(value);
         })
       )
       .join('');
   });
   return withLoops.replace(VAR_RE, (match, field) => {
     const value = getPath(data, field);
-    return escapeHtml(value === undefined || value === null ? '' : value);
+    return renderInlineLinks(value);
   });
 }
 
@@ -106,4 +160,10 @@ function templateSafetyCheck(html, css) {
   return { ok: errors.length === 0, errors };
 }
 
-module.exports = { renderSlotTemplate, templateSafetyCheck, tagImageSlotsForPreview };
+module.exports = {
+  renderSlotTemplate,
+  templateSafetyCheck,
+  tagImageSlotsForPreview,
+  INLINE_LINK_RE,
+  forEachTextLeaf
+};

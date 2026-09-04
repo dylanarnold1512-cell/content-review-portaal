@@ -15,6 +15,7 @@
 
 const { getTokens } = require('./tokens');
 const { fetchReferenceSummary } = require('./referenceFetch');
+const { INLINE_LINK_RE, forEachTextLeaf } = require('./slotEngine');
 
 // De optionele "vaste onderdelen"-checklist in het sjabloon-formulier (Stap
 // 1, vraag 3). Hero, CTA en interne links zijn altijd al verplicht via de
@@ -277,6 +278,12 @@ Feedback van de gebruiker: ${feedback}`;
 // mediakiezer.
 const IMAGE_SRC_RE = /ImageSrc$/;
 const IMAGE_ALT_RE = /ImageAlt$/;
+// Zelfde soort vaste naamgevingsafspraak als ImageSrc/ImageAlt hierboven, nu voor een enkel,
+// vast gepositioneerd linkveld in een sjabloon (bv. "roomsLinkHref": een link naar de
+// kamers/verblijf-pagina) - dit is GEEN lijst zoals linksItems, maar verdient dezelfde
+// bescherming: nooit een url laten verzinnen, alleen uit de aangeleverde kandidatenlijst kiezen.
+// "ctaHref" matcht hier bewust niet op (dat is de losse boekingslink, geen contentlink).
+const LINK_HREF_RE = /LinkHref$/;
 
 function getImageSlots(template) {
   const slots = Array.isArray(template.slots) ? template.slots : [];
@@ -311,18 +318,35 @@ data of andere harde feiten.
 Slots die gevuld moeten worden:
 ${slotBeschrijving}${afbeeldingNotitie}
 
-Voor de slot "linksItems": kies uit de aangeleverde lijst "Bestaande pagina's van deze klant" de 2-3
-meest relevante zusterpagina's (op basis van onderwerp-overlap met deze pagina), zet zusterpagina op
-true, en schrijf een korte interne reden (reason) waarom de link relevant is — reason wordt NOOIT
-publiek getoond. Gebruik de opgegeven href van die pagina.
+Interne links — kwaliteit boven kwantiteit: je krijgt een lijst "Beschikbare linkbestemmingen" (een
+mix van andere landingspagina's van deze klant en echte, bestaande pagina's op de eigen website).
+Voeg een link ALLEEN toe als die inhoudelijk echt iets toevoegt op de plek waar je 'm zet — nooit om
+een aantal te halen. Nul relevante links is prima als er niks passends is; forceer niets.
+Twee manieren om een link te plaatsen, beide mogen, kies wat het beste past:
+1. Middenin een lopende tekst-slot, met de schrijfwijze [ankertekst](url) — pas de zin er zelf op aan
+   zodat de link natuurlijk leest (dus niet een toevallig woord als "Roots" onderstrepen, wel iets als
+   "bekijk ook onze [kamers](url)" als dat ergens logisch past).
+2. Als de slot "linksItems" in dit sjabloon bestaat: voeg 'm daaraan toe met een korte interne reden
+   (reason, nooit publiek getoond) waarom de link relevant is, en zet zusterpagina op de waarde die de
+   bestemming zelf al meekreeg in de kandidatenlijst.
+Gebruik ALTIJD exact de opgegeven url uit de kandidatenlijst — verzin nooit zelf een URL, ook niet als
+die logisch lijkt. Een niet-herkende URL wordt automatisch verwijderd.
 
 Voor "metaTitle"/"metaDescription": schrijf SEO-vriendelijke varianten binnen de opgegeven lengte-eisen.
+Gebruik hier NOOIT de [ankertekst](url)-linkschrijfwijze — dit zijn platte SEO-velden, geen webpagina-
+tekst, een link erin zou alleen als rare tekst in de zoekresultaten verschijnen.
+
+Voor een los slot met een naam die eindigt op "LinkHref" (bijvoorbeeld "roomsLinkHref" — een vaste
+link op één plek in het sjabloon, geen lijst): vul deze ALLEEN met een exacte url uit de
+kandidatenlijst hierboven, gekozen op basis van wat de slotnaam/label aangeeft (bijvoorbeeld de
+kamers/verblijf-pagina voor een slot dat daarover gaat). Geen goede kandidaat gevonden? Laat de slot
+dan leeg in plaats van zelf iets te verzinnen.
 
 Antwoord ALLEEN met een JSON-object met exact één veld, geen tekst erbuiten:
 { "slotData": <object met per slot-key de ingevulde waarde (tekst of array van items)> }`;
 }
 
-async function generatePageContent({ klant, template, invoer, feiten, watGaatDezePaginaOver, ctaOverride, bestaandePaginas }) {
+async function generatePageContent({ klant, template, invoer, feiten, watGaatDezePaginaOver, ctaOverride, linkKandidaten }) {
   const systemPrompt = buildContentSystemPrompt(template);
   const userPrompt = `Klant: ${klant}
 
@@ -342,20 +366,64 @@ ${
 Aangevinkte feiten uit de feitensheet (bronprincipe — gebruik uitsluitend deze, verzin niets extra's):
 ${JSON.stringify(feiten || [], null, 2)}
 
-Bestaande pagina's van deze klant (kies hieruit voor de linksItems-slot):
-${JSON.stringify(bestaandePaginas || [], null, 2)}`;
+Beschikbare linkbestemmingen (zusterpagina: true = andere landingspagina van deze klant binnen LP
+Fabriek, zusterpagina: false = een echte, bestaande pagina op de eigen live website — behandel beide
+even serieus, gebruik uitsluitend de opgegeven url, kies alleen wat inhoudelijk relevant is):
+${JSON.stringify(linkKandidaten || [], null, 2)}`;
 
   const result = await callOpenAi({ systemPrompt, userPrompt });
   if (!result || typeof result !== 'object' || !result.slotData) {
     throw new Error('OpenAI-antwoord miste het verwachte veld "slotData".');
   }
+  const slotData = { ...result.slotData };
   // Defensief: ook als het model zich niet aan de instructie hierboven houdt en toch een
   // afbeelding-slot invult, wordt die hier verwijderd — nooit een verzonnen URL laten staan.
-  const slotData = { ...result.slotData };
   for (const key of Object.keys(slotData)) {
     if (IMAGE_SRC_RE.test(key) || IMAGE_ALT_RE.test(key)) delete slotData[key];
   }
+  verwijderVerzonnenLinks(slotData, linkKandidaten);
   return { slotData };
+}
+
+// Verwijdert elke link (zowel [ankertekst](url) middenin tekst-slots als een linksItems-item) die
+// niet exact overeenkomt met een aangeleverde kandidaat-url — het model mag ALLEEN linken naar wat
+// wij zelf hebben aangeleverd, nooit naar iets dat het zelf verzint. Bij een tekst-slot blijft de
+// ankertekst gewoon staan (alleen de link zelf verdwijnt, de zin blijft leesbaar); bij linksItems
+// wordt het hele item weggegooid (een link-item zonder geldige href heeft geen bestaansrecht).
+function verwijderVerzonnenLinks(slotData, linkKandidaten) {
+  const toegestaneHrefs = new Set((Array.isArray(linkKandidaten) ? linkKandidaten : []).map((k) => k.url));
+
+  // metaTitle/metaDescription zijn platte SEO-velden — daar hoort de linkschrijfwijze sowieso
+  // nooit in, geldig of niet, dus die halen we hier hoe dan ook weg (niet alleen ongeldige).
+  for (const metaKey of ['metaTitle', 'metaDescription']) {
+    if (typeof slotData[metaKey] === 'string') {
+      slotData[metaKey] = slotData[metaKey].replace(INLINE_LINK_RE, '$1');
+    }
+  }
+
+  forEachTextLeaf(slotData, (path, value, set) => {
+    if (path === 'metaTitle' || path === 'metaDescription') return;
+    if (!INLINE_LINK_RE.test(value)) return;
+    INLINE_LINK_RE.lastIndex = 0;
+    const nieuweWaarde = value.replace(INLINE_LINK_RE, (full, label, href) =>
+      toegestaneHrefs.has(href) ? full : label
+    );
+    if (nieuweWaarde !== value) set(nieuweWaarde);
+  });
+
+  if (Array.isArray(slotData.linksItems)) {
+    slotData.linksItems = slotData.linksItems.filter((item) => item && toegestaneHrefs.has(item.href));
+  }
+
+  // Losse "*LinkHref"-slots (bv. roomsLinkHref) — zelfde bescherming als linksItems hierboven,
+  // maar dan voor een los veld: een niet-herkende url wordt leeggemaakt in plaats van weggegooid
+  // (er is geen "item" om te droppen), zodat de validator 'm als ontbrekende verplichte slot
+  // meldt in plaats van dat er een dode/verzonnen link op de pagina blijft staan.
+  for (const key of Object.keys(slotData)) {
+    if (LINK_HREF_RE.test(key) && typeof slotData[key] === 'string' && slotData[key] && !toegestaneHrefs.has(slotData[key])) {
+      slotData[key] = '';
+    }
+  }
 }
 
 // Kiest voor elke ImageSrc-slot van dit sjabloon automatisch de best passende foto uit de

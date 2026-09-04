@@ -10,6 +10,7 @@
 // die status "publish" zet — "niets gaat live zonder dat jij het ziet".
 
 const { wrapForWordPress } = require('./render');
+const { stripHtml } = require('./utils');
 
 function getWpConfig(profile) {
   const url = process.env[profile.wordpress.urlEnv];
@@ -160,4 +161,45 @@ async function uploadMedia({ profile, filename, contentType, buffer }) {
   };
 }
 
-module.exports = { pushDraft, deletePage, searchMedia, uploadMedia };
+// Haalt ALLE gepubliceerde pagina's van de klant hun eigen live WordPress-site op (niet te
+// verwarren met de Notion "Landingspagina's"-database, die alleen LP Fabriek-pagina's bijhoudt).
+// Gebruikt voor interne linksuggesties: zo kan de AI ook verwijzen naar bestaande site-pagina's
+// (home, kamers, contact, enzovoort) die nooit via LP Fabriek zijn aangemaakt, en verzint 'ie
+// nooit zelf een URL - elke kandidaat komt rechtstreeks uit WordPress zelf. Alleen lezen.
+async function listSitePages({ profile, maxPaginas }) {
+  const { url, username, appPassword } = getWpConfig(profile);
+  const limiet = Number(maxPaginas) > 0 ? Number(maxPaginas) : 200;
+  const alleItems = [];
+  let huidigePagina = 1;
+  for (;;) {
+    const params = new URLSearchParams({
+      per_page: '100',
+      page: String(huidigePagina),
+      status: 'publish',
+      _fields: 'id,link,title,excerpt'
+    });
+    const res = await fetch(`${url}/wp-json/wp/v2/pages?${params.toString()}`, {
+      headers: { Authorization: authHeader(username, appPassword) }
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const message = data?.message || res.statusText;
+      throw new Error(`WordPress-fout bij ophalen site-pagina's (${res.status}): ${message}`);
+    }
+    const items = Array.isArray(data) ? data : [];
+    for (const item of items) {
+      alleItems.push({
+        id: item.id,
+        url: item.link,
+        titel: item.title?.rendered || '',
+        omschrijving: stripHtml(item.excerpt?.rendered || '', 200)
+      });
+    }
+    const totalPages = Number(res.headers.get('X-WP-TotalPages')) || huidigePagina;
+    if (huidigePagina >= totalPages || alleItems.length >= limiet) break;
+    huidigePagina += 1;
+  }
+  return alleItems.slice(0, limiet);
+}
+
+module.exports = { pushDraft, deletePage, searchMedia, uploadMedia, listSitePages };

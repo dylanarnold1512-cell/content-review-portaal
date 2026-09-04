@@ -11,7 +11,7 @@ const { buildHuisstijlVoorstel } = require('../lp/huisstijl');
 const ai = require('../lp/ai');
 const { renderPageHtml } = require('../lp/render');
 const { validatePage, validateTemplateStructure } = require('../lp/validator');
-const { pushDraft, deletePage: deleteWpPage, searchMedia, uploadMedia } = require('../lp/wordpress');
+const { pushDraft, deletePage: deleteWpPage, searchMedia, uploadMedia, listSitePages } = require('../lp/wordpress');
 const { checkLpPassword, requireLpInternal } = require('../middleware/auth');
 
 const router = express.Router();
@@ -429,10 +429,28 @@ router.post('/pages/:pageId/generate-content', requireLpInternal, async (req, re
     const gebruikteFeiten = (feitensheet.gebruikt || []).map((id) => feitenById.get(id)).filter(Boolean);
     const feiten = [...gebruikteFeiten, ...(feitensheet.extra || [])];
 
+    // Linkkandidaten voor de linksItems-slot en voor inline links middenin de tekst: een mix van
+    // andere LP Fabriek-pagina's van dezelfde klant (zusterpagina: true) en echte, bestaande
+    // pagina's op de live website van de klant (zusterpagina: false) — beide tellen mee, Dylan
+    // wilde niet beperkt blijven tot alleen onderling linkende landingspagina's. Het ophalen van de
+    // site-pagina's mag nooit de hele contentgeneratie blokkeren als het misgaat (bv. WP-fout).
     const allePaginas = await lpNotion.listPages({ klant: page.klant });
-    const bestaandePaginas = allePaginas
-      .filter((p) => p.id !== page.id && p.titel)
-      .map((p) => ({ titel: p.titel, slug: p.slug, wpUrl: p.wpUrl || null }));
+    const zusterKandidaten = allePaginas
+      .filter((p) => p.id !== page.id && p.titel && p.wpUrl)
+      .map((p) => ({ label: p.titel, url: p.wpUrl, omschrijving: '(eigen landingspagina van deze klant)', zusterpagina: true }));
+
+    let siteKandidaten = [];
+    try {
+      const sitePaginas = await listSitePages({ profile: client.profile });
+      siteKandidaten = sitePaginas
+        .filter((p) => p.url)
+        .map((p) => ({ label: p.titel || p.url, url: p.url, omschrijving: p.omschrijving || '', zusterpagina: false }));
+    } catch (siteErr) {
+      // Stil doorgaan: geen site-pagina's als kandidaat is niet erger dan de oude situatie
+      // (alleen zusterpagina's), en mag de generatie niet blokkeren.
+    }
+
+    const linkKandidaten = [...zusterKandidaten, ...siteKandidaten];
 
     const result = await ai.generatePageContent({
       klant: page.klant,
@@ -441,7 +459,7 @@ router.post('/pages/:pageId/generate-content', requireLpInternal, async (req, re
       feiten,
       watGaatDezePaginaOver,
       ctaOverride,
-      bestaandePaginas
+      linkKandidaten
     });
 
     let imageWarning = null;

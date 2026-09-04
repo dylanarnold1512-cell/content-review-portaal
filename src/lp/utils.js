@@ -20,4 +20,16 @@ function slugify(value) {
     .replace(/(^-|-$)/g, '');
 }
 
-module.exports = { escapeHtml, slugify };
+function stripHtml(value, maxLength) {
+  const zonderTags = String(value || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (typeof maxLength === 'number' && zonderTags.length > maxLength) {
+    return `${zonderTags.slice(0, maxLength).trim()}...`;
+  }
+  return zonderTags;
+}
+
+module.exports = { escapeHtml, slugify, stripHtml };
