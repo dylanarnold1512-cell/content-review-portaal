@@ -105,6 +105,13 @@ function validateSlotPage({ blueprint, contentJson }) {
 
   slots.forEach((slot) => {
     if (!slot || !slot.verplicht) return;
+    // "linksItems" is bewust uitgesloten van deze algemene verplicht-check: sinds het besluit
+    // "kwaliteit boven kwantiteit" (zie besluiten.md, 04-09-2026) is een lege linksItems-lijst
+    // gewoon een geldige uitkomst als er niks relevants was om naar te linken — dat wordt hieronder
+    // al apart (als waarschuwing, niet als blokkerende fout) via linkRegels afgehandeld. Zonder deze
+    // uitzondering zou een sjabloon met "linksItems" op verplicht:true publiceren alsnog blokkeren
+    // bij 0 relevante links, wat precies ingaat tegen dat besluit.
+    if (slot.key === 'linksItems') return;
     const value = slotData[slot.key];
     if (slot.type === 'list') {
       if (!Array.isArray(value) || !value.length) {

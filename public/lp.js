@@ -492,7 +492,7 @@ document.getElementById('lpGenerateContentBtn').addEventListener('click', async 
   try {
     const watGaatDezePaginaOver = document.getElementById('lpInvoerOnderwerp').value;
     const ctaOverride = document.getElementById('lpInvoerCtaOverride').value;
-    const { slotData, imageWarning } = await lpApi(`/pages/${page.id}/generate-content`, {
+    const { slotData, imageWarning, linkWarning } = await lpApi(`/pages/${page.id}/generate-content`, {
       method: 'POST',
       body: JSON.stringify({ watGaatDezePaginaOver, ctaOverride })
     });
@@ -505,9 +505,10 @@ document.getElementById('lpGenerateContentBtn').addEventListener('click', async 
     // titel was gegenereerd (hij stond alleen nog niet op de juiste plek).
     if (slotData.metaTitle) document.getElementById('lpMetaTitle').value = slotData.metaTitle;
     if (slotData.metaDescription) document.getElementById('lpMetaDescription').value = slotData.metaDescription;
-    statusEl.textContent = imageWarning
-      ? `Voorstel gegenereerd (tekst + meta) — ${imageWarning} Controleer en klik daarna op "Content JSON opslaan".`
-      : `Voorstel gegenereerd (tekst, meta en afbeeldingen) — controleer en pas aan waar nodig (klik in het voorbeeldscherm op een afbeelding om te wisselen), klik daarna op "Content JSON opslaan".`;
+    const waarschuwingen = [imageWarning, linkWarning].filter(Boolean).join(' ');
+    statusEl.textContent = waarschuwingen
+      ? `Voorstel gegenereerd — ${waarschuwingen} Controleer en klik daarna op "Content JSON opslaan".`
+      : `Voorstel gegenereerd (tekst, meta, afbeeldingen en interne links) — controleer en pas aan waar nodig (klik in het voorbeeldscherm op een afbeelding om te wisselen), klik daarna op "Content JSON opslaan".`;
   } catch (err) {
     statusEl.textContent = '';
     alert(formatApiError(err));
@@ -705,8 +706,18 @@ async function applyImageSwap(item) {
   }
   slotData[slotKey] = item.url;
   const altKey = slotKey.replace(/ImageSrc$/, 'ImageAlt');
-  if (item.alt && altKey !== slotKey && (altKey in slotData)) {
-    slotData[altKey] = item.alt;
+  if (altKey !== slotKey) {
+    // Altijd een alt-tekst zetten bij het handmatig wisselen, ook als dit veld nog niet in de
+    // content JSON stond (bv. omdat de AI 'm eerder afwees) - anders blijft de verplichte alt-slot
+    // stil leeg staan, zelfde bug als eerder opgelost voor de automatische AI-keuze (zie
+    // besluiten.md). Volgorde: eigen alt-tekst van de mediabibliotheek -> mediatitel -> het label
+    // van de alt-slot zelf -> het label van de afbeelding-slot -> de sleutelnaam.
+    const blueprint = lpState.currentPageBlueprint;
+    const slots = (blueprint && blueprint.slots) || [];
+    const altSlotDef = slots.find((s) => s.key === altKey);
+    const srcSlotDef = slots.find((s) => s.key === slotKey);
+    const fallbackLabel = (altSlotDef && altSlotDef.label) || (srcSlotDef && srcSlotDef.label) || altKey;
+    slotData[altKey] = (item.alt && item.alt.trim()) || (item.titel && item.titel.trim()) || fallbackLabel;
   }
   textarea.value = JSON.stringify(slotData, null, 2);
   try {

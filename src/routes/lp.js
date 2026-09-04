@@ -440,14 +440,20 @@ router.post('/pages/:pageId/generate-content', requireLpInternal, async (req, re
       .map((p) => ({ label: p.titel, url: p.wpUrl, omschrijving: '(eigen landingspagina van deze klant)', zusterpagina: true }));
 
     let siteKandidaten = [];
+    let linkWarning = null;
     try {
       const sitePaginas = await listSitePages({ profile: client.profile });
       siteKandidaten = sitePaginas
         .filter((p) => p.url)
         .map((p) => ({ label: p.titel || p.url, url: p.url, omschrijving: p.omschrijving || '', zusterpagina: false }));
+      if (!siteKandidaten.length) {
+        linkWarning = 'Geen gepubliceerde site-pagina\'s gevonden op de eigen WordPress-site — alleen zusterpagina\'s (indien aanwezig) zijn als linkkandidaat gebruikt.';
+      }
     } catch (siteErr) {
-      // Stil doorgaan: geen site-pagina's als kandidaat is niet erger dan de oude situatie
-      // (alleen zusterpagina's), en mag de generatie niet blokkeren.
+      // Nooit de hele contentgeneratie blokkeren als dit misgaat (bv. WP-fout) — geen site-pagina's
+      // als kandidaat is niet erger dan de oude situatie (alleen zusterpagina's). Wel zichtbaar
+      // maken via linkWarning, zodat dit niet stilletjes onopgemerkt blijft zoals de eerste keer.
+      linkWarning = `Site-pagina's ophalen bij WordPress is niet gelukt (${siteErr.message}) — alleen zusterpagina's (indien aanwezig) zijn als linkkandidaat gebruikt.`;
     }
 
     const linkKandidaten = [...zusterKandidaten, ...siteKandidaten];
@@ -483,7 +489,7 @@ router.post('/pages/:pageId/generate-content', requireLpInternal, async (req, re
       imageWarning = `Automatisch afbeeldingen kiezen is niet gelukt (${imgErr.message}) — vul afbeeldingen zelf in via het voorbeeldscherm.`;
     }
 
-    res.json({ ...result, imageWarning });
+    res.json({ ...result, imageWarning, linkWarning });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

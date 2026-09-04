@@ -63,9 +63,12 @@ mechanisch gecontroleerd):
 - "heroIntro" (type text, optioneel) — korte introductietekst onder de hero-titel.
 - "ctaLabel" en "ctaHref" (beide type text) — verplicht als ctaRegel.verplicht true is. Gebruik ze
   samen voor de call-to-action-knop(pen), mag op meerdere plekken in het sjabloon herhaald worden.
-- "linksItems" (type list, itemFields ["label","href","reason","zusterpagina"]) — interne links.
-  BELANGRIJK: "reason" is uitsluitend voor intern review en mag NOOIT in de zichtbare HTML worden
-  gebruikt (dus wel {{label}} en {{href}} in de {{#each linksItems}}-loop, nooit {{reason}}).
+- "linksItems" (type list, itemFields ["label","href","reason","zusterpagina"], verplicht ALTIJD
+  false) — interne links. Zet deze slot NOOIT op verplicht true: een pagina mag best 0 relevante
+  links hebben (kwaliteit boven kwantiteit, zie de contentgeneratie-instructies), dus een lege lijst
+  is een geldige uitkomst, geen ontbrekende content. BELANGRIJK: "reason" is uitsluitend voor intern
+  review en mag NOOIT in de zichtbare HTML worden gebruikt (dus wel {{label}} en {{href}} in de
+  {{#each linksItems}}-loop, nooit {{reason}}).
 - "faqItems" (type list, itemFields ["question","answer"]) — als deze slot gebruikt wordt, genereert
   het systeem automatisch FAQPage-schema (JSON-LD), dus geen aparte schema-slot nodig.
 - "practicalItems" (type list, itemFields ["label","value"]) — praktische informatie (bv. adres,
