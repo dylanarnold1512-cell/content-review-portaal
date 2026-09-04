@@ -145,6 +145,13 @@ const TEXT_WRAP_RE = /<([a-zA-Z][\w-]*)((?:\s[^<>]*)?)>\s*\{\{\s*([\w.]+)\s*\}\}
 
 function wrapFieldsMetTextSlot(str, padVoorVeld) {
   return String(str || '').replace(TEXT_WRAP_RE, (full, tagName, attrs, field) => {
+    // <summary> NOOIT taggen: dat is het klikbare, native uitklap-element van <details> (zie de
+    // FAQ-sectie) - zonder JavaScript (niet toegestaan in sjablonen, zie templateSafetyCheck)
+    // is dit de enige manier waarop een FAQ-item open-/dichtklapt. Een click-listener met
+    // preventDefault() erop (voor het bewerk-overlay) zou die native toggle stukmaken, want een
+    // click-event dat ergens binnen <summary> vandaan komt en waar preventDefault op is
+    // aangeroepen, klapt <details> niet meer open/dicht.
+    if (/^summary$/i.test(tagName)) return full;
     if (/data-lp-text-slot=/.test(attrs)) return full; // al getagd (voorkomt dubbel taggen)
     const pad = padVoorVeld(field);
     if (!pad) return full;

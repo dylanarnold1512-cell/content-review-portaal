@@ -583,14 +583,18 @@ document.getElementById('lpPreviewFrame').addEventListener('load', () => {
   });
 });
 
-// "Volledig scherm" gebruikt gewoon de native browser-fullscreen op de iframe zelf - geen eigen
-// modal nodig, en Esc om terug te gaan werkt dan automatisch ook al.
+// "Volledig scherm" gebruikt de native browser-fullscreen-API - geen eigen modal nodig, Esc om
+// terug te gaan werkt dan automatisch ook al. BEWUST op lpPreviewWrapper (die de iframe EN de
+// twee bewerk-overlays bevat) en niet op de iframe zelf: een element buiten het fullscreen-element
+// wordt niet zichtbaar getoond zolang iets anders fullscreen is, dus als de overlays buiten de
+// wrapper zouden staan, opende een klik op een afbeelding/tekst in fullscreen weliswaar het
+// overlay-element in de DOM, maar zag je 'm niet en kon je 'm niet gebruiken.
 document.getElementById('lpPreviewFullscreenBtn').addEventListener('click', () => {
-  const frame = document.getElementById('lpPreviewFrame');
-  if (frame.requestFullscreen) {
-    frame.requestFullscreen();
-  } else if (frame.webkitRequestFullscreen) {
-    frame.webkitRequestFullscreen();
+  const wrapper = document.getElementById('lpPreviewWrapper');
+  if (wrapper.requestFullscreen) {
+    wrapper.requestFullscreen();
+  } else if (wrapper.webkitRequestFullscreen) {
+    wrapper.webkitRequestFullscreen();
   }
 });
 

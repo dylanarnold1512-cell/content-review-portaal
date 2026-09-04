@@ -23,7 +23,8 @@
   .lp-subpanel.hidden { display: none; }
   #lpContentJson { width: 100%; min-height: 320px; font-family: monospace; font-size: 13px; }
   #lpPreviewFrame { width: 100%; height: 900px; border: 1px solid #e3e1dc; background: #fff; }
-  #lpPreviewFrame:fullscreen { height: 100vh; }
+  #lpPreviewWrapper:fullscreen { background: #fff; padding: 16px; box-sizing: border-box; }
+  #lpPreviewWrapper:fullscreen #lpPreviewFrame { height: calc(100vh - 32px); }
   #lpTplPreviewFrame, #lpTplDetailPreviewFrame { width: 100%; height: 900px; border: 1px solid #e3e1dc; background: #fff; margin-top: 8px; }
   .lp-btn-danger { color: #b3261e; border-color: #f2c6c2; }
   .lp-btn-danger:hover { background: #fdecea; }
@@ -555,25 +556,8 @@
           bij hover) om die aan te passen — dat wordt meteen opgeslagen. Gebruik "Volledig scherm" voor
           een groter beeld.
         </p>
-        <iframe id="lpPreviewFrame"></iframe>
-        <div class="lp-columns" style="margin-top:20px;">
-          <div class="lp-col">
-            <button type="button" id="lpValidateBtn" class="btn-plain">Valideer</button>
-            <div id="lpValidationResult"></div>
-          </div>
-          <div class="lp-col">
-            <p class="admin-footnote">
-              Zet de pagina als CONCEPT in WordPress (nooit direct live). Weigert als de validator fouten geeft.
-            </p>
-            <button type="button" id="lpPublishBtn" class="btn btn-approve">Publiceer als concept naar WordPress</button>
-            <div id="lpPublishResult"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
+        <div id="lpPreviewWrapper">
+          <iframe id="lpPreviewFrame"></iframe>
 <div id="lpImageSwapOverlay" class="lp-modal-overlay hidden">
   <div class="lp-modal-box">
     <div class="lp-modal-header">
@@ -597,7 +581,6 @@
     <button type="button" id="lpImageSwapLoadMoreBtn" class="btn-plain hidden">Meer laden</button>
   </div>
 </div>
-
 <div id="lpTextEditOverlay" class="lp-modal-overlay hidden">
   <div class="lp-modal-box">
     <div class="lp-modal-header">
@@ -611,6 +594,24 @@
     </div>
     <p id="lpTextEditError" class="admin-error hidden"></p>
     <button type="button" id="lpTextEditSaveBtn" class="btn btn-approve">Opslaan</button>
+  </div>
+</div>
+        </div>
+        <div class="lp-columns" style="margin-top:20px;">
+          <div class="lp-col">
+            <button type="button" id="lpValidateBtn" class="btn-plain">Valideer</button>
+            <div id="lpValidationResult"></div>
+          </div>
+          <div class="lp-col">
+            <p class="admin-footnote">
+              Zet de pagina als CONCEPT in WordPress (nooit direct live). Weigert als de validator fouten geeft.
+            </p>
+            <button type="button" id="lpPublishBtn" class="btn btn-approve">Publiceer als concept naar WordPress</button>
+            <div id="lpPublishResult"></div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
