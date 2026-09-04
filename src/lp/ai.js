@@ -382,8 +382,13 @@ kinderen/een gezin op de foto terwijl deze pagina duidelijk over volwassen festi
 gaat), of een heel andere ruimte/onderwerp dan de sectie beschrijft. Kies liever null dan een foto die
 niet goed past — Dylan vult die dan zelf handmatig in.
 
+Schrijf voor elke slot waar je WEL een kandidaat voor kiest ook meteen een korte, Nederlandse
+alt-tekst (bondige feitelijke beschrijving van wat je ECHT op die foto ziet, geen marketingtaal) — de
+mediabibliotheek van de klant heeft daar vaak zelf geen tekst voor ingevuld, dus reken niet op een
+andere bron.
+
 Antwoord ALLEEN met een JSON-object met exact één veld:
-{ "picks": { "<slotKey>": <kandidaat-id als getal, of null>, ... } } — precies één entry per genoemde slot.`;
+{ "picks": { "<slotKey>": { "kandidaatId": <getal, of null>, "alt": "<korte alt-tekst, leeg als kandidaatId null is>" }, ... } } — precies één entry per genoemde slot.`;
 
   const context = `Waar deze pagina over gaat: ${watGaatDezePaginaOver || '(niet opgegeven)'}
 
@@ -409,9 +414,20 @@ Kandidaat-foto's (id en titel staan steeds vlak voor de afbeelding):`;
   const kandidatenById = new Map(kandidaten.map((k) => [String(k.id), k]));
   const picks = {};
   for (const slot of afbeeldingSlots) {
-    const gekozenId = ruwePicks[slot.key];
+    const ruw = ruwePicks[slot.key];
+    const gekozenId = ruw && typeof ruw === 'object' ? ruw.kandidaatId : ruw; // tolerant voor oude platte vorm
     const kandidaat = gekozenId !== null && gekozenId !== undefined ? kandidatenById.get(String(gekozenId)) : null;
-    picks[slot.key] = kandidaat ? { url: kandidaat.url, alt: kandidaat.alt || '' } : null;
+    if (!kandidaat) {
+      picks[slot.key] = null;
+      continue;
+    }
+    // Volgorde: alt-tekst die het model net zelf schreef (ziet de foto echt) -> bestaande WP
+    // alt-tekst -> WP mediatitel (Dylan geeft zijn uploads bijna altijd een herkenbare titel,
+    // zie besluiten.md) -> sjabloon-slotlabel. Zo blijft dit verplichte veld nooit leeg, ook als
+    // het model een keer geen alt-tekst meegeeft.
+    const modelAlt = ruw && typeof ruw === 'object' && typeof ruw.alt === 'string' ? ruw.alt.trim() : '';
+    const alt = modelAlt || kandidaat.alt || kandidaat.titel || slot.label || slot.key;
+    picks[slot.key] = { url: kandidaat.url, alt };
   }
   return { picks };
 }
