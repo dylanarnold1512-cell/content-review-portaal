@@ -306,7 +306,10 @@ router.post('/templates/preview', requireLpInternal, async (req, res) => {
 });
 
 function wrapPreviewDoc(html) {
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${html}</body></html>`;
+  // De hover-stijl hieronder maakt zichtbaar welke afbeeldingen klikbaar zijn (alleen degene met
+  // een data-lp-slot-attribuut, zie tagImageSlotsForPreview) — volledig onschadelijk als een
+  // pagina geen enkele getagde afbeelding heeft.
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>[data-lp-slot]{cursor:pointer;transition:outline .15s ease;}[data-lp-slot]:hover{outline:3px solid #2f6fed;outline-offset:-3px;}</style></head><body>${html}</body></html>`;
 }
 
 // Bouwt de juiste render-invoer op basis van het sjabloonformaat — gebruikt
@@ -440,8 +443,44 @@ router.post('/pages/:pageId/generate-content', requireLpInternal, async (req, re
   }
 });
 
+// Kiest automatisch een passende foto uit de mediabibliotheek van de klant voor elke
+// ImageSrc-slot van dit sjabloon (aanvulling op generate-content hierboven, dat
+// afbeelding-slots expres leeg laat, zie ai.js). Slaat zelf niets op — komt terug als
+// { picks } en Dylan bekijkt/past aan net als bij generate-content, voordat hij zelf op
+// "Content JSON opslaan" klikt.
+router.post('/pages/:pageId/auto-images', requireLpInternal, async (req, res) => {
+  try {
+    const page = await lpNotion.getPage(req.params.pageId);
+    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    if (blueprint.templateFormat !== 'slots') {
+      return res.status(400).json({ error: 'Automatisch afbeeldingen kiezen is alleen beschikbaar voor sjablonen in het nieuwe (slot-gebaseerde) formaat.' });
+    }
+    const { watGaatDezePaginaOver } = req.body || {};
+    const invoer = page.invoer || {};
+    const client = getLpClient(page.klant);
+    const feitensheet = page.feitensheet || { gebruikt: [], extra: [] };
+    const feitenById = new Map((client.feiten || []).map((f) => [f.id, f]));
+    const gebruikteFeiten = (feitensheet.gebruikt || []).map((id) => feitenById.get(id)).filter(Boolean);
+    const feiten = [...gebruikteFeiten, ...(feitensheet.extra || [])];
+
+    const { items: kandidaten } = await searchMedia({ profile: client.profile, perPage: 100 });
+    const result = await ai.pickImagesForPage({
+      template: blueprint,
+      invoer,
+      feiten,
+      watGaatDezePaginaOver,
+      kandidaten
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // Rendert de huidige content JSON tot HTML, puur voor het voorbeeldscherm
-// (iframe) — raakt WordPress niet aan.
+// (iframe) — raakt WordPress niet aan. forPreview: true zorgt dat afbeeldingen een
+// data-lp-slot-attribuut krijgen zodat je erop kan klikken om te wisselen (zie
+// slotEngine.js tagImageSlotsForPreview en public/lp.js).
 router.get('/pages/:pageId/preview', requireLpInternal, async (req, res) => {
   try {
     const page = await lpNotion.getPage(req.params.pageId);
@@ -450,7 +489,7 @@ router.get('/pages/:pageId/preview', requireLpInternal, async (req, res) => {
     if (contentIsEmpty(blueprint, content)) {
       return res.json({ html: '<p style="font-family:sans-serif;padding:2rem;color:#666;">Nog geen content JSON ingevuld.</p>' });
     }
-    const html = renderPageHtml(buildRenderPage({ blueprint, content, clientId: page.klant, slug: page.slug }));
+    const html = renderPageHtml(buildRenderPage({ blueprint, content, clientId: page.klant, slug: page.slug }), { forPreview: true });
     res.json({ html: wrapPreviewDoc(html) });
   } catch (err) {
     res.status(400).json({ error: err.message });

@@ -47,6 +47,27 @@ function renderSlotTemplate(html, data) {
   });
 }
 
+// Zet, ALLEEN voor het voorbeeldscherm (nooit voor de HTML die naar WordPress gaat), een
+// data-lp-slot="sleutel" attribuut op elke <img> waarvan de src letterlijk {{sleutel}} is, voor
+// een ImageSrc-slot uit het sjabloon. Werkt op de RAUWE htmlTemplate-tekst, vóór de gewone
+// {{...}}-vervanging hierboven — zo weet de frontend (public/lp.js) op welke afbeelding in de
+// preview-iframe iemand klikt, om 'm meteen te kunnen wisselen via de mediabibliotheek.
+const IMG_TAG_RE = /<img\b[^>]*>/gi;
+
+function tagImageSlotsForPreview(html, slots) {
+  const imageSlotKeys = new Set(
+    (Array.isArray(slots) ? slots : []).filter((s) => /ImageSrc$/.test(s.key)).map((s) => s.key)
+  );
+  if (!imageSlotKeys.size) return html;
+  return String(html || '').replace(IMG_TAG_RE, (tag) => {
+    const match = tag.match(/src=["']\{\{\s*([\w.]+)\s*\}\}["']/);
+    if (match && imageSlotKeys.has(match[1])) {
+      return tag.replace(/^<img\b/i, `<img data-lp-slot="${match[1]}"`);
+    }
+    return tag;
+  });
+}
+
 // Veiligheidscheck voor een door AI gegenereerd (of handmatig geplakt)
 // sjabloon, VOORDAT het opgeslagen wordt. Zie besluiten.md, "Veiligheidseisen
 // voor AI-gegenereerde templates": geen <script>, geen externe resources,
@@ -85,4 +106,4 @@ function templateSafetyCheck(html, css) {
   return { ok: errors.length === 0, errors };
 }
 
-module.exports = { renderSlotTemplate, templateSafetyCheck };
+module.exports = { renderSlotTemplate, templateSafetyCheck, tagImageSlotsForPreview };

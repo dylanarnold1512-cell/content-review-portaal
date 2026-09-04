@@ -270,9 +270,24 @@ Feedback van de gebruiker: ${feedback}`;
 // AI zelf 2-3 relevante zusterpagina's kiest voor de linksItems-slot
 // (inclusief reden) — zie besluiten.md, Dylan wilde dit niet zelf per
 // pagina hoeven te bepalen.
+// Afbeelding-slots (herkenbaar aan de vaste "ImageSrc"/"ImageAlt"-naamgeving, zie besluit 7,
+// besluiten.md) worden HIER expres nooit tekstueel ingevuld door de AI — die zou anders een
+// verzonnen URL/placeholder neerzetten. Ze worden apart en pas na de gewone contentgeneratie
+// gevuld, hetzij automatisch (zie pickImagesForPage hieronder) hetzij handmatig door Dylan via de
+// mediakiezer.
+const IMAGE_SRC_RE = /ImageSrc$/;
+const IMAGE_ALT_RE = /ImageAlt$/;
+
+function getImageSlots(template) {
+  const slots = Array.isArray(template.slots) ? template.slots : [];
+  return slots.filter((s) => IMAGE_SRC_RE.test(s.key));
+}
+
 function buildContentSystemPrompt(template) {
   const slots = Array.isArray(template.slots) ? template.slots : [];
-  const slotBeschrijving = slots
+  const tekstSlots = slots.filter((s) => !IMAGE_SRC_RE.test(s.key) && !IMAGE_ALT_RE.test(s.key));
+  const afbeeldingSlots = slots.filter((s) => IMAGE_SRC_RE.test(s.key) || IMAGE_ALT_RE.test(s.key));
+  const slotBeschrijving = tekstSlots
     .map(
       (s) =>
         `- ${s.key} (${s.type}${s.type === 'list' ? `, velden: ${(s.itemFields || []).join(', ')}` : ''}${
@@ -280,6 +295,12 @@ function buildContentSystemPrompt(template) {
         }): ${s.label || ''}`
     )
     .join('\n');
+  const afbeeldingNotitie = afbeeldingSlots.length
+    ? `\n\nVul deze afbeelding-slots NIET in, ook niet met een placeholder-tekst of verzonnen URL — ze
+worden apart (automatisch of handmatig) gevuld vanuit de mediabibliotheek: ${afbeeldingSlots
+      .map((s) => s.key)
+      .join(', ')}. Laat ze gewoon weg uit slotData.`
+    : '';
 
   return `Je schrijft de INHOUD voor één landingspagina, binnen een AL GOEDGEKEURD sjabloon. De
 structuur/opmaak ligt al vast (dat pas je niet aan) — jij vult alleen de genoemde slots met concrete,
@@ -288,7 +309,7 @@ aangeleverd (feitensheet, invoervelden, "waar gaat deze pagina over") — verzin
 data of andere harde feiten.
 
 Slots die gevuld moeten worden:
-${slotBeschrijving}
+${slotBeschrijving}${afbeeldingNotitie}
 
 Voor de slot "linksItems": kies uit de aangeleverde lijst "Bestaande pagina's van deze klant" de 2-3
 meest relevante zusterpagina's (op basis van onderwerp-overlap met deze pagina), zet zusterpagina op
@@ -328,7 +349,108 @@ ${JSON.stringify(bestaandePaginas || [], null, 2)}`;
   if (!result || typeof result !== 'object' || !result.slotData) {
     throw new Error('OpenAI-antwoord miste het verwachte veld "slotData".');
   }
-  return { slotData: result.slotData };
+  // Defensief: ook als het model zich niet aan de instructie hierboven houdt en toch een
+  // afbeelding-slot invult, wordt die hier verwijderd — nooit een verzonnen URL laten staan.
+  const slotData = { ...result.slotData };
+  for (const key of Object.keys(slotData)) {
+    if (IMAGE_SRC_RE.test(key) || IMAGE_ALT_RE.test(key)) delete slotData[key];
+  }
+  return { slotData };
+}
+
+// Kiest voor elke ImageSrc-slot van dit sjabloon automatisch de best passende foto uit de
+// aangeleverde kandidatenlijst (afkomstig uit de WordPress-mediabibliotheek van de klant, zie
+// searchMedia in wordpress.js). Aparte AI-aanroep met beeldherkenning, zodat een mislukte of
+// afwijkende keuze hier nooit de gewone tekst-contentgeneratie hierboven kan blokkeren. Wijst een
+// slot af (null) als geen enkele kandidaat er ECHT bij past — Dylan vult die dan zelf handmatig in,
+// net als voorheen.
+async function pickImagesForPage({ template, invoer, feiten, watGaatDezePaginaOver, kandidaten }) {
+  const afbeeldingSlots = getImageSlots(template);
+  if (!afbeeldingSlots.length || !Array.isArray(kandidaten) || !kandidaten.length) {
+    return { picks: {} };
+  }
+
+  const slotsBeschrijving = afbeeldingSlots.map((s) => `- "${s.key}": ${s.label || s.key}`).join('\n');
+
+  const systemPrompt = `Je kiest, voor een Nederlandse landingspagina, per genoemde afbeelding-slot de
+best passende foto uit een aangeleverde lijst kandidaat-foto's (uit de eigen mediabibliotheek van de
+klant). Beoordeel puur op wat je ECHT op de foto ziet.
+
+Wijs een kandidaat AF (gebruik null) voor een slot als geen enkele kandidaat er inhoudelijk/qua sfeer
+bij past — bijvoorbeeld: de foto toont een duidelijk andere doelgroep dan deze pagina beschrijft (zoals
+kinderen/een gezin op de foto terwijl deze pagina duidelijk over volwassen festivalgangers/vrienden
+gaat), of een heel andere ruimte/onderwerp dan de sectie beschrijft. Kies liever null dan een foto die
+niet goed past — Dylan vult die dan zelf handmatig in.
+
+Antwoord ALLEEN met een JSON-object met exact één veld:
+{ "picks": { "<slotKey>": <kandidaat-id als getal, of null>, ... } } — precies één entry per genoemde slot.`;
+
+  const context = `Waar deze pagina over gaat: ${watGaatDezePaginaOver || '(niet opgegeven)'}
+
+Invoervelden:
+${JSON.stringify(invoer || {}, null, 2)}
+
+Relevante feiten:
+${JSON.stringify(feiten || [], null, 2)}
+
+Afbeelding-slots om te vullen:
+${slotsBeschrijving}
+
+Kandidaat-foto's (id en titel staan steeds vlak voor de afbeelding):`;
+
+  const contentParts = [{ type: 'text', text: context }];
+  for (const item of kandidaten) {
+    contentParts.push({ type: 'text', text: `Kandidaat-id ${item.id} — "${item.titel || '(zonder titel)'}"` });
+    contentParts.push({ type: 'image_url', image_url: { url: item.thumbnail || item.url, detail: 'low' } });
+  }
+
+  const result = await callOpenAiVision({ systemPrompt, contentParts });
+  const ruwePicks = (result && typeof result === 'object' && result.picks) || {};
+  const kandidatenById = new Map(kandidaten.map((k) => [String(k.id), k]));
+  const picks = {};
+  for (const slot of afbeeldingSlots) {
+    const gekozenId = ruwePicks[slot.key];
+    const kandidaat = gekozenId !== null && gekozenId !== undefined ? kandidatenById.get(String(gekozenId)) : null;
+    picks[slot.key] = kandidaat ? { url: kandidaat.url, alt: kandidaat.alt || '' } : null;
+  }
+  return { picks };
+}
+
+async function callOpenAiVision({ systemPrompt, contentParts }) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY is niet gezet — kan geen afbeeldingen kiezen.');
+  }
+  const model = process.env.OPENAI_MODEL || 'gpt-5.5';
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: contentParts }
+      ],
+      response_format: { type: 'json_object' }
+    })
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`OpenAI-aanroep (afbeeldingen kiezen) faalde (status ${res.status}): ${text.slice(0, 500)}`);
+  }
+  const data = await res.json();
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) {
+    throw new Error('OpenAI gaf geen bruikbaar antwoord terug bij het kiezen van afbeeldingen.');
+  }
+  try {
+    return JSON.parse(content);
+  } catch (err) {
+    throw new Error(`OpenAI-antwoord (afbeeldingen kiezen) was geen geldige JSON: ${err.message}`);
+  }
 }
 
 module.exports = {
@@ -336,5 +458,6 @@ module.exports = {
   callOpenAi,
   generateTemplateProposal,
   refineTemplateProposal,
-  generatePageContent
+  generatePageContent,
+  pickImagesForPage
 };

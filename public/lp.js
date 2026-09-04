@@ -18,7 +18,9 @@ let lpState = {
   templates: [],
   currentTemplate: null,
   onderdelenOpties: [],
-  mediaSearch: { search: '', page: 1, totalPages: 1 }
+  mediaSearch: { search: '', page: 1, totalPages: 1 },
+  imageSwapSlotKey: null,
+  imageSwapSearch: { search: '', page: 1, totalPages: 1 }
 };
 
 const ONDERDEEL_LABELS = {
@@ -664,17 +666,57 @@ document.getElementById('lpGenerateContentBtn').addEventListener('click', async 
   }
 });
 
-document.getElementById('lpSaveContentBtn').addEventListener('click', async () => {
+document.getElementById('lpAutoImagesBtn').addEventListener('click', async () => {
+  const page = lpState.currentPage;
+  if (!page) return;
+  const btn = document.getElementById('lpAutoImagesBtn');
+  const statusEl = document.getElementById('lpAutoImagesStatus');
+  if (btn.disabled) return;
+  let slotData;
+  try {
+    slotData = JSON.parse(document.getElementById('lpContentJson').value || '{}');
+  } catch (err) {
+    alert('Ongeldige Content JSON, fix dat eerst: ' + err.message);
+    return;
+  }
+  const watGaatDezePaginaOver = document.getElementById('lpInvoerOnderwerp').value;
+  statusEl.textContent = '';
+  setBtnLoading(btn, true, 'Bezig met kiezen...');
+  try {
+    const { picks } = await lpApi(`/pages/${page.id}/auto-images`, {
+      method: 'POST',
+      body: JSON.stringify({ watGaatDezePaginaOver })
+    });
+    const gekozen = [];
+    const overgeslagen = [];
+    for (const [slotKey, pick] of Object.entries(picks || {})) {
+      if (pick && pick.url) {
+        slotData[slotKey] = pick.url;
+        const altKey = slotKey.replace(/ImageSrc$/, 'ImageAlt');
+        if (pick.alt && altKey !== slotKey) slotData[altKey] = pick.alt;
+        gekozen.push(slotKey);
+      } else {
+        overgeslagen.push(slotKey);
+      }
+    }
+    document.getElementById('lpContentJson').value = JSON.stringify(slotData, null, 2);
+    const extra = overgeslagen.length ? ` Geen goede match voor: ${overgeslagen.join(', ')}, vul die zelf in.` : '';
+    statusEl.textContent = gekozen.length
+      ? `Gekozen voor: ${gekozen.join(', ')}.${extra} Controleer en klik daarna op "Content JSON opslaan".`
+      : `Geen van de foto's in de mediabibliotheek paste goed genoeg, vul de afbeeldingen zelf in.`;
+  } catch (err) {
+    statusEl.textContent = '';
+    alert(formatApiError(err));
+  } finally {
+    setBtnLoading(btn, false);
+  }
+});
+
+async function saveContentJson({ silent } = {}) {
   const page = lpState.currentPage;
   const blueprint = lpState.currentPageBlueprint;
   const isSlot = Boolean(blueprint && blueprint.templateFormat === 'slots');
-  let parsed;
-  try {
-    parsed = JSON.parse(document.getElementById('lpContentJson').value || (isSlot ? '{}' : '[]'));
-  } catch (err) {
-    alert('Ongeldige JSON: ' + err.message);
-    return;
-  }
+  const parsed = JSON.parse(document.getElementById('lpContentJson').value || (isSlot ? '{}' : '[]'));
   const content = {
     meta: {
       metaTitle: document.getElementById('lpMetaTitle').value,
@@ -684,17 +726,194 @@ document.getElementById('lpSaveContentBtn').addEventListener('click', async () =
   };
   await lpApi(`/pages/${page.id}/content`, { method: 'PUT', body: JSON.stringify({ content }) });
   lpState.currentPage.content = content;
-  const savedEl = document.getElementById('lpContentSaved');
-  savedEl.textContent = 'Opgeslagen.';
-  setTimeout(() => (savedEl.textContent = ''), 2000);
+  if (!silent) {
+    const savedEl = document.getElementById('lpContentSaved');
+    savedEl.textContent = 'Opgeslagen.';
+    setTimeout(() => (savedEl.textContent = ''), 2000);
+  }
+}
+
+document.getElementById('lpSaveContentBtn').addEventListener('click', async () => {
+  try {
+    await saveContentJson();
+  } catch (err) {
+    alert('Ongeldige JSON: ' + err.message);
+  }
 });
 
 // -- Voorbeeld, validatie, publiceren --
-document.getElementById('lpPreviewBtn').addEventListener('click', async () => {
+async function refreshPreview() {
   const page = lpState.currentPage;
+  if (!page) return;
   const { html } = await lpApi(`/pages/${page.id}/preview`);
   document.getElementById('lpPreviewFrame').srcdoc = html;
+}
+
+document.getElementById('lpPreviewBtn').addEventListener('click', refreshPreview);
+
+// Elke keer dat de iframe opnieuw laadt (dus ook na refreshPreview hierboven), afbeeldingen met
+// een data-lp-slot-attribuut klikbaar maken om ze te wisselen. srcdoc-iframes hebben hetzelfde
+// origin als deze pagina, dus contentDocument is gewoon rechtstreeks bereikbaar.
+document.getElementById('lpPreviewFrame').addEventListener('load', () => {
+  const frame = document.getElementById('lpPreviewFrame');
+  let doc;
+  try {
+    doc = frame.contentDocument;
+  } catch (err) {
+    return;
+  }
+  if (!doc) return;
+  doc.querySelectorAll('[data-lp-slot]').forEach((el) => {
+    el.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      openImageSwap(el.getAttribute('data-lp-slot'));
+    });
+  });
 });
+
+function openImageSwap(slotKey) {
+  const blueprint = lpState.currentPageBlueprint;
+  const slotDef = ((blueprint && blueprint.slots) || []).find((s) => s.key === slotKey);
+  lpState.imageSwapSlotKey = slotKey;
+  lpState.imageSwapSearch = { search: '', page: 1, totalPages: 1 };
+  document.getElementById('lpImageSwapTitle').textContent = `Afbeelding wijzigen: ${slotDef ? (slotDef.label || slotKey) : slotKey}`;
+  document.getElementById('lpImageSwapSearch').value = '';
+  document.getElementById('lpImageSwapUploadInput').value = '';
+  document.getElementById('lpImageSwapError').classList.add('hidden');
+  document.getElementById('lpImageSwapResults').innerHTML = '';
+  document.getElementById('lpImageSwapResultsInfo').classList.add('hidden');
+  document.getElementById('lpImageSwapLoadMoreBtn').classList.add('hidden');
+  document.getElementById('lpImageSwapOverlay').classList.remove('hidden');
+  runImageSwapSearch({ append: false });
+}
+
+document.getElementById('lpImageSwapClose').addEventListener('click', () => {
+  document.getElementById('lpImageSwapOverlay').classList.add('hidden');
+});
+document.getElementById('lpImageSwapOverlay').addEventListener('click', (ev) => {
+  if (ev.target.id === 'lpImageSwapOverlay') ev.currentTarget.classList.add('hidden');
+});
+
+async function runImageSwapSearch({ append }) {
+  const page = lpState.currentPage;
+  if (!page) return;
+  const errorEl = document.getElementById('lpImageSwapError');
+  errorEl.classList.add('hidden');
+  const nextPage = append ? lpState.imageSwapSearch.page + 1 : 1;
+  const search = document.getElementById('lpImageSwapSearch').value.trim();
+  const btn = append ? document.getElementById('lpImageSwapLoadMoreBtn') : document.getElementById('lpImageSwapSearchBtn');
+  setBtnLoading(btn, true, append ? 'Bezig met laden...' : 'Zoeken...');
+  try {
+    const qs = new URLSearchParams({ page: String(nextPage) });
+    if (search) qs.set('search', search);
+    const { media, page: huidigePagina, totalPages, total } = await lpApi(`/clients/${page.klant}/media?${qs.toString()}`);
+    lpState.imageSwapSearch = { search, page: huidigePagina, totalPages, total };
+    renderImageSwapResults(media, { append });
+  } catch (err) {
+    errorEl.textContent = formatApiError(err);
+    errorEl.classList.remove('hidden');
+  } finally {
+    setBtnLoading(btn, false);
+  }
+}
+
+function renderImageSwapResults(items, { append }) {
+  const resultsEl = document.getElementById('lpImageSwapResults');
+  const infoEl = document.getElementById('lpImageSwapResultsInfo');
+  const loadMoreBtn = document.getElementById('lpImageSwapLoadMoreBtn');
+  if (!append) resultsEl.innerHTML = '';
+  if (!items.length && !append) {
+    resultsEl.innerHTML = '<p class="admin-footnote">Niets gevonden.</p>';
+  } else {
+    items.forEach((item) => {
+      const el = document.createElement('div');
+      el.className = 'lp-media-item';
+      el.innerHTML = `
+        <img src="${item.thumbnail}" alt="${item.alt || ''}" loading="lazy">
+        <span>${item.titel || '(zonder titel)'}</span>`;
+      el.addEventListener('click', () => applyImageSwap(item));
+      resultsEl.appendChild(el);
+    });
+  }
+  const { page, totalPages, total } = lpState.imageSwapSearch;
+  loadMoreBtn.classList.toggle('hidden', !(page < totalPages));
+  if (total) {
+    infoEl.textContent = `Pagina ${page} van ${totalPages} (${total} afbeeldingen in totaal).`;
+    infoEl.classList.remove('hidden');
+  } else {
+    infoEl.classList.add('hidden');
+  }
+}
+
+document.getElementById('lpImageSwapSearchBtn').addEventListener('click', () => runImageSwapSearch({ append: false }));
+document.getElementById('lpImageSwapLoadMoreBtn').addEventListener('click', () => runImageSwapSearch({ append: true }));
+
+document.getElementById('lpImageSwapUploadBtn').addEventListener('click', async () => {
+  const page = lpState.currentPage;
+  if (!page) return;
+  const input = document.getElementById('lpImageSwapUploadInput');
+  const file = input.files && input.files[0];
+  const errorEl = document.getElementById('lpImageSwapError');
+  errorEl.classList.add('hidden');
+  if (!file) {
+    errorEl.textContent = 'Kies eerst een bestand om te uploaden.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+  const btn = document.getElementById('lpImageSwapUploadBtn');
+  if (btn.disabled) return;
+  setBtnLoading(btn, true, 'Bezig met uploaden...');
+  try {
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error || new Error('Bestand lezen is mislukt.'));
+      reader.readAsDataURL(file);
+    });
+    const dataBase64 = String(dataUrl).split(',')[1] || '';
+    const { media: item } = await lpApi(`/clients/${page.klant}/media/upload`, {
+      method: 'POST',
+      body: JSON.stringify({ filename: file.name, contentType: file.type, dataBase64 })
+    });
+    input.value = '';
+    await applyImageSwap(item);
+  } catch (err) {
+    errorEl.textContent = formatApiError(err);
+    errorEl.classList.remove('hidden');
+  } finally {
+    setBtnLoading(btn, false);
+  }
+});
+
+async function applyImageSwap(item) {
+  const slotKey = lpState.imageSwapSlotKey;
+  if (!slotKey) return;
+  const errorEl = document.getElementById('lpImageSwapError');
+  errorEl.classList.add('hidden');
+  const textarea = document.getElementById('lpContentJson');
+  let slotData;
+  try {
+    slotData = JSON.parse(textarea.value || '{}');
+  } catch (err) {
+    errorEl.textContent = 'De huidige Content JSON is ongeldig, fix dat eerst op het Content JSON-tabblad: ' + err.message;
+    errorEl.classList.remove('hidden');
+    return;
+  }
+  slotData[slotKey] = item.url;
+  const altKey = slotKey.replace(/ImageSrc$/, 'ImageAlt');
+  if (item.alt && altKey !== slotKey && (altKey in slotData)) {
+    slotData[altKey] = item.alt;
+  }
+  textarea.value = JSON.stringify(slotData, null, 2);
+  try {
+    await saveContentJson({ silent: true });
+    document.getElementById('lpImageSwapOverlay').classList.add('hidden');
+    await refreshPreview();
+  } catch (err) {
+    errorEl.textContent = 'Opslaan is mislukt: ' + formatApiError(err);
+    errorEl.classList.remove('hidden');
+  }
+}
 
 function renderValidation(result) {
   const el = document.getElementById('lpValidationResult');

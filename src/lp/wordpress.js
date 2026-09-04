@@ -83,11 +83,12 @@ async function deletePage({ profile, wpPaginaId }) {
 // foto's gewoon zoals altijd in wp-admin, dit doorzoekt alleen wat er al
 // staat zodat je niet hoeft te wisselen tussen het portaal en wp-admin om
 // een afbeelding-URL voor een slot te vinden.
-async function searchMedia({ profile, search, page }) {
+async function searchMedia({ profile, search, page, perPage }) {
   const { url, username, appPassword } = getWpConfig(profile);
   const huidigePagina = Number(page) > 0 ? Number(page) : 1;
+  const aantalPerPagina = Number(perPage) > 0 ? Number(perPage) : 60; // WP's maximum is 100
   const params = new URLSearchParams({
-    per_page: '60', // WP's maximum is 100, maar 60 houdt een laadbeurt vlot
+    per_page: String(aantalPerPagina),
     page: String(huidigePagina),
     _fields: 'id,source_url,alt_text,title,media_details'
   });

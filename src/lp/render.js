@@ -18,12 +18,12 @@
 const { getTokens } = require('./tokens');
 const { renderStyle } = require('./style');
 const { renderBlock, blocks } = require('./blocks');
-const { renderSlotTemplate } = require('./slotEngine');
+const { renderSlotTemplate, tagImageSlotsForPreview } = require('./slotEngine');
 const { slugify } = require('./utils');
 
-function renderPageHtml(page) {
+function renderPageHtml(page, opts) {
   if (page && page.template) {
-    return renderSlotPageHtml(page);
+    return renderSlotPageHtml(page, opts);
   }
   return renderBlockPageHtml(page);
 }
@@ -65,13 +65,19 @@ function collectBlockSchemas(pageBlocks) {
 // unieke rootClass zit op hetzelfde element, zodat twee gerenderde pagina's
 // elkaars stijl nooit kunnen beinvloeden, ook al gebruiken ze hetzelfde
 // sjabloon.
-function renderSlotPageHtml(page) {
+function renderSlotPageHtml(page, opts) {
   const tokens = getTokens(page.clientId);
   const rootClass = `lp-root-${slugify(page.slug)}`;
   const baseStyle = renderStyle(rootClass, tokens);
   const templateCss = String((page.template && page.template.cssTemplate) || '');
   const slotData = page.slotData || {};
-  const body = renderSlotTemplate((page.template && page.template.htmlTemplate) || '', slotData);
+  const htmlTemplateRaw = (page.template && page.template.htmlTemplate) || '';
+  // Alleen voor het voorbeeldscherm (opts.forPreview) markeren we afbeeldingen met welke slot ze
+  // zijn, zodat je erop kan klikken om te wisselen — de HTML die naar WordPress gaat blijft schoon.
+  const htmlTemplate = (opts && opts.forPreview)
+    ? tagImageSlotsForPreview(htmlTemplateRaw, page.template && page.template.slots)
+    : htmlTemplateRaw;
+  const body = renderSlotTemplate(htmlTemplate, slotData);
   const schemas = collectSlotSchemas(slotData);
   const schemaScript = schemas.length
     ? `\n<script type="application/ld+json">${JSON.stringify(schemas.length === 1 ? schemas[0] : schemas)}</script>`

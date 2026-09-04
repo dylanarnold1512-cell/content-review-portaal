@@ -54,6 +54,10 @@
   .lp-media-item:hover { border-color: #111; }
   .lp-media-item img { width: 100%; height: 80px; object-fit: cover; border-radius: 4px; display: block; }
   .lp-media-item span { display: block; font-size: 11px; color: #666; margin-top: 4px; word-break: break-word; }
+  .lp-modal-overlay { position: fixed; inset: 0; background: rgba(20,20,20,.55); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+  .lp-modal-overlay.hidden { display: none; }
+  .lp-modal-box { background: #fff; border-radius: 10px; padding: 24px; max-width: 640px; width: 100%; max-height: 84vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+  .lp-modal-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
 </style>
 </head>
 <body>
@@ -521,6 +525,13 @@
           </p>
           <button type="button" id="lpGenerateContentBtn" class="btn btn-approve">Genereer content met AI</button>
           <span id="lpGenerateContentStatus" class="admin-footnote"></span>
+          <p class="admin-footnote" style="margin-top:14px;">
+            Kiest daarna zelf een passende foto uit de mediabibliotheek van de klant voor elke
+            afbeelding-slot (kijkt echt naar de foto's, wijst een slot af als niets goed genoeg past
+            — die vul je dan zelf in). Controleer het resultaat altijd voordat je opslaat.
+          </p>
+          <button type="button" id="lpAutoImagesBtn" class="btn-plain">Kies afbeeldingen automatisch (AI)</button>
+          <span id="lpAutoImagesStatus" class="admin-footnote"></span>
         </div>
 
         <div id="lpMediaPickerSection" class="hidden">
@@ -568,6 +579,7 @@
         <div class="lp-columns">
           <div class="lp-col">
             <button type="button" id="lpPreviewBtn" class="btn-plain">Ververs voorbeeld</button>
+            <p class="admin-footnote">Klik in het voorbeeld op een afbeelding om 'm te wisselen — dat wordt meteen opgeslagen.</p>
             <iframe id="lpPreviewFrame"></iframe>
           </div>
           <div class="lp-col">
@@ -583,6 +595,30 @@
         </div>
       </div>
     </div>
+  </div>
+</div>
+
+<div id="lpImageSwapOverlay" class="lp-modal-overlay hidden">
+  <div class="lp-modal-box">
+    <div class="lp-modal-header">
+      <strong id="lpImageSwapTitle">Afbeelding wijzigen</strong>
+      <button type="button" id="lpImageSwapClose" class="btn-plain">Sluiten</button>
+    </div>
+    <p class="admin-footnote">Een keuze hier wordt meteen opgeslagen en het voorbeeld ververst automatisch.</p>
+    <div class="lp-field-row" style="max-width:320px;">
+      <label for="lpImageSwapSearch">Zoekterm (optioneel)</label>
+      <input type="text" id="lpImageSwapSearch" autocomplete="off">
+    </div>
+    <button type="button" id="lpImageSwapSearchBtn" class="btn-plain">Zoeken</button>
+    <div class="lp-field-row" style="max-width:320px; margin-top:14px;">
+      <label for="lpImageSwapUploadInput">Of upload een nieuwe foto</label>
+      <input type="file" id="lpImageSwapUploadInput" accept="image/*">
+    </div>
+    <button type="button" id="lpImageSwapUploadBtn" class="btn-plain">Uploaden</button>
+    <p id="lpImageSwapError" class="admin-error hidden"></p>
+    <div id="lpImageSwapResults" class="lp-media-grid"></div>
+    <p id="lpImageSwapResultsInfo" class="admin-footnote hidden"></p>
+    <button type="button" id="lpImageSwapLoadMoreBtn" class="btn-plain hidden">Meer laden</button>
   </div>
 </div>
 
