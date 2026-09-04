@@ -464,6 +464,64 @@ function renderContentJson(page, blueprint) {
   document.getElementById('lpContentJsonLabel').textContent = isSlot ? 'Content JSON (slotData object)' : 'Content JSON (blocks array)';
   const value = isSlot ? (content.slotData || {}) : (content.blocks || []);
   document.getElementById('lpContentJson').value = JSON.stringify(value, null, 2);
+
+  const mediaSection = document.getElementById('lpMediaPickerSection');
+  const afbeeldingSlots = isSlot ? (blueprint.slots || []).filter((s) => /ImageSrc$/.test(s.key)) : [];
+  mediaSection.classList.toggle('hidden', !isSlot || !afbeeldingSlots.length);
+  document.getElementById('lpMediaTargetSlot').innerHTML = afbeeldingSlots
+    .map((s) => `<option value="${s.key}">${s.label || s.key}</option>`).join('');
+  document.getElementById('lpMediaResults').innerHTML = '';
+  document.getElementById('lpMediaError').classList.add('hidden');
+}
+
+document.getElementById('lpMediaSearchBtn').addEventListener('click', async () => {
+  const page = lpState.currentPage;
+  if (!page) return;
+  const btn = document.getElementById('lpMediaSearchBtn');
+  const errorEl = document.getElementById('lpMediaError');
+  const resultsEl = document.getElementById('lpMediaResults');
+  errorEl.classList.add('hidden');
+  setBtnLoading(btn, true, 'Zoeken...');
+  try {
+    const search = document.getElementById('lpMediaSearch').value.trim();
+    const { media } = await lpApi(`/clients/${page.klant}/media${search ? '?search=' + encodeURIComponent(search) : ''}`);
+    if (!media.length) {
+      resultsEl.innerHTML = '<p class="admin-footnote">Niets gevonden.</p>';
+    } else {
+      resultsEl.innerHTML = media.map((item, i) => `
+        <div class="lp-media-item" data-media-index="${i}">
+          <img src="${item.thumbnail}" alt="${item.alt || ''}" loading="lazy">
+          <span>${item.titel || '(zonder titel)'}</span>
+        </div>`).join('');
+      resultsEl.querySelectorAll('[data-media-index]').forEach((el) => {
+        el.addEventListener('click', () => gebruikMediaItem(media[Number(el.dataset.mediaIndex)]));
+      });
+    }
+  } catch (err) {
+    errorEl.textContent = formatApiError(err);
+    errorEl.classList.remove('hidden');
+  } finally {
+    setBtnLoading(btn, false);
+  }
+});
+
+function gebruikMediaItem(item) {
+  const textarea = document.getElementById('lpContentJson');
+  const slotKey = document.getElementById('lpMediaTargetSlot').value;
+  if (!slotKey) return;
+  let slotData;
+  try {
+    slotData = JSON.parse(textarea.value || '{}');
+  } catch (err) {
+    alert('De huidige Content JSON is ongeldig, fix dat eerst voordat je een afbeelding invult: ' + err.message);
+    return;
+  }
+  slotData[slotKey] = item.url;
+  const altKey = slotKey.replace(/ImageSrc$/, 'ImageAlt');
+  if (item.alt && altKey !== slotKey && (altKey in slotData)) {
+    slotData[altKey] = item.alt;
+  }
+  textarea.value = JSON.stringify(slotData, null, 2);
 }
 
 document.getElementById('lpInsertBlockBtn').addEventListener('click', () => {

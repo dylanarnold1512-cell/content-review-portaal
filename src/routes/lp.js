@@ -11,7 +11,7 @@ const { buildHuisstijlVoorstel } = require('../lp/huisstijl');
 const ai = require('../lp/ai');
 const { renderPageHtml } = require('../lp/render');
 const { validatePage, validateTemplateStructure } = require('../lp/validator');
-const { pushDraft, deletePage: deleteWpPage } = require('../lp/wordpress');
+const { pushDraft, deletePage: deleteWpPage, searchMedia } = require('../lp/wordpress');
 const { checkLpPassword, requireLpInternal } = require('../middleware/auth');
 
 const router = express.Router();
@@ -56,6 +56,16 @@ router.get('/clients', requireLpInternal, async (req, res) => {
     res.json({ clients: overzicht });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/clients/:clientId/media', requireLpInternal, async (req, res) => {
+  try {
+    const client = getLpClient(req.params.clientId);
+    const items = await searchMedia({ profile: client.profile, search: req.query.search });
+    res.json({ media: items });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 

@@ -77,4 +77,34 @@ async function deletePage({ profile, wpPaginaId }) {
   return data;
 }
 
-module.exports = { pushDraft, deletePage };
+// Doorzoekt de WordPress-mediabibliotheek van de klant (besluit 7,
+// besluiten.md: "Beeld: WordPress mediabibliotheek met zoekfunctie, Dylan
+// kiest zelf per blok"). Alleen lezen, geen upload — Dylan/Marc uploaden
+// foto's gewoon zoals altijd in wp-admin, dit doorzoekt alleen wat er al
+// staat zodat je niet hoeft te wisselen tussen het portaal en wp-admin om
+// een afbeelding-URL voor een slot te vinden.
+async function searchMedia({ profile, search }) {
+  const { url, username, appPassword } = getWpConfig(profile);
+  const params = new URLSearchParams({
+    per_page: '20',
+    _fields: 'id,source_url,alt_text,title,media_details'
+  });
+  if (search) params.set('search', search);
+  const res = await fetch(`${url}/wp-json/wp/v2/media?${params.toString()}`, {
+    headers: { Authorization: authHeader(username, appPassword) }
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const message = data?.message || res.statusText;
+    throw new Error(`WordPress-fout bij mediabibliotheek doorzoeken (${res.status}): ${message}`);
+  }
+  return (Array.isArray(data) ? data : []).map((item) => ({
+    id: item.id,
+    url: item.source_url,
+    alt: item.alt_text || '',
+    titel: item.title?.rendered || '',
+    thumbnail: item.media_details?.sizes?.thumbnail?.source_url || item.source_url
+  }));
+}
+
+module.exports = { pushDraft, deletePage, searchMedia };

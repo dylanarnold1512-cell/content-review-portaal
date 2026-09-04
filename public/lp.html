@@ -49,6 +49,11 @@
     animation: lp-spin 0.7s linear infinite;
   }
   @keyframes lp-spin { to { transform: rotate(360deg); } }
+  .lp-media-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+  .lp-media-item { width: 110px; cursor: pointer; border: 2px solid transparent; border-radius: 6px; padding: 4px; text-align: center; }
+  .lp-media-item:hover { border-color: #111; }
+  .lp-media-item img { width: 100%; height: 80px; object-fit: cover; border-radius: 4px; display: block; }
+  .lp-media-item span { display: block; font-size: 11px; color: #666; margin-top: 4px; word-break: break-word; }
 </style>
 </head>
 <body>
@@ -516,6 +521,28 @@
           </p>
           <button type="button" id="lpGenerateContentBtn" class="btn btn-approve">Genereer content met AI</button>
           <span id="lpGenerateContentStatus" class="admin-footnote"></span>
+        </div>
+
+        <div id="lpMediaPickerSection" class="hidden">
+          <div class="admin-section-title" style="margin-top:16px;">Afbeelding kiezen uit mediabibliotheek</div>
+          <p class="admin-footnote">
+            Zoekt in de bestaande WordPress mediabibliotheek van de klant (besluit 7, besluiten.md).
+            Uploaden doe je gewoon zoals altijd in wp-admin, dit helpt alleen om een afbeelding-URL voor
+            een slot te vinden zonder het portaal te verlaten. Werkt nu alleen voor de losse
+            afbeelding-slots hierboven in het sjabloon, niet voor afbeeldingen binnen een lijst (zoals
+            per kamer), die vul je nog handmatig in de JSON hieronder.
+          </p>
+          <div class="lp-field-row" style="max-width:320px;">
+            <label for="lpMediaTargetSlot">Invullen in veld</label>
+            <select id="lpMediaTargetSlot"></select>
+          </div>
+          <div class="lp-field-row" style="max-width:320px;">
+            <label for="lpMediaSearch">Zoekterm (optioneel)</label>
+            <input type="text" id="lpMediaSearch" autocomplete="off">
+          </div>
+          <button type="button" id="lpMediaSearchBtn" class="btn-plain">Zoeken</button>
+          <p id="lpMediaError" class="admin-error hidden"></p>
+          <div id="lpMediaResults" class="lp-media-grid"></div>
         </div>
 
         <div id="lpContentBlockHelper" class="lp-field-row" style="max-width:320px;">
