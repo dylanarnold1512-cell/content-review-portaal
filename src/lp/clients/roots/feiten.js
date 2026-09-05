@@ -42,6 +42,14 @@ const feiten = [
     label: 'Telefoonnummer',
     waarde: '+31 6 52 30 85 18',
     bron: 'hostelroots.nl, voettekst, gecontroleerd 31-08-2026'
+  },
+  {
+    id: 'boekingslink',
+    label: 'Boekingslink (Mews)',
+    waarde: 'https://app.mews.com/distributor/4af144a6-0cae-497a-9f8e-af1200c67a83',
+    bron: 'hostelroots.nl, "BOOK NOW"-knop op homepage en /kamers/, gecontroleerd 05-09-2026 ' +
+      '(extern boekingssysteem Mews, geen WordPress-pagina — dus nooit een linkKandidaat via ' +
+      'listSitePages())'
   }
   // Aanvullen per pagina met event-specifieke feiten uit de feitensheet —
   // dit bestand is de vaste basis, niet de volledige lijst per pagina.
