@@ -1469,7 +1469,7 @@ document.getElementById('lpIntakeAnalyseerFeitenBtn').addEventListener('click', 
   btn.disabled = true;
   statusEl.textContent = 'Bezig met analyseren... (kan 10-30 seconden duren)';
   try {
-    const { feitenVoorstel, ctaVoorstel, formulierVoorstel, twijfels } = await lpApi('/intake/analyseer-feiten', {
+    const { feitenVoorstel, ctaVoorstel, formulieren, twijfels } = await lpApi('/intake/analyseer-feiten', {
       method: 'POST',
       body: JSON.stringify({ referentieUrl, contactUrl })
     });
@@ -1482,19 +1482,25 @@ document.getElementById('lpIntakeAnalyseerFeitenBtn').addEventListener('click', 
         bron: ctaVoorstel.opmerking || `${referentieUrl}, gecontroleerd ${vandaag}`
       });
     }
-    if (formulierVoorstel && formulierVoorstel.gevonden && formulierVoorstel.plugin) {
+    // Formulieren: elk gevonden <form>-element wordt getoond, ook als de plugin onbekend is (geen
+    // beperking tot Contact Form 7/Gravity Forms) - zie besluiten.md 05-09-2026.
+    (formulieren || []).forEach((form, i) => {
+      const pluginLabel = form.plugin
+        ? `${form.plugin}${form.formulierId ? ` (id ${form.formulierId})` : ''}`
+        : 'plugin onbekend';
+      const veldenTekst = form.velden && form.velden.length ? `velden: ${form.velden.join(', ')}` : 'geen veldnamen gevonden';
       addIntakeFeitRow({
-        label: 'Formulier op site',
-        waarde: formulierVoorstel.plugin + (formulierVoorstel.formulierId ? ` (id ${formulierVoorstel.formulierId})` : ''),
-        bron: formulierVoorstel.opmerking || `${referentieUrl}, gecontroleerd ${vandaag}`
+        label: `Formulier op site${(formulieren.length > 1) ? ' ' + (i + 1) : ''} (${pluginLabel})`,
+        waarde: veldenTekst,
+        bron: `${referentieUrl}, gecontroleerd ${vandaag}`
       });
-    }
+    });
     const extraTwijfels = [...(twijfels || [])];
     if (ctaVoorstel && !ctaVoorstel.gevonden) {
       extraTwijfels.push(`Geen duidelijke CTA/boekingslink gevonden${ctaVoorstel.opmerking ? ': ' + ctaVoorstel.opmerking : '.'}`);
     }
-    if (formulierVoorstel && !formulierVoorstel.gevonden) {
-      extraTwijfels.push(`Geen herkenbaar CF7/Gravity Forms-formulier gevonden${formulierVoorstel.opmerking ? ': ' + formulierVoorstel.opmerking : '.'}`);
+    if (!formulieren || !formulieren.length) {
+      extraTwijfels.push('Geen <form>-element gevonden op de geanalyseerde pagina\'s (mogelijk staat het formulier op een andere pagina, of wordt het via JavaScript/een iframe ingeladen).');
     }
     if (extraTwijfels.length) {
       const twijfelsEl = document.getElementById('lpIntakeTwijfels');

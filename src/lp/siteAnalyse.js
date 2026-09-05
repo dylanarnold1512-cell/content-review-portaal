@@ -4,13 +4,18 @@
 // pagina (zie besluiten.md, "Boekingslink zelf opgezocht" — de Mews-link bij Roots werd pas na een
 // klacht van Dylan gevonden door de site handmatig te bekijken): contactgegevens, de belangrijkste
 // call-to-action/boekingsknop (en of die naar de eigen site of een extern boekingssysteem wijst),
-// en of er een herkenbaar WordPress-formulierenplugin (Contact Form 7, Gravity Forms) op de site
-// staat.
+// en of er ALGEMEEN een formulier op de site staat (niet alleen Contact Form 7/Gravity Forms — elk
+// <form>-element telt, met plugin-naam erbij als die herkenbaar is, zie besluiten.md 05-09-2026).
 //
 // Zelfde filosofie als huisstijl.js: een lichte, regex-gebaseerde parser (geen HTML-parser-
 // dependency) haalt RUWE aanwijzingen op, een AI-voorstel maakt daar bruikbare, geciteerde feiten
 // van — Dylan ziet en past het voorstel aan voordat het ergens wordt opgeslagen (bronprincipe,
 // besluit 8), dit bestand verzint of committeert niets definitiefs.
+//
+// Formulierdetectie is een uitzondering op "AI maakt er een voorstel van": een <form>-element vinden
+// is een pure ja/nee-constatering zonder ruimte voor interpretatie, dus dat gaat NIET door de AI-stap
+// (die zou een gevonden formulier kunnen missen of een niet-gevonden formulier kunnen verzinnen) —
+// de ruwe, deterministische detectie hieronder is zelf al het eindresultaat voor formulieren.
 
 const { callOpenAi } = require('./ai');
 const { extractStructureOutline } = require('./referenceFetch');
@@ -106,16 +111,65 @@ function vindKnoppenEnLinksMetHref(html, baseUrl) {
   return resultaten.slice(0, 40);
 }
 
-// Contact Form 7 en Gravity Forms laten allebei een herkenbaar spoor achter in de GERENDERDE HTML
-// van een pagina die het formulier bevat (wpcf7-f<ID> resp. gform_wrapper_<ID>/gform_<ID>) — dat is
-// zichtbaar zonder WordPress-inlog nodig te hebben, dus dit is met dezelfde lichte parser-aanpak te
-// checken als de rest van deze analyse.
-function detecteerFormulierPlugin(html) {
-  const cf7 = html.match(/wpcf7-f(\d+)/);
-  if (cf7) return { plugin: 'Contact Form 7', formulierId: cf7[1] };
-  const gform = html.match(/gform_wrapper_(\d+)/) || html.match(/\bgform_(\d+)\b/);
-  if (gform) return { plugin: 'Gravity Forms', formulierId: gform[1] };
+// Bekende WordPress-formulierenplugins laten een herkenbaar spoor achter in de GERENDERDE HTML —
+// zichtbaar zonder WP-admin-toegang nodig te hebben. Dit is bewust een ruime, uitbreidbare lijst
+// (niet alleen Contact Form 7/Gravity Forms, zie besluiten.md 05-09-2026: Dylan wil dat elk soort
+// formulier gevonden wordt, niet alleen deze twee) — maar een <form> zonder herkend spoor telt óók
+// mee, met "plugin: null", zodat een formulier nooit onopgemerkt blijft puur omdat de plugin niet in
+// dit lijstje staat.
+const BEKENDE_FORMULIER_PLUGINS = [
+  { plugin: 'Contact Form 7', re: /wpcf7-f(\d+)/ },
+  { plugin: 'Gravity Forms', re: /gform_wrapper_(\d+)/ },
+  { plugin: 'Gravity Forms', re: /\bgform_(\d+)\b/ },
+  { plugin: 'WPForms', re: /wpforms-form-(\d+)/ },
+  { plugin: 'WPForms', re: /id=["']wpforms-(\d+)["']/ },
+  { plugin: 'Ninja Forms', re: /nf-form-(\d+)-cont/ },
+  { plugin: 'Formidable Forms', re: /id=["']frm_form_(\d+)_container["']/ },
+  { plugin: 'Elementor Forms', re: /elementor-widget-form/, geenId: true },
+  { plugin: 'Jetpack/Contact Form (Jetpack)', re: /wp-block-jetpack-contact-form/, geenId: true },
+  { plugin: 'Fluent Forms', re: /ff-el-form-(?:top|bottom)|fluentform_(\d+)/ }
+];
+
+function herkenFormulierPlugin(formulierHtml) {
+  for (const kandidaat of BEKENDE_FORMULIER_PLUGINS) {
+    const m = formulierHtml.match(kandidaat.re);
+    if (m) {
+      return { plugin: kandidaat.plugin, formulierId: kandidaat.geenId ? null : (m[1] || null) };
+    }
+  }
   return null;
+}
+
+const VELD_NAAM_RE = /<(?:input|textarea|select)\b[^>]*\bname=["']([^"']+)["']/gi;
+
+function vindVeldNamen(formulierHtml) {
+  const namen = new Set();
+  let m;
+  VELD_NAAM_RE.lastIndex = 0;
+  while ((m = VELD_NAAM_RE.exec(formulierHtml))) {
+    // Verborgen WordPress/plugin-interne velden (nonce, actie, honeypot e.d.) zijn ruis voor Dylan -
+    // die wil weten WELKE gegevens een bezoeker invult, niet de technische velden eromheen.
+    if (/^(_wpnonce|_wp_http_referer|action|nonce|_charset_|.*honeypot.*)$/i.test(m[1])) continue;
+    namen.add(m[1]);
+  }
+  return [...namen].slice(0, 20);
+}
+
+// Vindt ELK <form>-element op de pagina (algemene detectie, niet beperkt tot specifieke plugins) en
+// levert per gevonden formulier: de herkende plugin (of null als er geen bekend spoor is - dan is er
+// nog steeds een formulier gevonden, alleen de naam ervan is onbekend) en de zichtbare veldnamen, zodat
+// Dylan altijd kan zien dat er een formulier staat, ook als het een plugin is die niet in de lijst
+// hierboven staat.
+function detecteerFormulieren(html) {
+  const matches = html.match(/<form\b[^>]*>[\s\S]*?<\/form>/gi) || [];
+  return matches.slice(0, 5).map((formulierHtml) => {
+    const herkend = herkenFormulierPlugin(formulierHtml);
+    return {
+      plugin: herkend ? herkend.plugin : null,
+      formulierId: herkend ? herkend.formulierId : null,
+      velden: vindVeldNamen(formulierHtml)
+    };
+  });
 }
 
 // Haalt de homepage (en, indien opgegeven, een contactpagina) op en levert de ruwe bevindingen.
@@ -146,7 +200,7 @@ async function verzamelRuweSiteData(url, contactUrl) {
     contactFout,
     telefoonKandidaten: vindTelefoonKandidaten(gecombineerdeHtml),
     knoppenEnLinks: vindKnoppenEnLinksMetHref(html, url),
-    formulier: detecteerFormulierPlugin(gecombineerdeHtml),
+    formulieren: detecteerFormulieren(gecombineerdeHtml),
     structuur: extractStructureOutline(html)
   };
 }
@@ -154,10 +208,13 @@ async function verzamelRuweSiteData(url, contactUrl) {
 function buildFeitenSystemPrompt() {
   return `Je analyseert RUWE, automatisch geextraheerde gegevens over de website van een nieuwe klant
 voor de LP Fabriek (telefoonnummer-kandidaten, knoppen/links met hun href en of die naar de eigen
-site of een externe site wijst, of er een herkenbaar formulierenplugin gevonden is, en een
-structuuroverzicht). Op basis daarvan stel je concrete FEITEN voor (zelfde vorm als het bestaande
-feiten-bestand: label, waarde, bron), een voorstel voor de hoofd-CTA/boekingsactie, en een
-formulier-bevinding.
+site of een externe site wijst, en een structuuroverzicht). Op basis daarvan stel je concrete FEITEN
+voor (zelfde vorm als het bestaande feiten-bestand: label, waarde, bron) en een voorstel voor de
+hoofd-CTA/boekingsactie.
+
+Let op: welke formulieren er op de site staan wordt AL apart en volledig deterministisch gedetecteerd
+(niet door jou) - daar hoef je niets over te zeggen of te verzinnen, die informatie krijg je alleen ter
+context.
 
 Regels (bronprincipe, besluit 8 — dit is niet onderhandelbaar):
 - Verzin NOOIT een feit dat niet direct uit de aangeleverde data blijkt. Geen adressen verzinnen,
@@ -170,17 +227,13 @@ Regels (bronprincipe, besluit 8 — dit is niet onderhandelbaar):
   boekingssysteem (Mews, Cloudbeds, Booking.com e.d.) — dat is een prima en veelvoorkomende
   uitkomst, geen probleem dat opgelost moet worden. Geen enkele link die op een boek-actie lijkt
   gevonden? Zeg dat expliciet, verzin geen link.
-- Voor het formulier: als er geen Contact Form 7 of Gravity Forms gevonden is, meld dat gewoon
-  ("geen herkenbaar CF7/Gravity Forms-formulier gevonden") in plaats van te verzinnen dat er niets
-  is — er kan best een ander, niet-herkenbaar formulierenplugin gebruikt worden.
 - Stel niet meer dan 8 feiten voor, en alleen dingen die voor LANDINGSPAGINA-CONTENT bruikbaar zijn
   (adres, openingstijden, telefoon, dat soort dingen) — geen algemene marketingtekst.
 
-Antwoord ALLEEN met een JSON-object met exact vier velden, geen tekst erbuiten:
+Antwoord ALLEEN met een JSON-object met exact drie velden, geen tekst erbuiten:
 {
   "feitenVoorstel": [ { "label": string, "waarde": string, "bron": string } ],
   "ctaVoorstel": { "gevonden": boolean, "label": string, "href": string, "extern": boolean, "opmerking": string },
-  "formulierVoorstel": { "gevonden": boolean, "plugin": string, "formulierId": string, "opmerking": string },
   "twijfels": [string]
 }`;
 }
@@ -204,21 +257,24 @@ ${JSON.stringify(ruweData.telefoonKandidaten, null, 2)}
 Knoppen/links met href (lijktOpCta/extern zijn hints, geen zekerheid):
 ${JSON.stringify(ruweData.knoppenEnLinks, null, 2)}
 
-Formulierplugin-detectie (null als niets herkend):
-${JSON.stringify(ruweData.formulier, null, 2)}
+Gevonden formulieren (alleen ter context, hoef je niets mee te doen):
+${JSON.stringify(ruweData.formulieren, null, 2)}
 
 Structuuroverzicht van de homepage:
 ${JSON.stringify(ruweData.structuur, null, 2)}
 ${ruweData.contactFout ? `\n(Contactpagina ${ruweData.contactUrl} kon niet opgehaald worden: ${ruweData.contactFout})` : ''}`;
 
-  const result = await callOpenAi({ systemPrompt: buildFeitenSystemPrompt(), userPrompt });
+  const result = await callOpenAi({ systemPromt: buildFeitenSystemPrompt(), userPrompt });
   if (!result || !Array.isArray(result.feitenVoorstel)) {
     throw new Error('AI-antwoord miste het verwachte veld "feitenVoorstel".');
   }
   return {
     feitenVoorstel: result.feitenVoorstel,
     ctaVoorstel: result.ctaVoorstel || { gevonden: false },
-    formulierVoorstel: result.formulierVoorstel || { gevonden: false },
+    // Formulieren komen rechtstreeks van de deterministische detectie, NIET van de AI (zie
+    // toelichting bovenaan dit bestand) - zo kan de AI een gevonden formulier niet missen of een
+    // niet-bestaand formulier verzinnen.
+    formulieren: ruweData.formulieren,
     twijfels: Array.isArray(result.twijfels) ? result.twijfels : [],
     ruweData
   };
@@ -229,5 +285,5 @@ module.exports = {
   verzamelRuweSiteData,
   vindTelefoonKandidaten,
   vindKnoppenEnLinksMetHref,
-  detecteerFormulierPlugin
+  detecteerFormulieren
 };

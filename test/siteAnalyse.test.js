@@ -1,6 +1,6 @@
 // Geautomatiseerde tests voor src/lp/siteAnalyse.js — de pure, deterministische helpers die de
 // ruwe site-analyse voeden (telefoonnummer-kandidaten, knoppen/links-met-href-classificatie,
-// formulierplugin-detectie). Draait met de ingebouwde Node testrunner, zonder netwerk of OpenAI
+// algemene formulierdetectie). Draait met de ingebouwde Node testrunner, zonder netwerk of OpenAI
 // (zelfde filosofie als test/slotEngine.test.js): buildFeitenVoorstel zelf (die wél netwerk en
 // OpenAI aanroept) wordt hier bewust niet getest, alleen de bouwstenen eronder.
 const test = require('node:test');
@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
 const {
   vindTelefoonKandidaten,
   vindKnoppenEnLinksMetHref,
-  detecteerFormulierPlugin
+  detecteerFormulieren
 } = require('../src/lp/siteAnalyse');
 
 test('vindTelefoonKandidaten: herkent NL-nummers in platte en tel:-vorm, negeert ruis', () => {
@@ -71,19 +71,69 @@ test('vindKnoppenEnLinksMetHref: negeert links met (te) lange linktekst', () => 
   assert.equal(links[0].href, 'https://example.com/boek/');
 });
 
-test('detecteerFormulierPlugin: herkent Contact Form 7 aan wpcf7-f<id>', () => {
-  const html = '<div class="wpcf7" id="wpcf7-f123-o1"><form class="wpcf7-form"></form></div>';
-  const gevonden = detecteerFormulierPlugin(html);
-  assert.deepEqual(gevonden, { plugin: 'Contact Form 7', formulierId: '123' });
+test('detecteerFormulieren: herkent Contact Form 7 aan wpcf7-f<id>', () => {
+  const html = '<form class="wpcf7-form" id="wpcf7-f123-o1"><input name="uw-naam"><input name="uw-email"></form>';
+  const gevonden = detecteerFormulieren(html);
+  assert.equal(gevonden.length, 1);
+  assert.equal(gevonden[0].plugin, 'Contact Form 7');
+  assert.equal(gevonden[0].formulierId, '123');
 });
 
-test('detecteerFormulierPlugin: herkent Gravity Forms aan gform_wrapper_<id>', () => {
-  const html = '<div id="gform_wrapper_7" class="gform_wrapper"></div>';
-  const gevonden = detecteerFormulierPlugin(html);
-  assert.deepEqual(gevonden, { plugin: 'Gravity Forms', formulierId: '7' });
+test('detecteerFormulieren: herkent Gravity Forms aan het gform_<id>-spoor op het <form>-element zelf', () => {
+  // De herkenbare markering van Gravity Forms zit soms op de omringende <div>, maar staat ook op het
+  // <form>-element zelf (id/class "gform_<id>") - dat laatste kan de per-formulier-detectie altijd
+  // zien, ongeacht de buitenste wrapper.
+  const html = '<div id="gform_wrapper_7" class="gform_wrapper"><form id="gform_7" class="gform_7" action="/" method="post"><input name="naam"></form></div>';
+  const gevonden = detecteerFormulieren(html);
+  assert.equal(gevonden.length, 1);
+  assert.equal(gevonden[0].plugin, 'Gravity Forms');
+  assert.equal(gevonden[0].formulierId, '7');
 });
 
-test('detecteerFormulierPlugin: geeft null als er geen herkenbaar CF7/Gravity Forms-spoor is', () => {
-  const html = '<form><input name="voornaam"><input name="email"><button>Verstuur</button></form>';
-  assert.equal(detecteerFormulierPlugin(html), null);
+test('detecteerFormulieren: een formulier zonder herkenbaar spoor wordt TOCH gevonden, met plugin: null', () => {
+  // Dylan wil dat elk soort formulier gevonden wordt, niet alleen Contact Form 7/Gravity Forms - een
+  // onbekend of custom formulierenplugin mag nooit resulteren in "geen formulier gevonden".
+  const html = `
+    <form action="/verstuur" method="post">
+      <input type="text" name="voornaam">
+      <input type="email" name="email">
+      <textarea name="bericht"></textarea>
+      <button type="submit">Verstuur</button>
+    </form>
+  `;
+  const gevonden = detecteerFormulieren(html);
+  assert.equal(gevonden.length, 1);
+  assert.equal(gevonden[0].plugin, null);
+  assert.equal(gevonden[0].formulierId, null);
+  assert.deepEqual(gevonden[0].velden.sort(), ['bericht', 'email', 'voornaam']);
+});
+
+test('detecteerFormulieren: filtert technische/verborgen velden (nonce, honeypot) uit de veldenlijst', () => {
+  const html = `
+    <form>
+      <input type="hidden" name="_wpnonce" value="abc">
+      <input type="hidden" name="_wp_http_referer" value="/">
+      <input type="text" name="website_honeypot" style="display:none">
+      <input type="text" name="naam">
+    </form>
+  `;
+  const gevonden = detecteerFormulieren(html);
+  assert.equal(gevonden.length, 1);
+  assert.deepEqual(gevonden[0].velden, ['naam']);
+});
+
+test('detecteerFormulieren: geeft een lege lijst als er helemaal geen <form> gevonden wordt', () => {
+  const html = '<p>Bel ons of mail ons, we hebben geen formulier op deze pagina.</p>';
+  assert.deepEqual(detecteerFormulieren(html), []);
+});
+
+test('detecteerFormulieren: vindt meerdere formulieren op dezelfde pagina', () => {
+  const html = `
+    <form id="wpcf7-f10-o1"><input name="naam"></form>
+    <form><input name="zoekterm"></form>
+  `;
+  const gevonden = detecteerFormulieren(html);
+  assert.equal(gevonden.length, 2);
+  assert.equal(gevonden[0].plugin, 'Contact Form 7');
+  assert.equal(gevonden[1].plugin, null);
 });
