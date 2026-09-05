@@ -8,6 +8,7 @@ const lpNotion = require('../lp/notion');
 const templates = require('../lp/templates');
 const clientIntake = require('../lp/clientIntake');
 const { buildHuisstijlVoorstel } = require('../lp/huisstijl');
+const { buildFeitenVoorstel } = require('../lp/siteAnalyse');
 const ai = require('../lp/ai');
 const { renderPageHtml } = require('../lp/render');
 const { validatePage, validateTemplateStructure } = require('../lp/validator');
@@ -116,6 +117,16 @@ router.post('/intake/analyseer-huisstijl', requireLpInternal, async (req, res) =
   try {
     const { referentieUrl } = req.body || {};
     const voorstel = await buildHuisstijlVoorstel(referentieUrl);
+    res.json(voorstel);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/intake/analyseer-feiten', requireLpInternal, async (req, res) => {
+  try {
+    const { referentieUrl, contactUrl } = req.body || {};
+    const voorstel = await buildFeitenVoorstel(referentieUrl, contactUrl);
     res.json(voorstel);
   } catch (err) {
     res.status(400).json({ error: err.message });

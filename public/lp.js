@@ -1454,6 +1454,63 @@ document.getElementById('lpIntakeAnalyseerBtn').addEventListener('click', async 
   }
 });
 
+document.getElementById('lpIntakeAnalyseerFeitenBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('lpIntakeAnalyseerFeitenBtn');
+  const statusEl = document.getElementById('lpIntakeAnalyseerFeitenStatus');
+  const errorEl = document.getElementById('lpIntakeError');
+  errorEl.classList.add('hidden');
+  const referentieUrl = document.getElementById('lpIntakeReferentieUrl').value;
+  const contactUrl = document.getElementById('lpIntakeContactUrl').value;
+  if (!referentieUrl.trim()) {
+    errorEl.textContent = 'Vul eerst de website van de klant in.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+  btn.disabled = true;
+  statusEl.textContent = 'Bezig met analyseren... (kan 10-30 seconden duren)';
+  try {
+    const { feitenVoorstel, ctaVoorstel, formulierVoorstel, twijfels } = await lpApi('/intake/analyseer-feiten', {
+      method: 'POST',
+      body: JSON.stringify({ referentieUrl, contactUrl })
+    });
+    const vandaag = new Date().toISOString().slice(0, 10);
+    (feitenVoorstel || []).forEach((f) => addIntakeFeitRow(f));
+    if (ctaVoorstel && ctaVoorstel.gevonden && ctaVoorstel.href) {
+      addIntakeFeitRow({
+        label: 'Hoofd-CTA / boekingslink' + (ctaVoorstel.extern ? ' (extern systeem)' : ''),
+        waarde: ctaVoorstel.href,
+        bron: ctaVoorstel.opmerking || `${referentieUrl}, gecontroleerd ${vandaag}`
+      });
+    }
+    if (formulierVoorstel && formulierVoorstel.gevonden && formulierVoorstel.plugin) {
+      addIntakeFeitRow({
+        label: 'Formulier op site',
+        waarde: formulierVoorstel.plugin + (formulierVoorstel.formulierId ? ` (id ${formulierVoorstel.formulierId})` : ''),
+        bron: formulierVoorstel.opmerking || `${referentieUrl}, gecontroleerd ${vandaag}`
+      });
+    }
+    const extraTwijfels = [...(twijfels || [])];
+    if (ctaVoorstel && !ctaVoorstel.gevonden) {
+      extraTwijfels.push(`Geen duidelijke CTA/boekingslink gevonden${ctaVoorstel.opmerking ? ': ' + ctaVoorstel.opmerking : '.'}`);
+    }
+    if (formulierVoorstel && !formulierVoorstel.gevonden) {
+      extraTwijfels.push(`Geen herkenbaar CF7/Gravity Forms-formulier gevonden${formulierVoorstel.opmerking ? ': ' + formulierVoorstel.opmerking : '.'}`);
+    }
+    if (extraTwijfels.length) {
+      const twijfelsEl = document.getElementById('lpIntakeTwijfels');
+      twijfelsEl.innerHTML += extraTwijfels.map((t) => `<li>${t}</li>`).join('');
+      document.getElementById('lpIntakeVoorstelSection').classList.remove('hidden');
+    }
+    statusEl.textContent = `Voorstel klaar - ${(feitenVoorstel || []).length} feit(en) toegevoegd hierboven in de Feitenbibliotheek, controleer ze voordat je verzendt.`;
+  } catch (err) {
+    statusEl.textContent = '';
+    errorEl.textContent = err.message;
+    errorEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 document.getElementById('lpIntakeSubmitBtn').addEventListener('click', async () => {
   const btn = document.getElementById('lpIntakeSubmitBtn');
   const errorEl = document.getElementById('lpIntakeError');

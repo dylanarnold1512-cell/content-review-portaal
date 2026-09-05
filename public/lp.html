@@ -265,6 +265,21 @@
         </div>
       </div>
 
+      <div class="admin-section-title" style="margin-top:20px;">Site-analyse (feiten, CTA, formulier)</div>
+      <p class="admin-footnote">
+        Analyseert dezelfde website hierboven op bruikbare feiten (adres, openingstijden, telefoon),
+        de hoofd-CTA/boekingslink (ook als die naar een extern boekingssysteem zoals Mews wijst) en of
+        er een herkenbaar formulier (Contact Form 7 / Gravity Forms) gevonden is. Voegt voorstellen toe
+        als bewerkbare feiten hierboven in de Feitenbibliotheek — er wordt niets automatisch opgeslagen,
+        controleer alles voordat je de intake verzendt (bronprincipe, besluit 8).
+      </p>
+      <div class="lp-field-row">
+        <label for="lpIntakeContactUrl">Contactpagina (optioneel)</label>
+        <input type="url" id="lpIntakeContactUrl" placeholder="https://.../contact/" autocomplete="off">
+      </div>
+      <button type="button" id="lpIntakeAnalyseerFeitenBtn" class="btn-plain">Analyseer feiten &amp; CTA</button>
+      <span id="lpIntakeAnalyseerFeitenStatus" class="admin-footnote"></span>
+
       <div class="modal-actions" style="margin-top:16px;">
         <button type="button" id="lpIntakeSubmitBtn" class="btn btn-approve">Intake verzenden</button>
       </div>
