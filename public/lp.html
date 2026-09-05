@@ -588,9 +588,13 @@
       <button type="button" id="lpTextEditClose" class="btn-plain">Sluiten</button>
     </div>
     <p class="admin-footnote">Wijzigingen hier worden meteen opgeslagen en het voorbeeld ververst automatisch. Interne links zet je met [ankertekst](url).</p>
-    <div class="lp-field-row">
+    <div class="lp-field-row" id="lpTextEditTextRow">
       <label for="lpTextEditInput" id="lpTextEditLabel">Tekst</label>
       <textarea id="lpTextEditInput" class="lp-json-textarea" style="min-height:140px;" spellcheck="true"></textarea>
+    </div>
+    <div class="lp-field-row hidden" id="lpTextEditLinkRow">
+      <label for="lpTextEditLinkInput" id="lpTextEditLinkLabel">Link</label>
+      <input type="text" id="lpTextEditLinkInput" placeholder="https://... of tel:...">
     </div>
     <p id="lpTextEditError" class="admin-error hidden"></p>
     <button type="button" id="lpTextEditSaveBtn" class="btn btn-approve">Opslaan</button>

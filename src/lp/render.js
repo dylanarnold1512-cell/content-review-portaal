@@ -18,7 +18,7 @@
 const { getTokens } = require('./tokens');
 const { renderStyle } = require('./style');
 const { renderBlock, blocks } = require('./blocks');
-const { renderSlotTemplate, tagImageSlotsForPreview, tagTextSlotsForPreview } = require('./slotEngine');
+const { renderSlotTemplate, tagImageSlotsForPreview, tagTextSlotsForPreview, tagLinkSlotsForPreview } = require('./slotEngine');
 const { slugify } = require('./utils');
 
 function renderPageHtml(page, opts) {
@@ -77,7 +77,10 @@ function renderSlotPageHtml(page, opts) {
   // WordPress gaat blijft schoon (geen data-lp-*-attributen).
   const htmlTemplate = (opts && opts.forPreview)
     ? tagTextSlotsForPreview(
-        tagImageSlotsForPreview(htmlTemplateRaw, page.template && page.template.slots),
+        tagLinkSlotsForPreview(
+          tagImageSlotsForPreview(htmlTemplateRaw, page.template && page.template.slots),
+          page.template && page.template.slots
+        ),
         page.template && page.template.slots
       )
     : htmlTemplateRaw;

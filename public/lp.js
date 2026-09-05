@@ -20,7 +20,8 @@ let lpState = {
   onderdelenOpties: [],
   imageSwapSlotKey: null,
   imageSwapSearch: { search: '', page: 1, totalPages: 1 },
-  textEditPath: null
+  textEditPath: null,
+  linkEditPath: null
 };
 
 const ONDERDEEL_LABELS = {
@@ -575,10 +576,14 @@ document.getElementById('lpPreviewFrame').addEventListener('load', () => {
       openImageSwap(el.getAttribute('data-lp-slot'));
     });
   });
-  doc.querySelectorAll('[data-lp-text-slot]').forEach((el) => {
+  // Een element (bv. de CTA-knop) kan zowel een data-lp-text-slot (klikbare knoptekst) als een
+  // data-lp-link-slot (klikbare url) dragen - beide worden dan getoond in hetzelfde bewerkvenster,
+  // zie openTextEdit hieronder. Een gecombineerde querySelectorAll voorkomt dat zo'n element twee
+  // keer een click-listener krijgt.
+  doc.querySelectorAll('[data-lp-text-slot], [data-lp-link-slot]').forEach((el) => {
     el.addEventListener('click', (ev) => {
       ev.preventDefault();
-      openTextEdit(el.getAttribute('data-lp-text-slot'));
+      openTextEdit(el.getAttribute('data-lp-text-slot'), el.getAttribute('data-lp-link-slot'));
     });
   });
 });
@@ -794,7 +799,7 @@ function labelVoorTextEditPad(path) {
   return (slotDef && slotDef.label) || path;
 }
 
-function openTextEdit(path) {
+function openTextEdit(path, linkPath) {
   const textarea = document.getElementById('lpContentJson');
   let slotData;
   try {
@@ -803,10 +808,33 @@ function openTextEdit(path) {
     alert('De huidige Content JSON is ongeldig, fix dat eerst op het Content JSON-tabblad: ' + err.message);
     return;
   }
-  lpState.textEditPath = path;
-  document.getElementById('lpTextEditTitle').textContent = `Tekst wijzigen: ${labelVoorTextEditPad(path)}`;
-  document.getElementById('lpTextEditLabel').textContent = labelVoorTextEditPad(path);
-  document.getElementById('lpTextEditInput').value = getSlotValue(slotData, path) || '';
+  lpState.textEditPath = path || null;
+  lpState.linkEditPath = linkPath || null;
+
+  const textRow = document.getElementById('lpTextEditTextRow');
+  const linkRow = document.getElementById('lpTextEditLinkRow');
+
+  if (path) {
+    textRow.classList.remove('hidden');
+    document.getElementById('lpTextEditLabel').textContent = labelVoorTextEditPad(path);
+    document.getElementById('lpTextEditInput').value = getSlotValue(slotData, path) || '';
+  } else {
+    textRow.classList.add('hidden');
+  }
+
+  if (linkPath) {
+    linkRow.classList.remove('hidden');
+    document.getElementById('lpTextEditLinkLabel').textContent = labelVoorTextEditPad(linkPath);
+    document.getElementById('lpTextEditLinkInput').value = getSlotValue(slotData, linkPath) || '';
+  } else {
+    linkRow.classList.add('hidden');
+  }
+
+  document.getElementById('lpTextEditTitle').textContent = path && linkPath
+    ? `Tekst en link wijzigen: ${labelVoorTextEditPad(path)}`
+    : linkPath
+      ? `Link wijzigen: ${labelVoorTextEditPad(linkPath)}`
+      : `Tekst wijzigen: ${labelVoorTextEditPad(path)}`;
   document.getElementById('lpTextEditError').classList.add('hidden');
   document.getElementById('lpTextEditOverlay').classList.remove('hidden');
 }
@@ -820,7 +848,8 @@ document.getElementById('lpTextEditOverlay').addEventListener('click', (ev) => {
 
 document.getElementById('lpTextEditSaveBtn').addEventListener('click', async () => {
   const path = lpState.textEditPath;
-  if (!path) return;
+  const linkPath = lpState.linkEditPath;
+  if (!path && !linkPath) return;
   const errorEl = document.getElementById('lpTextEditError');
   errorEl.classList.add('hidden');
   const textarea = document.getElementById('lpContentJson');
@@ -832,7 +861,8 @@ document.getElementById('lpTextEditSaveBtn').addEventListener('click', async () 
     errorEl.classList.remove('hidden');
     return;
   }
-  setSlotValue(slotData, path, document.getElementById('lpTextEditInput').value);
+  if (path) setSlotValue(slotData, path, document.getElementById('lpTextEditInput').value);
+  if (linkPath) setSlotValue(slotData, linkPath, document.getElementById('lpTextEditLinkInput').value);
   textarea.value = JSON.stringify(slotData, null, 2);
   const btn = document.getElementById('lpTextEditSaveBtn');
   setBtnLoading(btn, true, 'Bezig met opslaan...');

@@ -15,6 +15,7 @@ const {
   renderSlotTemplate,
   tagImageSlotsForPreview,
   tagTextSlotsForPreview,
+  tagLinkSlotsForPreview,
   templateSafetyCheck,
   forEachTextLeaf,
   INLINE_LINK_RE
@@ -86,6 +87,43 @@ test('tagTextSlotsForPreview: een slot MIDDENIN een langere zin wordt niet getag
   const html = '<p>Welkom bij {{heroTitle}}</p>';
   const out = tagTextSlotsForPreview(html, slots);
   assert.ok(!out.includes('data-lp-text-slot'), 'alleen een slot dat de VOLLEDIGE tag-inhoud is mag getagd worden');
+});
+
+test('tagLinkSlotsForPreview: taggt een los "...Href"-slot in een <a href>, ook als de tag ook tekst bevat', () => {
+  const slots = [{ key: 'ctaLabel', type: 'text' }, { key: 'ctaHref', type: 'text' }];
+  const html = '<a class="btn" href="{{ctaHref}}">{{ctaLabel}}</a>';
+  const out = tagLinkSlotsForPreview(html, slots);
+  assert.match(out, /<a data-lp-link-slot="ctaHref" class="btn" href="\{\{ctaHref\}\}">\{\{ctaLabel\}\}<\/a>/);
+});
+
+test('tagLinkSlotsForPreview: taggt hetzelfde slot op elke plek waar het voorkomt (bv. CTA op twee plekken in het sjabloon)', () => {
+  const slots = [{ key: 'ctaHref', type: 'text' }];
+  const html = '<a href="{{ctaHref}}">Boek nu</a><a href="{{ctaHref}}">Boek nu (onder)</a>';
+  const out = tagLinkSlotsForPreview(html, slots);
+  const matches = out.match(/data-lp-link-slot="ctaHref"/g) || [];
+  assert.equal(matches.length, 2);
+});
+
+test('tagLinkSlotsForPreview: taggt het "href"-itemveld van een lijst-slot (bv. linksItems) met __LP_EACH_INDEX__', () => {
+  const slots = [{ key: 'linksItems', type: 'list', itemFields: ['label', 'href', 'reason', 'zusterpagina'] }];
+  const html = '{{#each linksItems}}<a href="{{href}}">{{label}}</a>{{/each}}';
+  const out = tagLinkSlotsForPreview(html, slots);
+  assert.match(out, /<a data-lp-link-slot="linksItems\.__LP_EACH_INDEX__\.href" href="\{\{href\}\}">/);
+});
+
+test('tagLinkSlotsForPreview: een vaste, harde externe url wordt nooit getagd (alleen een letterlijk \{\{sleutel\}\}-href)', () => {
+  const slots = [{ key: 'ctaHref', type: 'text' }];
+  const html = '<a href="https://vast.test/pagina">Vaste link</a>';
+  const out = tagLinkSlotsForPreview(html, slots);
+  assert.ok(!out.includes('data-lp-link-slot'), 'een hardcoded href mag nooit getagd worden');
+});
+
+test('tagLinkSlotsForPreview + tagTextSlotsForPreview: dezelfde <a> kan beide attributen dragen (label EN link apart bewerkbaar)', () => {
+  const slots = [{ key: 'ctaLabel', type: 'text' }, { key: 'ctaHref', type: 'text' }];
+  const html = '<a href="{{ctaHref}}">{{ctaLabel}}</a>';
+  const out = tagTextSlotsForPreview(tagLinkSlotsForPreview(html, slots), slots);
+  assert.match(out, /data-lp-link-slot="ctaHref"/);
+  assert.match(out, /data-lp-text-slot="ctaLabel"/);
 });
 
 test('renderPageHtml-integratie: publish-HTML (geen forPreview) bevat nooit data-lp-*, ook niet na tagging+render', () => {

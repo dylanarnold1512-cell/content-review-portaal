@@ -231,11 +231,81 @@ function templateSafetyCheck(html, css) {
   return { ok: errors.length === 0, errors };
 }
 
+
+// Zelfde idee als tagImageSlotsForPreview/tagTextSlotsForPreview hierboven, maar dan voor
+// LINKS: markeert, ALLEEN voor het voorbeeldscherm, elke <a>-tag waarvan het href-attribuut
+// letterlijk {{sleutel}} is met een data-lp-link-slot-attribuut, zodat public/lp.js er een
+// klikbaar linkveld van kan maken. Twee soorten worden herkend:
+//  1. Een los tekst-slot waarvan de naam eindigt op "Href" (bv. "ctaHref", "roomsLinkHref") -
+//     dezelfde naamgevingsafspraak die ai.js al gebruikt (zie LINK_HREF_RE aldaar), dus geen
+//     apart schemaveld nodig om dit te herkennen.
+//  2. Het "href"-itemveld van een lijst-slot (bv. "linksItems") - elk item krijgt de padnaam
+//     "lijstsleutel.__LP_EACH_INDEX__.href", precies dezelfde __LP_EACH_INDEX__-truc als
+//     tagTextSlotsForPreview hierboven gebruikt voor lijst-tekstvelden, zodat renderSlotTemplate
+//     'm op dezelfde manier invult zodra de lijst daadwerkelijk gerenderd wordt.
+// Eenzelfde <a>-tag kan ZOWEL een data-lp-text-slot (voor de klikbare linktekst) ALS een
+// data-lp-link-slot (voor de url) dragen - bv. de CTA-knop <a href="{{ctaHref}}">{{ctaLabel}}</a>.
+// De frontend (public/lp.js) toont dan beide velden in een gecombineerd bewerkvenster in plaats
+// van een los linkvenster, zodat je label en url in een keer aanpast.
+const A_TAG_RE = /<a\b[^>]*>/gi;
+const HREF_ATTR_RE = /\shref=(["'])\{\{\s*([\w.]+)\s*\}\}\1/;
+
+function tagAnchorHrefs(str, padVoorVeld) {
+  return String(str || '').replace(A_TAG_RE, (tag) => {
+    if (/data-lp-link-slot=/.test(tag)) return tag; // al getagd (voorkomt dubbel taggen)
+    const match = tag.match(HREF_ATTR_RE);
+    if (!match) return tag;
+    const pad = padVoorVeld(match[2]);
+    if (!pad) return tag;
+    return tag.replace(/^<a\b/i, `<a data-lp-link-slot="${pad}"`);
+  });
+}
+
+function tagLinkSlotsForPreview(html, slots) {
+  const alleSlots = Array.isArray(slots) ? slots : [];
+  const linkSlotKeys = new Set(alleSlots.filter((s) => s.type === 'text' && /Href$/.test(s.key)).map((s) => s.key));
+  const listHrefVelden = new Set(
+    alleSlots
+      .filter((s) => s.type === 'list' && Array.isArray(s.itemFields) && s.itemFields.includes('href'))
+      .map((s) => s.key)
+  );
+  if (!linkSlotKeys.size && !listHrefVelden.size) return html;
+
+  let result = String(html || '');
+
+  if (listHrefVelden.size) {
+    // Zelfde patroon als in tagTextSlotsForPreview: eerst de {{#each ...}}-blokken los tillen,
+    // ALLEEN daarbinnen het "href"-veld taggen (nooit een top-level "Href"-slot laten matchen op
+    // het "href"-itemveld van een lijst, dat is bewust een andere naamgevingsafspraak), en dan
+    // terugzetten.
+    const EACH_TOKEN_RE = /{{#each\s+([\w.]+)\s*}}([\s\S]*?){{\/each}}/g;
+    const eachBlocks = [];
+    result = result.replace(EACH_TOKEN_RE, (match, listKey, inner) => {
+      const taggedInner = listHrefVelden.has(listKey)
+        ? tagAnchorHrefs(inner, (field) => (field === 'href' ? `${listKey}.__LP_EACH_INDEX__.href` : null))
+        : inner;
+      const token = `@@LP_LINK_EACH_BLOCK_${eachBlocks.length}@@`;
+      eachBlocks.push(`{{#each ${listKey}}}${taggedInner}{{/each}}`);
+      return token;
+    });
+    eachBlocks.forEach((block, i) => {
+      result = result.replace(`@@LP_LINK_EACH_BLOCK_${i}@@`, block);
+    });
+  }
+
+  if (linkSlotKeys.size) {
+    result = tagAnchorHrefs(result, (field) => (linkSlotKeys.has(field) ? field : null));
+  }
+
+  return result;
+}
+
 module.exports = {
   renderSlotTemplate,
   templateSafetyCheck,
   tagImageSlotsForPreview,
   tagTextSlotsForPreview,
   INLINE_LINK_RE,
-  forEachTextLeaf
+  forEachTextLeaf,
+  tagLinkSlotsForPreview
 };
