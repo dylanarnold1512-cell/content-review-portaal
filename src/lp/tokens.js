@@ -49,11 +49,18 @@ const clientTokens = {
     // los .fl-heading-element (een Beaver Builder-heading-module) laat daarnaast "Yikes", "Comic
     // Sans MS" zien, met hogere specificiteit dan de h1-h6-regel — dat is een bug/placeholder-
     // waarde op de Roots-site ZELF (buiten dit systeem, zie het gesprek met Dylan), niet het
-    // echte merklettertype. googleFonts blijft leeg: Ubuntu wordt hier zelf-gehost door het
-    // thema (geen <link>/@import naar fonts.googleapis.com gevonden), dus het is via het
-    // WordPress-thema al overal beschikbaar — wij hoeven 'm niet apart te laden.
+    // echte merklettertype.
+    //
+    // googleFonts WEL gevuld (bijgesteld 08-09-2026): eerst leeg gelaten in de aanname dat het
+    // Roots-thema Ubuntu zelf al overal laadt, maar dat geldt alleen BINNEN de echte WordPress-
+    // pagina — in een los voorbeeldscherm (of andere context buiten hostelroots.nl) heeft de
+    // browser geen toegang tot dat zelf-gehoste lettertypebestand en valt stilzwijgend terug op
+    // een systeemfont. Ubuntu is zelf ook gewoon een publiek, bestaand Google Font (los van hoe
+    // Roots 'm host), dus laten we 'm voortaan altijd zelf laden — dat werkt dan overal
+    // betrouwbaar, ongeacht de context waarin de pagina bekeken wordt.
     fontHeading: "'Ubuntu', sans-serif",
-    fontBody: "'Ubuntu', sans-serif"
+    fontBody: "'Ubuntu', sans-serif",
+    googleFonts: ['Ubuntu']
   }
   // jmb: { ... } — toevoegen zodra JMB aan de beurt is (bouwstap 5).
 };
