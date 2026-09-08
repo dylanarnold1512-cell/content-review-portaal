@@ -54,6 +54,11 @@ function summarizeIntake(page) {
     onderwerpsrichtingen: plainText(p['Voorlopige onderwerpsrichtingen']?.rich_text),
     wordpressVanToepassing: Boolean(p['WordPress van toepassing']?.checkbox),
     wordpressUrl: p['WordPress site URL']?.url || '',
+    wpGebruikersnaam: plainText(p['WP gebruikersnaam']?.rich_text),
+    wpAppPassword: plainText(p['WP application password']?.rich_text),
+    wpPostType: p['WP post type']?.select?.name || '',
+    merknaam: plainText(p['Merknaam (excludePhrase)']?.rich_text),
+    portaalSlug: plainText(p['Portaal slug']?.rich_text),
     searchConsoleUrl: p['Search Console property URL']?.url || '',
     ga4PropertyId: plainText(p['GA4 property ID']?.rich_text),
     portalWachtwoord: plainText(p['Portal wachtwoord wens']?.rich_text),
@@ -90,6 +95,10 @@ async function createIntake(input) {
     'Voorlopige onderwerpsrichtingen': richText(input.onderwerpsrichtingen),
     'WordPress van toepassing': { checkbox: Boolean(input.wordpressVanToepassing) },
     'WordPress site URL': urlProp(input.wordpressUrl),
+    'WP gebruikersnaam': richText(input.wpGebruikersnaam),
+    'WP application password': richText(input.wpAppPassword),
+    'Merknaam (excludePhrase)': richText(input.merknaam),
+    'Portaal slug': richText(input.portaalSlug),
     'Search Console property URL': urlProp(input.searchConsoleUrl),
     'GA4 property ID': richText(input.ga4PropertyId),
     'Portal wachtwoord wens': richText(input.portalWachtwoord),
@@ -105,6 +114,9 @@ async function createIntake(input) {
   }
   if (input.blogsPerMaand) {
     properties['Blogs per maand'] = { select: { name: input.blogsPerMaand.toString() } };
+  }
+  if (input.wpPostType) {
+    properties['WP post type'] = { select: { name: input.wpPostType } };
   }
   const page = await client.pages.create({
     parent: { database_id: INTAKE_DATABASE_ID },

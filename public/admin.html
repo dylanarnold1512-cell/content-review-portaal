@@ -63,7 +63,7 @@
       <p class="admin-footnote">
         Grove input is genoeg — Claude verfijnt de contentclusters daarna zelf met DataForSEO-onderzoek
         en bouwt op basis hiervan de Notion-database, de n8n-workflows en de portal-entry.
-        OAuth-koppelingen (Search Console, GA4, WordPress) blijven een handmatige stap.
+        OAuth-koppelingen (Search Console, GA4) blijven een handmatige stap.
       </p>
       <form id="intakeForm" class="intake-form">
         <label for="intakeKlant">Klantnaam *</label>
@@ -87,6 +87,9 @@
         <label for="intakeTone">Tone of voice (optioneel)</label>
         <textarea id="intakeTone" placeholder="Merkrichtlijnen / schrijfstijl"></textarea>
 
+        <label for="intakeMerknaam">Merknaam / excludePhrase (optioneel)</label>
+        <input type="text" id="intakeMerknaam" placeholder="bijv. Basecamp Utrecht — wordt uitgesloten in blogkoppelingen" autocomplete="off">
+
         <label for="intakeTopics">Voorlopige onderwerpsrichtingen</label>
         <textarea id="intakeTopics" placeholder="2-4 ruwe richtingen, één per regel"></textarea>
 
@@ -104,9 +107,25 @@
         <label for="intakeNotificatieEmails">Notificatie e-mailadres(sen) (optioneel)</label>
         <input type="text" id="intakeNotificatieEmails" placeholder="Alleen invullen als klant zelf blogs wil controleren, komma-gescheiden">
 
+        <label for="intakePortaalSlug">Portaal slug</label>
+        <input type="text" id="intakePortaalSlug" placeholder="bijv. basecamp-utrecht" autocomplete="off">
+
         <label class="intake-checkbox"><input type="checkbox" id="intakeWordpress"> WordPress van toepassing</label>
         <label for="intakeWordpressUrl">WordPress site URL</label>
         <input type="url" id="intakeWordpressUrl" placeholder="https://...">
+
+        <label for="intakeWpGebruikersnaam">WordPress gebruikersnaam</label>
+        <input type="text" id="intakeWpGebruikersnaam" placeholder="bijv. dylanarnold1512" autocomplete="off">
+
+        <label for="intakeWpAppPassword">WordPress application password</label>
+        <input type="text" id="intakeWpAppPassword" placeholder="bijv. xxxx xxxx xxxx xxxx xxxx xxxx" autocomplete="off">
+
+        <label for="intakeWpPostType">WordPress post type</label>
+        <select id="intakeWpPostType">
+          <option value="post">post</option>
+          <option value="news">news</option>
+          <option value="page">page</option>
+        </select>
 
         <label for="intakeGsc">Search Console property URL</label>
         <input type="url" id="intakeGsc" placeholder="https://...">

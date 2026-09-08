@@ -67,55 +67,55 @@ function renderError(message) {
 function toggleSwitch(id, clientId, field, checked, disabled, disabledReason) {
   if (disabled) {
     return `
-      <div class="admin-toggle admin-toggle-disabled" title="${disabledReason || ''}">
-        <span class="admin-toggle-track"></span>
-        <span class="admin-toggle-hint">${disabledReason || 'Niet beschikbaar'}</span>
-      </div>`;
+    <div class="admin-toggle admin-toggle-disabled" title="${disabledReason || ''}">
+      <span class="admin-toggle-track"></span>
+      <span class="admin-toggle-hint">${disabledReason || 'Niet beschikbaar'}</span>
+    </div>`;
   }
   return `
-    <label class="admin-toggle">
-      <input type="checkbox" data-client="${clientId}" data-field="${field}" ${checked ? 'checked' : ''}>
-      <span class="admin-toggle-track"></span>
-    </label>`;
+  <label class="admin-toggle">
+    <input type="checkbox" data-client="${clientId}" data-field="${field}" ${checked ? 'checked' : ''}>
+    <span class="admin-toggle-track"></span>
+  </label>`;
 }
 
 function renderTable() {
   const rows = adminState.clients.map((c) => `
-    <div class="admin-row">
-      <div class="admin-row-name">
-        ${c.naam}
-        ${c.inNotion ? '' : '<span class="admin-row-badge" title="Nog geen rij in de Notion-database — wordt automatisch aangemaakt bij de eerste wijziging.">nieuw</span>'}
-      </div>
-      <div class="admin-row-setting">
-        <span class="admin-row-label">Review</span>
-        ${toggleSwitch('review-' + c.id, c.id, 'reviewEnabled', c.reviewEnabled, false)}
-      </div>
-      <div class="admin-row-setting">
-        <span class="admin-row-label">Prestaties</span>
-        ${toggleSwitch(
-          'perf-' + c.id,
-          c.id,
-          'performanceEnabled',
-          c.performanceEnabled,
-          !c.heeftPrestaties,
-          'Geen prestatie-koppeling ingesteld voor deze klant'
-        )}
-      </div>
-      <div class="admin-row-setting">
-        <span class="admin-row-label">Ideeën</span>
-        ${toggleSwitch('idea-' + c.id, c.id, 'ideaEnrichmentEnabled', c.ideaEnrichmentEnabled, false)}
-      </div>
+  <div class="admin-row">
+    <div class="admin-row-name">
+      ${c.naam}
+      ${c.inNotion ? '' : '<span class="admin-row-badge" title="Nog geen rij in de Notion-database — wordt automatisch aangemaakt bij de eerste wijziging.">nieuw</span>'}
     </div>
+    <div class="admin-row-setting">
+      <span class="admin-row-label">Review</span>
+      ${toggleSwitch('review-' + c.id, c.id, 'reviewEnabled', c.reviewEnabled, false)}
+    </div>
+    <div class="admin-row-setting">
+      <span class="admin-row-label">Prestaties</span>
+      ${toggleSwitch(
+        'perf-' + c.id,
+        c.id,
+        'performanceEnabled',
+        c.performanceEnabled,
+        !c.heeftPrestaties,
+        'Geen prestatie-koppeling ingesteld voor deze klant'
+      )}
+    </div>
+    <div class="admin-row-setting">
+      <span class="admin-row-label">Ideeën</span>
+      ${toggleSwitch('idea-' + c.id, c.id, 'ideaEnrichmentEnabled', c.ideaEnrichmentEnabled, false)}
+    </div>
+  </div>
   `).join('');
 
   document.getElementById('adminTable').innerHTML = `
-    <div class="admin-row admin-row-head">
-      <div class="admin-row-name">Klant</div>
-      <div class="admin-row-setting"><span class="admin-row-label">Review</span></div>
-      <div class="admin-row-setting"><span class="admin-row-label">Prestaties</span></div>
-      <div class="admin-row-setting"><span class="admin-row-label">Ideeën</span></div>
-    </div>
-    ${rows}
+  <div class="admin-row admin-row-head">
+    <div class="admin-row-name">Klant</div>
+    <div class="admin-row-setting"><span class="admin-row-label">Review</span></div>
+    <div class="admin-row-setting"><span class="admin-row-label">Prestaties</span></div>
+    <div class="admin-row-setting"><span class="admin-row-label">Ideeën</span></div>
+  </div>
+  ${rows}
   `;
 
   document.querySelectorAll('#adminTable input[type="checkbox"][data-client]').forEach((input) => {
@@ -161,33 +161,33 @@ function renderIdeaProposals(byClient) {
     const proposals = byClient[c.id] || [];
     const cards = proposals.length
       ? proposals.map((p) => `
-        <div class="proposal-card" data-page-id="${p.id}">
-          <div class="proposal-header">
-            <div class="proposal-title">${escapeHtmlAdmin(p.titel)}</div>
-            <span class="tag">${escapeHtmlAdmin(p.categorie)} / ${escapeHtmlAdmin(p.cluster)}</span>
-          </div>
-          <div class="proposal-meta">
-            <div><span class="seo-label">Hoofdkeyword</span>${escapeHtmlAdmin(p.mainKeyword || '')}</div>
-            <div><span class="seo-label">Secundaire keywords</span>${escapeHtmlAdmin(p.secundaireKeywords)}</div>
-            <div><span class="seo-label">Zoekintentie</span>${escapeHtmlAdmin(p.zoekintentie)}</div>
-            <div><span class="seo-label">SEO titel</span>${escapeHtmlAdmin(p.seoTitle)}</div>
-            <div><span class="seo-label">Meta omschrijving</span>${escapeHtmlAdmin(p.seoDescription)}</div>
-            <div><span class="seo-label">Voorgestelde publicatiedatum</span>${escapeHtmlAdmin(p.publicatiedatum)}</div>
-            ${p.opmerkingenKlant ? `<div><span class="seo-label">Toelichting klant</span>${escapeHtmlAdmin(p.opmerkingenKlant)}</div>` : ''}
-          </div>
-          <div class="proposal-actions">
-            <button type="button" class="btn btn-approve proposal-approve">Goedkeuren</button>
-            <button type="button" class="btn btn-reject proposal-reject">Afwijzen</button>
-          </div>
+      <div class="proposal-card" data-page-id="${p.id}">
+        <div class="proposal-header">
+          <div class="proposal-title">${escapeHtmlAdmin(p.titel)}</div>
+          <span class="tag">${escapeHtmlAdmin(p.categorie)} / ${escapeHtmlAdmin(p.cluster)}</span>
         </div>
+        <div class="proposal-meta">
+          <div><span class="seo-label">Hoofdkeyword</span>${escapeHtmlAdmin(p.mainKeyword || '')}</div>
+          <div><span class="seo-label">Secundaire keywords</span>${escapeHtmlAdmin(p.secundaireKeywords)}</div>
+          <div><span class="seo-label">Zoekintentie</span>${escapeHtmlAdmin(p.zoekintentie)}</div>
+          <div><span class="seo-label">SEO titel</span>${escapeHtmlAdmin(p.seoTitle)}</div>
+          <div><span class="seo-label">Meta omschrijving</span>${escapeHtmlAdmin(p.seoDescription)}</div>
+          <div><span class="seo-label">Voorgestelde publicatiedatum</span>${escapeHtmlAdmin(p.publicatiedatum)}</div>
+          ${p.opmerkingenKlant ? `<div><span class="seo-label">Toelichting klant</span>${escapeHtmlAdmin(p.opmerkingenKlant)}</div>` : ''}
+        </div>
+        <div class="proposal-actions">
+          <button type="button" class="btn btn-approve proposal-approve">Goedkeuren</button>
+          <button type="button" class="btn btn-reject proposal-reject">Afwijzen</button>
+        </div>
+      </div>
       `).join('')
       : `<p class="admin-footnote">Geen ideeën ter beoordeling voor ${escapeHtmlAdmin(c.naam)}.</p>`;
 
     return `
-      <div class="proposal-client-block">
-        <div class="proposal-client-name">${escapeHtmlAdmin(c.naam)}</div>
-        <div class="proposal-list">${cards}</div>
-      </div>
+    <div class="proposal-client-block">
+      <div class="proposal-client-name">${escapeHtmlAdmin(c.naam)}</div>
+      <div class="proposal-list">${cards}</div>
+    </div>
     `;
   }).join('');
 
@@ -274,6 +274,11 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
     notificatieEmails: document.getElementById('intakeNotificatieEmails').value.trim(),
     wordpressVanToepassing: document.getElementById('intakeWordpress').checked,
     wordpressUrl: document.getElementById('intakeWordpressUrl').value.trim(),
+    wpGebruikersnaam: document.getElementById('intakeWpGebruikersnaam').value.trim(),
+    wpAppPassword: document.getElementById('intakeWpAppPassword').value.trim(),
+    wpPostType: document.getElementById('intakeWpPostType').value,
+    merknaam: document.getElementById('intakeMerknaam').value.trim(),
+    portaalSlug: document.getElementById('intakePortaalSlug').value.trim(),
     searchConsoleUrl: document.getElementById('intakeGsc').value.trim(),
     ga4PropertyId: document.getElementById('intakeGa4').value.trim(),
     portalWachtwoord: document.getElementById('intakePassword').value.trim(),
@@ -314,6 +319,12 @@ function renderIntakeList(intakes) {
         ${i.blogsPerMaand ? `<div><span class="seo-label">Blogs per maand</span>${escapeHtmlAdmin(i.blogsPerMaand)}</div>` : ''}
         ${i.driveMapUrl ? `<div><span class="seo-label">Drive-map</span>${escapeHtmlAdmin(i.driveMapUrl)}</div>` : ''}
         ${i.notificatieEmails ? `<div><span class="seo-label">Notificatie e-mail</span>${escapeHtmlAdmin(i.notificatieEmails)}</div>` : ''}
+        ${i.wordpressUrl ? `<div><span class="seo-label">WordPress URL</span>${escapeHtmlAdmin(i.wordpressUrl)}</div>` : ''}
+        ${i.wpGebruikersnaam ? `<div><span class="seo-label">WP gebruikersnaam</span>${escapeHtmlAdmin(i.wpGebruikersnaam)}</div>` : ''}
+        ${i.wpAppPassword ? `<div><span class="seo-label">WP app password</span>••••••••</div>` : ''}
+        ${i.wpPostType ? `<div><span class="seo-label">WP post type</span>${escapeHtmlAdmin(i.wpPostType)}</div>` : ''}
+        ${i.merknaam ? `<div><span class="seo-label">Merknaam</span>${escapeHtmlAdmin(i.merknaam)}</div>` : ''}
+        ${i.portaalSlug ? `<div><span class="seo-label">Portaal slug</span>${escapeHtmlAdmin(i.portaalSlug)}</div>` : ''}
         ${i.notities ? `<div><span class="seo-label">Notities</span>${escapeHtmlAdmin(i.notities)}</div>` : ''}
       </div>
       <div class="proposal-actions">
@@ -324,7 +335,7 @@ function renderIntakeList(intakes) {
         </label>
       </div>
     </div>
-  `
+    `
     )
     .join('');
 
