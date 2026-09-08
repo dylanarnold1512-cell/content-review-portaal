@@ -219,16 +219,21 @@ Regels:
 - Kies bij voorkeur kleuren die vaker voorkomen in knop/cta/accent-contexten als primary/ctaBg.
 - Puur wit/zwart/grijstinten zijn meestal tekst/achtergrond, geen merkkleur — kies die niet als primary
   tenzij er echt niets beters is.
-- Voor lettertype: als er een Google Font expliciet gevonden is (zie "Expliciet gevonden Google
-  Fonts" hieronder), gebruik die EXACTE naam met een passende generieke fallback (bv. "'Poppins',
-  sans-serif") voor fontHeading/fontBody, EN zet diezelfde exacte naam (of namen) ook in
+- Voor lettertype geldt een harde alles-of-niets-regel: ALLEEN als er een Google Font EXPLICIET
+  gevonden is (zie "Expliciet gevonden Google Fonts" hieronder — dus letterlijk als <link>/@import
+  op de site zelf), gebruik je die EXACTE naam met een passende generieke fallback (bv. "'Poppins',
+  sans-serif") voor fontHeading/fontBody, EN zet je diezelfde exacte naam (of namen) ook in
   tokensVoorstel.googleFonts — dat is wat de pagina straks daadwerkelijk laat laden (zie style.js).
-  Zonder duidelijke winnaar in de expliciete Google Fonts-lijst: gebruik "inherit" voor
-  fontHeading/fontBody, laat googleFonts leeg, en meld dat als twijfelpunt (dan volgt de pagina
-  gewoon het lettertype van de WordPress-theme). Zet NOOIT een naam in googleFonts die niet
-  letterlijk in de gevonden Google Fonts-lijst staat — een font-family-kandidaat uit gewone CSS is
-  geen bewijs dat het een Google Font is (kan een systeemfont of een zelf-gehost font zijn), dus die
-  mag wel als fontHeading/fontBody-waarde gebruikt worden maar nooit in googleFonts.
+  In ALLE andere gevallen — geen exacte Google Font gevonden, zelfs als er wel een duidelijke winnaar
+  tussen de losse font-family-kandidaten in de CSS zit — is fontHeading/fontBody ALTIJD precies
+  "inherit" en googleFonts ALTIJD leeg. Noem die CSS-kandidaat dan puur in twijfels als platte tekst
+  (bv. "X komt het vaakst voor in de CSS maar is niet als Google Font gevonden, dus niet gebruikt").
+  Verzin in dat geval NOOIT een ANDER, wél-laadbaar lettertype als "veilig alternatief" of "vervanger"
+  voor de niet-bevestigde kandidaat (bv. zelf voor Ubuntu/Poppins/Open Sans kiezen "omdat het er
+  vergelijkbaar uitziet") — dat is net zo goed gokken als de onbevestigde naam zelf gebruiken, en dus
+  precies wat deze regel verbiedt. Een font-family-kandidaat uit gewone CSS is geen bewijs dat het
+  een Google Font is (kan een systeemfont of een zelf-gehost font zijn) — bij twijfel is "inherit"
+  altijd de juiste, veilige keuze, nooit een verzonnen vervanger.
 - radius en maxWidth mag je een redelijke standaardwaarde geven (bv. "8px", "1200px") tenzij de
   structuurdata een duidelijke andere indruk geeft.
 
