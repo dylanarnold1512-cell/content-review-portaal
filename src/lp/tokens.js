@@ -41,11 +41,19 @@ const clientTokens = {
     bgAlt: '#f6f6f6',
     maxWidth: '1240px',
     ctaBg: '#111111',
-    ctaText: '#f2d233'
-    // fontHeading/fontBody/googleFonts nog niet gezet: het echte basislettertype van
-    // hostelroots.nl staat nog niet vast (zie besluiten.md, "Lettertype overnemen van de
-    // klantsite"). Blijft dus "inherit" (volgt het WordPress-thema) tot dat bevestigd is —
-    // NIET zomaar op Ubuntu gezet, dat was een aanname, geen vaststaand feit.
+    ctaText: '#f2d233',
+    // fontHeading/fontBody (08-09-2026): bevestigd door Dylan zelf via de Computed-tab in de
+    // browser devtools op hostelroots.nl (zie besluiten.md, "Lettertype overnemen van de
+    // klantsite"). De cascade toont "Ubuntu", sans-serif TWEE keer onafhankelijk van elkaar (de
+    // regel voor h1-h6 EN de regel voor body) — dat is het echte, sitebrede lettertype. Een
+    // los .fl-heading-element (een Beaver Builder-heading-module) laat daarnaast "Yikes", "Comic
+    // Sans MS" zien, met hogere specificiteit dan de h1-h6-regel — dat is een bug/placeholder-
+    // waarde op de Roots-site ZELF (buiten dit systeem, zie het gesprek met Dylan), niet het
+    // echte merklettertype. googleFonts blijft leeg: Ubuntu wordt hier zelf-gehost door het
+    // thema (geen <link>/@import naar fonts.googleapis.com gevonden), dus het is via het
+    // WordPress-thema al overal beschikbaar — wij hoeven 'm niet apart te laden.
+    fontHeading: "'Ubuntu', sans-serif",
+    fontBody: "'Ubuntu', sans-serif"
   }
   // jmb: { ... } — toevoegen zodra JMB aan de beurt is (bouwstap 5).
 };
