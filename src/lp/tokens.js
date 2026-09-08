@@ -3,6 +3,13 @@
 // zie besluit 10 in besluiten.md: merkherkenning en layoutkwaliteit zijn bewust
 // gescheiden, klantsite kopieren is niet het doel.
 //
+// googleFonts (05-09-2026): array met exacte Google Font-familienamen die WERKELIJK op de
+// pagina geladen moeten worden (zie style.js). Leeg = er wordt niets extra's geladen (fontHeading/
+// fontBody blijven gewoon gelden als CSS-waarde, bv. "inherit" volgt dan het WordPress-thema).
+// Zet hier ALLEEN een naam in die aantoonbaar een echte Google Font van de klant is (bv. gevonden
+// via huisstijl.js se site-analyse) — nooit een gok, anders laadt de pagina een font die niet
+// bestaat of die niet van de klant is.
+//
 // Nieuwe klant toevoegen = hier een object bijzetten met dezelfde velden.
 
 const defaultTokens = {
@@ -18,6 +25,7 @@ const defaultTokens = {
   radius: '8px',
   fontHeading: 'inherit',
   fontBody: 'inherit',
+  googleFonts: [],
   ctaBg: '#0F5257',
   ctaText: '#FFFFFF'
 };
@@ -34,6 +42,10 @@ const clientTokens = {
     maxWidth: '1240px',
     ctaBg: '#111111',
     ctaText: '#f2d233'
+    // fontHeading/fontBody/googleFonts nog niet gezet: het echte basislettertype van
+    // hostelroots.nl staat nog niet vast (zie besluiten.md, "Lettertype overnemen van de
+    // klantsite"). Blijft dus "inherit" (volgt het WordPress-thema) tot dat bevestigd is —
+    // NIET zomaar op Ubuntu gezet, dat was een aanname, geen vaststaand feit.
   }
   // jmb: { ... } — toevoegen zodra JMB aan de beurt is (bouwstap 5).
 };

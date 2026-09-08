@@ -2,9 +2,38 @@
 // over alle klanten) plus de tokens van de specifieke klant als CSS variabelen.
 // Alles geschaald onder de root-class, zodat het nooit buiten onze eigen content
 // lekt naar de rest van de klantsite (header/footer blijven van het thema).
+//
+// Lettertype-laden (05-09-2026, vervolg op de Roots-Ubuntu-feedback): tokens.fontHeading/
+// fontBody zijn alleen de CSS-waarde (bv. "'Ubuntu', sans-serif" of "inherit"). Of dat
+// lettertype ook echt BESCHIKBAAR is in de browser hangt af van tokens.googleFonts — een array
+// met exacte Google Font-familienamen die WIJ vertrouwen (nooit door de AI vrij verzonnen, zie
+// huisstijl.js: alleen namen die letterlijk als <link>/@import op de klant-site zelf gevonden
+// zijn komen hier terecht). Is googleFonts leeg (bv. "inherit", of een systeemfont, of een font
+// dat de WordPress-theme toch al zelf laadt), dan wordt er niets extra's geladen — precies het
+// oude gedrag. Dit mag WEL een <link>/@import bevatten: dat is onze eigen vaste code, niet een
+// AI-gegenereerd sjabloon, dus de veiligheidscheck in slotEngine.js (die externe resources in
+// sjablonen blokkeert) is hier niet van toepassing.
+
+function fontFamilyParam(naam) {
+  return String(naam).trim().replace(/\s+/g, '+');
+}
+
+function buildGoogleFontsHref(families) {
+  const parts = families.map((naam) => `family=${fontFamilyParam(naam)}:wght@400;500;600;700`);
+  return `https://fonts.googleapis.com/css2?${parts.join('&')}&display=swap`;
+}
+
+function renderGoogleFontsLink(tokens) {
+  const families = Array.isArray(tokens.googleFonts) ? tokens.googleFonts.filter(Boolean) : [];
+  if (!families.length) return '';
+  return `<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="${buildGoogleFontsHref(families)}">
+`;
+}
 
 function renderStyle(rootClass, tokens) {
-  return `<style>
+  return `${renderGoogleFontsLink(tokens)}<style>
 .${rootClass} {
   --lp-primary: ${tokens.primary};
   --lp-primary-dark: ${tokens.primaryDark};
@@ -67,4 +96,4 @@ function renderStyle(rootClass, tokens) {
 </style>`;
 }
 
-module.exports = { renderStyle };
+module.exports = { renderStyle, buildGoogleFontsHref };

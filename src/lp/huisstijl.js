@@ -219,9 +219,16 @@ Regels:
 - Kies bij voorkeur kleuren die vaker voorkomen in knop/cta/accent-contexten als primary/ctaBg.
 - Puur wit/zwart/grijstinten zijn meestal tekst/achtergrond, geen merkkleur — kies die niet als primary
   tenzij er echt niets beters is.
-- Voor lettertype: als er een Google Font expliciet gevonden is, gebruik die naam met een passende
-  generieke fallback (bv. "'Poppins', sans-serif"). Zonder duidelijke winnaar: gebruik "inherit" en
-  meld dat als twijfelpunt (dan volgt de pagina gewoon het lettertype van de WordPress-theme).
+- Voor lettertype: als er een Google Font expliciet gevonden is (zie "Expliciet gevonden Google
+  Fonts" hieronder), gebruik die EXACTE naam met een passende generieke fallback (bv. "'Poppins',
+  sans-serif") voor fontHeading/fontBody, EN zet diezelfde exacte naam (of namen) ook in
+  tokensVoorstel.googleFonts — dat is wat de pagina straks daadwerkelijk laat laden (zie style.js).
+  Zonder duidelijke winnaar in de expliciete Google Fonts-lijst: gebruik "inherit" voor
+  fontHeading/fontBody, laat googleFonts leeg, en meld dat als twijfelpunt (dan volgt de pagina
+  gewoon het lettertype van de WordPress-theme). Zet NOOIT een naam in googleFonts die niet
+  letterlijk in de gevonden Google Fonts-lijst staat — een font-family-kandidaat uit gewone CSS is
+  geen bewijs dat het een Google Font is (kan een systeemfont of een zelf-gehost font zijn), dus die
+  mag wel als fontHeading/fontBody-waarde gebruikt worden maar nooit in googleFonts.
 - radius en maxWidth mag je een redelijke standaardwaarde geven (bv. "8px", "1200px") tenzij de
   structuurdata een duidelijke andere indruk geeft.
 
@@ -229,7 +236,8 @@ Antwoord ALLEEN met een JSON-object met exact drie velden, geen tekst erbuiten:
 {
   "tokensVoorstel": { "primary": string, "primaryDark": string, "secondary": string, "text": string,
     "textMuted": string, "bg": string, "bgAlt": string, "border": string, "maxWidth": string,
-    "radius": string, "fontHeading": string, "fontBody": string, "ctaBg": string, "ctaText": string },
+    "radius": string, "fontHeading": string, "fontBody": string, "googleFonts": string[],
+    "ctaBg": string, "ctaText": string },
   "samenvatting": string,
   "twijfels": [string]
 }`;
