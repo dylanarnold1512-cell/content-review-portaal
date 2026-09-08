@@ -69,4 +69,40 @@ function getTokens(clientId) {
   return clientTokens[clientId] || defaultTokens;
 }
 
-module.exports = { defaultTokens, clientTokens, getTokens };
+// Zelfcontrole (08-09-2026, zie besluiten.md "Zelfcontrole inbouwen"): mechanische check die het
+// exacte foutpatroon van de Roots-lettertypebug afvangt VOORDAT die opnieuw kan sluipen. Een custom
+// lettertype (dus geen "inherit" en geen generiek systeemfont) hoort altijd ook in googleFonts te
+// staan, anders wordt 'm buiten de eigen WordPress-pagina van de klant niet geladen en valt de
+// browser stilzwijgend terug op iets anders. Puur mechanisch, geen AI-oordeel nodig.
+const GENERIEKE_FONTS = new Set([
+  'inherit', 'initial', 'unset', 'sans-serif', 'serif', 'monospace', 'cursive', 'fantasy',
+  'system-ui', 'ui-sans-serif', 'ui-serif', 'ui-monospace', 'ui-rounded',
+  '-apple-system', 'blinkmacsystemfont', 'arial', 'helvetica', 'helvetica neue', 'verdana',
+  'tahoma', 'geneva', 'georgia', 'times new roman', 'times', 'courier new', 'courier',
+  'trebuchet ms', 'segoe ui'
+]);
+
+function eersteFontNaam(cssWaarde) {
+  if (!cssWaarde) return null;
+  const eerste = String(cssWaarde).split(',')[0].trim().replace(/^['"]|['"]$/g, '');
+  return eerste || null;
+}
+
+function checkFontLoadConsistency(tokens) {
+  const problemen = [];
+  const googleFontsLower = (tokens.googleFonts || []).map((naam) => String(naam).toLowerCase());
+  ['fontHeading', 'fontBody'].forEach((veld) => {
+    const naam = eersteFontNaam(tokens[veld]);
+    if (!naam) return;
+    const naamLower = naam.toLowerCase();
+    if (GENERIEKE_FONTS.has(naamLower)) return;
+    if (googleFontsLower.includes(naamLower)) return;
+    problemen.push(
+      `${veld} staat op een niet-generiek lettertype ("${naam}") dat niet voorkomt in googleFonts ` +
+      '— wordt dus mogelijk niet geladen buiten de eigen WordPress-pagina van de klant.'
+    );
+  });
+  return problemen;
+}
+
+module.exports = { defaultTokens, clientTokens, getTokens, checkFontLoadConsistency };
