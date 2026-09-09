@@ -18,7 +18,12 @@ const {
   tagLinkSlotsForPreview,
   templateSafetyCheck,
   forEachTextLeaf,
-  INLINE_LINK_RE
+  INLINE_LINK_RE,
+  ICON_LIBRARY,
+  ICON_NAMES,
+  renderIcon,
+  isIconField,
+  findUnknownIcons
 } = require('../src/lp/slotEngine');
 
 test('renderSlotTemplate: gewone velden en [ankertekst](url) worden correct gerenderd', () => {
@@ -158,4 +163,52 @@ test('INLINE_LINK_RE: herkent alleen http(s):// of /-paden, geen javascript:', (
   INLINE_LINK_RE.lastIndex = 0;
   assert.ok(!INLINE_LINK_RE.test('[label](javascript:alert(1))'));
   INLINE_LINK_RE.lastIndex = 0;
+});
+
+
+// Regressietest voor de "map-pin"/"clock"/"train"-bug (09-09-2026, zie systeem-logboek.md): een
+// icoonveld mag NOOIT als platte tekst in de HTML terechtkomen, het moet een echte SVG worden.
+test('renderSlotTemplate: een "icon"-itemveld in een lijst-slot wordt een echte SVG, nooit platte tekst', () => {
+  const html = '{{#each uspItems}}<span class="usp-icon">{{icon}}</span><h3>{{title}}</h3>{{/each}}';
+  const out = renderSlotTemplate(html, { uspItems: [{ icon: 'map-pin', title: 'In Tilburg' }] });
+  assert.ok(!out.includes('>map-pin<'), 'de rauwe icoonnaam mag nooit als zichtbare tekst verschijnen');
+  assert.match(out, /<span class="usp-icon"><svg[^>]*>.*<\/svg><\/span>/);
+  assert.match(out, /<h3>In Tilburg<\/h3>/);
+});
+
+test('renderSlotTemplate: een los slot dat op "Icon" eindigt wordt ook als SVG gerenderd', () => {
+  const html = '<div class="hero-icon">{{heroIcon}}</div>';
+  const out = renderSlotTemplate(html, { heroIcon: 'star' });
+  assert.match(out, /<div class="hero-icon"><svg/);
+});
+
+test('renderIcon: geeft een neutraal fallback-icoon terug voor een niet-herkende naam, nooit lege/rauwe tekst', () => {
+  const out = renderIcon('deze-naam-bestaat-niet');
+  assert.match(out, /^<svg/);
+  assert.equal(out, renderIcon(''));
+});
+
+test('isIconField: herkent "icon" en "...Icon", niet gewone velden zoals "title"', () => {
+  assert.ok(isIconField('icon'));
+  assert.ok(isIconField('heroIcon'));
+  assert.ok(!isIconField('title'));
+});
+
+test('ICON_LIBRARY/ICON_NAMES: elke naam in ICON_NAMES levert ook echt een SVG uit ICON_LIBRARY', () => {
+  assert.ok(ICON_NAMES.length > 0);
+  for (const naam of ICON_NAMES) {
+    assert.match(ICON_LIBRARY[naam], /^<svg/);
+  }
+});
+
+test('findUnknownIcons: signaleert een icoonwaarde die niet in ICON_LIBRARY voorkomt', () => {
+  const slotData = { uspItems: [{ icon: 'map-pin', title: 'Goed' }, { icon: 'onzin-naam', title: 'Fout' }] };
+  const problemen = findUnknownIcons(slotData);
+  assert.equal(problemen.length, 1);
+  assert.equal(problemen[0].value, 'onzin-naam');
+});
+
+test('findUnknownIcons: geen problemen als alle icoonwaarden bestaan', () => {
+  const slotData = { uspItems: [{ icon: 'map-pin' }, { icon: 'clock' }] };
+  assert.deepEqual(findUnknownIcons(slotData), []);
 });

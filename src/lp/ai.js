@@ -15,7 +15,7 @@
 
 const { getTokens } = require('./tokens');
 const { fetchReferenceSummary } = require('./referenceFetch');
-const { INLINE_LINK_RE, forEachTextLeaf } = require('./slotEngine');
+const { INLINE_LINK_RE, forEachTextLeaf, ICON_NAMES, findUnknownIcons } = require('./slotEngine');
 
 // De optionele "vaste onderdelen"-checklist in het sjabloon-formulier (Stap
 // 1, vraag 3). Hero, CTA en interne links zijn altijd al verplicht via de
@@ -80,6 +80,15 @@ Voor al het andere (USP's, stappenplan, aanbod/kaarten, reviews, doelgroeptekst,
 bij deze specifieke referentie/paginatype past) verzin je zelf passende slot-namen en itemFields, met
 "list" voor herhalende onderdelen en "text" voor losse tekstblokken. Gebruik voor elke lijst-slot in
 htmlTemplate een {{#each sleutelnaam}}...{{/each}}-blok — geen geneste {{#each}}.
+
+Iconen: wil je bij een lijst-slot (bv. USP-kaarten) een icoon per item, gebruik dan exact het
+itemField-naam "icon" (of, voor een los icoon buiten een lijst, een slotnaam die eindigt op "Icon",
+bv. "heroIcon"). Zo'n icoonveld wordt NOOIT als tekst afgedrukt maar automatisch omgezet naar een
+echt SVG-icoon uit een vaste set — gebruik in htmlTemplate gewoon {{icon}} zoals elk ander veld, de
+weergave gaat vanzelf goed. Belangrijk: de WAARDE van dit veld (die je later, bij het genereren van
+paginacontent, invult) moet dan exact een van deze namen zijn, niets anders: ${ICON_NAMES.join(', ')}.
+Vermeld dat in je blueprint niet als losse regel, dit is puur voor jou als ontwerper — het
+contentgeneratie-model krijgt deze lijst apart nog een keer te zien.
 
 Sjabloon-taal in htmlTemplate (mini-engine, GEEN volledige templatetaal):
 - {{veldNaam}} voor een tekstwaarde (wordt automatisch HTML-geescaped).
@@ -311,6 +320,17 @@ worden apart (automatisch of handmatig) gevuld vanuit de mediabibliotheek: ${afb
       .map((s) => s.key)
       .join(', ')}. Laat ze gewoon weg uit slotData.`
     : '';
+  const iconSlotsAanwezig = slots.some(
+    (s) =>
+      (s.type === 'list' && Array.isArray(s.itemFields) && s.itemFields.includes('icon')) ||
+      (s.type === 'text' && /Icon$/.test(s.key))
+  );
+  const iconNotitie = iconSlotsAanwezig
+    ? `\n\nVoor het icoonveld ("icon", of een slot die eindigt op "Icon"): kies ALTIJD een waarde uit
+exact deze lijst, nooit een andere of zelfverzonnen naam — een naam die hier niet in staat wordt niet
+als icoon herkend en toont een neutraal fallback-icoontje in plaats van het bedoelde icoon:
+${ICON_NAMES.join(', ')}.`
+    : '';
 
   return `Je schrijft de INHOUD voor één landingspagina, binnen een AL GOEDGEKEURD sjabloon. De
 structuur/opmaak ligt al vast (dat pas je niet aan) — jij vult alleen de genoemde slots met concrete,
@@ -319,7 +339,7 @@ aangeleverd (feitensheet, invoervelden, "waar gaat deze pagina over") — verzin
 data of andere harde feiten.
 
 Slots die gevuld moeten worden:
-${slotBeschrijving}${afbeeldingNotitie}
+${slotBeschrijving}${afbeeldingNotitie}${iconNotitie}
 
 Interne links — kwaliteit boven kwantiteit: je krijgt een lijst "Beschikbare linkbestemmingen" (een
 mix van andere landingspagina's van deze klant en echte, bestaande pagina's op de eigen website).
@@ -385,7 +405,13 @@ ${JSON.stringify(linkKandidaten || [], null, 2)}`;
     if (IMAGE_SRC_RE.test(key) || IMAGE_ALT_RE.test(key)) delete slotData[key];
   }
   verwijderVerzonnenLinks(slotData, linkKandidaten);
-  return { slotData };
+  const iconProblemen = findUnknownIcons(slotData);
+  const iconWarning = iconProblemen.length
+    ? `Niet-herkende icoonwaarde(n) gevonden (${iconProblemen
+        .map((p) => `${p.path}: "${p.value}"`)
+        .join(', ')}) — deze tonen nu een neutraal fallback-icoon. Pas de content aan met een geldige icoonnaam.`
+    : null;
+  return { slotData, iconWarning };
 }
 
 // Verwijdert elke link (zowel [ankertekst](url) middenin tekst-slots als een linksItems-item) die

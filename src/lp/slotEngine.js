@@ -74,6 +74,95 @@ function forEachTextLeaf(slotData, fn) {
   }
 }
 
+// --- Iconen -----------------------------------------------------------------
+// Vaste, curated set van inline SVG-iconen. Sjablonen kunnen een icoonveld
+// gebruiken via een itemField genaamd exact "icon" in een lijst-slot (bv. de
+// USP-kaarten), of een los slot waarvan de naam op "Icon" eindigt (bv.
+// "heroIcon") - dezelfde soort naamgevingsafspraak als ImageSrc/Href hierboven.
+// Zo'n veld wordt NOOIT als platte tekst afgedrukt (dat was precies de bug met
+// "map-pin"/"clock"/"train" die letterlijk zichtbaar werden): renderSlotTemplate
+// hieronder herkent het via isIconField en zet de waarde om naar een eigen,
+// vaste SVG in plaats van geescapete tekst. Omdat de SVG-inhoud hier volledig
+// uit onze eigen ICON_LIBRARY komt (nooit uit de waarde zelf), is dit veilig
+// om ongeescaped in de HTML te zetten - de aangeleverde tekst wordt alleen als
+// lookup-sleutel gebruikt, nooit zelf als markup weggeschreven. Dit is ook de
+// enige betrouwbare manier om uberhaupt een icoon te tonen: een extern
+// icoonlettertype/-bibliotheek laden kan niet, dat blokkeert templateSafetyCheck
+// hieronder bewust (geen externe resources toegestaan).
+const ICON_SIZE = 22;
+function svgIcon(inner) {
+  return `<svg width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${inner}</svg>`;
+}
+
+const ICON_LIBRARY = {
+  'map-pin': svgIcon('<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>'),
+  clock: svgIcon('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>'),
+  train: svgIcon('<rect x="5" y="3" width="14" height="12" rx="3"/><circle cx="8.5" cy="17.5" r="1.2"/><circle cx="15.5" cy="17.5" r="1.2"/><path d="M7 21l-2 2M17 21l2 2"/><path d="M5 9h14"/>'),
+  bus: svgIcon('<rect x="3" y="5" width="18" height="11" rx="2"/><path d="M3 12h18"/><circle cx="7.5" cy="19" r="1.5"/><circle cx="16.5" cy="19" r="1.5"/>'),
+  car: svgIcon('<path d="M4 16v-3l2-5a2 2 0 0 1 2-1h8a2 2 0 0 1 2 1l2 5v3"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/><path d="M4 16h16"/>'),
+  bike: svgIcon('<circle cx="6" cy="17" r="3"/><circle cx="18" cy="17" r="3"/><path d="M6 17l4-9h4l3 5M10 8h3M13 5h3"/>'),
+  walk: svgIcon('<circle cx="13" cy="4" r="1.6"/><path d="M10 21l2-6 2 2 3 1M9 13l3-3 2 3 3-1"/>'),
+  wifi: svgIcon('<path d="M2 9a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16a5 5 0 0 1 6 0"/><circle cx="12" cy="20" r="1" fill="currentColor" stroke="none"/>'),
+  bed: svgIcon('<path d="M3 18v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6"/><path d="M3 14h18"/><path d="M7 12V9a2 2 0 0 1 2-2h1"/><path d="M3 18v3M21 18v3"/>'),
+  shower: svgIcon('<path d="M4 8a4 4 0 0 1 4-4h2"/><path d="M9 4h7a2 2 0 0 1 2 2"/><path d="M3 10h18"/><path d="M7 14v2M11 14v2M15 14v2M19 14v2"/>'),
+  luggage: svgIcon('<rect x="6" y="7" width="12" height="13" rx="2"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M10 11v5M14 11v5"/>'),
+  parking: svgIcon('<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M10 16V8h3a2.5 2.5 0 0 1 0 5h-3"/>'),
+  euro: svgIcon('<path d="M17 6a7 7 0 1 0 0 12"/><path d="M6 10h8M6 14h7"/>'),
+  phone: svgIcon('<path d="M5 4h3l2 5-2 1a12 12 0 0 0 6 6l1-2 5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>'),
+  mail: svgIcon('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 6l9 7 9-7"/>'),
+  calendar: svgIcon('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'),
+  star: svgIcon('<path d="M12 2l3 6.5 7 .8-5.2 4.8 1.4 7-6.2-3.6-6.2 3.6 1.4-7L2 9.3l7-.8z"/>'),
+  check: svgIcon('<path d="M4 12l5 5L20 6"/>'),
+  shield: svgIcon('<path d="M12 3l7 3v6c0 5-3.5 7.5-7 9-3.5-1.5-7-4-7-9V6z"/><path d="M9 12l2 2 4-4"/>'),
+  users: svgIcon('<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15 20a5 5 0 0 1 6-4.8"/>'),
+  home: svgIcon('<path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/><path d="M10 19v-5h4v5"/>'),
+  coffee: svgIcon('<path d="M4 8h13v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8z"/><path d="M17 9h2a2.5 2.5 0 0 1 0 5h-2"/><path d="M7 4c0 1-1 1-1 2M11 4c0 1-1 1-1 2"/>'),
+  food: svgIcon('<path d="M6 3v7a2 2 0 0 0 4 0V3"/><path d="M8 10v11"/><path d="M17 3c-1.5 0-3 1.5-3 4v3h2v7"/>'),
+  music: svgIcon('<path d="M9 18V5l10-2v13"/><circle cx="7" cy="18" r="2.5"/><circle cx="17" cy="16" r="2.5"/>'),
+  ticket: svgIcon('<path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"/><path d="M13 6v12" stroke-dasharray="2 2"/>'),
+  tent: svgIcon('<path d="M12 4l9 16H3z"/><path d="M12 4v16"/><path d="M8 20l4-9 4 9"/>'),
+  sun: svgIcon('<circle cx="12" cy="12" r="4.5"/><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/>'),
+  moon: svgIcon('<path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/>'),
+  heart: svgIcon('<path d="M12 20s-7-4.5-9.5-9A5.5 5.5 0 0 1 12 6.5 5.5 5.5 0 0 1 21.5 11c-2.5 4.5-9.5 9-9.5 9z"/>'),
+  info: svgIcon('<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/>'),
+  camera: svgIcon('<path d="M4 8h3l2-2h6l2 2h3v11H4z"/><circle cx="12" cy="13.5" r="3.5"/>'),
+  gift: svgIcon('<rect x="4" y="9" width="16" height="11" rx="1"/><path d="M4 9h16v4H4z"/><path d="M12 9v11"/><path d="M12 9c0-2-2-4-3.5-4S6 6.5 8 8c1-1 3-1 4 1M12 9c0-2 2-4 3.5-4S18 6.5 16 8c-1-1-3-1-4 1"/>'),
+  beer: svgIcon('<path d="M6 8h9v10a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z"/><path d="M15 10h2a2 2 0 0 1 0 6h-2"/><path d="M6 8c0-2 1-4 3-4"/>')
+};
+
+const ICON_NAMES = Object.keys(ICON_LIBRARY);
+
+// Neutrale fallback voor het (hopelijk zeldzame) geval dat er toch een niet-
+// herkende icoonnaam in de data staat (bv. handmatig verkeerd getypt) - nooit
+// de rauwe tekst tonen (dat was precies de oorspronkelijke bug), liever een
+// neutraal sterretje. findUnknownIcons hieronder laat dit soort gevallen
+// opvallen in plaats van dat het stilletjes op de fallback blijft staan.
+const FALLBACK_ICON = svgIcon('<path d="M12 2l3 6.5 7 .8-5.2 4.8 1.4 7-6.2-3.6-6.2 3.6 1.4-7L2 9.3l7-.8z"/>');
+
+function renderIcon(name) {
+  const key = String(name === undefined || name === null ? '' : name).trim();
+  return ICON_LIBRARY[key] || FALLBACK_ICON;
+}
+
+function isIconField(field) {
+  return field === 'icon' || /Icon$/.test(field);
+}
+
+// Zoekt icoonvelden in slotData op met een waarde die NIET in ICON_LIBRARY
+// voorkomt, zodat de contentgeneratie (ai.js) - net als bij linkWarning/
+// imageWarning in routes/lp.js - hier een waarschuwing over kan teruggeven in
+// plaats van dat een verkeerd icoon stilletjes op de fallback terechtkomt.
+function findUnknownIcons(slotData) {
+  const problemen = [];
+  forEachTextLeaf(slotData, (path, value) => {
+    const field = path.includes('.') ? path.split('.').pop() : path;
+    if (isIconField(field) && value && !ICON_LIBRARY[String(value).trim()]) {
+      problemen.push({ path, value });
+    }
+  });
+  return problemen;
+}
+
 function getPath(obj, path) {
   if (obj === null || obj === undefined) return undefined;
   return path.split('.').reduce((acc, key) => (acc === null || acc === undefined ? undefined : acc[key]), obj);
@@ -91,7 +180,7 @@ function renderSlotTemplate(html, data) {
         inner
           .replace(VAR_RE, (m, field) => {
             const value = field === 'this' ? item : getPath(item, field);
-            return renderInlineLinks(value);
+            return isIconField(field) ? renderIcon(value) : renderInlineLinks(value);
           })
           // Vult de itemindex in op de plek van een eventuele preview-only
           // data-lp-text-slot-tag (zie tagTextSlotsForPreview) - bij een normale
@@ -103,7 +192,7 @@ function renderSlotTemplate(html, data) {
   });
   return withLoops.replace(VAR_RE, (match, field) => {
     const value = getPath(data, field);
-    return renderInlineLinks(value);
+    return isIconField(field) ? renderIcon(value) : renderInlineLinks(value);
   });
 }
 
@@ -307,5 +396,10 @@ module.exports = {
   tagTextSlotsForPreview,
   INLINE_LINK_RE,
   forEachTextLeaf,
-  tagLinkSlotsForPreview
+  tagLinkSlotsForPreview,
+  ICON_LIBRARY,
+  ICON_NAMES,
+  renderIcon,
+  isIconField,
+  findUnknownIcons
 };
