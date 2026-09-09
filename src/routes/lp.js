@@ -194,7 +194,7 @@ router.post('/templates', requireLpInternal, async (req, res) => {
       return res.status(400).json({ error: 'Sjabloon voldoet niet aan de structuur-eisen.', structuurFouten: structuur.errors });
     }
     const template = await templates.createTemplate({ klant, naam, blueprintId, status, blueprint });
-    res.json({ template });
+    res.json({ template, structuurWaarschuwingen: structuur.warnings });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -217,7 +217,7 @@ router.put('/templates/:templateId/blueprint', requireLpInternal, async (req, re
       return res.status(400).json({ error: 'Sjabloon voldoet niet aan de structuur-eisen.', structuurFouten: structuur.errors });
     }
     const template = await templates.updateTemplateBlueprint(req.params.templateId, blueprint);
-    res.json({ template });
+    res.json({ template, structuurWaarschuwingen: structuur.warnings });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

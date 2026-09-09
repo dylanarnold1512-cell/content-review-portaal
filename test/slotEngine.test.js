@@ -23,7 +23,8 @@ const {
   ICON_NAMES,
   renderIcon,
   isIconField,
-  findUnknownIcons
+  findUnknownIcons,
+  findRigidListGrids
 } = require('../src/lp/slotEngine');
 
 test('renderSlotTemplate: gewone velden en [ankertekst](url) worden correct gerenderd', () => {
@@ -211,4 +212,29 @@ test('findUnknownIcons: signaleert een icoonwaarde die niet in ICON_LIBRARY voor
 test('findUnknownIcons: geen problemen als alle icoonwaarden bestaan', () => {
   const slotData = { uspItems: [{ icon: 'map-pin' }, { icon: 'clock' }] };
   assert.deepEqual(findUnknownIcons(slotData), []);
+});
+
+// Regressietests voor de "USP-kaarten niet gecentreerd"-bug (09-09-2026, zie systeem-logboek.md):
+// een grid-klasse met een vast aantal kolommen om een {{#each}}-lijst heen moet gesignaleerd
+// worden, want het aantal items in die lijst kan per pagina verschillen.
+test('findRigidListGrids: signaleert een vast kolomaantal om een {{#each}}-lijst heen', () => {
+  const html = '<div class="usp-grid">{{#each uspItems}}<div class="usp-card">{{title}}</div>{{/each}}</div>';
+  const css = '.lpt .usp-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}';
+  const warnings = findRigidListGrids(html, css);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /usp-grid/);
+  assert.match(warnings[0], /uspItems/);
+  assert.match(warnings[0], /auto-fit/);
+});
+
+test('findRigidListGrids: geen waarschuwing bij repeat(auto-fit,...)', () => {
+  const html = '<div class="usp-grid">{{#each uspItems}}<div class="usp-card">{{title}}</div>{{/each}}</div>';
+  const css = '.lpt .usp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}';
+  assert.deepEqual(findRigidListGrids(html, css), []);
+});
+
+test('findRigidListGrids: geen waarschuwing als de grid-klasse geen lijst omwikkelt', () => {
+  const html = '<div class="usp-grid"><div class="usp-card">Statische tekst, geen {{#each}}</div></div>';
+  const css = '.lpt .usp-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}';
+  assert.deepEqual(findRigidListGrids(html, css), []);
 });

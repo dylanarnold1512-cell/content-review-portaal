@@ -320,6 +320,68 @@ function templateSafetyCheck(html, css) {
   return { ok: errors.length === 0, errors };
 }
 
+// ---- Rigid-grid detectie voor lijst-slots ----
+// Ontstaan uit een echte bug (zie systeem-logboek.md, 09-09-2026): een grid-klasse met een VAST
+// aantal kolommen (bv. repeat(3,...)) die een {{#each ...}}-lijst omwikkelt waarvan het aantal
+// items per pagina/klant kan verschillen. Bij minder items dan kolommen blijft er een lege kolom
+// staan, wat er visueel uitziet als "niet gecentreerd". Puur regex-gebaseerd (geen echte CSS/HTML-
+// parser), zelfde pragmatische stijl als de rest van dit bestand — bedoeld als WAARSCHUWING bij het
+// opslaan van een sjabloon (zie validator.js, validateTemplateStructure), nooit als blokkade: een
+// vast aantal kolommen kan soms bewust zijn.
+function findRigidListGrids(html, css) {
+  const warnings = [];
+  const htmlStr = String(html || '');
+  const cssStr = String(css || '');
+
+  // 1. Welke CSS-klassen hebben een vast aantal grid-kolommen? Bij meerdere regels voor dezelfde
+  // klasse (bv. basisregel + media-query-override) onthouden we het hoogste gevonden aantal — elke
+  // vaste waarde is al riskant, welke het ook is.
+  const rigidGridClasses = new Map();
+  const RULE_RE = /([^{}]+)\{([^{}]*)\}/g;
+  let ruleMatch;
+  while ((ruleMatch = RULE_RE.exec(cssStr))) {
+    const [, selector, body] = ruleMatch;
+    const kolomMatch = body.match(/grid-template-columns\s*:\s*repeat\(\s*(\d+)\s*,/i);
+    if (!kolomMatch) continue;
+    const classNamesInSelector = [...selector.matchAll(/\.([\w-]+)/g)].map((m) => m[1]);
+    const className = classNamesInSelector[classNamesInSelector.length - 1];
+    if (!className) continue;
+    const aantal = Number(kolomMatch[1]);
+    if (!rigidGridClasses.has(className) || aantal > rigidGridClasses.get(className)) {
+      rigidGridClasses.set(className, aantal);
+    }
+  }
+  if (!rigidGridClasses.size) return warnings;
+
+  // 2. Welke {{#each ...}}-lijsten worden direct omwikkeld door zo'n klasse? We kijken naar het
+  // laatste class="..."-attribuut vlak voor de {{#each}} (binnen een venster van 400 tekens) — dat
+  // is in de praktijk de wrapper-<div> van de grid, precies zoals sjablonen dit hier opbouwen.
+  const EACH_RE = /{{#each\s+([\w.]+)\s*}}/g;
+  let eachMatch;
+  const gewaarschuwdVoor = new Set();
+  while ((eachMatch = EACH_RE.exec(htmlStr))) {
+    const listKey = eachMatch[1];
+    const voorkant = htmlStr.slice(Math.max(0, eachMatch.index - 400), eachMatch.index);
+    const classMatches = [...voorkant.matchAll(/class\s*=\s*["']([^"']+)["']/g)];
+    if (!classMatches.length) continue;
+    const laatsteClassAttr = classMatches[classMatches.length - 1][1];
+    const klassenNaarDitPunt = laatsteClassAttr.split(/\s+/);
+    const gevondenKlasse = klassenNaarDitPunt.find((k) => rigidGridClasses.has(k));
+    if (!gevondenKlasse) continue;
+    const sleutel = `${gevondenKlasse}::${listKey}`;
+    if (gewaarschuwdVoor.has(sleutel)) continue;
+    gewaarschuwdVoor.add(sleutel);
+    const aantalKolommen = rigidGridClasses.get(gevondenKlasse);
+    warnings.push(
+      `Grid-klasse ".${gevondenKlasse}" heeft een vast aantal kolommen (${aantalKolommen}) terwijl ` +
+      `deze de lijst "{{#each ${listKey}}}" omwikkelt, waarvan het aantal items per pagina kan ` +
+      `verschillen. Bij minder items dan kolommen blijft er een lege kolom staan, wat er visueel ` +
+      `uitziet als "niet gecentreerd". Gebruik "grid-template-columns:repeat(auto-fit,minmax(...,1fr))" ` +
+      `in plaats van een vast getal.`
+    );
+  }
+  return warnings;
+}
 
 // Zelfde idee als tagImageSlotsForPreview/tagTextSlotsForPreview hierboven, maar dan voor
 // LINKS: markeert, ALLEEN voor het voorbeeldscherm, elke <a>-tag waarvan het href-attribuut
@@ -401,5 +463,6 @@ module.exports = {
   ICON_NAMES,
   renderIcon,
   isIconField,
-  findUnknownIcons
+  findUnknownIcons,
+  findRigidListGrids
 };

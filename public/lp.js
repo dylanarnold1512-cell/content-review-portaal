@@ -1147,14 +1147,18 @@ document.getElementById('lpTplCreateBtn').addEventListener('click', async () => 
   }
   setBtnLoading(btn, true, 'Bezig met opslaan...');
   try {
-    const { template } = await lpApi('/templates', {
+    const { template, structuurWaarschuwingen } = await lpApi('/templates', {
       method: 'POST',
       body: JSON.stringify({ naam, klant, blueprintId, status, blueprint })
     });
     document.getElementById('lpTemplateNewSection').classList.add('hidden');
     document.getElementById('lpSjablonenTab').classList.remove('hidden');
     await loadTemplates();
-    openTemplateDetail(template.id);
+    await openTemplateDetail(template.id);
+    if (Array.isArray(structuurWaarschuwingen) && structuurWaarschuwingen.length) {
+      const savedEl = document.getElementById('lpTplSaved');
+      if (savedEl) savedEl.textContent = 'Sjabloon opgeslagen. Let op: ' + structuurWaarschuwingen.join(' ');
+    }
   } catch (err) {
     errorEl.textContent = formatApiError(err);
     errorEl.classList.remove('hidden');
@@ -1332,7 +1336,7 @@ document.getElementById('lpTplSaveBlueprintBtn').addEventListener('click', async
     return;
   }
   try {
-    const { template: updated } = await lpApi(`/templates/${template.id}/blueprint`, {
+    const { template: updated, structuurWaarschuwingen } = await lpApi(`/templates/${template.id}/blueprint`, {
       method: 'PUT',
       body: JSON.stringify({ blueprint })
     });
@@ -1341,8 +1345,14 @@ document.getElementById('lpTplSaveBlueprintBtn').addEventListener('click', async
     document.getElementById('lpTplDetailAiSection').classList.toggle('hidden', !isSlot);
     document.getElementById('lpTplDetailLegacyNote').classList.toggle('hidden', isSlot);
     const savedEl = document.getElementById('lpTplSaved');
-    savedEl.textContent = 'Opgeslagen.';
-    setTimeout(() => (savedEl.textContent = ''), 2000);
+    if (Array.isArray(structuurWaarschuwingen) && structuurWaarschuwingen.length) {
+      // Bewust GEEN auto-clear: een waarschuwing over een risicovol sjabloon moet je even
+      // bewust zien, niet na 2 seconden weer laten verdwijnen zoals de gewone "Opgeslagen." melding.
+      savedEl.textContent = 'Opgeslagen. Let op: ' + structuurWaarschuwingen.join(' ');
+    } else {
+      savedEl.textContent = 'Opgeslagen.';
+      setTimeout(() => (savedEl.textContent = ''), 2000);
+    }
   } catch (err) {
     errorEl.textContent = formatApiError(err);
     errorEl.classList.remove('hidden');

@@ -90,6 +90,15 @@ paginacontent, invult) moet dan exact een van deze namen zijn, niets anders: ${I
 Vermeld dat in je blueprint niet als losse regel, dit is puur voor jou als ontwerper — het
 contentgeneratie-model krijgt deze lijst apart nog een keer te zien.
 
+Grids met een lijst-slot: als een sectie meerdere items uit een {{#each}}-lijst in een grid toont
+(bv. USP-kaarten, badges, stappenplan), gebruik dan ALTIJD
+"grid-template-columns:repeat(auto-fit,minmax(<minimumbreedte>px,1fr))" (voeg "justify-content:center"
+toe op de grid-container zelf als de rij optisch gecentreerd moet blijven bij minder items), NOOIT
+een vast aantal kolommen zoals "repeat(3,...)". Het aantal items in zo'n lijst kan per pagina en per
+klant verschillen; een vast kolomaantal laat bij minder items dan kolommen een lege kolom staan, wat
+er visueel uitziet als niet gecentreerd. Dit wordt ook mechanisch gecontroleerd bij het opslaan
+(waarschuwing, geen blokkade), maar voorkom het liever meteen in je eigen ontwerp.
+
 Sjabloon-taal in htmlTemplate (mini-engine, GEEN volledige templatetaal):
 - {{veldNaam}} voor een tekstwaarde (wordt automatisch HTML-geescaped).
 - {{#each lijstNaam}} ... {{veld}} ... {{/each}} voor een herhalende lijst, {{veld}} verwijst naar het

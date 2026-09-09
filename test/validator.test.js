@@ -5,7 +5,7 @@
 // beide expliciet hier staan.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { validatePage } = require('../src/lp/validator');
+const { validatePage, validateTemplateStructure } = require('../src/lp/validator');
 
 function basisBlueprint(overrides = {}) {
   return {
@@ -79,4 +79,35 @@ test('een ontbrekende heroTitle blijft altijd een blokkerende fout', () => {
   const result = validatePage({ blueprint: basisBlueprint(), contentJson: content });
   assert.equal(result.ok, false);
   assert.ok(result.errors.some((e) => /heroTitle/.test(e)));
+});
+
+// Regressietest voor de "USP-kaarten niet gecentreerd"-bug (09-09-2026, zie systeem-logboek.md):
+// validateTemplateStructure moet een rigid-grid-waarschuwing doorgeven, maar mag een sjabloon
+// daar NOOIT om blokkeren (het is een aandachtspunt, geen harde eis zoals de veiligheidschecks).
+test('validateTemplateStructure: waarschuwt bij een vast kolomaantal om een lijst-slot, blokkeert niet', () => {
+  const blueprint = {
+    templateFormat: 'slots',
+    htmlTemplate:
+      '<h1>{{heroTitle}}</h1>' +
+      '<div class="usp-grid">{{#each uspItems}}<div class="usp-card">{{title}}</div>{{/each}}</div>',
+    cssTemplate: '.lpt .usp-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}',
+    slots: [{ key: 'heroTitle', type: 'text', verplicht: true }]
+  };
+  const result = validateTemplateStructure(blueprint);
+  assert.equal(result.ok, true);
+  assert.ok(result.warnings.some((w) => /usp-grid/.test(w) && /auto-fit/.test(w)));
+});
+
+test('validateTemplateStructure: geen waarschuwing bij repeat(auto-fit,...)', () => {
+  const blueprint = {
+    templateFormat: 'slots',
+    htmlTemplate:
+      '<h1>{{heroTitle}}</h1>' +
+      '<div class="usp-grid">{{#each uspItems}}<div class="usp-card">{{title}}</div>{{/each}}</div>',
+    cssTemplate: '.lpt .usp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}',
+    slots: [{ key: 'heroTitle', type: 'text', verplicht: true }]
+  };
+  const result = validateTemplateStructure(blueprint);
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.warnings, []);
 });

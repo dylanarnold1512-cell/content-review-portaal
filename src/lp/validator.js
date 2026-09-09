@@ -220,10 +220,11 @@ function validateUniciteitsbudget(blueprint, warnings) {
 // toegepast op de HTML-tekst van het sjabloon zelf in plaats van op een
 // blokkentelling.
 function validateTemplateStructure(blueprint) {
-  const { templateSafetyCheck } = require('./slotEngine');
+  const { templateSafetyCheck, findRigidListGrids } = require('./slotEngine');
   const errors = [];
+  const warnings = [];
   if (!blueprint || blueprint.templateFormat !== 'slots') {
-    return { errors, ok: true };
+    return { errors, warnings, ok: true };
   }
   const html = String(blueprint.htmlTemplate || '');
   const css = String(blueprint.cssTemplate || '');
@@ -232,6 +233,9 @@ function validateTemplateStructure(blueprint) {
   }
   const safety = templateSafetyCheck(html, css);
   errors.push(...safety.errors);
+  // Waarschuwing (nooit een blokkade), zie systeem-logboek.md 09-09-2026: een grid met een vast
+  // aantal kolommen om een lijst-slot heen is riskant zodra het aantal items kan variëren.
+  warnings.push(...findRigidListGrids(html, css));
 
   const h1Matches = [...html.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/gi)];
   if (h1Matches.length !== 1) {
@@ -255,7 +259,7 @@ function validateTemplateStructure(blueprint) {
     }
   }
 
-  return { errors, ok: errors.length === 0 };
+  return { errors, warnings, ok: errors.length === 0 };
 }
 
 module.exports = { validatePage, validateTemplateStructure };
