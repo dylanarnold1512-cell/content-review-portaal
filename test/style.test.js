@@ -96,3 +96,35 @@ test('renderStyle: h1/h2/h3 krijgen font-synthesis:none (voorkomt lelijke faux-b
   const html = renderStyle('lp-root-test', maakTokens());
   assert.match(html, /h1,[\s\S]*?h2,[\s\S]*?h3[\s\S]*?\{[\s\S]*?font-synthesis: none;/);
 });
+
+// Regressietests voor de fontAccent/.lp-kicker-precisering (21-09-2026, zie besluiten.md
+// "Yikes-lettertype van Roots, precisering op basis van devtools-cascade-bewijs"): Yikes bleek in
+// werkelijkheid alleen op de losse .fl-heading-klasse te staan (een kort "WELKOM BIJ"-label), niet
+// op alle koppen. Vandaar een aparte --lp-font-accent-variabele + .lp-kicker-hulpklasse, in plaats
+// van fontHeading zelf te gebruiken.
+test('renderStyle: --lp-font-accent valt terug op fontHeading als fontAccent leeg/ontbrekend is (bestaande klanten, geen gedragsverandering)', () => {
+  const html = renderStyle('lp-root-test', maakTokens({ fontHeading: "'Ubuntu', sans-serif" }));
+  assert.match(html, /--lp-font-accent: 'Ubuntu', sans-serif;/);
+});
+
+test('renderStyle: --lp-font-accent gebruikt fontAccent als dat apart is gezet (Roots/Yikes)', () => {
+  const html = renderStyle('lp-root-test', maakTokens({
+    fontHeading: "'Ubuntu', sans-serif",
+    fontAccent: "'Yikes', 'Ubuntu', sans-serif"
+  }));
+  assert.match(html, /--lp-font-accent: 'Yikes', 'Ubuntu', sans-serif;/);
+});
+
+test('renderStyle: .lp-kicker gebruikt var(--lp-font-accent), en h1/h2/h3 blijven op var(--lp-font-heading) staan (niet automatisch Yikes op alle koppen)', () => {
+  const html = renderStyle('lp-root-test', maakTokens({
+    fontHeading: "'Ubuntu', sans-serif",
+    fontAccent: "'Yikes', 'Ubuntu', sans-serif"
+  }));
+  assert.match(html, /\.lp-kicker \{[\s\S]*?font-family: var\(--lp-font-accent\);/);
+  assert.match(html, /h1,[\s\S]*?h2,[\s\S]*?h3[\s\S]*?\{[\s\S]*?font-family: var\(--lp-font-heading\);/);
+});
+
+test('renderStyle: .lp-kicker krijgt ook font-synthesis:none (zelfde reden als bij h1-h3)', () => {
+  const html = renderStyle('lp-root-test', maakTokens({ fontAccent: "'Yikes', 'Ubuntu', sans-serif" }));
+  assert.match(html, /\.lp-kicker \{[\s\S]*?font-synthesis: none;/);
+});

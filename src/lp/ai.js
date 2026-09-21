@@ -90,6 +90,8 @@ paginacontent, invult) moet dan exact een van deze namen zijn, niets anders: ${I
 Vermeld dat in je blueprint niet als losse regel, dit is puur voor jou als ontwerper — het
 contentgeneratie-model krijgt deze lijst apart nog een keer te zien.
 
+Accentlabel/kicker boven een titel (21-09-2026, optioneel, alleen gebruiken als het qua look & feel past): heeft de klant een apart, kort accent-lettertype voor korte hoofdletter-labels boven een titel (bv. "WELKOM BIJ" boven een hero-titel)? Gebruik dan de vaste CSS-klasse "lp-kicker" op een klein element (span of p) VOOR de eigenlijke kop, nooit op de kop zelf (h1-h6 blijven altijd het gewone koppen-lettertype gebruiken). Dit is een losse, optionele hulpklasse — niet elk sjabloon hoeft hem te gebruiken, en niet elke klant heeft er een apart lettertype voor (dan valt "lp-kicker" gewoon terug op het gewone koppen-lettertype, geen zichtbaar verschil).
+
 Grids met een lijst-slot: als een sectie meerdere items uit een {{#each}}-lijst in een grid toont
 (bv. USP-kaarten, badges, stappenplan), gebruik dan ALTIJD
 "grid-template-columns:repeat(auto-fit,minmax(<minimumbreedte>px,1fr))" (voeg "justify-content:center"

@@ -85,6 +85,11 @@ ${renderCustomFontFaces(tokens)}.${rootClass} {
   --lp-radius: ${tokens.radius};
   --lp-font-heading: ${tokens.fontHeading};
   --lp-font-body: ${tokens.fontBody};
+  /* fontAccent (21-09-2026, precisering Yikes/Roots): apart van fontHeading, alleen bedoeld
+     voor de losse .lp-kicker-hulpklasse hieronder (korte hoofdletter-labels/kickers), nooit
+     automatisch op h1-h6. Valt terug op fontHeading als een klant geen aparte accent kiest,
+     zodat bestaande klanten zonder fontAccent geen gedragsverandering zien. */
+  --lp-font-accent: ${tokens.fontAccent || tokens.fontHeading};
   --lp-cta-bg: ${tokens.ctaBg};
   --lp-cta-text: ${tokens.ctaText};
   color: var(--lp-text);
@@ -103,6 +108,21 @@ ${renderCustomFontFaces(tokens)}.${rootClass} {
      hierboven) — bij klanten met een Google Font/systeemfont met een echte bold-variant heeft dit
      gewoon geen effect, de browser gebruikt dan al die echte variant. */
   font-synthesis: none;
+}
+/* .lp-kicker (21-09-2026, Roots/Yikes-precisering): losse hulpklasse voor een kort accent-label
+   BOVEN een kop (bv. "WELKOM BIJ"), naar het voorbeeld van hostelroots.nl's eigen .fl-heading-
+   gebruik (bevestigd via devtools-cascade door Dylan: die klasse wint van de algemene h1-h6-regel
+   op specificiteit, en wordt alleen op dat ene decoratieve label toegepast, niet op gewone koppen).
+   Een sjabloon moet deze klasse zelf expliciet toevoegen aan een element — er is geen automatische
+   toepassing op h1-h6, precies om de eerdere te-brede fontHeading-fout niet te herhalen. */
+.${rootClass} .lp-kicker {
+  display: block;
+  font-family: var(--lp-font-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+  font-synthesis: none;
+  margin: 0 0 8px;
 }
 .${rootClass} .lp-container {
   max-width: var(--lp-max-width);

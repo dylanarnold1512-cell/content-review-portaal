@@ -53,3 +53,35 @@ test('checkFontLoadConsistency: custom font in GEEN van beide (googleFonts/custo
   assert.equal(problemen.length, 1);
   assert.match(problemen[0], /Yikes/);
 });
+
+// Regressietests voor fontAccent in checkFontLoadConsistency (21-09-2026, zie style.test.js voor
+// de bijbehorende .lp-kicker/--lp-font-accent-tests): fontAccent moet meelopen in dezelfde check
+// als fontHeading/fontBody, anders zou een niet-geladen accentlettertype onopgemerkt blijven.
+test('checkFontLoadConsistency: fontAccent MET customFonts (zelf-gehost) is prima', () => {
+  const metCustomFont = {
+    fontHeading: "'Ubuntu', sans-serif",
+    fontBody: "'Ubuntu', sans-serif",
+    fontAccent: "'Yikes', 'Ubuntu', sans-serif",
+    googleFonts: ['Ubuntu'],
+    customFonts: [{ family: 'Yikes', bestand: 'yikes-medium.ttf' }]
+  };
+  assert.deepEqual(checkFontLoadConsistency(metCustomFont), []);
+});
+
+test('checkFontLoadConsistency: fontAccent in GEEN van beide (googleFonts/customFonts) geeft een probleem', () => {
+  const zonderBeide = {
+    fontHeading: "'Ubuntu', sans-serif",
+    fontBody: "'Ubuntu', sans-serif",
+    fontAccent: "'Yikes', 'Ubuntu', sans-serif",
+    googleFonts: ['Ubuntu'],
+    customFonts: []
+  };
+  const problemen = checkFontLoadConsistency(zonderBeide);
+  assert.equal(problemen.length, 1);
+  assert.match(problemen[0], /Yikes/);
+});
+
+test('checkFontLoadConsistency: leeg fontAccent ("") geeft geen probleem (bestaande klanten zonder dit veld)', () => {
+  const zonderAccent = { fontHeading: "'Ubuntu', sans-serif", fontBody: "'Ubuntu', sans-serif", fontAccent: '', googleFonts: ['Ubuntu'] };
+  assert.deepEqual(checkFontLoadConsistency(zonderAccent), []);
+});
