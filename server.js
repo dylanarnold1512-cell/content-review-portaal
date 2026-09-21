@@ -5,6 +5,7 @@ const cookieSession = require('cookie-session');
 const apiRoutes = require('./src/routes/api');
 const adminRoutes = require('./src/routes/admin');
 const lpRoutes = require('./src/routes/lp');
+const shareRoutes = require('./src/routes/share');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -30,6 +31,8 @@ app.use(
 app.use('/api/admin', adminRoutes);
 app.use('/api/lp', lpRoutes);
 app.use('/api', apiRoutes);
+// Publieke deellink voor de klant, zonder inlog (zie src/routes/share.js en src/lp/share.js).
+app.use('/voorbeeld', shareRoutes);
 // CORS-header specifiek voor zelf-gehoste lettertypen (21-09-2026, zie style.js,
 // renderCustomFontFaces): een pagina draait straks op de site van de klant, dus een ANDER domein
 // dan waar dit bestand vandaan komt. Browsers passen bij @font-face altijd CORS toe, ongeacht of de

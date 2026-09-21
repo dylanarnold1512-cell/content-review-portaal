@@ -325,6 +325,7 @@ async function openPageDetail(pageId) {
   document.getElementById('lpValidationResult').innerHTML = '';
   document.getElementById('lpPublishResult').innerHTML = '';
   document.getElementById('lpGenerateContentStatus').textContent = '';
+  loadShareStatus();
 }
 
 document.getElementById('lpStatusSelect').addEventListener('change', async (e) => {
@@ -910,6 +911,87 @@ document.getElementById('lpPublishBtn').addEventListener('click', async () => {
   } catch (err) {
     if (err.data && err.data.validation) renderValidation(err.data.validation);
     resultEl.innerHTML = `<p class="admin-error">${err.message}</p>`;
+  }
+});
+
+// ---- Deellink voor de klant ----
+function renderShareState(state) {
+  const urlEl = document.getElementById('lpShareUrl');
+  const statusEl = document.getElementById('lpShareStatus');
+  const copyBtn = document.getElementById('lpShareCopyBtn');
+  const openBtn = document.getElementById('lpShareOpenBtn');
+  const revokeBtn = document.getElementById('lpShareRevokeBtn');
+  const hasLink = Boolean(state && (state.actief || state.verlopen));
+  urlEl.classList.toggle('hidden', !hasLink);
+  copyBtn.classList.toggle('hidden', !(state && state.actief));
+  openBtn.classList.toggle('hidden', !(state && state.actief));
+  revokeBtn.classList.toggle('hidden', !hasLink);
+  if (!hasLink) {
+    urlEl.value = '';
+    statusEl.textContent = 'Er is nog geen deellink voor deze pagina.';
+    return;
+  }
+  urlEl.value = state.url;
+  const datum = new Date(state.verlooptOp).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
+  statusEl.textContent = state.actief
+    ? 'Link is actief tot en met ' + datum + '.'
+    : 'Deze link is verlopen op ' + datum + '. Maak een nieuwe link of trek hem in.';
+}
+
+async function loadShareStatus() {
+  const page = lpState.currentPage;
+  if (!page) return;
+  try {
+    renderShareState(await lpApi(`/pages/${page.id}/deellink`));
+  } catch (err) {
+    renderShareState(null);
+    document.getElementById('lpShareStatus').textContent = 'Deellink status ophalen mislukt: ' + err.message;
+  }
+}
+
+document.getElementById('lpShareCreateBtn').addEventListener('click', async () => {
+  const page = lpState.currentPage;
+  if (!page) return;
+  const statusEl = document.getElementById('lpShareStatus');
+  const btn = document.getElementById('lpShareCreateBtn');
+  btn.disabled = true;
+  try {
+    const dagen = Number(document.getElementById('lpShareDagen').value);
+    renderShareState(await lpApi(`/pages/${page.id}/deellink`, { method: 'POST', body: JSON.stringify({ dagen }) }));
+  } catch (err) {
+    statusEl.textContent = 'Deellink maken mislukt: ' + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('lpShareCopyBtn').addEventListener('click', async () => {
+  const urlEl = document.getElementById('lpShareUrl');
+  const statusEl = document.getElementById('lpShareStatus');
+  try {
+    await navigator.clipboard.writeText(urlEl.value);
+    statusEl.textContent = 'Link gekopieerd.';
+  } catch (err) {
+    urlEl.select();
+    statusEl.textContent = 'Kopieer de link handmatig (Cmd+C), hij is nu geselecteerd.';
+  }
+});
+
+document.getElementById('lpShareOpenBtn').addEventListener('click', () => {
+  const url = document.getElementById('lpShareUrl').value;
+  if (url) window.open(url, '_blank', 'noopener');
+});
+
+document.getElementById('lpShareRevokeBtn').addEventListener('click', async () => {
+  const page = lpState.currentPage;
+  if (!page) return;
+  if (!confirm('Deze link intrekken? De klant kan de pagina dan niet meer openen.')) return;
+  try {
+    await lpApi(`/pages/${page.id}/deellink`, { method: 'DELETE' });
+    renderShareState(null);
+    document.getElementById('lpShareStatus').textContent = 'Link ingetrokken.';
+  } catch (err) {
+    document.getElementById('lpShareStatus').textContent = 'Intrekken mislukt: ' + err.message;
   }
 });
 

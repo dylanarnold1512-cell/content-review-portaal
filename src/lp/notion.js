@@ -285,6 +285,41 @@ async function deletePage(pageId) {
   await client.pages.update({ page_id: pageId, archived: true });
 }
 
+// ---- Deellink voor de klant (zie src/lp/share.js) ----
+// Vereist een tekst property "Deellink" op de Landingspagina's database.
+async function getShare(pageId) {
+  const client = getNotionClient();
+  const page = await client.pages.retrieve({ page_id: pageId });
+  return readProperty(page, 'Deellink') || '';
+}
+
+async function setShare(pageId, value) {
+  const client = getNotionClient();
+  await client.pages.update({
+    page_id: pageId,
+    properties: { Deellink: { rich_text: value ? [{ type: 'text', text: { content: value } }] : [] } }
+  });
+}
+
+// Zoekt de pagina waar dit token op staat. Geeft de volledige pagina terug (incl. content) met het
+// ruwe deellink veld erbij, of null als er geen exacte match is.
+async function findPageByShareToken(token) {
+  const client = getNotionClient();
+  const res = await client.databases.query({
+    database_id: LP_DATABASE_ID,
+    filter: { property: 'Deellink', rich_text: { starts_with: token } },
+    page_size: 5
+  });
+  for (const result of res.results) {
+    const raw = readProperty(result, 'Deellink') || '';
+    if (raw.startsWith(token + '|')) {
+      const page = await getPage(result.id);
+      return { ...page, deellink: raw };
+    }
+  }
+  return null;
+}
+
 module.exports = {
   LP_DATABASE_ID,
   listPages,
@@ -293,5 +328,8 @@ module.exports = {
   updateSection,
   setStatus,
   setWordpressInfo,
-  deletePage
+  deletePage,
+  getShare,
+  setShare,
+  findPageByShareToken
 };

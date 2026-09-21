@@ -11,6 +11,8 @@ const { buildHuisstijlVoorstel } = require('../lp/huisstijl');
 const { buildFeitenVoorstel } = require('../lp/siteAnalyse');
 const ai = require('../lp/ai');
 const { renderPageHtml } = require('../lp/render');
+const { buildRenderPage, contentIsEmpty } = require('../lp/pageRender');
+const share = require('../lp/share');
 const { validatePage, validateTemplateStructure } = require('../lp/validator');
 const { pushDraft, deletePage: deleteWpPage, searchMedia, uploadMedia, listSitePages } = require('../lp/wordpress');
 const { checkLpPassword, requireLpInternal } = require('../middleware/auth');
@@ -325,23 +327,6 @@ function wrapPreviewDoc(html) {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>[data-lp-slot]{cursor:pointer;transition:outline .15s ease;}[data-lp-slot]:hover{outline:3px solid #2f6fed;outline-offset:-3px;}[data-lp-text-slot]{cursor:pointer;transition:outline .15s ease;}[data-lp-text-slot]:hover{outline:2px dashed #1a8754;outline-offset:2px;}</style></head><body>${html}</body></html>`;
 }
 
-// Bouwt de juiste render-invoer op basis van het sjabloonformaat — gebruikt
-// door /pages/:pageId/preview en /pages/:pageId/publish hieronder.
-function buildRenderPage({ blueprint, content, clientId, slug }) {
-  if (blueprint.templateFormat === 'slots') {
-    return { clientId, slug, template: blueprint, slotData: (content && content.slotData) || {} };
-  }
-  return { clientId, slug, blocks: (content && content.blocks) || [] };
-}
-
-function contentIsEmpty(blueprint, content) {
-  if (!content) return true;
-  if (blueprint.templateFormat === 'slots') {
-    return !content.slotData || !Object.keys(content.slotData).length;
-  }
-  return !Array.isArray(content.blocks) || !content.blocks.length;
-}
-
 // Pagina's (in Notion, database "Landingspagina's").
 router.get('/pages', requireLpInternal, async (req, res) => {
   try {
@@ -585,6 +570,54 @@ router.post('/pages/:pageId/publish', requireLpInternal, async (req, res) => {
     await lpNotion.setStatus(req.params.pageId, 'Ter review');
     const updated = await lpNotion.getPage(req.params.pageId);
     res.json({ page: updated, validation });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// ---- Deellink voor de klant ----
+// Publieke kant staat in src/routes/share.js (/voorbeeld/:token). Hier de interne beheer-routes.
+function shareResponse(req, raw) {
+  const parsed = share.parseShareValue(raw);
+  if (!parsed) return { actief: false };
+  const verlopen = share.isExpired(parsed.expiresAt);
+  return {
+    actief: !verlopen,
+    verlopen,
+    url: share.buildShareUrl(share.getPublicBaseUrl(req), parsed.token),
+    verlooptOp: parsed.expiresAt
+  };
+}
+
+router.get('/pages/:pageId/deellink', requireLpInternal, async (req, res) => {
+  try {
+    const raw = await lpNotion.getShare(req.params.pageId);
+    res.json(shareResponse(req, raw));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Maakt een nieuwe link en vervangt daarmee een eventuele oude (de oude werkt dan niet meer).
+router.post('/pages/:pageId/deellink', requireLpInternal, async (req, res) => {
+  try {
+    const page = await lpNotion.getPage(req.params.pageId);
+    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    if (contentIsEmpty(blueprint, page.content)) {
+      return res.status(400).json({ error: 'Er is nog geen content om te delen. Genereer of vul eerst de content.' });
+    }
+    const raw = share.buildShareValue(share.createToken(), share.computeExpiry((req.body || {}).dagen));
+    await lpNotion.setShare(req.params.pageId, raw);
+    res.json(shareResponse(req, raw));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.delete('/pages/:pageId/deellink', requireLpInternal, async (req, res) => {
+  try {
+    await lpNotion.setShare(req.params.pageId, '');
+    res.json({ actief: false });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

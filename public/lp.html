@@ -571,6 +571,27 @@
           bij hover) om die aan te passen — dat wordt meteen opgeslagen. Gebruik "Volledig scherm" voor
           een groter beeld.
         </p>
+        <div id="lpShareBox" style="margin:12px 0; padding:12px; border:1px solid #e3e1dc;">
+          <strong>Deellink voor de klant</strong>
+          <p class="admin-footnote">
+            Een link naar dit voorbeeld, zonder inlog. De klant ziet altijd de laatste versie. Header en
+            menu van de klantsite staan er niet op, dat staat ook in een balk bovenaan de pagina.
+            Een nieuwe link vervangt de oude.
+          </p>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <select id="lpShareDagen">
+              <option value="7">7 dagen geldig</option>
+              <option value="14" selected>14 dagen geldig</option>
+              <option value="30">30 dagen geldig</option>
+            </select>
+            <button type="button" id="lpShareCreateBtn" class="btn-plain">Maak deellink</button>
+            <button type="button" id="lpShareCopyBtn" class="btn-plain hidden">Kopieer link</button>
+            <button type="button" id="lpShareOpenBtn" class="btn-plain hidden">Open link</button>
+            <button type="button" id="lpShareRevokeBtn" class="btn-plain lp-btn-danger hidden">Link intrekken</button>
+          </div>
+          <input type="text" id="lpShareUrl" class="hidden" readonly style="width:100%; margin-top:8px;">
+          <div id="lpShareStatus" class="admin-footnote"></div>
+        </div>
         <div id="lpPreviewWrapper">
           <iframe id="lpPreviewFrame"></iframe>
 <div id="lpImageSwapOverlay" class="lp-modal-overlay hidden">
