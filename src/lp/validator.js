@@ -220,7 +220,7 @@ function validateUniciteitsbudget(blueprint, warnings) {
 // toegepast op de HTML-tekst van het sjabloon zelf in plaats van op een
 // blokkentelling.
 function validateTemplateStructure(blueprint) {
-  const { templateSafetyCheck, findRigidListGrids } = require('./slotEngine');
+  const { templateSafetyCheck, findRigidListGrids, findThemeCollidingClasses } = require('./slotEngine');
   const errors = [];
   const warnings = [];
   if (!blueprint || blueprint.templateFormat !== 'slots') {
@@ -236,6 +236,8 @@ function validateTemplateStructure(blueprint) {
   // Waarschuwing (nooit een blokkade), zie systeem-logboek.md 09-09-2026: een grid met een vast
   // aantal kolommen om een lijst-slot heen is riskant zodra het aantal items kan variëren.
   warnings.push(...findRigidListGrids(html, css));
+  // Waarschuwing, zie systeem-logboek.md 21-09-2026: generieke klassenamen botsen met WordPress thema's.
+  warnings.push(...findThemeCollidingClasses(html));
 
   const h1Matches = [...html.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/gi)];
   if (h1Matches.length !== 1) {

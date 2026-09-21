@@ -128,3 +128,14 @@ test('renderStyle: .lp-kicker krijgt ook font-synthesis:none (zelfde reden als b
   const html = renderStyle('lp-root-test', maakTokens({ fontAccent: "'Yikes', 'Ubuntu', sans-serif" }));
   assert.match(html, /\.lp-kicker \{[\s\S]*?font-synthesis: none;/);
 });
+
+test('renderStyle zet thema clearfix pseudo elementen uit binnen de eigen pagina (geen extra griditems)', () => {
+  const { renderStyle } = require('../src/lp/style');
+  const { getTokens } = require('../src/lp/tokens');
+  const css = renderStyle('lp-root-x', getTokens('roots'));
+  for (const cls of ['container', 'container-fluid', 'row', 'clearfix']) {
+    assert.ok(css.includes(`.lp-root-x .${cls}::before`), `${cls}::before ontbreekt`);
+    assert.ok(css.includes(`.lp-root-x .${cls}::after`), `${cls}::after ontbreekt`);
+  }
+  assert.match(css, /content: none !important; display: none !important;/);
+});

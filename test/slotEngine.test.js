@@ -238,3 +238,22 @@ test('findRigidListGrids: geen waarschuwing als de grid-klasse geen lijst omwikk
   const css = '.lpt .usp-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}';
   assert.deepEqual(findRigidListGrids(html, css), []);
 });
+
+test('findThemeCollidingClasses: waarschuwt bij container, btn en col-md-6, niet bij eigen voorvoegsel', () => {
+  const { findThemeCollidingClasses } = require('../src/lp/slotEngine');
+  const w = findThemeCollidingClasses('<div class="container hero-grid"><a class="btn btn-primary">x</a><div class="col-md-6"></div></div>');
+  assert.equal(w.length, 1);
+  assert.match(w[0], /container/);
+  assert.match(w[0], /btn/);
+  assert.match(w[0], /col-md-6/);
+  assert.deepEqual(findThemeCollidingClasses('<div class="lp-container hero-grid"><a class="lp-btn">x</a></div>'), []);
+  assert.deepEqual(findThemeCollidingClasses(''), []);
+});
+
+test('validateTemplateStructure: geeft de thema botsing waarschuwing door zonder te blokkeren', () => {
+  const { validateTemplateStructure } = require('../src/lp/validator');
+  const bp = { templateFormat: 'slots', htmlTemplate: '<div class="container"><h1>{{heroTitle}}</h1></div>', cssTemplate: '.lpt .container{max-width:900px;}', slots: [{ key: 'heroTitle', type: 'text' }] };
+  const res = validateTemplateStructure(bp);
+  assert.equal(res.ok, true);
+  assert.ok(res.warnings.some((x) => /container/.test(x)));
+});

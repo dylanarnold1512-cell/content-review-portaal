@@ -97,6 +97,15 @@ ${renderCustomFontFaces(tokens)}.${rootClass} {
   background: var(--lp-bg);
 }
 .${rootClass} * { box-sizing: border-box; }
+/* Thema botsing (21-09-2026, gevonden op hostelroots.nl): het Bootstrap gebaseerde Beaver Builder thema
+   geeft .container, .row en .clearfix een clearfix (::before en ::after met display:table). Bij een
+   sjabloon dat zo'n klasse op een grid of flex element zet worden die pseudo elementen extra
+   griditems, waardoor de eerste cel leeg blijft en de kolommen door elkaar schuiven (op Roots kwam de
+   hero afbeelding onder de tekst te staan). Alleen binnen onze eigen pagina uitgezet. */
+.${rootClass} .container::before, .${rootClass} .container::after,
+.${rootClass} .container-fluid::before, .${rootClass} .container-fluid::after,
+.${rootClass} .row::before, .${rootClass} .row::after,
+.${rootClass} .clearfix::before, .${rootClass} .clearfix::after { content: none !important; display: none !important; }
 .${rootClass} img { max-width: 100%; display: block; }
 .${rootClass} a { color: var(--lp-primary-dark); }
 .${rootClass} h1, .${rootClass} h2, .${rootClass} h3 {

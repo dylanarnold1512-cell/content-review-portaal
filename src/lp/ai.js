@@ -101,6 +101,8 @@ klant verschillen; een vast kolomaantal laat bij minder items dan kolommen een l
 er visueel uitziet als niet gecentreerd. Dit wordt ook mechanisch gecontroleerd bij het opslaan
 (waarschuwing, geen blokkade), maar voorkom het liever meteen in je eigen ontwerp.
 
+Klassenamen (21-09-2026): het sjabloon draait op de echte site van de klant, binnen het WordPress thema, dat zelf ook CSS heeft. Gebruik daarom GEEN generieke klassenamen die thema's en frameworks (Bootstrap) zelf stijlen: container, row, col-*, clearfix, wrapper, content, main, header, footer, nav, btn, btn-primary, btn-secondary, button, card, badge, alert. Geef eigen klassen een duidelijk voorvoegsel, bijvoorbeeld "lp-container", "lp-btn" of "festival-card". Dit wordt ook gecontroleerd bij het opslaan (waarschuwing).
+
 Sjabloon-taal in htmlTemplate (mini-engine, GEEN volledige templatetaal):
 - {{veldNaam}} voor een tekstwaarde (wordt automatisch HTML-geescaped).
 - {{#each lijstNaam}} ... {{veld}} ... {{/each}} voor een herhalende lijst, {{veld}} verwijst naar het

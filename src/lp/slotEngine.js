@@ -320,6 +320,34 @@ function templateSafetyCheck(html, css) {
   return { ok: errors.length === 0, errors };
 }
 
+// ---- Klassenamen die WordPress thema's zelf ook stijlen ----
+// Ontstaan uit een echte bug (zie systeem-logboek.md, 21-09-2026): een sjabloon gebruikte de klasse
+// "container" voor een grid, en het Bootstrap gebaseerde thema van Roots voegt aan .container een
+// clearfix toe die als extra griditem meedoet. In het portaal ziet dat er goed uit (daar is geen
+// thema), op de echte site niet. Alleen een WAARSCHUWING bij het opslaan, nooit een blokkade.
+const THEME_COLLIDING_CLASSES = [
+  'container', 'container-fluid', 'row', 'clearfix', 'wrapper', 'content', 'main', 'sidebar', 'header',
+  'footer', 'nav', 'navbar', 'btn', 'btn-primary', 'btn-secondary', 'btn-default', 'button', 'card',
+  'badge', 'alert', 'form-control'
+];
+
+function findThemeCollidingClasses(html) {
+  const found = new Set();
+  for (const match of String(html || '').matchAll(/class\s*=\s*["']([^"']+)["']/gi)) {
+    for (const token of match[1].split(/\s+/)) {
+      if (THEME_COLLIDING_CLASSES.includes(token) || /^col-(xs|sm|md|lg|xl)-\d+$/.test(token)) {
+        found.add(token);
+      }
+    }
+  }
+  if (!found.size) return [];
+  return [
+    `Het sjabloon gebruikt klassenamen die veel WordPress thema's zelf ook stijlen: ${[...found].join(', ')}. ` +
+      'Op de echte site kunnen die botsen (bijvoorbeeld een grid dat door elkaar schuift). ' +
+      'Geef ze een eigen voorvoegsel, bijvoorbeeld "lp-container" in plaats van "container".'
+  ];
+}
+
 // ---- Rigid-grid detectie voor lijst-slots ----
 // Ontstaan uit een echte bug (zie systeem-logboek.md, 09-09-2026): een grid-klasse met een VAST
 // aantal kolommen (bv. repeat(3,...)) die een {{#each ...}}-lijst omwikkelt waarvan het aantal
@@ -464,5 +492,7 @@ module.exports = {
   renderIcon,
   isIconField,
   findUnknownIcons,
-  findRigidListGrids
+  findRigidListGrids,
+  findThemeCollidingClasses,
+  THEME_COLLIDING_CLASSES
 };
