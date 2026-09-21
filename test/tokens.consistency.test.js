@@ -8,7 +8,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { clientTokens, checkFontLoadConsistency } = require('../src/lp/tokens');
 
-test('elke geregistreerde klant: custom lettertype staat ook echt in googleFonts', () => {
+test('elke geregistreerde klant: custom lettertype staat ook echt in googleFonts of customFonts', () => {
   Object.entries(clientTokens).forEach(([clientId, tokens]) => {
     const problemen = checkFontLoadConsistency(tokens);
     assert.deepEqual(problemen, [], `Klant "${clientId}": ${problemen.join(' ')}`);
@@ -38,4 +38,18 @@ test('checkFontLoadConsistency: googleFonts-veld dat helemaal ontbreekt telt als
   const problemen = checkFontLoadConsistency(zonderVeld);
   assert.equal(problemen.length, 1);
   assert.match(problemen[0], /Poppins/);
+});
+
+// Regressietest voor het zelf-gehoste Yikes-lettertype van Roots (21-09-2026): een lettertype dat
+// alleen in customFonts staat (geen Google Font) moet net zo goed als "wordt echt geladen" tellen.
+test('checkFontLoadConsistency: custom font MET customFonts (zelf-gehost, geen Google Font) is prima', () => {
+  const metCustomFont = { fontHeading: "'Yikes', 'Ubuntu', sans-serif", fontBody: "'Ubuntu', sans-serif", googleFonts: ['Ubuntu'], customFonts: [{ family: 'Yikes', bestand: 'yikes-medium.ttf' }] };
+  assert.deepEqual(checkFontLoadConsistency(metCustomFont), []);
+});
+
+test('checkFontLoadConsistency: custom font in GEEN van beide (googleFonts/customFonts) geeft een probleem', () => {
+  const zonderBeide = { fontHeading: "'Yikes', 'Ubuntu', sans-serif", fontBody: "'Ubuntu', sans-serif", googleFonts: ['Ubuntu'], customFonts: [] };
+  const problemen = checkFontLoadConsistency(zonderBeide);
+  assert.equal(problemen.length, 1);
+  assert.match(problemen[0], /Yikes/);
 });

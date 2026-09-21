@@ -3,7 +3,7 @@
 // <link> naar fonts.googleapis.com wordt toegevoegd, los van de CSS-waarde in fontHeading/fontBody.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { renderStyle, buildGoogleFontsHref } = require('../src/lp/style');
+const { renderStyle, buildGoogleFontsHref, renderCustomFontFaces, resolveAssetBaseUrl } = require('../src/lp/style');
 
 function maakTokens(overrides) {
   return {
@@ -42,4 +42,57 @@ test('renderStyle ondersteunt meerdere Google Fonts tegelijk (bv. los lettertype
 
 test('buildGoogleFontsHref zet spaties in een fontnaam om naar een "+"', () => {
   assert.match(buildGoogleFontsHref(['Open Sans']), /family=Open\+Sans:/);
+});
+
+
+// Regressietests voor het zelf-gehoste Yikes-lettertype van Roots (21-09-2026, zie
+// besluiten.md "Yikes-lettertype van Roots"): net als googleFonts hierboven, maar dan met een
+// eigen @font-face in plaats van een <link> naar Google.
+test('renderStyle voegt GEEN @font-face toe zonder customFonts (bestaand gedrag)', () => {
+  const html = renderStyle('lp-root-test', maakTokens());
+  assert.ok(!/@font-face/.test(html));
+});
+
+test('renderStyle voegt GEEN @font-face toe als customFonts ontbreekt (bestaande klanten zonder dit veld)', () => {
+  const tokens = maakTokens();
+  delete tokens.customFonts;
+  const html = renderStyle('lp-root-test', tokens);
+  assert.ok(!/@font-face/.test(html));
+});
+
+test('renderStyle bouwt een @font-face regel voor elk item in customFonts', () => {
+  const oud = process.env.LP_ASSETS_BASE_URL;
+  process.env.LP_ASSETS_BASE_URL = 'https://portaal.test';
+  try {
+    const html = renderStyle('lp-root-test', maakTokens({
+      customFonts: [{ family: 'Yikes', bestand: 'yikes-medium.ttf', gewicht: 500, stijl: 'normal' }]
+    }));
+    assert.match(html, /@font-face \{[\s\S]*font-family: 'Yikes';[\s\S]*\}/);
+    assert.match(html, /src: url\('https:\/\/portaal\.test\/fonts\/yikes-medium\.ttf'\) format\('truetype'\);/);
+    assert.match(html, /font-weight: 500;/);
+  } finally {
+    if (oud === undefined) delete process.env.LP_ASSETS_BASE_URL; else process.env.LP_ASSETS_BASE_URL = oud;
+  }
+});
+
+test('resolveAssetBaseUrl: LP_ASSETS_BASE_URL wint van RENDER_EXTERNAL_URL, anders die laatste, anders localhost-terugval', () => {
+  const oudLp = process.env.LP_ASSETS_BASE_URL;
+  const oudRender = process.env.RENDER_EXTERNAL_URL;
+  try {
+    delete process.env.LP_ASSETS_BASE_URL;
+    delete process.env.RENDER_EXTERNAL_URL;
+    assert.equal(resolveAssetBaseUrl(), 'http://localhost:3000');
+    process.env.RENDER_EXTERNAL_URL = 'https://content-review-portaal.onrender.com/';
+    assert.equal(resolveAssetBaseUrl(), 'https://content-review-portaal.onrender.com');
+    process.env.LP_ASSETS_BASE_URL = 'https://override.test/';
+    assert.equal(resolveAssetBaseUrl(), 'https://override.test');
+  } finally {
+    if (oudLp === undefined) delete process.env.LP_ASSETS_BASE_URL; else process.env.LP_ASSETS_BASE_URL = oudLp;
+    if (oudRender === undefined) delete process.env.RENDER_EXTERNAL_URL; else process.env.RENDER_EXTERNAL_URL = oudRender;
+  }
+});
+
+test('renderStyle: h1/h2/h3 krijgen font-synthesis:none (voorkomt lelijke faux-bold bij een lettertype zonder eigen bold-bestand)', () => {
+  const html = renderStyle('lp-root-test', maakTokens());
+  assert.match(html, /h1,[\s\S]*?h2,[\s\S]*?h3[\s\S]*?\{[\s\S]*?font-synthesis: none;/);
 });

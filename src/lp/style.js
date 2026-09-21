@@ -14,6 +14,44 @@
 // AI-gegenereerd sjabloon, dus de veiligheidscheck in slotEngine.js (die externe resources in
 // sjablonen blokkeert) is hier niet van toepassing.
 
+// Zelf-gehoste (niet-Google) lettertypen (21-09-2026, Roots/Yikes-lettertype): sommige klanten
+// hebben een eigen, custom lettertype dat geen Google Font is (dus geen <link>/@import naar
+// fonts.googleapis.com mogelijk, zie hierboven). tokens.customFonts (array, zie tokens.js) beschrijft
+// zo'n lettertype: { family, bestand, gewicht, stijl }. "bestand" verwijst naar een bestand in
+// public/fonts/ (statisch geserveerd door server.js, met een losse CORS-header omdat de pagina zelf
+// straks op een ANDER domein staat, namelijk de site van de klant). We bouwen hier zelf een
+// @font-face-regel — dit mag, want dit is onze eigen vaste systeemcode, geen AI-gegenereerd sjabloon
+// (zelfde uitzondering als bij de Google Fonts <link> hierboven).
+//
+// Nodig: een ABSOLUTE URL naar het font-bestand (relatief werkt niet, de pagina draait straks
+// binnen de WordPress-pagina van de klant, dus relatief zou naar de klant-site zelf verwijzen in
+// plaats van naar ons). Render zet RENDER_EXTERNAL_URL automatisch — geen handmatige configuratie
+// nodig in productie. LP_ASSETS_BASE_URL kan dat overschrijven (bv. lokaal testen), anders is er een
+// localhost-terugval voor lokale ontwikkeling.
+function resolveAssetBaseUrl() {
+  const waarde = process.env.LP_ASSETS_BASE_URL || process.env.RENDER_EXTERNAL_URL || 'http://localhost:3000';
+  return waarde.replace(/\/$/, '');
+}
+
+function renderCustomFontFaces(tokens) {
+  const fonts = Array.isArray(tokens.customFonts)
+    ? tokens.customFonts.filter((f) => f && f.family && f.bestand)
+    : [];
+  if (!fonts.length) return '';
+  const baseUrl = resolveAssetBaseUrl();
+  return fonts
+    .map(
+      (f) => `@font-face {
+  font-family: '${f.family}';
+  src: url('${baseUrl}/fonts/${f.bestand}') format('truetype');
+  font-weight: ${f.gewicht || 400};
+  font-style: ${f.stijl || 'normal'};
+  font-display: swap;
+}`
+    )
+    .join('\n') + '\n';
+}
+
 function fontFamilyParam(naam) {
   return String(naam).trim().replace(/\s+/g, '+');
 }
@@ -34,7 +72,7 @@ function renderGoogleFontsLink(tokens) {
 
 function renderStyle(rootClass, tokens) {
   return `${renderGoogleFontsLink(tokens)}<style>
-.${rootClass} {
+${renderCustomFontFaces(tokens)}.${rootClass} {
   --lp-primary: ${tokens.primary};
   --lp-primary-dark: ${tokens.primaryDark};
   --lp-secondary: ${tokens.secondary};
@@ -60,6 +98,11 @@ function renderStyle(rootClass, tokens) {
   font-family: var(--lp-font-heading);
   margin: 0 0 16px;
   line-height: 1.2;
+  /* Voorkomt dat de browser zelf een "bold"-variant verzint (faux bold, vaak lelijk/vervormd) van
+     een zelf-gehost lettertype dat geen eigen bold-bestand heeft (zie renderCustomFontFaces
+     hierboven) — bij klanten met een Google Font/systeemfont met een echte bold-variant heeft dit
+     gewoon geen effect, de browser gebruikt dan al die echte variant. */
+  font-synthesis: none;
 }
 .${rootClass} .lp-container {
   max-width: var(--lp-max-width);
@@ -96,4 +139,4 @@ function renderStyle(rootClass, tokens) {
 </style>`;
 }
 
-module.exports = { renderStyle, buildGoogleFontsHref };
+module.exports = { renderStyle, buildGoogleFontsHref, renderCustomFontFaces, resolveAssetBaseUrl };

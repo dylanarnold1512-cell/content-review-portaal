@@ -26,6 +26,12 @@ const defaultTokens = {
   fontHeading: 'inherit',
   fontBody: 'inherit',
   googleFonts: [],
+  // customFonts (21-09-2026, zie besluiten.md "Yikes-lettertype van Roots"): net als googleFonts,
+  // maar voor een lettertype dat GEEN Google Font is (dus zelf-gehost, via public/fonts/ - zie
+  // style.js, renderCustomFontFaces). Leeg = geen wijziging t.o.v. bestaand gedrag. Elk item:
+  // { family, bestand, gewicht, stijl }. Zet hier ALLEEN een lettertype dat de klant zelf expliciet
+  // heeft aangeleverd (bv. een .ttf-bestand) — nooit een aanname, zelfde principe als googleFonts.
+  customFonts: [],
   ctaBg: '#0F5257',
   ctaText: '#FFFFFF'
 };
@@ -58,9 +64,24 @@ const clientTokens = {
     // een systeemfont. Ubuntu is zelf ook gewoon een publiek, bestaand Google Font (los van hoe
     // Roots 'm host), dus laten we 'm voortaan altijd zelf laden — dat werkt dan overal
     // betrouwbaar, ongeacht de context waarin de pagina bekeken wordt.
-    fontHeading: "'Ubuntu', sans-serif",
+    // Yikes (21-09-2026): Marion (Hostel Roots) heeft het echte lettertype-bestand aangeleverd dat
+    // op de klantsite voor koppen wordt gebruikt (bv. de "ROOTS"-wordmark en decoratieve koppen,
+    // zie besluiten.md "Yikes-lettertype van Roots"). Dit was EERDER (08-09-2026) aangezien voor een
+    // losse bug/placeholder-waarde op een enkel Beaver Builder-element ("Yikes"/"Comic Sans MS" op
+    // .fl-heading) - dat bleek dus GEEN bug maar het echte, bewust gekozen decoratieve koppenfont.
+    // Correctie: die eerdere conclusie staat verderop in besluiten.md, deze regel hier is de huidige
+    // stand van zaken.
+    // Belangrijk: dit is een KLEIN, decoratief lettertype (86 glyphs) — geen accenten (é/ë/ï/etc),
+    // geen dubbele punt/puntkomma, geen eurotekentje. Elk ontbrekend teken valt automatisch (per
+    // teken, niet per element) terug op het volgende font in de stack, dus Ubuntu — vandaar Ubuntu
+    // als expliciete tweede naam in fontHeading in plaats van meteen sans-serif, zodat een
+    // ontbrekend teken in een kop zo min mogelijk opvalt.
+    fontHeading: "'Yikes', 'Ubuntu', sans-serif",
     fontBody: "'Ubuntu', sans-serif",
-    googleFonts: ['Ubuntu']
+    googleFonts: ['Ubuntu'],
+    customFonts: [
+      { family: 'Yikes', bestand: 'yikes-medium.ttf', gewicht: 500, stijl: 'normal' }
+    ]
   }
   // jmb: { ... } — toevoegen zodra JMB aan de beurt is (bouwstap 5).
 };
@@ -91,15 +112,22 @@ function eersteFontNaam(cssWaarde) {
 function checkFontLoadConsistency(tokens) {
   const problemen = [];
   const googleFontsLower = (tokens.googleFonts || []).map((naam) => String(naam).toLowerCase());
+  // customFonts (21-09-2026, zie de Yikes-toevoeging hierboven): een zelf-gehost lettertype telt
+  // net zo goed als "wordt echt geladen" mee als een Google Font — het wordt alleen via een eigen
+  // @font-face geladen (style.js) in plaats van via de Google Fonts <link>.
+  const customFontsLower = (Array.isArray(tokens.customFonts) ? tokens.customFonts : [])
+    .map((f) => (f && f.family ? String(f.family).toLowerCase() : null))
+    .filter(Boolean);
   ['fontHeading', 'fontBody'].forEach((veld) => {
     const naam = eersteFontNaam(tokens[veld]);
     if (!naam) return;
     const naamLower = naam.toLowerCase();
     if (GENERIEKE_FONTS.has(naamLower)) return;
     if (googleFontsLower.includes(naamLower)) return;
+    if (customFontsLower.includes(naamLower)) return;
     problemen.push(
-      `${veld} staat op een niet-generiek lettertype ("${naam}") dat niet voorkomt in googleFonts ` +
-      '— wordt dus mogelijk niet geladen buiten de eigen WordPress-pagina van de klant.'
+      `${veld} staat op een niet-generiek lettertype ("${naam}") dat niet voorkomt in googleFonts of ` +
+      'customFonts — wordt dus mogelijk niet geladen buiten de eigen WordPress-pagina van de klant.'
     );
   });
   return problemen;
