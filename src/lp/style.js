@@ -1,7 +1,9 @@
 // Genereert het <style> blok voor een pagina: basis layout/typografie (gedeeld
 // over alle klanten) plus de tokens van de specifieke klant als CSS variabelen.
 // Alles geschaald onder de root-class, zodat het nooit buiten onze eigen content
-// lekt naar de rest van de klantsite (header/footer blijven van het thema).
+// lekt naar de rest van de klantsite (header/footer blijven van het thema). Eén
+// bewuste, smalle uitzondering hierop: het verbergen van header.fl-post-header
+// (Beaver Builder Theme's eigen paginatitel-blok), zie de toelichting daar.
 //
 // Lettertype-laden (05-09-2026, vervolg op de Roots-Ubuntu-feedback): tokens.fontHeading/
 // fontBody zijn alleen de CSS-waarde (bv. "'Ubuntu', sans-serif" of "inherit"). Of dat
@@ -106,6 +108,16 @@ ${renderCustomFontFaces(tokens)}.${rootClass} {
 .${rootClass} .container-fluid::before, .${rootClass} .container-fluid::after,
 .${rootClass} .row::before, .${rootClass} .row::after,
 .${rootClass} .clearfix::before, .${rootClass} .clearfix::after { content: none !important; display: none !important; }
+/* WordPress-thema-titel boven de content (22-09-2026, gevonden op hostelroots.nl/testival-tilburg):
+   het Beaver Builder Theme (bb-theme) rendert altijd een eigen <header class="fl-post-header"> met
+   de paginatitel (en voor ingelogde beheerders een "Bewerken"-link) BOVEN de content, dus vóór onze
+   eigen root-class-wrapper. Dat gaf niet alleen een storend wit vlak boven elk sjabloon, maar ook een
+   TWEEDE H1 op de pagina naast onze eigen heroTitle-H1 (zie seoRegels.exactEenH1 in elk sjabloon) —
+   een SEO-probleem, niet alleen cosmetisch. Bewuste, smalle uitzondering op "nooit buiten de eigen
+   root-class stijlen" (zie bovenaan dit bestand): precies dit ene, bevestigde thema-element
+   verbergen, niets breders. Bestaat dit element niet (ander thema), dan doet deze regel niets.
+   Niet geschaald onder rootClass: dit element staat immers BUITEN onze eigen wrapper. */
+header.fl-post-header { display: none !important; }
 .${rootClass} img { max-width: 100%; display: block; }
 .${rootClass} a { color: var(--lp-primary-dark); }
 .${rootClass} h1, .${rootClass} h2, .${rootClass} h3 {

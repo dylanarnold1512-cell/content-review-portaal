@@ -139,3 +139,12 @@ test('renderStyle zet thema clearfix pseudo elementen uit binnen de eigen pagina
   }
   assert.match(css, /content: none !important; display: none !important;/);
 });
+
+test('renderStyle verbergt het Beaver Builder Theme paginatitel-blok (header.fl-post-header), los van de rootClass', () => {
+  const { renderStyle } = require('../src/lp/style');
+  const { getTokens } = require('../src/lp/tokens');
+  const css = renderStyle('lp-root-x', getTokens('roots'));
+  assert.match(css, /header\.fl-post-header\s*\{\s*display:\s*none\s*!important;\s*\}/);
+  // Bewust NIET geschaald onder de rootClass: dit element staat buiten onze eigen wrapper.
+  assert.ok(!css.includes('.lp-root-x header.fl-post-header'), 'mag niet onder de rootClass geschaald zijn');
+});
