@@ -150,6 +150,7 @@ function switchLpTab(tab) {
 document.querySelectorAll('#lpTabNav .tab-btn').forEach((btn) => {
   btn.addEventListener('click', () => switchLpTab(btn.dataset.lpTab));
 });
+document.getElementById('lpNieuwePaginaBtn')?.addEventListener('click', () => switchLpTab('nieuw'));
 document.getElementById('lpBackBtn').addEventListener('click', () => {
   document.getElementById('lpDetailSection').classList.add('hidden');
   document.getElementById('lpPaginasTab').classList.remove('hidden');
@@ -365,6 +366,10 @@ async function openPageDetail(pageId) {
   document.getElementById('lpDetailSection').classList.remove('hidden');
 
   document.getElementById('lpDetailTitel').textContent = page.titel;
+  document.getElementById('lpDetailKlantPill').textContent = page.klant || '';
+  document.getElementById('lpDetailBlueprintPill').textContent = page.blueprint || '';
+  document.getElementById('lpDetailModifiedText').textContent = page.laatstGewijzigd
+    ? 'Laatst gewijzigd ' + new Date(page.laatstGewijzigd).toLocaleString('nl-NL') : '';
   document.getElementById('lpDetailStatusBadge').textContent = page.status;
   document.getElementById('lpDetailStatusBadge').className = lpBadgeClass(LP_PAGE_STATUS_BADGE, page.status);
   document.getElementById('lpStatusSelect').value = page.status;
@@ -1346,6 +1351,8 @@ async function openTemplateDetail(templateId) {
   document.getElementById('lpTplDetailLegacyNote').classList.toggle('hidden', isSlot);
 
   document.getElementById('lpTplDetailNaam').textContent = template.naam;
+  document.getElementById('lpTplDetailKlantPill').textContent = template.klant ? ('klant: ' + template.klant) : '';
+  document.getElementById('lpTplDetailBlueprintIdPill').textContent = template.blueprintId ? ('blueprintId: ' + template.blueprintId) : '';
   document.getElementById('lpTplDetailStatusBadge').textContent = template.status;
   document.getElementById('lpTplDetailStatusBadge').className = lpBadgeClass(LP_TEMPLATE_STATUS_BADGE, template.status);
   document.getElementById('lpTplStatusSelect').value = template.status;
