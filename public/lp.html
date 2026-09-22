@@ -13,7 +13,6 @@
   .lp-table th, .lp-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #e3e1dc; font-size: 14px; }
   .lp-table tr.lp-row { cursor: pointer; }
   .lp-table tr.lp-row:hover { background: #f6f6f4; }
-  .lp-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; background: #eee; }
   .lp-field-row { display: flex; flex-direction: column; margin-bottom: 12px; }
   .lp-field-row label { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
   .lp-field-row input, .lp-field-row textarea, .lp-field-row select { font: inherit; padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; }
@@ -22,7 +21,7 @@
   .lp-subtab-btn.active { border-bottom-color: #111; font-weight: 600; }
   .lp-subpanel.hidden { display: none; }
   #lpContentJson { width: 100%; min-height: 320px; font-family: monospace; font-size: 13px; }
-  #lpPreviewFrame { width: 100%; height: 900px; border: 1px solid #e3e1dc; background: #fff; }
+  #lpPreviewFrame { width: 100%; height: 900px; border: none; display: block; background: #fff; }
   #lpPreviewWrapper:fullscreen { background: #fff; padding: 16px; box-sizing: border-box; }
   #lpPreviewWrapper:fullscreen #lpPreviewFrame { height: calc(100vh - 32px); }
   #lpTplPreviewFrame, #lpTplDetailPreviewFrame { width: 100%; height: 900px; border: 1px solid #e3e1dc; background: #fff; margin-top: 8px; }
@@ -60,6 +59,52 @@
   .lp-modal-overlay.hidden { display: none; }
   .lp-modal-box { background: #fff; border-radius: 10px; padding: 24px; max-width: 640px; width: 100%; max-height: 84vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
   .lp-modal-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+
+  /* Herontwerp 22-09-2026: LP Fabriek gebruikt voortaan dezelfde Advertisr-huisstijl (kleuren,
+     kaarten, badges, knoppen) als de rest van dit portaal (styles.css) in plaats van eigen kale
+     stijlen -- zie besluiten.md. Dit blok bevat alleen wat LP-specifiek is: bredere layout,
+     nette formuliervelden met voorbeeld/uitleg, de voortgangsbalk en het inklapbare codeblok. */
+
+  .lp-shell { max-width: 1100px; margin: 0 auto; padding: 8px 28px 48px; }
+
+  .lp-field-hint { display: block; margin-top: 4px; font-size: 12px; color: var(--text-faint); line-height: 1.4; }
+
+  .lp-field-row input, .lp-field-row select, .lp-field-row textarea {
+    padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px;
+    background: var(--bg); color: var(--text); font-family: inherit;
+  }
+  .lp-field-row input:focus, .lp-field-row select:focus, .lp-field-row textarea:focus { outline: none; border-color: var(--accent); }
+
+  .lp-table-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-card); overflow: hidden; }
+  .lp-table-card .lp-table { margin-bottom: 0; }
+  .lp-table-card .lp-table th { background: var(--bg); font-size: 11px; text-transform: uppercase; letter-spacing: .03em; color: var(--text-muted); }
+  .lp-table-card .lp-table td, .lp-table-card .lp-table th { padding: 12px 16px; }
+  .lp-table-card .lp-table tr.lp-row:hover { background: var(--bg); }
+  .lp-table-card .lp-table tr:last-child td { border-bottom: none; }
+
+  .lp-steps { display: flex; align-items: flex-start; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-card); padding: 20px 24px; margin: 18px 0 24px 0; }
+  .lp-step { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 25%; text-align: center; }
+  .lp-step-circle { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; background: var(--gray-soft); color: var(--text-faint); }
+  .lp-step-label { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+  .lp-step-sub { font-size: 11px; color: var(--text-faint); }
+  .lp-step-line { flex-grow: 1; height: 2px; background: var(--border); margin-top: 14px; }
+  .lp-step-line.done { background: var(--cyan); }
+  .lp-step.done .lp-step-circle { background: var(--cyan); color: #fff; }
+  .lp-step.done .lp-step-label { color: var(--text); }
+  .lp-step.current .lp-step-circle { background: var(--accent); color: #fff; }
+  .lp-step.current .lp-step-label { color: var(--text); }
+  .lp-step.current .lp-step-sub { color: var(--accent); font-weight: 700; }
+
+  .lp-recommended-badge { display: inline-block; font-size: 10.5px; font-weight: 700; color: var(--cyan); background: var(--cyan-soft); padding: 3px 9px; border-radius: var(--radius-pill); margin-left: 8px; vertical-align: middle; text-transform: none; letter-spacing: 0; }
+
+  .lp-advanced { border: 1px solid var(--border); border-radius: 12px; padding: 2px 16px 16px 16px; margin-top: 24px; background: var(--bg); }
+  .lp-advanced summary { cursor: pointer; padding: 12px 0; font-size: 13.5px; font-weight: 700; color: var(--text); }
+  .lp-advanced summary:hover { color: var(--accent); }
+  .lp-advanced[open] summary { margin-bottom: 4px; }
+  .lp-advanced-hint { color: var(--text-faint); font-size: 12px; margin: 0 0 14px 0; }
+
+  .lp-preview-card { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .lp-preview-card iframe { display: block; border: none; }
 </style>
 </head>
 <body>
@@ -99,39 +144,45 @@
   </div>
 
   <div id="lpPaginasTab" class="tab-panel">
-    <div class="admin-layout">
+    <div class="lp-shell">
       <div id="lpListError" class="admin-error hidden"></div>
       <div class="lp-field-row" style="max-width:240px;">
         <label for="lpFilterKlant">Filter op klant</label>
         <select id="lpFilterKlant"><option value="">Alle klanten</option></select>
       </div>
-      <table class="lp-table">
-        <thead><tr><th>Titel</th><th>Klant</th><th>Blueprint</th><th>Status</th><th>Laatst gewijzigd</th></tr></thead>
-        <tbody id="lpPagesTableBody"></tbody>
-      </table>
+      <div class="lp-table-card">
+        <table class="lp-table">
+          <thead><tr><th>Titel</th><th>Klant</th><th>Blueprint</th><th>Status</th><th>Laatst gewijzigd</th></tr></thead>
+          <tbody id="lpPagesTableBody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
   <div id="lpNieuwTab" class="tab-panel hidden">
-    <div class="admin-layout">
+    <div class="lp-shell">
       <div id="lpNewError" class="admin-error hidden"></div>
       <div class="admin-section-title">Nieuwe landingspagina</div>
       <form id="lpNewForm">
         <div class="lp-field-row">
           <label for="lpNewKlant">Klant</label>
           <select id="lpNewKlant" required></select>
+          <span class="lp-field-hint">Bepaalt welke klantgegevens en tokens gebruikt worden.</span>
         </div>
         <div class="lp-field-row">
           <label for="lpNewBlueprint">Blueprint</label>
           <select id="lpNewBlueprint" required></select>
+          <span class="lp-field-hint">Bepaalt welke velden hieronder relevant zijn.</span>
         </div>
         <div class="lp-field-row">
           <label for="lpNewTitel">Titel (Notion / werktitel)</label>
-          <input type="text" id="lpNewTitel" required autocomplete="off">
+          <input type="text" id="lpNewTitel" required autocomplete="off" placeholder="bv. Testival Tilburg 2026">
+          <span class="lp-field-hint">Titel zoals die in Notion en dit portaal getoond wordt.</span>
         </div>
         <div class="lp-field-row">
           <label for="lpNewSlug">Slug (optioneel, wordt anders afgeleid van de titel)</label>
-          <input type="text" id="lpNewSlug" autocomplete="off">
+          <input type="text" id="lpNewSlug" autocomplete="off" placeholder="bv. testival-tilburg-2026">
+          <span class="lp-field-hint">Leeg laten om automatisch van de titel af te leiden.</span>
         </div>
         <div id="lpNewInvoerFields"></div>
         <div class="modal-actions">
@@ -142,7 +193,7 @@
   </div>
 
   <div id="lpSjablonenTab" class="tab-panel hidden">
-    <div class="admin-layout">
+    <div class="lp-shell">
       <div id="lpTemplatesError" class="admin-error hidden"></div>
       <div class="lp-detail-header">
         <div class="admin-section-title">Sjablonen</div>
@@ -152,15 +203,17 @@
         Eenmalig per klant/paginatype (bouwstap 6, stap 1 van het tweestappenproces, zie besluiten.md).
         Alleen een sjabloon met status "Actief" is bruikbaar bij het aanmaken van een nieuwe pagina.
       </p>
-      <table class="lp-table">
-        <thead><tr><th>Naam</th><th>Klant</th><th>BlueprintId</th><th>Status</th><th>Laatst gewijzigd</th></tr></thead>
-        <tbody id="lpTemplatesTableBody"></tbody>
-      </table>
+      <div class="lp-table-card">
+        <table class="lp-table">
+          <thead><tr><th>Naam</th><th>Klant</th><th>BlueprintId</th><th>Status</th><th>Laatst gewijzigd</th></tr></thead>
+          <tbody id="lpTemplatesTableBody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
   <div id="lpIntakeTab" class="tab-panel hidden">
-    <div class="admin-layout">
+    <div class="lp-shell">
       <div id="lpIntakeError" class="admin-error hidden"></div>
       <div class="admin-section-title">Klant-intake</div>
       <p class="admin-footnote">
@@ -287,7 +340,7 @@
   </div>
 
   <div id="lpTemplateNewSection" class="tab-panel hidden">
-    <div class="admin-layout">
+    <div class="lp-shell">
       <button type="button" id="lpTemplateNewBackBtn" class="btn-plain">&larr; Terug naar sjablonen</button>
       <div id="lpTemplateNewError" class="admin-error hidden"></div>
       <div class="admin-section-title">Nieuw sjabloon</div>
@@ -353,37 +406,41 @@
       <button type="button" id="lpTplRefineBtn" class="btn-plain">Verwerk feedback in voorstel</button>
       <span id="lpTplRefineStatus" class="admin-footnote"></span>
 
-      <div class="lp-columns" style="margin-top:16px;">
-        <div class="lp-col">
-          <div class="lp-field-row">
-            <label for="lpTplNewStatus">Status</label>
-            <select id="lpTplNewStatus">
-              <option>Concept</option>
-              <option>Actief</option>
-              <option>Gearchiveerd</option>
-            </select>
-          </div>
-          <div class="lp-field-row">
-            <label for="lpTplNewBlueprintId">BlueprintId (bv. roots-event)</label>
-            <input type="text" id="lpTplNewBlueprintId" required autocomplete="off">
-          </div>
-          <div class="lp-field-row">
-            <label for="lpTplNewBlueprintJson">Blueprint JSON</label>
-            <textarea id="lpTplNewBlueprintJson" class="lp-json-textarea" spellcheck="false"></textarea>
-          </div>
-          <p class="admin-footnote">
-            Nieuwe sjablonen gebruiken het slot-formaat: templateFormat, htmlTemplate, cssTemplate,
-            slots, invoerVelden, uniciteitsbudget, linkRegels, ctaRegel, seoRegels. Meestal vul je dit
-            niet handmatig in maar laat je 'm hierboven genereren.
-          </p>
-        </div>
-        <div class="lp-col">
-          <div class="lp-field-row">
-            <label for="lpTplNewVoorbeeldJson">Voorbeeldcontent / voorbeeldSlotData (voor het voorbeeld hieronder, wordt niet opgeslagen)</label>
-            <textarea id="lpTplNewVoorbeeldJson" class="lp-json-textarea" spellcheck="false"></textarea>
-          </div>
-        </div>
+      <div class="lp-field-row" style="margin-top:16px; max-width:280px;">
+        <label for="lpTplNewStatus">Status</label>
+        <select id="lpTplNewStatus">
+          <option>Concept</option>
+          <option>Actief</option>
+          <option>Gearchiveerd</option>
+        </select>
       </div>
+      <div class="lp-field-row" style="max-width:280px;">
+        <label for="lpTplNewBlueprintId">BlueprintId (bv. roots-event)</label>
+        <input type="text" id="lpTplNewBlueprintId" required autocomplete="off">
+      </div>
+
+      <details class="lp-advanced">
+        <summary>Geavanceerd: ruwe Blueprint JSON en voorbeeldcontent</summary>
+        <p class="lp-advanced-hint">
+          Meestal vul je dit niet handmatig in maar laat je 'm hierboven genereren en verfijn je met
+          feedback. Nieuwe sjablonen gebruiken het slot-formaat: templateFormat, htmlTemplate,
+          cssTemplate, slots, invoerVelden, uniciteitsbudget, linkRegels, ctaRegel, seoRegels.
+        </p>
+        <div class="lp-columns">
+          <div class="lp-col">
+            <div class="lp-field-row">
+              <label for="lpTplNewBlueprintJson">Blueprint JSON</label>
+              <textarea id="lpTplNewBlueprintJson" class="lp-json-textarea" spellcheck="false"></textarea>
+            </div>
+          </div>
+          <div class="lp-col">
+            <div class="lp-field-row">
+              <label for="lpTplNewVoorbeeldJson">Voorbeeldcontent / voorbeeldSlotData (voor het voorbeeld hieronder, wordt niet opgeslagen)</label>
+              <textarea id="lpTplNewVoorbeeldJson" class="lp-json-textarea" spellcheck="false"></textarea>
+            </div>
+          </div>
+        </div>
+      </details>
 
       <div class="admin-section-title" style="margin-top:20px;">Voorbeeld</div>
       <p class="admin-footnote">
@@ -401,12 +458,12 @@
   </div>
 
   <div id="lpTemplateDetailSection" class="tab-panel hidden">
-    <div class="admin-layout">
+    <div class="lp-shell">
       <button type="button" id="lpTemplateBackBtn" class="btn-plain">&larr; Terug naar sjablonen</button>
       <div class="lp-detail-header">
         <div>
           <div class="admin-section-title" id="lpTplDetailNaam">&mdash;</div>
-          <span class="lp-badge" id="lpTplDetailStatusBadge">&mdash;</span>
+          <span class="badge" id="lpTplDetailStatusBadge">&mdash;</span>
         </div>
         <div class="lp-field-row" style="max-width:220px;margin:0;">
           <label for="lpTplStatusSelect">Status</label>
@@ -421,26 +478,18 @@
       <div id="lpTplDeleteError" class="admin-error hidden"></div>
       <p class="admin-footnote">
         Naam, klant en BlueprintId zijn hier alleen-lezen &mdash; pas die zo nodig rechtstreeks in Notion aan
-        via de pagina-eigenschappen (niet de body, zie besluiten.md). Alleen de blueprint-inhoud en de
-        status worden via dit scherm bewerkt.
+        via de pagina-eigenschappen (niet de body, zie besluiten.md).
       </p>
       <div id="lpTemplateDetailError" class="admin-error hidden"></div>
       <div class="lp-field-row"><label>Klant</label><input type="text" id="lpTplDetailKlant" disabled></div>
       <div class="lp-field-row"><label>BlueprintId</label><input type="text" id="lpTplDetailBlueprintId" disabled></div>
-      <div class="lp-field-row">
-        <label for="lpTplDetailBlueprintJson">Blueprint JSON</label>
-        <textarea id="lpTplDetailBlueprintJson" class="lp-json-textarea" spellcheck="false"></textarea>
-      </div>
-      <button type="button" id="lpTplSaveBlueprintBtn" class="btn btn-approve">Blueprint opslaan</button>
-      <span id="lpTplSaved" class="admin-footnote"></span>
 
       <div id="lpTplDetailAiSection">
-        <div class="admin-section-title" style="margin-top:24px;">Verder finetunen met AI</div>
+        <div class="admin-section-title" style="margin-top:24px;">Verder finetunen met AI<span class="lp-recommended-badge">Aanbevolen manier</span></div>
         <p class="admin-footnote">
           Pas dit BESTAANDE sjabloon aan via een prompt, zonder een nieuw sjabloon aan te hoeven maken.
-          Werkt met de Blueprint JSON hierboven en wordt pas opgeslagen als je zelf op "Blueprint opslaan"
-          klikt &mdash; zo kun je hier net zo vaak op testen zonder dat er telkens een nieuw sjabloon in
-          Notion bijkomt.
+          Wordt pas opgeslagen als je zelf op "Blueprint opslaan" klikt hieronder bij "Geavanceerd" &mdash;
+          zo kun je hier net zo vaak op testen zonder dat er telkens een nieuw sjabloon in Notion bijkomt.
         </p>
         <div class="lp-field-row">
           <label for="lpTplDetailVoorbeeldJson">Voorbeeldcontent / voorbeeldSlotData (voor het voorbeeld hieronder, wordt niet opgeslagen)</label>
@@ -460,18 +509,29 @@
       </div>
       <p id="lpTplDetailLegacyNote" class="admin-footnote hidden">
         Dit is een sjabloon in het oude blokken-formaat — AI-verfijning is hier niet beschikbaar, pas de
-        Blueprint JSON hierboven zo nodig handmatig aan.
+        Blueprint JSON hieronder bij "Geavanceerd" zo nodig handmatig aan.
       </p>
+
+      <details class="lp-advanced" id="lpTplAdvancedDetails">
+        <summary>Geavanceerd: ruwe Blueprint JSON (HTML/CSS)</summary>
+        <p class="lp-advanced-hint">Alleen aanpassen als je weet wat je doet — normaal gebruik je de AI-finetuning hierboven.</p>
+        <div class="lp-field-row">
+          <label for="lpTplDetailBlueprintJson">Blueprint JSON</label>
+          <textarea id="lpTplDetailBlueprintJson" class="lp-json-textarea" spellcheck="false"></textarea>
+        </div>
+        <button type="button" id="lpTplSaveBlueprintBtn" class="btn btn-approve">Blueprint opslaan</button>
+        <span id="lpTplSaved" class="admin-footnote"></span>
+      </details>
     </div>
   </div>
 
   <div id="lpDetailSection" class="tab-panel hidden">
-    <div class="admin-layout">
+    <div class="lp-shell">
       <button type="button" id="lpBackBtn" class="btn-plain">&larr; Terug naar overzicht</button>
       <div class="lp-detail-header">
         <div>
           <div class="admin-section-title" id="lpDetailTitel">—</div>
-          <span class="lp-badge" id="lpDetailStatusBadge">—</span>
+          <span class="badge" id="lpDetailStatusBadge">—</span>
         </div>
         <div class="lp-field-row" style="max-width:220px;margin:0;">
           <label for="lpStatusSelect">Status handmatig zetten</label>
@@ -495,6 +555,8 @@
         Dylan/Marc de pagina zelf live hebben gezet in WordPress — dat blijft altijd een bewuste,
         handmatige stap (zie besluiten.md).
       </p>
+
+      <div class="lp-steps" id="lpSteps"></div>
 
       <div class="lp-subtabs" id="lpSubtabs">
         <button type="button" class="lp-subtab-btn active" data-lp-subtab="invoer">Invoer</button>
@@ -592,7 +654,7 @@
           <input type="text" id="lpShareUrl" class="hidden" readonly style="width:100%; margin-top:8px;">
           <div id="lpShareStatus" class="admin-footnote"></div>
         </div>
-        <div id="lpPreviewWrapper">
+        <div id="lpPreviewWrapper" class="lp-preview-card">
           <iframe id="lpPreviewFrame"></iframe>
 <div id="lpImageSwapOverlay" class="lp-modal-overlay hidden">
   <div class="lp-modal-box">

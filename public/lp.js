@@ -227,7 +227,7 @@ async function loadNewFormInvoerFields() {
     container.innerHTML = (blueprint.invoerVelden || []).map((veld) => `
       <div class="lp-field-row">
         <label for="lpNewVeld_${veld.key}">${veld.label}${veld.verplicht ? ' *' : ''}</label>
-        <input type="text" id="lpNewVeld_${veld.key}" data-veld-key="${veld.key}" ${veld.verplicht ? 'required' : ''}>
+        <input type="text" id="lpNewVeld_${veld.key}" data-veld-key="${veld.key}" ${veld.verplicht ? 'required' : ''} placeholder="${veld.voorbeeld ? 'bv. ' + veld.voorbeeld.replace(/"/g, '&quot;') : ''}">
       </div>`).join('');
   } catch (err) {
     container.innerHTML = `<p class="admin-error">${err.message}</p>`;
@@ -262,6 +262,29 @@ document.getElementById('lpNewForm').addEventListener('submit', async (e) => {
 });
 
 // ---- Pagina-lijst ----
+// Statuskleur (badge) voor pagina's en sjablonen — hergebruikt de bestaande badge-* kleuren uit
+// styles.css (die daar al voor de blog-review-status gebruikt worden), zodat de LP Fabriek dezelfde
+// huisstijl-taal spreekt in plaats van een eigen kleurenset te verzinnen.
+const LP_PAGE_STATUS_BADGE = {
+  'Idee': 'badge-idee',
+  'Formulier ingevuld': 'badge-gepland',
+  'Feitensheet ter review': 'badge-ter-review',
+  'Content klaar': 'badge-in-generatie',
+  'Ter review': 'badge-ter-review',
+  'Goedgekeurd': 'badge-goedgekeurd',
+  'Afgewezen': 'badge-afgewezen',
+  'Gepubliceerd': 'badge-gepubliceerd',
+  'Fout': 'badge-fout'
+};
+const LP_TEMPLATE_STATUS_BADGE = {
+  'Concept': 'badge-gepland',
+  'Actief': 'badge-goedgekeurd',
+  'Gearchiveerd': 'badge-gepland'
+};
+function lpBadgeClass(map, status) {
+  return 'badge ' + (map[status] || 'badge-gepland');
+}
+
 async function loadPages() {
   const errorEl = document.getElementById('lpListError');
   errorEl.classList.add('hidden');
@@ -283,12 +306,53 @@ function renderPagesTable() {
       <td>${p.titel || '(zonder titel)'}</td>
       <td>${p.klant || ''}</td>
       <td>${p.blueprint || ''}</td>
-      <td><span class="lp-badge">${p.status || ''}</span></td>
+      <td><span class="${lpBadgeClass(LP_PAGE_STATUS_BADGE, p.status)}">${p.status || ''}</span></td>
       <td>${p.laatstGewijzigd ? new Date(p.laatstGewijzigd).toLocaleString('nl-NL') : ''}</td>
     </tr>`).join('') || '<tr><td colspan="5">Nog geen pagina\'s.</td></tr>';
   tbody.querySelectorAll('tr.lp-row').forEach((row) => {
     row.addEventListener('click', () => openPageDetail(row.dataset.pageId));
   });
+}
+
+// ---- Voortgangsbalk (Invoer / Feiten controleren / Content / Voorbeeld & publiceren) ----
+// Puur een LEESBARE weergave van echte, al bestaande gegevens (invoer, feitensheet-tellingen,
+// content, status) -- geen nieuw, apart bij te houden veld. Zo kan dit nooit uit de pas gaan lopen
+// met de werkelijke staat van de pagina.
+function isContentIngevuld(page) {
+  const content = page.content || {};
+  if (content.slotData) {
+    return Object.values(content.slotData).some((v) => (Array.isArray(v) ? v.length > 0 : Boolean((v || '').toString().trim())));
+  }
+  return Array.isArray(content.blocks) && content.blocks.length > 0;
+}
+
+function renderVoortgang(page, feitenCounts) {
+  const stepsEl = document.getElementById('lpSteps');
+  if (!stepsEl) return;
+  const invoer = page.invoer || {};
+  const invoerIngevuld = Boolean((invoer._watGaatDezePaginaOver || '').toString().trim())
+    || Object.keys(invoer).some((k) => !k.startsWith('_') && (invoer[k] || '').toString().trim());
+  const { total = 0, gebruikt = 0 } = feitenCounts || {};
+  const feitenKlaar = total > 0 && gebruikt === total;
+  const contentKlaar = isContentIngevuld(page);
+  const gepubliceerd = page.status === 'Gepubliceerd';
+
+  const stappen = [
+    { label: 'Invoer', klaar: invoerIngevuld, sub: invoerIngevuld ? 'Ingevuld' : 'Nog leeg' },
+    { label: 'Feiten controleren', klaar: feitenKlaar, sub: total ? `${gebruikt} van ${total} bevestigd` : 'Nog geen feiten beschikbaar' },
+    { label: 'Content', klaar: contentKlaar, sub: contentKlaar ? 'Ingevuld' : 'Nog leeg' },
+    { label: 'Voorbeeld & publiceren', klaar: gepubliceerd, sub: gepubliceerd ? 'Gepubliceerd' : 'Nog niet gepubliceerd' }
+  ];
+
+  let huidigGezet = false;
+  stepsEl.innerHTML = stappen.map((s, i) => {
+    let state = 'upcoming';
+    if (s.klaar) state = 'done';
+    else if (!huidigGezet) { state = 'current'; huidigGezet = true; }
+    const circle = state === 'done' ? '&#10003;' : String(i + 1);
+    const lijn = i < stappen.length - 1 ? `<div class="lp-step-line${state === 'done' ? ' done' : ''}"></div>` : '';
+    return `<div class="lp-step ${state}"><div class="lp-step-circle">${circle}</div><div class="lp-step-label">${s.label}</div><div class="lp-step-sub">${s.sub}</div></div>${lijn}`;
+  }).join('');
 }
 
 // ---- Detailscherm ----
@@ -302,6 +366,7 @@ async function openPageDetail(pageId) {
 
   document.getElementById('lpDetailTitel').textContent = page.titel;
   document.getElementById('lpDetailStatusBadge').textContent = page.status;
+  document.getElementById('lpDetailStatusBadge').className = lpBadgeClass(LP_PAGE_STATUS_BADGE, page.status);
   document.getElementById('lpStatusSelect').value = page.status;
   switchLpSubtab('invoer');
 
@@ -319,8 +384,9 @@ async function openPageDetail(pageId) {
   document.getElementById('lpInvoerCtaOverride').value = invoer._ctaOverride || '';
 
   renderInvoerFields(page, blueprint);
-  await renderFeitenList(page);
+  const feitenCounts = await renderFeitenList(page);
   renderContentJson(page, blueprint);
+  renderVoortgang(page, feitenCounts);
   document.getElementById('lpPreviewFrame').srcdoc = '';
   document.getElementById('lpValidationResult').innerHTML = '';
   document.getElementById('lpPublishResult').innerHTML = '';
@@ -332,7 +398,10 @@ document.getElementById('lpStatusSelect').addEventListener('change', async (e) =
   const page = lpState.currentPage;
   if (!page) return;
   await lpApi(`/pages/${page.id}/status`, { method: 'PUT', body: JSON.stringify({ status: e.target.value }) });
+  page.status = e.target.value;
   document.getElementById('lpDetailStatusBadge').textContent = e.target.value;
+  document.getElementById('lpDetailStatusBadge').className = lpBadgeClass(LP_PAGE_STATUS_BADGE, e.target.value);
+  renderVoortgang(page, lpState.lastFeitenCounts || { total: 0, gebruikt: 0 });
   await loadPages();
 });
 
@@ -374,7 +443,7 @@ function renderInvoerFields(page, blueprint) {
   container.innerHTML = (blueprint.invoerVelden || []).map((veld) => `
     <div class="lp-field-row">
       <label for="lpInvoerVeld_${veld.key}">${veld.label}${veld.verplicht ? ' *' : ''}</label>
-      <input type="text" id="lpInvoerVeld_${veld.key}" data-veld-key="${veld.key}" value="${(invoer[veld.key] || '').toString().replace(/"/g, '&quot;')}">
+      <input type="text" id="lpInvoerVeld_${veld.key}" data-veld-key="${veld.key}" value="${(invoer[veld.key] || '').toString().replace(/"/g, '&quot;')}" placeholder="${veld.voorbeeld ? 'bv. ' + veld.voorbeeld.replace(/"/g, '&quot;') : ''}">
     </div>`).join('');
 }
 
@@ -410,6 +479,15 @@ async function renderFeitenList(page) {
 
   lpState.extraFeiten = (feitensheet.extra || []).slice();
   renderExtraFeitenList();
+
+  // Voor de voortgangsbalk: extra feiten (handmatig toegevoegd) tellen altijd als "gebruikt",
+  // catalogusfeiten (hierboven) alleen als het vinkje aanstaat.
+  const counts = {
+    total: feiten.length + (feitensheet.extra || []).length,
+    gebruikt: gebruiktSet.size + (feitensheet.extra || []).length
+  };
+  lpState.lastFeitenCounts = counts;
+  return counts;
 }
 
 function renderExtraFeitenList() {
@@ -450,7 +528,13 @@ document.getElementById('lpSaveFeitensheetBtn').addEventListener('click', async 
   lpState.currentPage.feitensheet = feitensheet;
   lpState.currentPage.status = updated.status;
   document.getElementById('lpDetailStatusBadge').textContent = updated.status;
+  document.getElementById('lpDetailStatusBadge').className = lpBadgeClass(LP_PAGE_STATUS_BADGE, updated.status);
   document.getElementById('lpStatusSelect').value = updated.status;
+  lpState.lastFeitenCounts = {
+    total: (lpState.feitenById ? lpState.feitenById.size : 0) + (feitensheet.extra || []).length,
+    gebruikt: gebruikt.length + (feitensheet.extra || []).length
+  };
+  renderVoortgang(lpState.currentPage, lpState.lastFeitenCounts);
   const savedEl = document.getElementById('lpFeitensheetSaved');
   savedEl.textContent = 'Opgeslagen — status is gezet op "Content klaar".';
   setTimeout(() => (savedEl.textContent = ''), 4000);
@@ -534,6 +618,7 @@ async function saveContentJson({ silent } = {}) {
   };
   await lpApi(`/pages/${page.id}/content`, { method: 'PUT', body: JSON.stringify({ content }) });
   lpState.currentPage.content = content;
+  renderVoortgang(lpState.currentPage, lpState.lastFeitenCounts || { total: 0, gebruikt: 0 });
   if (!silent) {
     const savedEl = document.getElementById('lpContentSaved');
     savedEl.textContent = 'Opgeslagen.';
@@ -1041,7 +1126,7 @@ function renderTemplatesTable() {
       <td>${t.naam || '(zonder naam)'}</td>
       <td>${t.klant || ''}</td>
       <td>${t.blueprintId || ''}</td>
-      <td><span class="lp-badge">${t.status || ''}</span></td>
+      <td><span class="${lpBadgeClass(LP_TEMPLATE_STATUS_BADGE, t.status)}">${t.status || ''}</span></td>
       <td>${t.laatstGewijzigd ? new Date(t.laatstGewijzigd).toLocaleString('nl-NL') : ''}</td>
     </tr>`).join('') || '<tr><td colspan="5">Nog geen sjablonen.</td></tr>';
   tbody.querySelectorAll('tr.lp-row').forEach((row) => {
@@ -1262,7 +1347,9 @@ async function openTemplateDetail(templateId) {
 
   document.getElementById('lpTplDetailNaam').textContent = template.naam;
   document.getElementById('lpTplDetailStatusBadge').textContent = template.status;
+  document.getElementById('lpTplDetailStatusBadge').className = lpBadgeClass(LP_TEMPLATE_STATUS_BADGE, template.status);
   document.getElementById('lpTplStatusSelect').value = template.status;
+  document.getElementById('lpTplAdvancedDetails').open = !isSlot;
   document.getElementById('lpTplDetailKlant').value = template.klant || '';
   document.getElementById('lpTplDetailBlueprintId').value = template.blueprintId || '';
   document.getElementById('lpTplDetailBlueprintJson').value = JSON.stringify(template.blueprint || {}, null, 2);
@@ -1376,6 +1463,7 @@ document.getElementById('lpTplStatusSelect').addEventListener('change', async (e
   });
   lpState.currentTemplate = updated;
   document.getElementById('lpTplDetailStatusBadge').textContent = updated.status;
+  document.getElementById('lpTplDetailStatusBadge').className = lpBadgeClass(LP_TEMPLATE_STATUS_BADGE, updated.status);
 });
 
 document.getElementById('lpTplDeleteBtn').addEventListener('click', async () => {

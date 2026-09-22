@@ -49,7 +49,10 @@ Een sjabloon (blueprint) is een JSON-object met exact deze velden:
                              // var(--lp-cta-text).
   "slots": [ { "key": string, "label": string, "type": "text" | "list", "verplicht": boolean,
                "itemFields": string[] (alleen bij type "list", bv. ["question","answer"]) } ],
-  "invoerVelden": [ { "key": string, "label": string, "verplicht": boolean } ],
+  "invoerVelden": [ { "key": string, "label": string, "verplicht": boolean,
+                       "voorbeeld": string (kort, realistisch voorbeeld van een goed ingevulde waarde voor dit
+                         veld, bv. "5 september 2026" bij een datumveld — wordt als placeholder getoond in het
+                         invoerformulier zodat Dylan/Marc meteen zien wat voor antwoord verwacht wordt) } ],
   "uniciteitsbudget": { "minimumUniekeFeiten": number, "uitgeslotenVanUniciteit": string[] },
   "linkRegels": { "minimumInterneLinks": number, "minimumNaarZusterpaginas": number, "reasonRequired": boolean },
   "ctaRegel": { "verplicht": boolean },
