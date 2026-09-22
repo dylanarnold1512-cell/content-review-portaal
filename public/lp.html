@@ -6,6 +6,9 @@
 <title>LP Fabriek — Content Review Portaal</title>
 <link rel="icon" href="https://advertisr.nl/wp-content/uploads/2025/03/Logo_Advertisr_new_2025.svg">
 <link rel="stylesheet" href="/styles.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   .lp-columns { display: flex; gap: 24px; align-items: flex-start; }
   .lp-col { flex: 1; min-width: 0; }
@@ -105,6 +108,34 @@
 
   .lp-preview-card { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
   .lp-preview-card iframe { display: block; border: none; }
+
+  /* Herontwerp 22-09-2026, vervolg: op verzoek van Dylan alsnog het felle koraal/creme-palet en
+     de lettertypes uit de goedgekeurde mockup toegepast (niet het bestaande, ingetogen Advertisr-
+     palet zoals hierboven eerder gekozen -- zie systeem-logboek.md, 22-09-2026). Alleen de
+     CSS-variabelen die de "look" bepalen worden hier herdefinieerd, uitsluitend binnen #lpApp en
+     #lpLoginScreen, dus admin.html/index.html (die dezelfde styles.css delen) blijven ongemoeid. */
+  #lpApp, #lpLoginScreen {
+    --bg: #fbf3e6;
+    --panel: #ffffff;
+    --border: #ede0cb;
+    --text: #2b2117;
+    --text-muted: #8a7b67;
+    --text-faint: #bbad96;
+    --accent: #e8613c;
+    --accent-soft: #fbe2d2;
+    --accent-shadow: rgba(232, 97, 60, 0.30);
+    --shadow-soft: 0 6px 16px rgba(43, 33, 23, 0.12);
+    --shadow-card: 0 3px 10px rgba(43, 33, 23, 0.08);
+    font-family: 'Manrope', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  }
+  #lpApp { background: var(--bg); min-height: 100vh; }
+  #lpApp .top-title, #lpApp .admin-section-title, #lpApp h1, #lpApp h2, #lpApp h3,
+  #lpLoginScreen h1 {
+    font-family: 'Space Grotesk', ui-sans-serif, sans-serif;
+  }
+  /* styles.css zet hier een vast donkerrood (#f21f39) i.p.v. een var() -- scoped overschreven zodat
+     de hover bij het nieuwe koraal-accent past in plaats van bij het oude Advertisr-rood. */
+  #lpApp .btn-approve:hover, #lpLoginScreen .login-box button:hover { background: #d1502e; }
 </style>
 </head>
 <body>
