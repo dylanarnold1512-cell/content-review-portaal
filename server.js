@@ -42,7 +42,22 @@ app.use('/fonts', (req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   next();
 });
-app.use(express.static(path.join(__dirname, 'public')));
+// Cache-Control: no-cache op alle statische bestanden (styles.css, lp.js, admin.html, etc.):
+// dit dwingt de browser om bij elke laad een conditionele request (If-None-Match) naar de server te
+// sturen in plaats van een oude versie uit eigen cache te hertonen. Zonder deze header stuurt
+// Express geen Cache-Control mee, en dan passen browsers "heuristische caching" toe (RFC 7234) —
+// ze kunnen een bestand dagenlang uit disk-cache serveren zonder ooit de server te vragen of er een
+// update is. Dat verklaarde waarom Dylan na de portaal-herontwerp-deploy op sommige tabbladen nog de
+// oude, onstyled versie zag terwijl andere tabbladen (met een lege/verlopen cache) de nieuwe versie
+// wel meteen goed toonden — dezelfde URL, verschillend resultaat, puur door browser-cache-gedrag.
+// 'no-cache' betekent hier NIET "nooit cachen": het bestand wordt nog steeds lokaal bewaard, maar de
+// browser moet elke keer eerst bij de server checken of het nog actueel is (via ETag), en krijgt bij
+// geen wijziging een snelle 304 terug. Zie systeem-logboek.md, 22-09-2026.
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'no-cache');
+  }
+}));
 
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
