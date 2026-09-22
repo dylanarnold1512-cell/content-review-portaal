@@ -118,6 +118,21 @@ ${renderCustomFontFaces(tokens)}.${rootClass} {
    verbergen, niets breders. Bestaat dit element niet (ander thema), dan doet deze regel niets.
    Niet geschaald onder rootClass: dit element staat immers BUITEN onze eigen wrapper. */
 header.fl-post-header { display: none !important; }
+/* Zelfde WordPress-thema-eigenaardigheid, vervolg (22-09-2026, ontdekt nadat de vorige regel al
+   live stond): bb-theme geeft de content-kolom zelf altijd een margin-top van 40px, kennelijk
+   bedoeld als ruimte ONDER de paginatitel hierboven. Nu die titel weg is, bleef er een leeg wit
+   vlak over tussen het menu en onze hero-sectie. Live bevestigd op hostelroots.nl (getBoundingClientRect):
+   zonder deze regel stond de hero 40px onder de rand van het menu, met deze regel precies gelijk. */
+.fl-content.col-md-12 { margin-top: 0 !important; }
+/* Ontsnappingsluik voor EEN VOLGENDE, nog onbekende thema-eigenaardigheid bij een andere klant
+   (22-09-2026): de twee regels hierboven werken alleen voor sites op het Beaver Builder Theme
+   (bb-theme) — bij een klant op een ander thema/bouwer heten de vergelijkbare elementen anders, dus
+   deze twee regels doen daar simpelweg niets (geen risico), maar lossen ook niets op. In plaats van
+   voor elke nieuwe klant opnieuw code te moeten schrijven en deployen zodra zoiets wordt gevonden,
+   kan een klant een eigen, kant-en-klare CSS-aanvulling meekrijgen via tokens.themeOverrideCss (zie
+   tokens.js) — precies zo'n narrow, live-geverifieerde uitzondering als hierboven, maar dan per
+   klant instelbaar zonder code-wijziging. Leeg (standaard) = geen wijziging t.o.v. bestaand gedrag. */
+${tokens.themeOverrideCss || ''}
 .${rootClass} img { max-width: 100%; display: block; }
 .${rootClass} a { color: var(--lp-primary-dark); }
 .${rootClass} h1, .${rootClass} h2, .${rootClass} h3 {

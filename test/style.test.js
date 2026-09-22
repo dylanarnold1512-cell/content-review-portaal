@@ -148,3 +148,29 @@ test('renderStyle verbergt het Beaver Builder Theme paginatitel-blok (header.fl-
   // Bewust NIET geschaald onder de rootClass: dit element staat buiten onze eigen wrapper.
   assert.ok(!css.includes('.lp-root-x header.fl-post-header'), 'mag niet onder de rootClass geschaald zijn');
 });
+
+test('renderStyle zet de margin-top van bb-theme\'s content-kolom (.fl-content.col-md-12) op 0, los van de rootClass', () => {
+  const { renderStyle } = require('../src/lp/style');
+  const { getTokens } = require('../src/lp/tokens');
+  const css = renderStyle('lp-root-x', getTokens('roots'));
+  assert.match(css, /\.fl-content\.col-md-12\s*\{\s*margin-top:\s*0\s*!important;\s*\}/);
+  assert.ok(!css.includes('.lp-root-x .fl-content.col-md-12'), 'mag niet onder de rootClass geschaald zijn');
+});
+
+test('renderStyle voegt GEEN extra CSS toe als tokens.themeOverrideCss leeg/ontbrekend is (bestaande klanten, geen gedragsverandering)', () => {
+  const { renderStyle } = require('../src/lp/style');
+  const { getTokens } = require('../src/lp/tokens');
+  const zonderVeld = renderStyle('lp-root-x', getTokens('roots'));
+  const metLegeString = renderStyle('lp-root-x', { ...getTokens('roots'), themeOverrideCss: '' });
+  assert.equal(zonderVeld, metLegeString);
+});
+
+test('renderStyle voegt tokens.themeOverrideCss ongewijzigd (rauw) toe aan het <style>-blok, voor een klant-specifieke thema-uitzondering', () => {
+  const { renderStyle } = require('../src/lp/style');
+  const { getTokens } = require('../src/lp/tokens');
+  const css = renderStyle('lp-root-x', {
+    ...getTokens('roots'),
+    themeOverrideCss: '.een-ander-thema-element { display: none !important; }'
+  });
+  assert.ok(css.includes('.een-ander-thema-element { display: none !important; }'));
+});

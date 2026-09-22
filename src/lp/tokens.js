@@ -41,7 +41,16 @@ const defaultTokens = {
   // heeft aangeleverd (bv. een .ttf-bestand) — nooit een aanname, zelfde principe als googleFonts.
   customFonts: [],
   ctaBg: '#0F5257',
-  ctaText: '#FFFFFF'
+  ctaText: '#FFFFFF',
+  // themeOverrideCss (22-09-2026, zie besluiten.md/systeem-logboek.md "WordPress-thema toonde eigen
+  // paginatitel"): ontsnappingsluik voor een BEVESTIGDE, klant-specifieke WordPress-thema-
+  // eigenaardigheid die niet met de gedeelde regels in style.js is op te lossen (bv. een ander
+  // thema dan bb-theme met een vergelijkbaar probleem). Rauwe CSS-tekst, ongewijzigd overgenomen in
+  // het <style>-blok — dus zelf verantwoordelijk voor scoping (meestal BEWUST buiten de rootClass,
+  // want het gaat per definitie om een thema-element buiten onze eigen wrapper). Leeg (standaard) =
+  // geen wijziging t.o.v. bestaand gedrag. Zet hier ALLEEN een regel die eerst live op de echte
+  // klantsite is bevestigd (zelfde principe als googleFonts/customFonts hierboven) — nooit een gok.
+  themeOverrideCss: ''
 };
 
 const clientTokens = {
