@@ -142,6 +142,16 @@
      de hover bij het nieuwe koraal-accent past in plaats van bij het oude Advertisr-rood. */
   #lpApp .btn-approve:hover, #lpLoginScreen .login-box button:hover { background: #C74526; }
 
+  /* Op verzoek van Dylan (23-09-2026): alle invulvelden (tekst/select/textarea) wit met zwarte tekst,
+     i.p.v. de crème paginaondergrond (var(--bg)) die styles.css er standaard aan geeft -- geeft meer
+     overzicht t.o.v. de rest van het scherm. Checkbox/radio/file expliciet uitgesloten, die moeten hun
+     eigen native uiterlijk houden. */
+  #lpApp input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), #lpApp select, #lpApp textarea,
+  #lpLoginScreen input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), #lpLoginScreen select, #lpLoginScreen textarea {
+    background: #FFFFFF;
+    color: #000000;
+  }
+
   /* Knoppen: de mockup gebruikt afgeronde rechthoeken (10px) i.p.v. de volledig ronde "pil"-knoppen
      die de rest van dit portaal (styles.css, gedeeld) gebruikt -- hier scoped overschreven. */
   #lpApp .btn, #lpApp .btn-plain { border-radius: 10px; }
