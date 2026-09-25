@@ -15,6 +15,7 @@
 
 const { getTokens } = require('./tokens');
 const { fetchReferenceSummary } = require('./referenceFetch');
+const { afgeleideVormtaal } = require('./huisstijlMeting');
 const { INLINE_LINK_RE, forEachTextLeaf, ICON_NAMES, findUnknownIcons } = require('./slotEngine');
 
 // De optionele "vaste onderdelen"-checklist in het sjabloon-formulier (Stap
@@ -330,6 +331,58 @@ VORMTAAL van deze klant (verplicht volgen, gaat voor de ontwerp-toolkit als die 
 ${tokens.sfeer ? `- sfeer van de klantsite: ${tokens.sfeer}` : '- sfeer: geen specifieke beschrijving, kies passend bij de branche.'}`;
 }
 
+// De AI kijkt bij het bouwen van een sjabloon mee met de ECHTE klantsite (25-09-2026): de site wordt
+// opgehaald en gemeten (CSS-tekst per rol: koppen, knoppen, kaarten, achtergronden) plus de opbouw van de
+// homepage (koppen, knoppen). Zo bouwt de AI niet alleen op tokens en een sfeertekst. Geen echte browser en
+// geen screenshot, dus dit is een meting van de CSS en geen visueel oordeel. Mislukt het ophalen, dan gaat
+// het sjabloon gewoon door op de tokens. Resultaat een uur in het geheugen bewaard (scheelt tijd bij finetunen).
+const KLANTSITE_CACHE = new Map();
+const KLANTSITE_CACHE_MS = 60 * 60 * 1000;
+
+function lijstTekst(lijst) {
+  return (lijst || []).map((x) => x.waarde).filter(Boolean).slice(0, 4).join(', ') || 'niet gemeten';
+}
+
+async function formatKlantSiteVoorPrompt(klant) {
+  let url = '';
+  try {
+    const { getLpClient } = require('./clients');
+    url = (getLpClient(klant).profile.bedrijf || {}).url || '';
+  } catch (err) {
+    return '';
+  }
+  if (!url) return '';
+  const cached = KLANTSITE_CACHE.get(url);
+  if (cached && Date.now() - cached.tijd < KLANTSITE_CACHE_MS) return cached.tekst;
+  let tekst = '';
+  try {
+    // Pas hier laden: huisstijl.js laadt zelf ai.js (callOpenAi), een bovenaan-import geeft een kringverwijzing.
+    const { verzamelRuweHuisstijlData } = require('./huisstijl');
+    const data = await verzamelRuweHuisstijlData(url);
+    if (data.fout || !data.meting) {
+      tekst = `Klantsite (${url}) kon niet gemeten worden (${data.fout || 'geen CSS'}), ga uit van de tokens hierboven.`;
+    } else {
+      const m = data.meting;
+      const vormtaal = afgeleideVormtaal(m);
+      const structuur = data.structuur || {};
+      tekst = `GEMETEN OP DE ECHTE KLANTSITE ${url} (uit de CSS-tekst, geen echte browser). Dit gaat boven je eigen smaak en boven de ontwerp-toolkit:
+- koppen: lettertype ${lijstTekst(m.koppen.fonts)}, kleur ${lijstTekst(m.koppen.kleuren)}, hoofdletters ${lijstTekst(m.koppen.transform)}, gewicht ${lijstTekst(m.koppen.gewicht)}
+- tekst: lettertype ${lijstTekst(m.tekst.fonts)}, kleur ${lijstTekst(m.tekst.kleuren)}
+- knoppen: achtergrond ${lijstTekst(m.knoppen.achtergronden)}, hoeken ${lijstTekst(m.knoppen.radius)}, hoofdletters ${lijstTekst(m.knoppen.transform)}
+- kaarten: hoeken ${lijstTekst(m.kaarten.radius)}
+- achtergrondvlakken op de site: ${lijstTekst(m.achtergronden)}; randen: ${lijstTekst(m.randen)}
+- afgeleide vormtaal: ${Object.keys(vormtaal).length ? JSON.stringify(vormtaal) : 'niets betrouwbaar af te leiden'}
+- koppen op de homepage: ${(structuur.headings || []).slice(0, 12).join(' | ') || 'niet gevonden'}
+- knoppen en links op de homepage: ${(structuur.knoppenEnLinks || []).slice(0, 10).join(' | ') || 'niet gevonden'}
+Regel: gebruik geen decoratie (verlopen, blobs, golven, schaduwen, extra ronde hoeken) die niet bij deze meting en de sfeer past. Twijfel je, kies dan de strakkere variant die bij de site past.`;
+    }
+  } catch (err) {
+    tekst = `Klantsite (${url}) kon niet gemeten worden (${err.message}), ga uit van de tokens hierboven.`;
+  }
+  KLANTSITE_CACHE.set(url, { tijd: Date.now(), tekst });
+  return tekst;
+}
+
 async function formatReferenceForPrompt(referentieUrl) {
   if (!referentieUrl || !referentieUrl.trim()) {
     return 'Geen referentie-URL opgegeven — baseer de structuur op je eigen kennis van dit paginatype.';
@@ -369,7 +422,7 @@ async function generateTemplateProposal({
 }) {
   const systemPrompt = buildTemplateSystemPrompt();
   const referentieTekst = await formatReferenceForPrompt(referentieUrl);
-  const brandingTekst = formatBrandingForPrompt(klant);
+  const brandingTekst = formatBrandingForPrompt(klant) + '\n\n' + (await formatKlantSiteVoorPrompt(klant));
   const userPrompt = `Klant: ${klant}
 Naam van dit sjabloon: ${naam}
 Paginatype / doel: ${paginatype || '(niet opgegeven)'}
@@ -403,6 +456,8 @@ hetzelfde JSON-formaat als hierboven omschreven ({ "blueprint": ..., "voorbeeldS
 Naam van dit sjabloon: ${naam}
 
 ${formatBrandingForPrompt(klant)}
+
+${await formatKlantSiteVoorPrompt(klant)}
 
 Huidig blueprint:
 ${JSON.stringify(huidigBlueprint, null, 2)}
