@@ -12,7 +12,12 @@ const roots = {
   feiten: require('./roots/feiten').feiten
 };
 
-const clients = { roots };
+const macbouw = {
+  profile: require('./macbouw/profile'),
+  feiten: require('./macbouw/feiten').feiten
+};
+
+const clients = { roots, macbouw };
 
 function getLpClient(clientId) {
   const client = clients[clientId];

@@ -105,6 +105,29 @@ const clientTokens = {
     customFonts: [
       { family: 'Yikes', bestand: 'yikes-medium.ttf', gewicht: 500, stijl: 'normal' }
     ]
+  },
+  // MAC Bouw (25-09-2026): waarden uit het huisstijlvoorstel in de intake (knop "Analyseer huisstijl"
+  // op https://mac-bouw.nl/, door Dylan bekeken voor het verzenden). Jost is een publiek Google Font
+  // en staat daarom ook in googleFonts, anders laadt het niet buiten de eigen WordPress-pagina
+  // (zie checkFontLoadConsistency hieronder). De analyse vond ook Archivo en Titillium Web, maar
+  // alleen als Google Fonts-verwijzing en niet als lettertype in de body-CSS; Jost is daarom gekozen.
+  macbouw: {
+    ...defaultTokens,
+    primary: '#0e7bba',
+    primaryDark: '#083d59',
+    secondary: '#ff6600',
+    text: '#0c0a0a',
+    textMuted: '#777777',
+    bg: '#ffffff',
+    bgAlt: '#eae2e2',
+    border: '#eae2e2',
+    maxWidth: '1200px',
+    radius: '8px',
+    fontHeading: "'Jost', sans-serif",
+    fontBody: "'Jost', sans-serif",
+    googleFonts: ['Jost'],
+    ctaBg: '#0e7bba',
+    ctaText: '#ffffff'
   }
   // jmb: { ... } — toevoegen zodra JMB aan de beurt is (bouwstap 5).
 };
