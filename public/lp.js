@@ -1745,7 +1745,7 @@ document.getElementById('lpIntakeSubmitBtn').addEventListener('click', async () 
   btn.disabled = true;
   try {
     await lpApi('/intake', { method: 'POST', body: JSON.stringify({ klantnaam, klantId, intake }) });
-    alert('Intake verzonden. De automatische verwerking pakt hem binnen een uur op.');
+    alert('Intake verzonden en opgeslagen in Notion met status "Nieuw". Start nu een chat in het project LP Fabriek en vraag Claude de intake van deze klant te verwerken.');
     document.getElementById('lpIntakeKlantnaam').value = '';
     document.getElementById('lpIntakeKlantId').value = '';
     document.getElementById('lpIntakeToonNotitie').value = '';
