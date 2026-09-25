@@ -32,4 +32,14 @@ function stripHtml(value, maxLength) {
   return zonderTags;
 }
 
-module.exports = { escapeHtml, slugify, stripHtml };
+// Notion geeft een validatiefout ("select option ... not found for property ...") als je filtert op een
+// keuzewaarde die (nog) niet in het keuzeveld staat. Bij een NIEUWE klant is dat normaal: de klant
+// bestaat in de code, maar er is nog geen sjabloon of pagina, dus de klantwaarde is nog nooit in Notion
+// gebruikt (Notion maakt de optie pas aan bij het eerste aanmaken). Dat betekent gewoon "nog niets
+// gevonden" en is geen fout. Zonder deze check faalde de hele klantenlijst zodra er een klant zonder
+// sjablonen bijkwam (25-09-2026, MAC Bouw).
+function isOntbrekendeSelectOptie(err) {
+  return !!(err && /select option .* not found/i.test(String(err.message || '')));
+}
+
+module.exports = { escapeHtml, slugify, stripHtml, isOntbrekendeSelectOptie };

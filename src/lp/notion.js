@@ -19,7 +19,7 @@
 // wijziging vanuit het portaal overschreven.
 
 const { Client } = require('@notionhq/client');
-const { slugify } = require('./utils');
+const { slugify, isOntbrekendeSelectOptie } = require('./utils');
 
 const LP_DATABASE_ID = process.env.LP_LANDINGSPAGINAS_DATABASE_ID || 'fb1c2997-0f01-4e1f-a1fe-e5049cb9e857';
 
@@ -173,17 +173,23 @@ async function listPages({ klant, status } = {}) {
 
   const results = [];
   let cursor;
-  do {
-    const res = await client.databases.query({
-      database_id: LP_DATABASE_ID,
-      filter,
-      start_cursor: cursor,
-      page_size: 100,
-      sorts: [{ timestamp: 'last_edited_time', direction: 'descending' }]
-    });
-    results.push(...res.results);
-    cursor = res.has_more ? res.next_cursor : undefined;
-  } while (cursor);
+  try {
+    do {
+      const res = await client.databases.query({
+        database_id: LP_DATABASE_ID,
+        filter,
+        start_cursor: cursor,
+        page_size: 100,
+        sorts: [{ timestamp: 'last_edited_time', direction: 'descending' }]
+      });
+      results.push(...res.results);
+      cursor = res.has_more ? res.next_cursor : undefined;
+    } while (cursor);
+  } catch (err) {
+    // Nieuwe klant zonder pagina's: de klantwaarde staat nog niet in het Notion-keuzeveld.
+    if (isOntbrekendeSelectOptie(err)) return [];
+    throw err;
+  }
   return results.map(summarize);
 }
 
