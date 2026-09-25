@@ -220,7 +220,7 @@ function validateUniciteitsbudget(blueprint, warnings) {
 // toegepast op de HTML-tekst van het sjabloon zelf in plaats van op een
 // blokkentelling.
 function validateTemplateStructure(blueprint) {
-  const { templateSafetyCheck, findRigidListGrids, findThemeCollidingClasses } = require('./slotEngine');
+  const { templateSafetyCheck, findRigidListGrids, findThemeCollidingClasses, findHuisstijlAfwijkingen } = require('./slotEngine');
   const errors = [];
   const warnings = [];
   if (!blueprint || blueprint.templateFormat !== 'slots') {
@@ -238,6 +238,8 @@ function validateTemplateStructure(blueprint) {
   warnings.push(...findRigidListGrids(html, css));
   // Waarschuwing, zie systeem-logboek.md 21-09-2026: generieke klassenamen botsen met WordPress thema's.
   warnings.push(...findThemeCollidingClasses(html));
+  // Waarschuwing, 25-09-2026: eigen kleuren of vergrote rondingen wijken af van de huisstijl van de klant.
+  warnings.push(...findHuisstijlAfwijkingen(css));
 
   const h1Matches = [...html.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/gi)];
   if (h1Matches.length !== 1) {

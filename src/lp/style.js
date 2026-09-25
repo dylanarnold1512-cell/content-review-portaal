@@ -105,6 +105,15 @@ ${renderCustomFontFaces(tokens)}.${rootClass} {
   --lp-font-accent: ${tokens.fontAccent || tokens.fontHeading};
   --lp-cta-bg: ${tokens.ctaBg};
   --lp-cta-text: ${tokens.ctaText};
+  /* Vormtaal (25-09-2026, zie tokens.js): sjablonen gebruiken deze variabelen voor koppen, knoppen en
+     kaarten, zodat de pagina aanvoelt als de klantsite. Leeg in tokens = terugval, dus geen
+     gedragsverandering voor bestaande klanten. */
+  --lp-heading-color: ${tokens.headingColor || tokens.primaryDark};
+  --lp-heading-transform: ${tokens.headingTransform || 'none'};
+  --lp-heading-weight: ${tokens.headingWeight || '700'};
+  --lp-button-transform: ${tokens.buttonTransform || 'none'};
+  --lp-button-radius: ${tokens.buttonRadius || tokens.radius};
+  --lp-card-radius: ${tokens.cardRadius || tokens.radius};
   color: var(--lp-text);
   font-family: var(--lp-font-body);
   background: var(--lp-bg);

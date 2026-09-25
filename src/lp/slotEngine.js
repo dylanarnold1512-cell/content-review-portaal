@@ -320,6 +320,30 @@ function templateSafetyCheck(html, css) {
   return { ok: errors.length === 0, errors };
 }
 
+// ---- Vormtaal en huisstijl controleren (25-09-2026) ----
+// Een sjabloon hoort de klant-instellingen te gebruiken (var(--lp-...)) en geen eigen kleuren of
+// rondingen te verzinnen, anders klopt het niet meer met de huisstijl van de klant. Alleen een
+// WAARSCHUWING bij het opslaan, nooit een blokkade.
+function findHuisstijlAfwijkingen(css) {
+  const waarschuwingen = [];
+  const cssStr = String(css || '');
+  const hexKleuren = [...new Set((cssStr.match(/#[0-9a-fA-F]{3,8}\b/g) || []).map((h) => h.toLowerCase()))]
+    .filter((h) => !['#fff', '#ffffff', '#000', '#000000'].includes(h));
+  if (hexKleuren.length) {
+    waarschuwingen.push(
+      `De CSS bevat vaste kleuren (${hexKleuren.slice(0, 5).join(', ')}) in plaats van de huisstijl-variabelen ` +
+      '(var(--lp-primary), var(--lp-text), enz.). Dat wijkt af van de merkkleuren van de klant.'
+    );
+  }
+  if (/calc\(\s*var\(--lp-(?:card-|button-)?radius\)\s*\*/i.test(cssStr)) {
+    waarschuwingen.push(
+      'De CSS vergroot de rondingen van de klant met een vermenigvuldiging (bv. calc(var(--lp-radius) * 3)). ' +
+      'Gebruik var(--lp-card-radius) en var(--lp-button-radius) zoals ze zijn, anders wordt het ronder dan de klantsite.'
+    );
+  }
+  return waarschuwingen;
+}
+
 // ---- Klassenamen die WordPress thema's zelf ook stijlen ----
 // Ontstaan uit een echte bug (zie systeem-logboek.md, 21-09-2026): een sjabloon gebruikte de klasse
 // "container" voor een grid, en het Bootstrap gebaseerde thema van Roots voegt aan .container een
@@ -494,5 +518,6 @@ module.exports = {
   findUnknownIcons,
   findRigidListGrids,
   findThemeCollidingClasses,
+  findHuisstijlAfwijkingen,
   THEME_COLLIDING_CLASSES
 };

@@ -272,7 +272,12 @@ function formatBrandingForPrompt(klant) {
 - tekst: ${tokens.text} (var(--lp-text)), gedempte tekst: ${tokens.textMuted} (var(--lp-text-muted))
 - achtergrond: ${tokens.bg} (var(--lp-bg)), alternatieve achtergrond: ${tokens.bgAlt} (var(--lp-bg-alt))
 - CTA-knop: achtergrond ${tokens.ctaBg} (var(--lp-cta-bg)), tekst ${tokens.ctaText} (var(--lp-cta-text))
-- randradius: ${tokens.radius} (var(--lp-radius)), maximale breedte: ${tokens.maxWidth} (var(--lp-max-width))`;
+- randradius: ${tokens.radius} (var(--lp-radius)), maximale breedte: ${tokens.maxWidth} (var(--lp-max-width))
+VORMTAAL van deze klant (verplicht volgen, gaat voor de ontwerp-toolkit als die botst):
+- koppen (h1 tot h3): kleur var(--lp-heading-color) (${tokens.headingColor || tokens.primaryDark}), text-transform var(--lp-heading-transform) (${tokens.headingTransform || 'none'}), font-weight var(--lp-heading-weight) (${tokens.headingWeight || '700'})
+- knoppen: border-radius var(--lp-button-radius) (${tokens.buttonRadius || tokens.radius}), text-transform var(--lp-button-transform) (${tokens.buttonTransform || 'none'})
+- kaarten, foto's en beeldkaders: border-radius var(--lp-card-radius) (${tokens.cardRadius || tokens.radius}). Vermenigvuldig of vergroot dit NIET (dus geen calc(var(--lp-card-radius) * 3)) en kies geen eigen, grotere rondingen.
+${tokens.sfeer ? `- sfeer van de klantsite: ${tokens.sfeer}` : '- sfeer: geen specifieke beschrijving, kies passend bij de branche.'}`;
 }
 
 async function formatReferenceForPrompt(referentieUrl) {
@@ -654,6 +659,7 @@ async function callOpenAiVision({ systemPrompt, contentParts }) {
 
 module.exports = {
   VASTE_ONDERDELEN_OPTIES,
+  formatBrandingForPrompt,
   VISUELE_RICHTINGEN,
   ONTWERP_TOOLKIT,
   beschrijfVisueleRichting,

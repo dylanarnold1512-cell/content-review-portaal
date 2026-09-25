@@ -23,6 +23,20 @@ const defaultTokens = {
   border: '#E3E1DC',
   maxWidth: '1200px',
   radius: '8px',
+  // Vormtaal (25-09-2026): naast kleuren en lettertypes bepalen deze instellingen hoe een klantsite
+  // "aanvoelt" (hoofdletter-koppen, kleur van de koppen, vierkante of ronde knoppen, rondingen van
+  // kaarten). Aanleiding: een sjabloon voor MAC Bouw had de juiste kleuren en lettertypes maar voelde
+  // te zacht en rond, omdat dit nergens vastlag. Leeg laten = geen wijziging voor bestaande klanten
+  // (headingColor valt terug op primaryDark, de rondingen op radius, de rest op gewoon).
+  // Meten op de echte klantsite (browser, getComputedStyle op h1 tot h3 en knoppen), nooit gokken.
+  headingColor: '',
+  headingTransform: 'none',
+  headingWeight: '700',
+  buttonTransform: 'none',
+  buttonRadius: '',
+  cardRadius: '',
+  // Korte beschrijving van de sfeer voor de AI-sjabloonprompt, in gewone taal.
+  sfeer: '',
   fontHeading: 'inherit',
   fontBody: 'inherit',
   // fontAccent (21-09-2026, zie besluiten.md "Yikes-lettertype van Roots, precisering"): apart van
@@ -128,6 +142,16 @@ const clientTokens = {
     fontHeading: "'Titillium Web', sans-serif",
     fontBody: "'Jost', sans-serif",
     googleFonts: ['Jost', 'Titillium Web'],
+    // Vormtaal, gemeten op mac-bouw.nl op 25-09-2026 (getComputedStyle): koppen bijna zwart (h1 #000000,
+    // h2 #0c0a0a), hoofdletters, gewicht 600 (hero 700), knoppen hoofdletters gewicht 700 en vierkant (0px).
+    headingColor: '#0c0a0a',
+    headingTransform: 'uppercase',
+    headingWeight: '600',
+    buttonTransform: 'uppercase',
+    buttonRadius: '0px',
+    cardRadius: '2px',
+    sfeer: 'Stoer, strak en betrouwbaar, passend bij een aannemer: rechte lijnen, (bijna) vierkante hoeken, ' +
+      'koppen en knoppen in hoofdletters, veel witruimte en weinig decoratie. Animaties subtiel houden.',
     ctaBg: '#0e7bba',
     ctaText: '#ffffff'
   }
