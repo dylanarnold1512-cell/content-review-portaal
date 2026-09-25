@@ -5,9 +5,10 @@
 // ziet en wat de klant via de deellink ziet.
 
 // Bouwt de juiste render-invoer op basis van het sjabloonformaat.
-function buildRenderPage({ blueprint, content, clientId, slug }) {
+function buildRenderPage({ blueprint, content, clientId, slug, invoer }) {
   if (blueprint.templateFormat === 'slots') {
-    return { clientId, slug, template: blueprint, slotData: (content && content.slotData) || {} };
+    // invoer (bv. de plaatsnaam) is nodig voor het dienst-schema, zie seoSchema.js.
+    return { clientId, slug, template: blueprint, slotData: (content && content.slotData) || {}, invoer: invoer || {} };
   }
   return { clientId, slug, blocks: (content && content.blocks) || [] };
 }

@@ -29,13 +29,41 @@ function authHeader(username, appPassword) {
   return 'Basic ' + Buffer.from(`${username}:${appPassword}`).toString('base64');
 }
 
+// SEO plugins bewaren de metatitel en metabeschrijving als post meta. Welke sleutels, hangt van de plugin af
+// (profile.seo.plugin in het klantprofiel).
+const SEO_META_SLEUTELS = {
+  yoast: { titel: '_yoast_wpseo_title', beschrijving: '_yoast_wpseo_metadesc' },
+  rankmath: { titel: 'rank_math_title', beschrijving: 'rank_math_description' },
+  seopress: { titel: '_seopress_titles_title', beschrijving: '_seopress_titles_desc' }
+};
+
+function seoSleutels(profile) {
+  const plugin = String((profile && profile.seo && profile.seo.plugin) || '').toLowerCase().replace(/[^a-z]/g, '');
+  return SEO_META_SLEUTELS[plugin] || null;
+}
+
 // wpPaginaId meegeven = bestaande conceptpagina bijwerken, anders wordt een
-// nieuwe conceptpagina aangemaakt. Geeft { id, link } terug.
-async function pushDraft({ profile, wpPaginaId, titel, html }) {
+// nieuwe conceptpagina aangemaakt. Geeft { id, link, seo } terug.
+//
+// SEO (25-09-2026): naast titel en inhoud sturen we de slug en (als de klant een bekende SEO plugin heeft)
+// de metatitel en metabeschrijving mee. WordPress negeert stilzwijgend post meta die niet voor de REST API
+// is geregistreerd, en de meeste SEO plugins (ook Yoast) doen dat standaard NIET. Daarom lezen we de
+// pagina na het opslaan terug en melden we eerlijk of de SEO velden echt zijn opgeslagen. Zie
+// SEO_REST_SNIPPET hieronder voor de code die de klantsite daarvoor nodig heeft.
+async function pushDraft({ profile, wpPaginaId, titel, html, slug, metaTitel, metaBeschrijving }) {
   const { url, username, appPassword } = getWpConfig(profile);
   const endpoint = wpPaginaId
     ? `${url}/wp-json/wp/v2/pages/${wpPaginaId}`
     : `${url}/wp-json/wp/v2/pages`;
+
+  const sleutels = seoSleutels(profile);
+  const gewenstMeta = {};
+  if (sleutels && metaTitel) gewenstMeta[sleutels.titel] = metaTitel;
+  if (sleutels && metaBeschrijving) gewenstMeta[sleutels.beschrijving] = metaBeschrijving;
+
+  const body = { title: titel, content: wrapForWordPress(html), status: 'draft' };
+  if (slug) body.slug = slug;
+  if (Object.keys(gewenstMeta).length) body.meta = gewenstMeta;
 
   const res = await fetch(endpoint, {
     method: 'POST', // WordPress' REST API gebruikt POST voor zowel aanmaken als bijwerken.
@@ -43,11 +71,7 @@ async function pushDraft({ profile, wpPaginaId, titel, html }) {
       'Content-Type': 'application/json',
       Authorization: authHeader(username, appPassword)
     },
-    body: JSON.stringify({
-      title: titel,
-      content: wrapForWordPress(html),
-      status: 'draft'
-    })
+    body: JSON.stringify(body)
   });
 
   const data = await res.json().catch(() => ({}));
@@ -55,8 +79,48 @@ async function pushDraft({ profile, wpPaginaId, titel, html }) {
     const message = data?.message || res.statusText;
     throw new Error(`WordPress-fout (${res.status}): ${message}`);
   }
-  return { id: data.id, link: data.link };
+
+  const seo = await controleerSeoOpslag({ url, username, appPassword, id: data.id, gewenstMeta, slug });
+  return { id: data.id, link: data.link, seo };
 }
+
+async function controleerSeoOpslag({ url, username, appPassword, id, gewenstMeta, slug }) {
+  if (!Object.keys(gewenstMeta).length) {
+    return { status: 'niet_van_toepassing', melding: 'Geen SEO plugin ingesteld voor deze klant, metatitel en metabeschrijving zijn niet naar WordPress gestuurd.' };
+  }
+  try {
+    const res = await fetch(`${url}/wp-json/wp/v2/pages/${id}?context=edit&_fields=id,slug,meta`, {
+      headers: { Authorization: authHeader(username, appPassword) }
+    });
+    const data = await res.json().catch(() => ({}));
+    const meta = (data && data.meta) || {};
+    const ontbrekend = Object.entries(gewenstMeta).filter(([k, v]) => meta[k] !== v).map(([k]) => k);
+    if (ontbrekend.length) {
+      return {
+        status: 'niet_opgeslagen',
+        melding: 'De metatitel en/of metabeschrijving zijn NIET in WordPress opgeslagen: de SEO plugin laat dit niet toe via de REST API. ' +
+          'Voeg op de klantsite het korte codefragment toe (zie de kennisbank, SEO_REST_SNIPPET) of vul ze handmatig in bij Yoast.',
+        ontbrekend
+      };
+    }
+    return { status: 'opgeslagen', melding: 'Metatitel en metabeschrijving zijn opgeslagen in de SEO plugin.', slug: data.slug || slug };
+  } catch (err) {
+    return { status: 'niet_gecontroleerd', melding: `SEO velden konden niet worden gecontroleerd: ${err.message}` };
+  }
+}
+
+// PHP-fragment voor de KLANTSITE (Code Snippets plugin of functions.php van het kindthema) dat de SEO velden
+// via de REST API beschrijfbaar maakt, alleen voor gebruikers die pagina's mogen bewerken. Zonder dit slaat
+// Yoast de metatitel en metabeschrijving niet op via onze publicatie.
+const SEO_REST_SNIPPET = `add_action('init', function () {
+  $velden = ['_yoast_wpseo_title', '_yoast_wpseo_metadesc', 'rank_math_title', 'rank_math_description', '_seopress_titles_title', '_seopress_titles_desc'];
+  foreach ($velden as $veld) {
+    register_post_meta('page', $veld, [
+      'show_in_rest' => true, 'single' => true, 'type' => 'string',
+      'auth_callback' => function () { return current_user_can('edit_pages'); }
+    ]);
+  }
+});`;
 
 // Verwijdert een pagina uit WordPress. Gebruikt bewust GEEN force=true —
 // de pagina gaat naar de WordPress-prullenbak (30 dagen recover baar via
@@ -202,4 +266,13 @@ async function listSitePages({ profile, maxPaginas }) {
   return alleItems.slice(0, limiet);
 }
 
-module.exports = { pushDraft, deletePage, searchMedia, uploadMedia, listSitePages };
+module.exports = {
+  SEO_META_SLEUTELS,
+  SEO_REST_SNIPPET,
+  seoSleutels,
+  pushDraft,
+  deletePage,
+  searchMedia,
+  uploadMedia,
+  listSitePages
+};

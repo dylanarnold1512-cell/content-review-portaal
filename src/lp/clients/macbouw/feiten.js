@@ -9,8 +9,8 @@
 // pagina-specifieke feiten uit de feitensheet: dit bestand is de vaste basis, niet de volledige
 // lijst per pagina.
 //
-// Nog geen adres, openingstijden, telefoonnummer of e-mailadres: die kon de site-analyse niet
-// betrouwbaar afleiden. Voeg ze toe zodra ze met een echte bron bevestigd zijn.
+// Adres, telefoon en e-mail zijn op 25-09-2026 aangevuld uit de contactpagina. Openingstijden en KvK-nummer
+// staan niet op de site en ontbreken dus bewust (nooit verzinnen).
 
 const feiten = [
   {
@@ -49,6 +49,42 @@ const feiten = [
     waarde: 'https://mac-bouw.nl/contact/',
     bron: 'mac-bouw.nl/contact/, contactpagina die Dylan in de intake heeft opgegeven, ' +
       'gecontroleerd 25-09-2026 (interne WordPress-pagina, geen extern boekingssysteem)'
+  },
+  {
+    id: 'bedrijfsnaam',
+    label: 'Bedrijfsnaam',
+    waarde: 'Aannemersbedrijf MAC Bouw B.V.',
+    bron: 'mac-bouw.nl/contact/, tekst in de voettekst, gecontroleerd 25-09-2026'
+  },
+  {
+    id: 'adres',
+    label: 'Kantoor (adres)',
+    waarde: 'Marconistraat 31A, 2181 AK Hillegom',
+    bron: 'mac-bouw.nl/contact/, voettekst onder "Kantoor", gecontroleerd 25-09-2026'
+  },
+  {
+    id: 'telefoon',
+    label: 'Telefoonnummer (vast)',
+    waarde: '+31 (0) 252 34 95 23',
+    bron: 'mac-bouw.nl/contact/, voettekst onder "Telefoonnummer" en tel:-link, gecontroleerd 25-09-2026'
+  },
+  {
+    id: 'mobiel',
+    label: 'Telefoonnummer (mobiel)',
+    waarde: '+31 6 51370691',
+    bron: 'mac-bouw.nl/contact/, hoofdtekst onder "Telefoonnummer" en tel:-link, gecontroleerd 25-09-2026'
+  },
+  {
+    id: 'email',
+    label: 'E-mailadres',
+    waarde: 'info@mac-bouw.nl',
+    bron: 'mac-bouw.nl/contact/, onder "E-mailadres" en mailto:-link, gecontroleerd 25-09-2026'
+  },
+  {
+    id: 'werkgebied',
+    label: 'Werkgebied',
+    waarde: 'Hillegom en omstreken',
+    bron: 'mac-bouw.nl/contact/, onder "Werkgebied", gecontroleerd 25-09-2026'
   },
   {
     id: 'contactformulier',

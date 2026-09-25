@@ -505,7 +505,7 @@ router.get('/pages/:pageId/preview', requireLpInternal, async (req, res) => {
     if (contentIsEmpty(blueprint, content)) {
       return res.json({ html: '<p style="font-family:sans-serif;padding:2rem;color:#666;">Nog geen content JSON ingevuld.</p>' });
     }
-    const html = renderPageHtml(buildRenderPage({ blueprint, content, clientId: page.klant, slug: page.slug }), { forPreview: true });
+    const html = renderPageHtml(buildRenderPage({ blueprint, content, clientId: page.klant, slug: page.slug, invoer: page.invoer }), { forPreview: true });
     res.json({ html: wrapPreviewDoc(html) });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -559,17 +559,21 @@ router.post('/pages/:pageId/publish', requireLpInternal, async (req, res) => {
       return res.status(400).json({ error: 'Validatie faalt, nog niet gepubliceerd.', validation });
     }
     const client = getLpClient(page.klant);
-    const html = renderPageHtml(buildRenderPage({ blueprint, content, clientId: page.klant, slug: page.slug }), { forWordPress: true });
+    const html = renderPageHtml(buildRenderPage({ blueprint, content, clientId: page.klant, slug: page.slug, invoer: page.invoer }), { forWordPress: true });
+    const slotData = (content && content.slotData) || {};
     const result = await pushDraft({
       profile: client.profile,
       wpPaginaId: page.wpPaginaId || undefined,
       titel: page.titel,
-      html
+      html,
+      slug: page.slug,
+      metaTitel: slotData.metaTitle,
+      metaBeschrijving: slotData.metaDescription
     });
     await lpNotion.setWordpressInfo(req.params.pageId, { wpPaginaId: result.id, wpUrl: result.link });
     await lpNotion.setStatus(req.params.pageId, 'Ter review');
     const updated = await lpNotion.getPage(req.params.pageId);
-    res.json({ page: updated, validation });
+    res.json({ page: updated, validation, seo: result.seo });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

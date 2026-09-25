@@ -46,7 +46,7 @@ function createShareRouter(deps = {}) {
       // Bewust zonder forPreview: de klant krijgt dezelfde schone HTML als WordPress, zonder de
       // klikbare data-lp-* markeringen van het interne voorbeeldscherm.
       const html = renderPageHtml(
-        buildRenderPage({ blueprint, content: page.content, clientId: page.klant, slug: page.slug })
+        buildRenderPage({ blueprint, content: page.content, clientId: page.klant, slug: page.slug, invoer: page.invoer })
       );
       return res
         .status(200)

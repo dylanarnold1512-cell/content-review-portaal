@@ -22,6 +22,19 @@ const profile = {
     plugin: 'MetForm',
     shortcode: '[metform form_id="3048"]'
   },
+  // SEO plugin op de klantsite (Yoast SEO, vastgesteld 25-09-2026 in de HTML van mac-bouw.nl). Bepaalt in welke
+  // velden de metatitel en metabeschrijving worden opgeslagen bij publiceren (src/lp/wordpress.js). Let op: Yoast
+  // laat die velden standaard niet via de REST API toe, zie SEO_REST_SNIPPET in wordpress.js.
+  seo: { plugin: 'yoast' },
+  // Bedrijfsgegevens voor structured data (src/lp/seoSchema.js), overgenomen van de site (zie feiten.js voor de bronnen).
+  bedrijf: {
+    naam: 'Aannemersbedrijf MAC Bouw',
+    url: 'https://mac-bouw.nl',
+    telefoon: '+31 252 34 95 23',
+    email: 'info@mac-bouw.nl',
+    adres: { straat: 'Marconistraat 31A', postcode: '2181 AK', plaats: 'Hillegom', land: 'NL' },
+    werkgebied: ['Hillegom en omstreken']
+  },
   // Verwijst naar de tokens in src/lp/tokens.js (clientTokens.macbouw).
   tokensId: 'macbouw',
   // Bronprincipe (besluit 8): geen aparte claimlijst, wel een korte lijst met

@@ -93,7 +93,7 @@ test('wrapSharedDoc: noindex, titel geescaped, inhoud en uitleg aanwezig', () =>
 test('buildRenderPage en contentIsEmpty kennen het slot pad en het blokken pad', () => {
   const slotBp = { templateFormat: 'slots' };
   assert.deepEqual(buildRenderPage({ blueprint: slotBp, content: { slotData: { a: 1 } }, clientId: 'k', slug: 's' }), {
-    clientId: 'k', slug: 's', template: slotBp, slotData: { a: 1 }
+    clientId: 'k', slug: 's', template: slotBp, slotData: { a: 1 }, invoer: {}
   });
   assert.deepEqual(buildRenderPage({ blueprint: {}, content: { blocks: [{ type: 'x' }] }, clientId: 'k', slug: 's' }), {
     clientId: 'k', slug: 's', blocks: [{ type: 'x' }]

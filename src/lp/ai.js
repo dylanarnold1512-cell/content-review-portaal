@@ -196,6 +196,44 @@ function beschrijfVisueleRichting(sleutel) {
   return VISUELE_RICHTINGEN[sleutel] ? `${sleutel}: ${VISUELE_RICHTINGEN[sleutel]}` : String(sleutel);
 }
 
+// SEO en GEO (25-09-2026): regels voor zowel het ONTWERP van een sjabloon als het SCHRIJVEN van een pagina, zodat elke
+// pagina van elke klant meteen organisch kan scoren en goed geciteerd kan worden door zoekmachines en AI-antwoorden
+// (GEO, generative engine optimization). Zonder deze regels wist de AI er niets van en koos de structuur zelf.
+const SEO_GEO_SJABLOON_REGELS = `SEO EN GEO IN HET SJABLOON (elke pagina moet organisch kunnen scoren en goed te citeren zijn):
+- Semantische HTML: <section> per onderwerp, precies een <h1> (bevat de dienst en waar relevant de plaats), daarna
+  een logische h2 tot h3 hierarchie zonder niveaus over te slaan. Lijsten (<ul>/<ol>) voor opsommingen van diensten
+  of stappen. Tekst hoort in echte tekst, nooit in een afbeelding.
+- Direct onder de hero komt een kort antwoordblok (een of twee zinnen) dat zonder de rest van de pagina te lezen
+  beantwoordt: wie doet wat, waar, voor wie. Dit is wat zoekmachines en AI-antwoorden citeren. Gebruik daarvoor de
+  hero-introductie of de eerste introductietekst, en houd die feitelijk.
+- Een gegevensblok met de bedrijfsgegevens in een <address>-element of duidelijke lijst (naam, werkgebied, adres,
+  telefoonnummer, e-mail), gevuld uit de feiten van de klant, nooit verzonnen. Maak hier een aparte lijst-slot voor
+  (bv. "practicalItems") als het sjabloon een praktische sectie heeft.
+- Een veelgestelde-vragen-sectie met echte vragen als vraagtekst (het systeem maakt daar automatisch FAQ-schema van).
+- Elke afbeelding krijgt een eigen alt-tekst-slot (beschrijvend, geen "afbeelding van").
+- Interne links op logische plekken, met beschrijvende ankertekst (geen "klik hier").
+- Denk aan snelheid en leesbaarheid: geen onnodig zware effecten, tekst blijft leesbaar zonder animatie.`;
+
+const SEO_GEO_CONTENT_REGELS = `SEO EN GEO BIJ HET SCHRIJVEN (elke pagina moet organisch kunnen scoren en goed te citeren zijn):
+- Kop (h1): begin met de dienst, noem de plaats natuurlijk (bv. "Aannemer in Amersfoort voor verbouw en renovatie").
+  Geen keyword stuffing: de plaatsnaam en dienst komen natuurlijk terug (ongeveer drie tot vijf keer op de pagina).
+- Antwoord eerst: de allereerste alinea (hero-introductie of eerste introductietekst) beantwoordt in een tot twee
+  zinnen wie het bedrijf is, wat het doet, voor wie en waar. Feitelijk, zonder superlatieven, zodat het letterlijk te
+  citeren is door een zoekmachine of AI-antwoord.
+- Meta titel: patroon "[Dienst] in [plaats] | [merknaam]", binnen de lengte-eisen. Meta beschrijving: noem de plaats,
+  een concreet feit of voordeel uit de aangeleverde feiten en een duidelijke oproep, binnen de lengte-eisen.
+- Veelgestelde vragen: schrijf ze als echte vragen zoals mensen ze stellen (bv. "Werken jullie ook in [plaats]?",
+  "Hoe verloopt een verbouwing van begin tot eind?"). Begin elk antwoord met het directe antwoord in een tot twee
+  zinnen en licht daarna kort toe. Alleen antwoorden die door de aangeleverde feiten gedekt zijn: geen prijzen,
+  doorlooptijden, garanties of cijfers verzinnen (bronprincipe).
+- Entiteiten kloppen: gebruik de bedrijfsnaam, het werkgebied en de contactgegevens EXACT zoals in de feiten. Noem
+  geen andere plaatsen, wijken, straten, klanten of projecten die niet in de feiten of de invoer staan.
+- Lokale relevantie zonder verzinsels: maak elke pagina uniek met wat je echt weet over deze plaats uit de invoer
+  en de feiten (werkgebied, afstand tot het kantoor als dat in de feiten staat). Kopieer geen tekst tussen pagina's
+  van andere plaatsen door alleen de plaatsnaam te wisselen.
+- Concreet en citeerbaar: korte, feitelijke zinnen, stappenplannen als genummerde stappen, diensten als opsomming.
+- Alt-teksten: beschrijf wat er te zien is en noem de dienst of plaats alleen als dat klopt.`;
+
 function buildTemplateSystemPrompt() {
   return `Je bent een senior webdesigner/frontend-developer voor een Nederlands marketingbureau. Je
 ontwerpt een COMPLEET, BESPOKE HTML+CSS-sjabloon voor een terugkerend paginatype — niet de inhoud van
@@ -206,6 +244,8 @@ accentkleur, en gebruik een referentiepagina (indien gegeven) als concreet struc
 om te kopieren, maar om vergelijkbare kwaliteit en opbouw te evenaren.
 
 ${ONTWERP_TOOLKIT}
+
+${SEO_GEO_SJABLOON_REGELS}
 
 ${SLOT_SCHEMA_REFERENCE}
 
@@ -456,6 +496,8 @@ Twee manieren om een link te plaatsen, beide mogen, kies wat het beste past:
 Gebruik ALTIJD exact de opgegeven url uit de kandidatenlijst — verzin nooit zelf een URL, ook niet als
 die logisch lijkt. Een niet-herkende URL wordt automatisch verwijderd.
 
+${SEO_GEO_CONTENT_REGELS}
+
 Voor "metaTitle"/"metaDescription": schrijf SEO-vriendelijke varianten binnen de opgegeven lengte-eisen.
 Gebruik hier NOOIT de [ankertekst](url)-linkschrijfwijze — dit zijn platte SEO-velden, geen webpagina-
 tekst, een link erin zou alleen als rare tekst in de zoekresultaten verschijnen.
@@ -672,7 +714,11 @@ module.exports = {
   formatBrandingForPrompt,
   VISUELE_RICHTINGEN,
   ONTWERP_TOOLKIT,
+  SEO_GEO_SJABLOON_REGELS,
+  SEO_GEO_CONTENT_REGELS,
   beschrijfVisueleRichting,
+  buildTemplateSystemPrompt,
+  buildContentSystemPrompt,
   callOpenAi,
   generateTemplateProposal,
   refineTemplateProposal,

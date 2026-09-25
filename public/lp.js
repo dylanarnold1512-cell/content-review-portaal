@@ -994,10 +994,14 @@ document.getElementById('lpPublishBtn').addEventListener('click', async () => {
   const resultEl = document.getElementById('lpPublishResult');
   resultEl.innerHTML = 'Bezig...';
   try {
-    const { page: updated, validation } = await lpApi(`/pages/${page.id}/publish`, { method: 'POST' });
+    const { page: updated, validation, seo } = await lpApi(`/pages/${page.id}/publish`, { method: 'POST' });
     renderValidation(validation);
+    // SEO-resultaat (metatitel en metabeschrijving naar de SEO plugin): altijd eerlijk tonen, ook als het niet gelukt is.
+    const seoRegel = seo
+      ? `<p class="${seo.status === 'opgeslagen' ? '' : 'admin-error'}">SEO: ${seo.melding}</p>`
+      : '';
     resultEl.innerHTML = `<p>Concept gezet in WordPress: <a href="${updated.wpUrl}" target="_blank" rel="noopener">${updated.wpUrl}</a><br>
-      Status in Notion is gezet op "Ter review". Denk aan de handmatige SWP Builder-klik als dit een nieuwe pagina is (zie besluiten.md).</p>`;
+      Status in Notion is gezet op "Ter review". Denk aan de handmatige SWP Builder-klik als dit een nieuwe pagina is (zie besluiten.md).</p>${seoRegel}`;
     lpState.currentPage = updated;
     document.getElementById('lpDetailStatusBadge').textContent = updated.status;
     document.getElementById('lpStatusSelect').value = updated.status;
@@ -1724,12 +1728,18 @@ document.getElementById('lpIntakeAnalyseerFeitenBtn').addEventListener('click', 
   btn.disabled = true;
   statusEl.textContent = 'Bezig met analyseren... (kan 10-30 seconden duren)';
   try {
-    const { feitenVoorstel, ctaVoorstel, formulieren, twijfels } = await lpApi('/intake/analyseer-feiten', {
+    const { feitenVoorstel, ctaVoorstel, formulieren, twijfels, zekereFeiten } = await lpApi('/intake/analyseer-feiten', {
       method: 'POST',
       body: JSON.stringify({ referentieUrl, contactUrl })
     });
     const vandaag = new Date().toISOString().slice(0, 10);
     (feitenVoorstel || []).forEach((f) => addIntakeFeitRow(f));
+    // Zekere gegevens rechtstreeks uit de HTML (structured data, tel: en mailto: links, SEO plugin), niet via de AI.
+    // Dubbelen met wat de AI al voorstelde (zelfde waarde) worden overgeslagen.
+    const alGezien = new Set((feitenVoorstel || []).map((f) => String(f.waarde || '').replace(/\s+/g, '').toLowerCase()));
+    (zekereFeiten || []).forEach((f) => {
+      if (!alGezien.has(String(f.waarde || '').replace(/\s+/g, '').toLowerCase())) addIntakeFeitRow(f);
+    });
     if (ctaVoorstel && ctaVoorstel.gevonden && ctaVoorstel.href) {
       addIntakeFeitRow({
         label: 'Hoofd-CTA / boekingslink' + (ctaVoorstel.extern ? ' (extern systeem)' : ''),

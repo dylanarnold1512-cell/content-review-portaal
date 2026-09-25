@@ -185,6 +185,54 @@ function detecteerFormulieren(html) {
   });
 }
 
+// Zekere bedrijfsgegevens (naam, telefoon, e-mail, adres) uit de site, zonder AI (25-09-2026). Betrouwbaarder dan
+// een regex op de platte tekst: JSON-LD (Organization of LocalBusiness, bv. van Yoast), tel: en mailto: links.
+// Wat hier gevonden wordt komt als feit met bron in de Feitenbibliotheek, nooit uit de AI (bronprincipe).
+function leesJsonLd(html) {
+  const knopen = [];
+  for (const m of String(html).matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+    try {
+      const json = JSON.parse(m[1]);
+      const lijst = Array.isArray(json) ? json : json['@graph'] || [json];
+      knopen.push(...lijst.filter((x) => x && typeof x === 'object'));
+    } catch (err) {
+      // Ongeldige JSON-LD negeren, dat is geen fout van ons.
+    }
+  }
+  return knopen;
+}
+
+function vindBedrijfsgegevens(html) {
+  const gegevens = {};
+  const org = leesJsonLd(html).find((n) => [].concat(n['@type'] || []).some((t) => /Organization|LocalBusiness|Corporation/i.test(t)));
+  if (org) {
+    if (org.name) gegevens.naam = String(org.name);
+    if (org.telephone) gegevens.telefoon = [String(org.telephone)];
+    if (org.email) gegevens.email = [String(org.email)];
+    if (org.address && typeof org.address === 'object') {
+      const a = org.address;
+      const regel = [a.streetAddress, [a.postalCode, a.addressLocality].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+      if (regel) gegevens.adres = regel;
+    }
+  }
+  const tels = [...new Set([...String(html).matchAll(/href=["']tel:([^"']+)["']/gi)].map((m) => decodeURIComponent(m[1]).trim()))].filter((t) => t.replace(/\D/g, '').length >= 9);
+  if (tels.length) gegevens.telefoon = [...new Set([...(gegevens.telefoon || []), ...tels])];
+  const mails = [...new Set([...String(html).matchAll(/href=["']mailto:([^"'?]+)/gi)].map((m) => decodeURIComponent(m[1]).trim()))].filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+  if (mails.length) gegevens.email = [...new Set([...(gegevens.email || []), ...mails])];
+  return gegevens;
+}
+
+// Welke SEO plugin de klantsite gebruikt (bepaalt waar metatitel en metabeschrijving worden opgeslagen, zie
+// profile.seo en wordpress.js). Herkend aan de vaste commentaarregels/signatures in de HTML-head.
+function detecteerSeoPlugin(html) {
+  const h = String(html);
+  if (/yoast seo/i.test(h)) return 'yoast';
+  if (/rank math/i.test(h)) return 'rankmath';
+  if (/seopress/i.test(h)) return 'seopress';
+  if (/all in one seo|aioseo/i.test(h)) return 'aioseo';
+  return null;
+}
+
 // Haalt de homepage (en, indien opgegeven, een contactpagina) op en levert de ruwe bevindingen.
 // Een mislukte contactpagina-ophaal blokkeert de rest niet (zelfde aanpak als huisstijl.js).
 async function verzamelRuweSiteData(url, contactUrl) {
@@ -214,6 +262,8 @@ async function verzamelRuweSiteData(url, contactUrl) {
     telefoonKandidaten: vindTelefoonKandidaten(gecombineerdeHtml),
     knoppenEnLinks: vindKnoppenEnLinksMetHref(html, url),
     formulieren: detecteerFormulieren(gecombineerdeHtml),
+    bedrijfsgegevens: vindBedrijfsgegevens(gecombineerdeHtml),
+    seoPlugin: detecteerSeoPlugin(gecombineerdeHtml),
     structuur: extractStructureOutline(html)
   };
 }
@@ -249,6 +299,19 @@ Antwoord ALLEEN met een JSON-object met exact drie velden, geen tekst erbuiten:
   "ctaVoorstel": { "gevonden": boolean, "label": string, "href": string, "extern": boolean, "opmerking": string },
   "twijfels": [string]
 }`;
+}
+
+function bouwZekereFeiten(ruweData, datum) {
+  const feiten = [];
+  let domein = ruweData.url;
+  try { domein = new URL(ruweData.url).hostname.replace(/^www\./, ''); } catch (err) { /* domein blijft de ruwe url */ }
+  const g = ruweData.bedrijfsgegevens || {};
+  if (g.naam) feiten.push({ label: 'Bedrijfsnaam', waarde: g.naam, bron: `${domein}, structured data (JSON-LD) in de HTML, gecontroleerd ${datum}` });
+  (g.telefoon || []).slice(0, 3).forEach((t) => feiten.push({ label: 'Telefoonnummer', waarde: t, bron: `${domein}, tel:-link of structured data in de HTML, gecontroleerd ${datum}` }));
+  (g.email || []).slice(0, 2).forEach((e) => feiten.push({ label: 'E-mailadres', waarde: e, bron: `${domein}, mailto:-link of structured data in de HTML, gecontroleerd ${datum}` }));
+  if (g.adres) feiten.push({ label: 'Adres', waarde: g.adres, bron: `${domein}, structured data (JSON-LD) in de HTML, gecontroleerd ${datum}` });
+  if (ruweData.seoPlugin) feiten.push({ label: 'SEO plugin op site', waarde: ruweData.seoPlugin, bron: `${domein}, signatuur in de HTML-head, gecontroleerd ${datum}` });
+  return feiten;
 }
 
 async function buildFeitenVoorstel(referentieUrl, contactUrl) {
@@ -288,6 +351,9 @@ ${ruweData.contactFout ? `\n(Contactpagina ${ruweData.contactUrl} kon niet opgeh
     // toelichting bovenaan dit bestand) - zo kan de AI een gevonden formulier niet missen of een
     // niet-bestaand formulier verzinnen.
     formulieren: ruweData.formulieren,
+    // Zekere feiten, deterministisch uit de HTML (niet via de AI): zie vindBedrijfsgegevens en detecteerSeoPlugin.
+    zekereFeiten: bouwZekereFeiten(ruweData, vandaag),
+    seoPlugin: ruweData.seoPlugin,
     twijfels: Array.isArray(result.twijfels) ? result.twijfels : [],
     ruweData
   };
@@ -298,5 +364,8 @@ module.exports = {
   verzamelRuweSiteData,
   vindTelefoonKandidaten,
   vindKnoppenEnLinksMetHref,
-  detecteerFormulieren
+  detecteerFormulieren,
+  vindBedrijfsgegevens,
+  detecteerSeoPlugin,
+  bouwZekereFeiten
 };

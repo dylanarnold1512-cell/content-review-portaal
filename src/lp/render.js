@@ -22,6 +22,7 @@ const { renderSlotTemplate, tagImageSlotsForPreview, tagTextSlotsForPreview, tag
 const { slugify } = require('./utils');
 const { clients } = require('./clients');
 const { buildFormulierCss } = require('./formulierStijl');
+const { bouwServiceSchema } = require('./seoSchema');
 
 function renderPageHtml(page, opts) {
   if (page && page.template) {
@@ -129,6 +130,13 @@ function renderSlotPageHtml(page, opts) {
   const metFormulier = applyFormulierMarker(htmlTemplate, page.clientId, rootClass, opts);
   const body = renderSlotTemplate(metFormulier.html, slotData);
   const schemas = collectSlotSchemas(slotData);
+  // Dienst en werkgebied als structured data (SEO en GEO), naast het FAQ-schema. Zie seoSchema.js.
+  const serviceSchema = bouwServiceSchema({
+    slotData,
+    invoer: page.invoer,
+    profile: (clients[page.clientId] || {}).profile
+  });
+  if (serviceSchema) schemas.push(serviceSchema);
   const schemaScript = schemas.length
     ? `\n<script type="application/ld+json">${JSON.stringify(schemas.length === 1 ? schemas[0] : schemas)}</script>`
     : '';
