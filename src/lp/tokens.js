@@ -109,8 +109,10 @@ const clientTokens = {
   // MAC Bouw (25-09-2026): waarden uit het huisstijlvoorstel in de intake (knop "Analyseer huisstijl"
   // op https://mac-bouw.nl/, door Dylan bekeken voor het verzenden). Jost is een publiek Google Font
   // en staat daarom ook in googleFonts, anders laadt het niet buiten de eigen WordPress-pagina
-  // (zie checkFontLoadConsistency hieronder). De analyse vond ook Archivo en Titillium Web, maar
-  // alleen als Google Fonts-verwijzing en niet als lettertype in de body-CSS; Jost is daarom gekozen.
+  // (zie checkFontLoadConsistency hieronder). Gecorrigeerd op 25-09-2026 na meting in de browser op
+  // mac-bouw.nl (getComputedStyle + geladen fonts): body en paragrafen zijn Jost (400, 16px, #777777),
+  // alle koppen (h2, 48px 600, hero 90px 700) en knoppen (700, hoofdletters) zijn Titillium Web. Het
+  // eerste huisstijlvoorstel gaf Jost voor alles, dat klopte niet voor de koppen.
   macbouw: {
     ...defaultTokens,
     primary: '#0e7bba',
@@ -123,9 +125,9 @@ const clientTokens = {
     border: '#eae2e2',
     maxWidth: '1200px',
     radius: '8px',
-    fontHeading: "'Jost', sans-serif",
+    fontHeading: "'Titillium Web', sans-serif",
     fontBody: "'Jost', sans-serif",
-    googleFonts: ['Jost'],
+    googleFonts: ['Jost', 'Titillium Web'],
     ctaBg: '#0e7bba',
     ctaText: '#ffffff'
   }

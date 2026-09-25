@@ -174,3 +174,9 @@ test('renderStyle voegt tokens.themeOverrideCss ongewijzigd (rauw) toe aan het <
   });
   assert.ok(css.includes('.een-ander-thema-element { display: none !important; }'));
 });
+
+test('buildGoogleFontsHref: Titillium Web vraagt geen gewicht 500 aan (bestaat niet, zou de hele stylesheet breken)', () => {
+  const href = buildGoogleFontsHref(['Jost', 'Titillium Web']);
+  assert.match(href, /family=Titillium\+Web:wght@400;600;700(&|$)/);
+  assert.match(href, /family=Jost:wght@400;500;600;700/);
+});

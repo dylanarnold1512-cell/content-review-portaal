@@ -58,8 +58,19 @@ function fontFamilyParam(naam) {
   return String(naam).trim().replace(/\s+/g, '+');
 }
 
+// Google Fonts geeft een fout (400) voor de HELE stylesheet als een gevraagd gewicht niet bestaat voor
+// een lettertype. Standaard vragen we 400;500;600;700, maar sommige lettertypen hebben niet al die
+// gewichten. Zet zo'n lettertype hier met de gewichten die het WEL heeft (Titillium Web heeft geen 500).
+const GOOGLE_FONT_GEWICHTEN = {
+  'titillium web': [400, 600, 700]
+};
+const STANDAARD_GEWICHTEN = [400, 500, 600, 700];
+
 function buildGoogleFontsHref(families) {
-  const parts = families.map((naam) => `family=${fontFamilyParam(naam)}:wght@400;500;600;700`);
+  const parts = families.map((naam) => {
+    const gewichten = GOOGLE_FONT_GEWICHTEN[String(naam).trim().toLowerCase()] || STANDAARD_GEWICHTEN;
+    return `family=${fontFamilyParam(naam)}:wght@${gewichten.join(';')}`;
+  });
   return `https://fonts.googleapis.com/css2?${parts.join('&')}&display=swap`;
 }
 
