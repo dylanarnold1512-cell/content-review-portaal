@@ -303,8 +303,16 @@ router.post('/templates/preview', requireLpInternal, async (req, res) => {
     if (!klant) return res.status(400).json({ error: 'klant is verplicht.' });
 
     if (blueprint && blueprint.templateFormat === 'slots') {
-      const html = renderPageHtml({ clientId: klant, slug: 'sjabloon-voorbeeld', template: blueprint, slotData: slotData || {} });
-      return res.json({ html: wrapPreviewDoc(html) });
+      // Sjabloon delen zonder eerst een pagina te maken: lege voorbeeldtekst en lege afbeelding-slots
+      // worden hier aangevuld (tekst via AI, foto's uit de mediabibliotheek van de klant). De frontend
+      // bewaart het resultaat in het Voorbeeldcontent-veld, zodat dit maar een keer hoeft te gebeuren.
+      const { data, waarschuwingen, aangevuld } = await vulVoorbeeldAan({ klant, blueprint, slotData: slotData || {} });
+      const html = renderPageHtml({ clientId: klant, slug: 'sjabloon-voorbeeld', template: blueprint, slotData: data });
+      return res.json({
+        html: wrapPreviewDoc(html),
+        voorbeeldSlotData: aangevuld ? data : undefined,
+        waarschuwing: waarschuwingen.length ? waarschuwingen.join(' ') : undefined
+      });
     }
 
     const list = Array.isArray(blocks) ? blocks : [];
@@ -317,6 +325,72 @@ router.post('/templates/preview', requireLpInternal, async (req, res) => {
     res.status(400).json({ error: err.message });
   }
 });
+
+// Vult een sjabloonvoorbeeld aan zodat het zonder pagina toonbaar/deelbaar is. Raakt Notion niet aan
+// en verzint niets: tekst is duidelijk voorbeeldtekst, foto's komen uit de echte mediabibliotheek
+// van de klant (dezelfde keuzelogica als bij een pagina, ai.pickImagesForPage). Mislukt een stap,
+// dan blijft het voorbeeld gewoon leeg op die plek en komt er een waarschuwing.
+async function vulVoorbeeldAan({ klant, blueprint, slotData }) {
+  const data = { ...slotData };
+  const waarschuwingen = [];
+  let aangevuld = false;
+  const slots = Array.isArray(blueprint.slots) ? blueprint.slots : [];
+  const isLeeg = (v) => v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length);
+  const tekstSlots = slots.filter((s) => !/ImageSrc$/.test(s.key) && !/ImageAlt$/.test(s.key));
+  const zonderTekst = tekstSlots.length > 0 && tekstSlots.every((s) => isLeeg(data[s.key]));
+
+  if (zonderTekst) {
+    try {
+      const { voorbeeldSlotData } = await ai.refineTemplateProposal({
+        klant,
+        naam: blueprint.naam || blueprint.blueprintId || 'sjabloon',
+        huidigBlueprint: blueprint,
+        huidigeVoorbeeldSlotData: {},
+        feedback: 'Pas het sjabloon (HTML, CSS, slots) NIET aan, geef de blueprint ongewijzigd terug. Vul alleen voorbeeldSlotData volledig in met realistische, nette voorbeeldteksten voor deze klant, voor elk tekst-slot en elke lijst. Afbeelding-slots laat je leeg.'
+      });
+      if (voorbeeldSlotData && typeof voorbeeldSlotData === 'object') {
+        for (const s of tekstSlots) {
+          if (isLeeg(data[s.key]) && !isLeeg(voorbeeldSlotData[s.key])) {
+            data[s.key] = voorbeeldSlotData[s.key];
+            aangevuld = true;
+          }
+        }
+      }
+    } catch (err) {
+      waarschuwingen.push(`Voorbeeldtekst maken is niet gelukt (${err.message}).`);
+    }
+  }
+
+  const legeFotos = slots.filter((s) => /ImageSrc$/.test(s.key) && isLeeg(data[s.key]));
+  if (legeFotos.length) {
+    try {
+      const client = getLpClient(klant);
+      const { items: kandidaten } = await searchMedia({ profile: client.profile, perPage: 100 });
+      if (!kandidaten.length) {
+        waarschuwingen.push('De mediabibliotheek van deze klant is leeg, dus er zijn geen voorbeeldfoto\'s.');
+      } else {
+        const { picks } = await ai.pickImagesForPage({
+          template: { ...blueprint, slots: legeFotos },
+          invoer: {},
+          feiten: client.feiten || [],
+          watGaatDezePaginaOver: `Voorbeeld van het sjabloon "${blueprint.naam || blueprint.blueprintId || ''}" voor ${client.profile.bedrijf?.naam || klant}`,
+          kandidaten
+        });
+        for (const [slotKey, pick] of Object.entries(picks || {})) {
+          if (pick && pick.url) {
+            data[slotKey] = pick.url;
+            const altKey = slotKey.replace(/ImageSrc$/, 'ImageAlt');
+            if (pick.alt && altKey !== slotKey) data[altKey] = pick.alt;
+            aangevuld = true;
+          }
+        }
+      }
+    } catch (err) {
+      waarschuwingen.push(`Voorbeeldfoto's kiezen uit de mediabibliotheek is niet gelukt (${err.message}).`);
+    }
+  }
+  return { data, waarschuwingen, aangevuld };
+}
 
 function wrapPreviewDoc(html) {
   // De hover-stijl hieronder maakt zichtbaar welke afbeeldingen en tekst-slots klikbaar zijn

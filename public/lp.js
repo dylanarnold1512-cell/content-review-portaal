@@ -1241,6 +1241,32 @@ function buildPreviewBody(klant, blueprint, sample) {
   return { klant, blocks: Array.isArray(sample) ? sample : [] };
 }
 
+// Haalt de sjabloonpreview op. De server vult een leeg voorbeeld zelf aan (voorbeeldtekst via AI en
+// foto's uit de mediabibliotheek van de klant), zodat je een sjabloon aan een klant kunt laten zien
+// zonder eerst een pagina te maken. Het aangevulde voorbeeld gaat terug in het Voorbeeldcontent-veld en
+// wordt dus mee opgeslagen met "Blueprint opslaan"; een volgende keer is er geen aanvulling meer nodig.
+async function haalSjabloonPreviewOp(klant, blueprint, sample, voorbeeldTextareaId, statusId) {
+  const statusEl = document.getElementById(statusId);
+  if (statusEl && blueprint && blueprint.templateFormat === 'slots') {
+    statusEl.textContent = 'Voorbeeld ophalen (foto\'s en voorbeeldtekst worden zo nodig aangevuld, dat kan even duren)...';
+  }
+  try {
+    const res = await lpApi('/templates/preview', { method: 'POST', body: JSON.stringify(buildPreviewBody(klant, blueprint, sample)) });
+    if (res.voorbeeldSlotData) {
+      document.getElementById(voorbeeldTextareaId).value = JSON.stringify(res.voorbeeldSlotData, null, 2);
+    }
+    if (statusEl) {
+      statusEl.textContent = res.waarschuwing
+        ? res.waarschuwing
+        : (res.voorbeeldSlotData ? 'Voorbeeld aangevuld. Vergeet niet op "Blueprint opslaan" te klikken om het te bewaren.' : '');
+    }
+    return res;
+  } catch (err) {
+    if (statusEl) statusEl.textContent = '';
+    throw err;
+  }
+}
+
 async function refreshTemplatePreview() {
   const klant = document.getElementById('lpTplNewKlant').value;
   const frame = document.getElementById('lpTplPreviewFrame');
@@ -1257,7 +1283,7 @@ async function refreshTemplatePreview() {
     frame.srcdoc = `<p style="font-family:sans-serif;padding:2rem;color:#b00020;">Ongeldige JSON: ${err.message}</p>`;
     return;
   }
-  const { html } = await lpApi('/templates/preview', { method: 'POST', body: JSON.stringify(buildPreviewBody(klant, blueprint, sample)) });
+  const { html } = await haalSjabloonPreviewOp(klant, blueprint, sample, 'lpTplNewVoorbeeldJson', 'lpTplRefineStatus');
   frame.srcdoc = html;
 }
 
@@ -1278,7 +1304,7 @@ document.getElementById('lpTplPreviewOpenBtn').addEventListener('click', async (
     alert('Ongeldige JSON in Voorbeeldcontent: ' + err.message);
     return;
   }
-  const { html } = await lpApi('/templates/preview', { method: 'POST', body: JSON.stringify(buildPreviewBody(klant, blueprint, sample)) });
+  const { html } = await haalSjabloonPreviewOp(klant, blueprint, sample, 'lpTplNewVoorbeeldJson', 'lpTplRefineStatus');
   const blob = new Blob([html], { type: 'text/html' });
   window.open(URL.createObjectURL(blob), '_blank');
 });
@@ -1441,7 +1467,7 @@ async function refreshTemplateDetailPreview() {
     frame.srcdoc = `<p style="font-family:sans-serif;padding:2rem;color:#b00020;">Ongeldige JSON: ${err.message}</p>`;
     return;
   }
-  const { html } = await lpApi('/templates/preview', { method: 'POST', body: JSON.stringify(buildPreviewBody(klant, blueprint, sample)) });
+  const { html } = await haalSjabloonPreviewOp(klant, blueprint, sample, 'lpTplDetailVoorbeeldJson', 'lpTplDetailRefineStatus');
   frame.srcdoc = html;
 }
 
@@ -1462,7 +1488,7 @@ document.getElementById('lpTplDetailPreviewOpenBtn').addEventListener('click', a
     alert('Ongeldige JSON in Voorbeeldcontent: ' + err.message);
     return;
   }
-  const { html } = await lpApi('/templates/preview', { method: 'POST', body: JSON.stringify(buildPreviewBody(klant, blueprint, sample)) });
+  const { html } = await haalSjabloonPreviewOp(klant, blueprint, sample, 'lpTplDetailVoorbeeldJson', 'lpTplDetailRefineStatus');
   const blob = new Blob([html], { type: 'text/html' });
   window.open(URL.createObjectURL(blob), '_blank');
 });
