@@ -1624,13 +1624,25 @@ const LP_TOKEN_FIELD_IDS = {
   primary: 'lpTokenPrimary', primaryDark: 'lpTokenPrimaryDark', secondary: 'lpTokenSecondary',
   text: 'lpTokenText', textMuted: 'lpTokenTextMuted', bg: 'lpTokenBg', bgAlt: 'lpTokenBgAlt',
   border: 'lpTokenBorder', maxWidth: 'lpTokenMaxWidth', radius: 'lpTokenRadius',
-  fontHeading: 'lpTokenFontHeading', fontBody: 'lpTokenFontBody', ctaBg: 'lpTokenCtaBg', ctaText: 'lpTokenCtaText'
+  fontHeading: 'lpTokenFontHeading', fontBody: 'lpTokenFontBody', ctaBg: 'lpTokenCtaBg', ctaText: 'lpTokenCtaText',
+  // Vormtaal (25-09-2026, zie tokens.js): hoofdletters, kopkleur, rondingen en sfeer van de klantsite.
+  headingColor: 'lpTokenHeadingColor', headingTransform: 'lpTokenHeadingTransform', headingWeight: 'lpTokenHeadingWeight',
+  buttonTransform: 'lpTokenButtonTransform', buttonRadius: 'lpTokenButtonRadius', cardRadius: 'lpTokenCardRadius',
+  sfeer: 'lpTokenSfeer'
 };
+
+// googleFonts en googleFontGewichten hebben geen invulveld (technisch, door de analyse gecontroleerd tegen Google
+// Fonts) maar horen wel bij het voorstel. Vroeger gingen ze bij het versturen van de intake verloren.
+let lpIntakeVoorstelExtra = { googleFonts: [], googleFontGewichten: {} };
 
 function fillTokenFields(tokensVoorstel) {
   Object.entries(LP_TOKEN_FIELD_IDS).forEach(([key, id]) => {
     document.getElementById(id).value = (tokensVoorstel && tokensVoorstel[key]) || '';
   });
+  lpIntakeVoorstelExtra = {
+    googleFonts: Array.isArray(tokensVoorstel && tokensVoorstel.googleFonts) ? tokensVoorstel.googleFonts : [],
+    googleFontGewichten: (tokensVoorstel && tokensVoorstel.googleFontGewichten) || {}
+  };
 }
 
 function collectTokenFields() {
@@ -1638,6 +1650,10 @@ function collectTokenFields() {
   Object.entries(LP_TOKEN_FIELD_IDS).forEach(([key, id]) => {
     tokens[key] = document.getElementById(id).value.trim();
   });
+  if (lpIntakeVoorstelExtra.googleFonts.length) {
+    tokens.googleFonts = lpIntakeVoorstelExtra.googleFonts;
+    tokens.googleFontGewichten = lpIntakeVoorstelExtra.googleFontGewichten;
+  }
   return tokens;
 }
 

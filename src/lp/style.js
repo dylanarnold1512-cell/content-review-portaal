@@ -66,9 +66,16 @@ const GOOGLE_FONT_GEWICHTEN = {
 };
 const STANDAARD_GEWICHTEN = [400, 500, 600, 700];
 
-function buildGoogleFontsHref(families) {
+function buildGoogleFontsHref(families, gewichtenPerFont) {
+  // gewichtenPerFont (uit tokens.googleFontGewichten, door de huisstijlanalyse gecontroleerd bij Google) gaat
+  // voor de vaste lijst hierboven. Zo krijgt een nieuw lettertype zonder aanpassing in de code de juiste gewichten.
+  const eigen = {};
+  Object.entries(gewichtenPerFont || {}).forEach(([n, g]) => {
+    if (Array.isArray(g) && g.length) eigen[String(n).trim().toLowerCase()] = g;
+  });
   const parts = families.map((naam) => {
-    const gewichten = GOOGLE_FONT_GEWICHTEN[String(naam).trim().toLowerCase()] || STANDAARD_GEWICHTEN;
+    const sleutel = String(naam).trim().toLowerCase();
+    const gewichten = eigen[sleutel] || GOOGLE_FONT_GEWICHTEN[sleutel] || STANDAARD_GEWICHTEN;
     return `family=${fontFamilyParam(naam)}:wght@${gewichten.join(';')}`;
   });
   return `https://fonts.googleapis.com/css2?${parts.join('&')}&display=swap`;
@@ -79,7 +86,7 @@ function renderGoogleFontsLink(tokens) {
   if (!families.length) return '';
   return `<link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="${buildGoogleFontsHref(families)}">
+<link rel="stylesheet" href="${buildGoogleFontsHref(families, tokens.googleFontGewichten)}">
 `;
 }
 

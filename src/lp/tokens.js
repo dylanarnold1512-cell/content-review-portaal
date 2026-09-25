@@ -48,6 +48,9 @@ const defaultTokens = {
   // losse ".lp-kicker"-hulpklasse (zie style.js), nooit automatisch op h1-h6 zelf.
   fontAccent: '',
   googleFonts: [],
+  // googleFontGewichten: { 'Naam': [400, 600, 700] }, de gewichten die dat lettertype bij Google echt heeft (zie
+  // huisstijl.js, controleerGoogleFont). Leeg = standaard 400;500;600;700 (of de vaste uitzonderingen in style.js).
+  googleFontGewichten: {},
   // customFonts (21-09-2026, zie besluiten.md "Yikes-lettertype van Roots"): net als googleFonts,
   // maar voor een lettertype dat GEEN Google Font is (dus zelf-gehost, via public/fonts/ - zie
   // style.js, renderCustomFontFaces). Leeg = geen wijziging t.o.v. bestaand gedrag. Elk item:

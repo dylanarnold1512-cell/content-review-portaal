@@ -15,6 +15,7 @@
 
 const { callOpenAi } = require('./ai');
 const { extractStructureOutline } = require('./referenceFetch');
+const { meetHuisstijl, afgeleideVormtaal, isLichtNeutraal } = require('./huisstijlMeting');
 
 const MAX_STYLESHEETS = 6;
 const FETCH_TIMEOUT_MS = 8000;
@@ -197,6 +198,9 @@ async function verzamelRuweHuisstijlData(url) {
   return {
     url,
     kleuren: extractKleuren(cssBlocks),
+    // Meting per rol en eigenschap (25-09-2026, zie huisstijlMeting.js): koppen, tekst, knoppen, kaarten,
+    // achtergronden en randen los van elkaar, plus @font-face families en de afgeleide vormtaal.
+    meting: meetHuisstijl(combinedCss),
     lettertypeCandidates: extractLettertypeCandidates(cssBlocks),
     googleFonts: findGoogleFonts(html),
     stylesheetsGevonden: stylesheetUrls.length,
@@ -204,6 +208,96 @@ async function verzamelRuweHuisstijlData(url) {
     nietOpgehaald,
     structuur: extractStructureOutline(html)
   };
+}
+
+// Controleert bij Google Fonts of een lettertype echt bestaat en welke gewichten het heeft. Een bestaand
+// lettertype dat de site zelf gebruikt (in koppen of tekst, ook zelf gehost) is daarmee een BEWEZEN Google
+// Font en mag gebruikt worden, in plaats van blind "inherit" te kiezen. Een onbekende familie geeft 400 en
+// zou de hele lettertype-stylesheet breken, dus dat moeten we vooraf weten (zie ook GOOGLE_FONT_GEWICHTEN
+// in style.js). fetchFn is injecteerbaar voor de tests.
+const GENERIEKE_LETTERTYPES = /^(inherit|initial|unset|sans-serif|serif|monospace|system-ui|-apple-system|blinkmacsystemfont|arial|helvetica|georgia|times|verdana|tahoma|segoe ui|roboto)$/i;
+
+async function controleerGoogleFont(naam, fetchFn = fetch) {
+  const enc = encodeURIComponent(String(naam).trim()).replace(/%20/g, '+');
+  const vraag = async (q) => {
+    try {
+      const res = await fetchFn(`https://fonts.googleapis.com/css2?family=${enc}${q}`, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+      return res.ok;
+    } catch (err) {
+      return false;
+    }
+  };
+  if (!(await vraag(''))) return null;
+  const gewichten = [];
+  for (const w of [400, 500, 600, 700]) {
+    if (await vraag(`:wght@${w}`)) gewichten.push(w);
+  }
+  return { naam: String(naam).trim(), gewichten: gewichten.length ? gewichten : [400] };
+}
+
+async function bevestigdeGoogleFonts(meting, googleFontsUitLink, fetchFn) {
+  const kandidaten = [];
+  const voegToe = (n) => {
+    const naam = String(n || '').replace(/["']/g, '').trim();
+    if (naam && !GENERIEKE_LETTERTYPES.test(naam) && !kandidaten.some((k) => k.toLowerCase() === naam.toLowerCase())) kandidaten.push(naam);
+  };
+  (meting.koppen.fonts.slice(0, 2)).forEach((f) => voegToe(f.waarde));
+  (meting.tekst.fonts.slice(0, 2)).forEach((f) => voegToe(f.waarde));
+  (meting.knoppen.fonts.slice(0, 1)).forEach((f) => voegToe(f.waarde));
+  (googleFontsUitLink || []).forEach(voegToe);
+  const resultaat = [];
+  for (const naam of kandidaten.slice(0, 4)) {
+    const gevonden = await controleerGoogleFont(naam, fetchFn);
+    if (gevonden) resultaat.push(gevonden);
+  }
+  return resultaat;
+}
+
+// Corrigeert een AI-voorstel met de harde metingen (deterministisch, geen AI): fout of verzonnen waarden
+// worden vervangen door gemeten waarden, en elke ingreep komt als twijfelpunt terug zodat Dylan het ziet.
+function corrigeerVoorstelMetMeting(voorstel, meting, googleFontsBevestigd) {
+  const tokens = { ...(voorstel.tokensVoorstel || {}) };
+  const twijfels = Array.isArray(voorstel.twijfels) ? [...voorstel.twijfels] : [];
+  const gemeten = (lijst) => new Set((lijst || []).map((i) => i.waarde));
+
+  // Achtergrond en rand: moeten voorkomen als echte vlak- of randkleur, anders is het een gok of ruis.
+  const achtergronden = gemeten(meting.achtergronden);
+  if (tokens.bgAlt && !achtergronden.has(String(tokens.bgAlt).toLowerCase())) {
+    const alt = meting.lichtNeutraleAchtergronden[0] && meting.lichtNeutraleAchtergronden[0].waarde;
+    twijfels.push(`bgAlt ${tokens.bgAlt} komt niet voor als achtergrondkleur in de CSS van de site, ${alt ? `vervangen door het gemeten lichtgrijs ${alt}` : 'leeggelaten'}.`);
+    tokens.bgAlt = alt || '';
+  } else if (tokens.bgAlt && !isLichtNeutraal(String(tokens.bgAlt).toLowerCase()) && meting.lichtNeutraleAchtergronden[0]) {
+    const alt = meting.lichtNeutraleAchtergronden[0].waarde;
+    twijfels.push(`bgAlt ${tokens.bgAlt} is geen neutraal lichtgrijs vlak; op de site is ${alt} gemeten, dat is gebruikt.`);
+    tokens.bgAlt = alt;
+  }
+  const randen = gemeten(meting.randen);
+  if (tokens.border && randen.size && !randen.has(String(tokens.border).toLowerCase())) {
+    const rand = meting.randen.find((r) => isLichtNeutraal(r.waarde)) || meting.randen[0];
+    twijfels.push(`border ${tokens.border} komt niet voor als randkleur in de CSS, vervangen door ${rand.waarde}.`);
+    tokens.border = rand.waarde;
+  }
+
+  // Lettertypes per rol: alleen een BEWEZEN Google Font (bestaat echt bij Google) wordt gebruikt.
+  const bewezen = new Map(googleFontsBevestigd.map((f) => [f.naam.toLowerCase(), f]));
+  const kopFont = meting.koppen.fonts.map((f) => f.waarde).find((n) => bewezen.has(n.toLowerCase()));
+  const tekstFont = meting.tekst.fonts.map((f) => f.waarde).find((n) => bewezen.has(n.toLowerCase()));
+  const gebruikt = new Set();
+  if (kopFont) { tokens.fontHeading = `'${bewezen.get(kopFont.toLowerCase()).naam}', sans-serif`; gebruikt.add(kopFont.toLowerCase()); }
+  if (tekstFont) { tokens.fontBody = `'${bewezen.get(tekstFont.toLowerCase()).naam}', sans-serif`; gebruikt.add(tekstFont.toLowerCase()); }
+  if (kopFont && !tekstFont) tokens.fontBody = tokens.fontBody || 'inherit';
+  const fontsVoorLaden = googleFontsBevestigd.filter((f) => gebruikt.has(f.naam.toLowerCase()));
+  if (fontsVoorLaden.length) {
+    tokens.googleFonts = fontsVoorLaden.map((f) => f.naam);
+    tokens.googleFontGewichten = Object.fromEntries(fontsVoorLaden.map((f) => [f.naam, f.gewichten]));
+  }
+  if (kopFont && tekstFont && kopFont.toLowerCase() !== tekstFont.toLowerCase()) {
+    twijfels.push(`Koppen en tekst gebruiken een ander lettertype: koppen ${kopFont}, tekst ${tekstFont}.`);
+  }
+
+  // Vormtaal: alleen wat echt gemeten is.
+  Object.assign(tokens, afgeleideVormtaal(meting));
+  return { tokensVoorstel: tokens, twijfels };
 }
 
 function buildHuisstijlSystemPrompt() {
@@ -234,6 +328,13 @@ Regels:
   precies wat deze regel verbiedt. Een font-family-kandidaat uit gewone CSS is geen bewijs dat het
   een Google Font is (kan een systeemfont of een zelf-gehost font zijn) — bij twijfel is "inherit"
   altijd de juiste, veilige keuze, nooit een verzonnen vervanger.
+- Je krijgt ook een METING per rol (koppen, tekst, knoppen, kaarten, achtergronden, randen, themakleuren) die
+  uit de CSS is afgeleid. Gebruik die metingen als bewijs: bgAlt is een gemeten lichtgrijs vlak (nooit een
+  gekleurde of roze tint tenzij de site die echt als vlak gebruikt), border een gemeten randkleur, en fontHeading
+  en fontBody komen uit de gemeten rol (koppen en tekst kunnen VERSCHILLEN). Wat niet gemeten is, laat je
+  leeg of "inherit". De vormtaal (hoofdletters, knop- en kaartrondingen, kopkleur) wordt los van jou uit de
+  meting afgeleid; jij schrijft alleen "sfeer": een of twee zinnen in gewone taal over hoe de site aanvoelt
+  (bv. stoer en strak, of licht en speels), op basis van de metingen en de structuur, zonder iets te verzinnen.
 - radius en maxWidth mag je een redelijke standaardwaarde geven (bv. "8px", "1200px") tenzij de
   structuurdata een duidelijke andere indruk geeft.
 
@@ -242,7 +343,7 @@ Antwoord ALLEEN met een JSON-object met exact drie velden, geen tekst erbuiten:
   "tokensVoorstel": { "primary": string, "primaryDark": string, "secondary": string, "text": string,
     "textMuted": string, "bg": string, "bgAlt": string, "border": string, "maxWidth": string,
     "radius": string, "fontHeading": string, "fontBody": string, "googleFonts": string[],
-    "ctaBg": string, "ctaText": string },
+    "ctaBg": string, "ctaText": string, "sfeer": string },
   "samenvatting": string,
   "twijfels": [string]
 }`;
@@ -268,6 +369,9 @@ ${JSON.stringify(ruweData.lettertypeCandidates, null, 2)}
 Expliciet gevonden Google Fonts (betrouwbaarste signaal, indien aanwezig):
 ${JSON.stringify(ruweData.googleFonts, null, 2)}
 
+Meting per rol (uit de CSS):
+${JSON.stringify(ruweData.meting, null, 2)}
+
 Structuuroverzicht van de pagina:
 ${JSON.stringify(ruweData.structuur, null, 2)}
 
@@ -279,12 +383,14 @@ Stylesheets gevonden: ${ruweData.stylesheetsGevonden}, opgehaald: ${ruweData.sty
   if (!result || !result.tokensVoorstel) {
     throw new Error('AI-antwoord miste het verwachte veld "tokensVoorstel".');
   }
+  const bewezenFonts = await bevestigdeGoogleFonts(ruweData.meting, ruweData.googleFonts);
+  const gecorrigeerd = corrigeerVoorstelMetMeting(result, ruweData.meting, bewezenFonts);
   return {
-    tokensVoorstel: result.tokensVoorstel,
+    tokensVoorstel: gecorrigeerd.tokensVoorstel,
     samenvatting: result.samenvatting || '',
-    twijfels: Array.isArray(result.twijfels) ? result.twijfels : [],
+    twijfels: gecorrigeerd.twijfels,
     ruweData
   };
 }
 
-module.exports = { buildHuisstijlVoorstel, verzamelRuweHuisstijlData };
+module.exports = { buildHuisstijlVoorstel, verzamelRuweHuisstijlData, corrigeerVoorstelMetMeting, controleerGoogleFont, bevestigdeGoogleFonts };
