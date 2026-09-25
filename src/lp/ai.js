@@ -66,6 +66,12 @@ mechanisch gecontroleerd):
 - "heroIntro" (type text, optioneel) — korte introductietekst onder de hero-titel.
 - "ctaLabel" en "ctaHref" (beide type text) — verplicht als ctaRegel.verplicht true is. Gebruik ze
   samen voor de call-to-action-knop(pen), mag op meerdere plekken in het sjabloon herhaald worden.
+- FORMULIER: wil je op een plek in het sjabloon een contactformulier tonen, zet daar exact de tekst
+  {{formulier}} (bv. <div class="contact-formulier">{{formulier}}</div>). Dit is GEEN slot: voeg het
+  NIET toe aan "slots" en verzin zelf geen formulier, velden of shortcode. Het echte formulier van de
+  klant wordt automatisch op die plek gezet en krijgt vanzelf de kleuren en het lettertype van de
+  pagina. Zet {{formulier}} hoogstens een keer in het sjabloon. Geef de omliggende sectie zelf wel
+  een duidelijke kop en een korte intro (via gewone slots).
 - "linksItems" (type list, itemFields ["label","href","reason","zusterpagina"], verplicht ALTIJD
   false) — interne links. Zet deze slot NOOIT op verplicht true: een pagina mag best 0 relevante
   links hebben (kwaliteit boven kwantiteit, zie de contentgeneratie-instructies), dus een lege lijst

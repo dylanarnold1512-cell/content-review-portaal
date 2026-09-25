@@ -559,7 +559,7 @@ router.post('/pages/:pageId/publish', requireLpInternal, async (req, res) => {
       return res.status(400).json({ error: 'Validatie faalt, nog niet gepubliceerd.', validation });
     }
     const client = getLpClient(page.klant);
-    const html = renderPageHtml(buildRenderPage({ blueprint, content, clientId: page.klant, slug: page.slug }));
+    const html = renderPageHtml(buildRenderPage({ blueprint, content, clientId: page.klant, slug: page.slug }), { forWordPress: true });
     const result = await pushDraft({
       profile: client.profile,
       wpPaginaId: page.wpPaginaId || undefined,

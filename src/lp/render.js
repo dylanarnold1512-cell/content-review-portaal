@@ -20,6 +20,8 @@ const { renderStyle } = require('./style');
 const { renderBlock, blocks } = require('./blocks');
 const { renderSlotTemplate, tagImageSlotsForPreview, tagTextSlotsForPreview, tagLinkSlotsForPreview } = require('./slotEngine');
 const { slugify } = require('./utils');
+const { clients } = require('./clients');
+const { buildFormulierCss } = require('./formulierStijl');
 
 function renderPageHtml(page, opts) {
   if (page && page.template) {
@@ -65,6 +67,46 @@ function collectBlockSchemas(pageBlocks) {
 // unieke rootClass zit op hetzelfde element, zodat twee gerenderde pagina's
 // elkaars stijl nooit kunnen beinvloeden, ook al gebruiken ze hetzelfde
 // sjabloon.
+// Formulier-marker (25-09-2026): een sjabloon zet op de plek waar een formulier hoort exact {{formulier}}.
+// Het is bewust GEEN slot (geen content van de AI): welk formulier het is bepaalt de klant
+// (profile.formulier: plugin + shortcode, bron in feiten.js), het sjabloon bepaalt alleen de plek.
+//  - Echte WordPress-pagina (opts.forWordPress): de shortcode, WordPress rendert het formulier zelf,
+//    plus de opmaakregels van formulierStijl.js zodat het bij de pagina past.
+//  - Alles anders (portaalvoorbeeld, deellink): een placeholder, zodat er nooit een kale shortcode
+//    zichtbaar is. Heeft de klant geen formulier ingesteld, dan verdwijnt de marker op WordPress.
+const FORMULIER_MARKER_RE = /\{\{\s*formulier\s*\}\}/g;
+
+function getFormulierConfig(clientId) {
+  const client = clients[clientId];
+  const formulier = client && client.profile && client.profile.formulier;
+  return formulier && formulier.shortcode ? formulier : null;
+}
+
+function applyFormulierMarker(html, clientId, rootClass, opts) {
+  if (!FORMULIER_MARKER_RE.test(html)) {
+    FORMULIER_MARKER_RE.lastIndex = 0;
+    return { html, css: '' };
+  }
+  FORMULIER_MARKER_RE.lastIndex = 0;
+  const config = getFormulierConfig(clientId);
+  const naarWordPress = !!(opts && opts.forWordPress);
+  if (naarWordPress) {
+    if (!config) return { html: html.replace(FORMULIER_MARKER_RE, ''), css: '' };
+    return {
+      html: html.replace(FORMULIER_MARKER_RE, `<div class="lp-formulier">\n${config.shortcode}\n</div>`),
+      css: buildFormulierCss(rootClass, config.plugin)
+    };
+  }
+  const tekst = config
+    ? 'Hier verschijnt het contactformulier op de echte pagina.'
+    : 'Hier komt een formulier, maar voor deze klant is nog geen formulier ingesteld.';
+  const css = `<style>\n.${rootClass} .lp-formulier-placeholder { padding: 24px; border: 2px dashed var(--lp-border); border-radius: var(--lp-radius); text-align: center; color: var(--lp-text-muted, var(--lp-text)); font-family: var(--lp-font-body); }\n</style>`;
+  return {
+    html: html.replace(FORMULIER_MARKER_RE, `<div class="lp-formulier lp-formulier-placeholder">${tekst}</div>`),
+    css
+  };
+}
+
 function renderSlotPageHtml(page, opts) {
   const tokens = getTokens(page.clientId);
   const rootClass = `lp-root-${slugify(page.slug)}`;
@@ -84,7 +126,8 @@ function renderSlotPageHtml(page, opts) {
         page.template && page.template.slots
       )
     : htmlTemplateRaw;
-  const body = renderSlotTemplate(htmlTemplate, slotData);
+  const metFormulier = applyFormulierMarker(htmlTemplate, page.clientId, rootClass, opts);
+  const body = renderSlotTemplate(metFormulier.html, slotData);
   const schemas = collectSlotSchemas(slotData);
   const schemaScript = schemas.length
     ? `\n<script type="application/ld+json">${JSON.stringify(schemas.length === 1 ? schemas[0] : schemas)}</script>`
@@ -92,7 +135,7 @@ function renderSlotPageHtml(page, opts) {
   return `${baseStyle}
 <style>
 ${templateCss}
-</style>
+</style>${metFormulier.css ? '\n' + metFormulier.css : ''}
 <div class="${rootClass} lpt">
 ${body}
 </div>${schemaScript}`;

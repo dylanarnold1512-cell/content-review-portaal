@@ -156,6 +156,29 @@ const PLUGIN_CSS_BUILDERS = {
   border-radius: var(--lp-radius) !important;
 }`,
 
+  // MetForm (25-09-2026, klassen gecontroleerd op de live contactpagina van mac-bouw.nl): velden hebben
+  // de klasse "mf-input" (textarea ook "mf-textarea"), de verzendknop "metform-submit-btn" (ook
+  // "metform-btn"). MetForm zet zelf per formulier vrij specifieke Elementor-stijlen, dus !important.
+  MetForm: (rootClass) => `.${rootClass} .metform-form-content .mf-input {
+  border: 1px solid var(--lp-border) !important;
+  border-radius: var(--lp-radius) !important;
+  background: var(--lp-bg) !important;
+  color: var(--lp-text) !important;
+  font-family: var(--lp-font-body) !important;
+  padding: 12px 14px !important;
+  width: 100%;
+  box-sizing: border-box;
+}
+.${rootClass} .metform-form-content .metform-submit-btn {
+  background: var(--lp-cta-bg) !important;
+  color: var(--lp-cta-text) !important;
+  border: none !important;
+  border-radius: var(--lp-radius) !important;
+  font-family: var(--lp-font-body) !important;
+  font-weight: 600 !important;
+  padding: 12px 24px !important;
+}`,
+
   'Fluent Forms': (rootClass) => `.${rootClass} .fluentform input,
 .${rootClass} .fluentform textarea,
 .${rootClass} .fluentform select {

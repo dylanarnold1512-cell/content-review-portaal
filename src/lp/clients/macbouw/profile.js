@@ -14,6 +14,14 @@ const profile = {
     usernameEnv: 'WP_USERNAME_MACBOUW',
     appPasswordEnv: 'WP_APP_PASSWORD_MACBOUW'
   },
+  // Formulier voor op de landingspagina (25-09-2026): een sjabloon met de marker {{formulier}} krijgt op
+  // de echte WordPress-pagina deze shortcode (WordPress rendert 'm zelf), in het portaalvoorbeeld een
+  // nette placeholder. plugin bepaalt de opmaakregels (src/lp/formulierStijl.js). Bron van id en plugin:
+  // zie feiten.js (contactformulier, contactformulier-shortcode).
+  formulier: {
+    plugin: 'MetForm',
+    shortcode: '[metform form_id="3048"]'
+  },
   // Verwijst naar de tokens in src/lp/tokens.js (clientTokens.macbouw).
   tokensId: 'macbouw',
   // Bronprincipe (besluit 8): geen aparte claimlijst, wel een korte lijst met
