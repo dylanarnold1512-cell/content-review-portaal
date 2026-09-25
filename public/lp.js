@@ -1090,7 +1090,29 @@ document.getElementById('lpShareRevokeBtn').addEventListener('click', async () =
 });
 
 // ---- Sjablonen (bouwstap 6) ----
+// Vult de klant-dropdown van het Nieuw-sjabloon-scherm. Wordt bij elk openen van het scherm opnieuw
+// gedaan (niet alleen bij het opstarten), en haalt de klanten zo nodig zelf op, zodat de lijst nooit leeg
+// blijft. Lukt ophalen niet, dan staat er een duidelijke foutmelding in plaats van een lege lijst.
+async function fillTplKlantSelect() {
+  const select = document.getElementById('lpTplNewKlant');
+  const errorEl = document.getElementById('lpTemplateNewError');
+  try {
+    if (!Array.isArray(lpState.clients) || !lpState.clients.length) {
+      const { clients } = await lpApi('/clients');
+      lpState.clients = clients;
+    }
+    select.innerHTML = '<option value="">Kies een klant</option>' +
+      lpState.clients.map((c) => `<option value="${c.id}">${c.naam}</option>`).join('');
+  } catch (err) {
+    select.innerHTML = '<option value="">Klanten laden mislukt</option>';
+    errorEl.textContent = `De klantenlijst kon niet worden geladen: ${err.message}`;
+    errorEl.classList.remove('hidden');
+  }
+}
+
 document.getElementById('lpNewTemplateBtn').addEventListener('click', () => {
+  document.getElementById('lpTemplateNewError').classList.add('hidden');
+  fillTplKlantSelect();
   document.getElementById('lpTplNewNaam').value = '';
   document.getElementById('lpTplNewKlant').value = '';
   document.getElementById('lpTplNewReferentieUrl').value = '';
@@ -1107,7 +1129,6 @@ document.getElementById('lpNewTemplateBtn').addEventListener('click', () => {
   document.getElementById('lpTplPreviewFrame').srcdoc = '';
   document.getElementById('lpTplGenerateStatus').textContent = '';
   document.getElementById('lpTplRefineStatus').textContent = '';
-  document.getElementById('lpTemplateNewError').classList.add('hidden');
   document.getElementById('lpSjablonenTab').classList.add('hidden');
   document.getElementById('lpTemplateNewSection').classList.remove('hidden');
 });
