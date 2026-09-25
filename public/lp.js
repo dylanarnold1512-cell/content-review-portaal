@@ -188,6 +188,10 @@ async function bootLpApp() {
   filterKlant.innerHTML = '<option value="">Alle klanten</option>' +
     clients.map((c) => `<option value="${c.id}">${c.naam}</option>`).join('');
   newKlant.innerHTML = clients.map((c) => `<option value="${c.id}">${c.naam}</option>`).join('');
+  // Nieuw-sjabloon-scherm: dezelfde bestaande klanten als dropdown i.p.v. een vrij tekstveld (geen typfouten,
+  // en een nieuwe klant staat er vanzelf in zodra hij in src/lp/clients is geregistreerd).
+  document.getElementById('lpTplNewKlant').innerHTML = '<option value="">Kies een klant</option>' +
+    clients.map((c) => `<option value="${c.id}">${c.naam}</option>`).join('');
 
   const blockSelect = document.getElementById('lpBlockTemplateSelect');
   blockSelect.innerHTML = Object.keys(BLOCK_TEMPLATES).map((t) => `<option value="${t}">${t}</option>`).join('');
