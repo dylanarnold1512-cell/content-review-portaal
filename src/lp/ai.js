@@ -142,6 +142,9 @@ Antwoord ALLEEN met een JSON-object met exact twee velden, geen tekst erbuiten:
 }
 
 async function callOpenAi({ systemPrompt, userPrompt }) {
+  if (typeof systemPrompt !== 'string' || !systemPrompt.trim()) {
+    throw new Error('callOpenAi: systemPrompt ontbreekt of is leeg (typfout in de aanroep?).');
+  }
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error(

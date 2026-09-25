@@ -264,7 +264,7 @@ Structuuroverzicht van de homepage:
 ${JSON.stringify(ruweData.structuur, null, 2)}
 ${ruweData.contactFout ? `\n(Contactpagina ${ruweData.contactUrl} kon niet opgehaald worden: ${ruweData.contactFout})` : ''}`;
 
-  const result = await callOpenAi({ systemPromt: buildFeitenSystemPrompt(), userPrompt });
+  const result = await callOpenAi({ systemPrompt: buildFeitenSystemPrompt(), userPrompt });
   if (!result || !Array.isArray(result.feitenVoorstel)) {
     throw new Error('AI-antwoord miste het verwachte veld "feitenVoorstel".');
   }
