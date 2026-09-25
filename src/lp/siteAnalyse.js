@@ -127,7 +127,12 @@ const BEKENDE_FORMULIER_PLUGINS = [
   { plugin: 'Formidable Forms', re: /id=["']frm_form_(\d+)_container["']/ },
   { plugin: 'Elementor Forms', re: /elementor-widget-form/, geenId: true },
   { plugin: 'Jetpack/Contact Form (Jetpack)', re: /wp-block-jetpack-contact-form/, geenId: true },
-  { plugin: 'Fluent Forms', re: /ff-el-form-(?:top|bottom)|fluentform_(\d+)/ }
+  { plugin: 'Fluent Forms', re: /ff-el-form-(?:top|bottom)|fluentform_(\d+)/ },
+  // MetForm (Elementor-plugin, 25-09-2026 gevonden bij MAC Bouw): het <form>-element zelf heeft alleen de
+  // class "metform-form-content". Het formulier-id staat NIET in het <form>-element maar in het omliggende
+  // element (id="metform-wrap-<hash>-<id>"), dus dat wordt in detecteerFormulieren apart uit de hele
+  // pagina gehaald (geenId hier).
+  { plugin: 'MetForm', re: /metform-form-content/, geenId: true }
 ];
 
 function herkenFormulierPlugin(formulierHtml) {
@@ -162,11 +167,19 @@ function vindVeldNamen(formulierHtml) {
 // hierboven staat.
 function detecteerFormulieren(html) {
   const matches = html.match(/<form\b[^>]*>[\s\S]*?<\/form>/gi) || [];
+  // MetForm: formulier-id uit het omliggende element, alleen als er precies een uniek id op de pagina
+  // staat (bij meerdere MetForm-formulieren is de koppeling formulier naar id niet betrouwbaar, dan
+  // laten we het id leeg in plaats van te gokken, bronprincipe).
+  const metformIds = [...new Set([...html.matchAll(/metform-wrap-[A-Za-z0-9]+-(\d+)/g)].map((m) => m[1]))];
   return matches.slice(0, 5).map((formulierHtml) => {
     const herkend = herkenFormulierPlugin(formulierHtml);
+    let formulierId = herkend ? herkend.formulierId : null;
+    if (herkend && herkend.plugin === 'MetForm' && !formulierId && metformIds.length === 1) {
+      formulierId = metformIds[0];
+    }
     return {
       plugin: herkend ? herkend.plugin : null,
-      formulierId: herkend ? herkend.formulierId : null,
+      formulierId,
       velden: vindVeldNamen(formulierHtml)
     };
   });

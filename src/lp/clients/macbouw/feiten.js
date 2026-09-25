@@ -3,9 +3,9 @@
 // (knop "Analyseer feiten & CTA" op https://mac-bouw.nl/, door Dylan gecontroleerd voor verzenden).
 //
 // Bewust NIET overgenomen uit de intake: drie van de vier gedetecteerde formulieren. Twee hadden
-// alleen het veld "s" (de standaard WordPress zoekparameter, dus waarschijnlijk een zoekveld) en
-// een had geen enkel veld. Alleen het formulier met de velden mf-first-name, mf-email, mf-subject
-// en mf-comment lijkt een echt contactformulier en staat hieronder. Aanvullen per pagina met
+// alleen het veld "s" (de standaard WordPress zoekparameter) en een had geen enkel veld; dat bleken
+// bij nakijken in de browser zoekformulieren te zijn (adminbalk, zoekbalk, zoekknop in de header).
+// Alleen het MetForm-formulier (id 3048) is het echte contactformulier en staat hieronder. Aanvullen per pagina met
 // pagina-specifieke feiten uit de feitensheet: dit bestand is de vaste basis, niet de volledige
 // lijst per pagina.
 //
@@ -52,9 +52,20 @@ const feiten = [
   },
   {
     id: 'contactformulier',
-    label: 'Contactformulier op site (plugin onbekend)',
-    waarde: 'velden: mf-first-name, mf-email, mf-subject, mf-comment',
-    bron: 'mac-bouw.nl, automatisch gedetecteerd bij de site-analyse van de intake, gecontroleerd 25-09-2026'
+    label: 'Contactformulier op site (MetForm)',
+    waarde: 'MetForm, formulier-id 3048. Velden: mf-first-name (Voor- en achternaam), mf-email ' +
+      '(E-mailadres), mf-subject (Onderwerp), mf-comment (Bericht). Verzendknop: "Verzenden". ' +
+      'Geen captcha aangetroffen.',
+    bron: 'mac-bouw.nl/contact/, formulier-id en velden rechtstreeks uit de pagina (DOM) gelezen in de ' +
+      'browser, gecontroleerd 25-09-2026'
+  },
+  {
+    id: 'contactformulier-shortcode',
+    label: 'Shortcode contactformulier (MetForm)',
+    waarde: '[metform form_id="3048"]',
+    bron: 'Standaard MetForm-shortcode met het formulier-id 3048 dat op mac-bouw.nl/contact/ in de ' +
+      'pagina staat (wrapper metform-wrap-cf10094-3048), gecontroleerd 25-09-2026. Nog niet in ' +
+      'WordPress zelf getest op een landingspagina.'
   }
 ];
 

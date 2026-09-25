@@ -137,3 +137,22 @@ test('detecteerFormulieren: vindt meerdere formulieren op dezelfde pagina', () =
   assert.equal(gevonden[0].plugin, 'Contact Form 7');
   assert.equal(gevonden[1].plugin, null);
 });
+
+test('detecteerFormulieren: herkent MetForm en haalt het formulier-id uit het omliggende element', () => {
+  const html = '<div class="mf-form-wrapper" id="metform-wrap-cf10094-3048" data-form-id="3048">' +
+    '<form class="metform-form-content"><input type="text" name="mf-first-name">' +
+    '<input type="email" name="mf-email"><textarea name="mf-comment"></textarea></form></div>';
+  const gevonden = detecteerFormulieren(html);
+  assert.equal(gevonden.length, 1);
+  assert.equal(gevonden[0].plugin, 'MetForm');
+  assert.equal(gevonden[0].formulierId, '3048');
+  assert.deepEqual(gevonden[0].velden, ['mf-first-name', 'mf-email', 'mf-comment']);
+});
+
+test('detecteerFormulieren: MetForm zonder eenduidig id laat het id leeg', () => {
+  const html = '<div id="metform-wrap-aaa-1"><form class="metform-form-content"><input name="mf-email"></form></div>' +
+    '<div id="metform-wrap-bbb-2"><form class="metform-form-content"><input name="mf-email"></form></div>';
+  const gevonden = detecteerFormulieren(html);
+  assert.equal(gevonden[0].plugin, 'MetForm');
+  assert.equal(gevonden[0].formulierId, null);
+});
