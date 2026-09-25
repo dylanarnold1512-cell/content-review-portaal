@@ -112,6 +112,40 @@ const clients = [
       idea: 'Idee',
       planned: 'Gepland'
     }
+  },
+  {
+    id: 'trockenblumengrosshandel',
+    naam: 'Trockenblumengrosshandel',
+    notionTokenEnv: 'NOTION_TOKEN_TBG',
+    databaseId: '3e75becfdb7245fabaf3207a751c326d', // "Trockenblumengrosshandel Content Planning"
+    // Shared klant, testfase op 25-08-2026. Dylan is de reviewer (logt in met
+    // PORTAL_PASSWORD_TBG) tot de eerste blog gecontroleerd is, daarna gaat
+    // de reviewlink naar de klant via notification_email in de Clients tabel.
+    reviewEnabled: true,
+    ideaEnrichmentEnabled: false,
+    loginPasswordEnv: 'PORTAL_PASSWORD_TBG',
+    fields: {
+      title: 'Titel',
+      status: 'Status',
+      category: 'Cluster',
+      publishDate: 'Publicatiedatum',
+      customerNotes: 'Opmerkingen',
+      wordpressPostId: 'WP post ID',
+      liveUrl: 'Live URL',
+      mainKeyword: 'Hoofdkeyword',
+      secondaryKeywords: 'Secundaire keywords',
+      searchIntent: 'Zoekintentie',
+      cluster: 'Cluster'
+    },
+    // Statuswaarden zoals ze in de Trockenblumengrosshandel Notion database staan.
+    statusValues: {
+      review: 'Ter review',
+      approved: 'Goedgekeurd',
+      rejected: 'Afgewezen',
+      published: 'Gepubliceerd',
+      idea: 'Idee',
+      planned: 'Gepland'
+    }
   }
 ];
 
