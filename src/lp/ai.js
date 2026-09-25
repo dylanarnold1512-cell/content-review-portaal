@@ -374,6 +374,7 @@ async function formatKlantSiteVoorPrompt(klant) {
 - afgeleide vormtaal: ${Object.keys(vormtaal).length ? JSON.stringify(vormtaal) : 'niets betrouwbaar af te leiden'}
 - koppen op de homepage: ${(structuur.headings || []).slice(0, 12).join(' | ') || 'niet gevonden'}
 - knoppen en links op de homepage: ${(structuur.knoppenEnLinks || []).slice(0, 10).join(' | ') || 'niet gevonden'}
+ONTWERPPRINCIPE "de 2.0 versie van deze site": de HUISSTIJL is vast en komt letterlijk van de site: kleuren, lettertypes, hoofdletters, gewichten, knopvorm en hoeken. Daarbinnen bouw je een modernere, sterkere pagina dan de huidige site: betere hierarchie, meer witruimte, duidelijker secties, sterke hero, sfeervolle foto-inzet, subtiele beweging en hover-effecten. Vernieuwing zit dus in lay-out, ritme en details, NIET in andere kleuren, lettertypes of vormen.
 Regel: gebruik geen decoratie (verlopen, blobs, golven, schaduwen, extra ronde hoeken) die niet bij deze meting en de sfeer past. Twijfel je, kies dan de strakkere variant die bij de site past.`;
     }
   } catch (err) {
