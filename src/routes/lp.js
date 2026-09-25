@@ -299,14 +299,14 @@ router.post('/templates/refine', requireLpInternal, async (req, res) => {
 // slot-pad.
 router.post('/templates/preview', requireLpInternal, async (req, res) => {
   try {
-    const { klant, blocks, blueprint, slotData } = req.body || {};
+    const { klant, blocks, blueprint, slotData, hervulTekst } = req.body || {};
     if (!klant) return res.status(400).json({ error: 'klant is verplicht.' });
 
     if (blueprint && blueprint.templateFormat === 'slots') {
       // Sjabloon delen zonder eerst een pagina te maken: lege voorbeeldtekst en lege afbeelding-slots
       // worden hier aangevuld (tekst via AI, foto's uit de mediabibliotheek van de klant). De frontend
       // bewaart het resultaat in het Voorbeeldcontent-veld, zodat dit maar een keer hoeft te gebeuren.
-      const { data, waarschuwingen, aangevuld } = await vulVoorbeeldAan({ klant, blueprint, slotData: slotData || {} });
+      const { data, waarschuwingen, aangevuld } = await vulVoorbeeldAan({ klant, blueprint, slotData: slotData || {}, hervulTekst: !!hervulTekst });
       const html = renderPageHtml({ clientId: klant, slug: 'sjabloon-voorbeeld', template: blueprint, slotData: data });
       return res.json({
         html: wrapPreviewDoc(html),
@@ -326,11 +326,25 @@ router.post('/templates/preview', requireLpInternal, async (req, res) => {
   }
 });
 
+// Voorbeeldtekst hoort de ECHTE gegevens van de klant te gebruiken (naam, adres, telefoon, werkgebied,
+// diensten), niet een verzonnen plaats of "Placeholder"-nummer. Bron: de feitenbibliotheek van de klant.
+function feitenInstructie(klant) {
+  let regels = '';
+  try {
+    const client = getLpClient(klant);
+    regels = (client.feiten || []).map((f) => `- ${f.label}: ${f.waarde}`).join('\n');
+  } catch (err) {
+    return '';
+  }
+  if (!regels) return '';
+  return `Gebruik in de voorbeeldteksten UITSLUITEND deze echte gegevens van de klant waar het om bedrijfsnaam, adres, telefoon, e-mail, werkgebied of diensten gaat, en verzin geen plaatsen, nummers of adressen ("Placeholder" mag nooit in de tekst staan):\n${regels}\nReviews mogen alleen als duidelijk voorbeeld (bv. naam "Voorbeeldklant"), nooit als echte klant.`;
+}
+
 // Vult een sjabloonvoorbeeld aan zodat het zonder pagina toonbaar/deelbaar is. Raakt Notion niet aan
 // en verzint niets: tekst is duidelijk voorbeeldtekst, foto's komen uit de echte mediabibliotheek
 // van de klant (dezelfde keuzelogica als bij een pagina, ai.pickImagesForPage). Mislukt een stap,
 // dan blijft het voorbeeld gewoon leeg op die plek en komt er een waarschuwing.
-async function vulVoorbeeldAan({ klant, blueprint, slotData }) {
+async function vulVoorbeeldAan({ klant, blueprint, slotData, hervulTekst }) {
   const data = { ...slotData };
   const waarschuwingen = [];
   let aangevuld = false;
@@ -339,18 +353,18 @@ async function vulVoorbeeldAan({ klant, blueprint, slotData }) {
   const tekstSlots = slots.filter((s) => !/ImageSrc$/.test(s.key) && !/ImageAlt$/.test(s.key));
   const zonderTekst = tekstSlots.length > 0 && tekstSlots.every((s) => isLeeg(data[s.key]));
 
-  if (zonderTekst) {
+  if (zonderTekst || hervulTekst) {
     try {
       const { voorbeeldSlotData } = await ai.refineTemplateProposal({
         klant,
         naam: blueprint.naam || blueprint.blueprintId || 'sjabloon',
         huidigBlueprint: blueprint,
-        huidigeVoorbeeldSlotData: {},
-        feedback: 'Pas het sjabloon (HTML, CSS, slots) NIET aan, geef de blueprint ongewijzigd terug. Vul alleen voorbeeldSlotData volledig in met realistische, nette voorbeeldteksten voor deze klant, voor elk tekst-slot en elke lijst. Afbeelding-slots laat je leeg.'
+        huidigeVoorbeeldSlotData: hervulTekst ? data : {},
+        feedback: feitenInstructie(klant) + ' Pas het sjabloon (HTML, CSS, slots) NIET aan, geef de blueprint ongewijzigd terug. Vul alleen voorbeeldSlotData volledig in met realistische, nette voorbeeldteksten voor deze klant, voor elk tekst-slot en elke lijst. Afbeelding-slots laat je leeg.'
       });
       if (voorbeeldSlotData && typeof voorbeeldSlotData === 'object') {
         for (const s of tekstSlots) {
-          if (isLeeg(data[s.key]) && !isLeeg(voorbeeldSlotData[s.key])) {
+          if ((hervulTekst || isLeeg(data[s.key])) && !isLeeg(voorbeeldSlotData[s.key])) {
             data[s.key] = voorbeeldSlotData[s.key];
             aangevuld = true;
           }

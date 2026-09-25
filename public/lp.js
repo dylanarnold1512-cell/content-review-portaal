@@ -1245,13 +1245,16 @@ function buildPreviewBody(klant, blueprint, sample) {
 // foto's uit de mediabibliotheek van de klant), zodat je een sjabloon aan een klant kunt laten zien
 // zonder eerst een pagina te maken. Het aangevulde voorbeeld gaat terug in het Voorbeeldcontent-veld en
 // wordt dus mee opgeslagen met "Blueprint opslaan"; een volgende keer is er geen aanvulling meer nodig.
+let lpHervulVoorbeeldTekst = false;
 async function haalSjabloonPreviewOp(klant, blueprint, sample, voorbeeldTextareaId, statusId) {
+  const hervulTekst = lpHervulVoorbeeldTekst;
+  lpHervulVoorbeeldTekst = false;
   const statusEl = document.getElementById(statusId);
   if (statusEl && blueprint && blueprint.templateFormat === 'slots') {
     statusEl.textContent = 'Voorbeeld ophalen (foto\'s en voorbeeldtekst worden zo nodig aangevuld, dat kan even duren)...';
   }
   try {
-    const res = await lpApi('/templates/preview', { method: 'POST', body: JSON.stringify(buildPreviewBody(klant, blueprint, sample)) });
+    const res = await lpApi('/templates/preview', { method: 'POST', body: JSON.stringify({ ...buildPreviewBody(klant, blueprint, sample), hervulTekst }) });
     if (res.voorbeeldSlotData) {
       document.getElementById(voorbeeldTextareaId).value = JSON.stringify(res.voorbeeldSlotData, null, 2);
     }
@@ -1883,3 +1886,13 @@ document.getElementById('lpIntakeSubmitBtn').addEventListener('click', async () 
     showLpLogin();
   }
 })();
+
+// Voorbeeldtekst opnieuw laten maken met de echte klantgegevens (naam, adres, telefoon, werkgebied).
+document.getElementById('lpTplDetailHervulBtn').addEventListener('click', () => {
+  lpHervulVoorbeeldTekst = true;
+  document.getElementById('lpTplDetailPreviewBtn').click();
+});
+document.getElementById('lpTplHervulBtn').addEventListener('click', () => {
+  lpHervulVoorbeeldTekst = true;
+  document.getElementById('lpTplPreviewBtn').click();
+});
