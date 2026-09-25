@@ -1089,6 +1089,25 @@ document.getElementById('lpShareRevokeBtn').addEventListener('click', async () =
   }
 });
 
+// Voorbeeldcontent bewaren bij het sjabloon (25-09-2026): het voorbeeldscherm heeft ingevulde voorbeeldtekst
+// en -afbeeldingen nodig (voorbeeldSlotData). Die stond tot nu toe alleen in het scherm en ging bij opslaan
+// verloren, waardoor een opgeslagen sjabloon bij heropenen een lege, kale preview gaf. We bewaren hem nu
+// in de blueprint zelf (veld voorbeeldSlotData) en halen hem bij het openen weer uit de blueprint.
+// De server geeft dit veld NIET mee aan de pagina-generatie (zie templates.js), zodat de AI de
+// voorbeeldtekst nooit als echte content overneemt.
+function blueprintMetVoorbeeld(blueprint, voorbeeldTextareaId) {
+  if (!blueprint || blueprint.templateFormat !== 'slots') return blueprint;
+  try {
+    const sample = JSON.parse(document.getElementById(voorbeeldTextareaId).value || '{}');
+    if (sample && typeof sample === 'object' && !Array.isArray(sample) && Object.keys(sample).length) {
+      return { ...blueprint, voorbeeldSlotData: sample };
+    }
+  } catch (err) {
+    // Ongeldige voorbeeld-JSON: het sjabloon zelf wordt gewoon opgeslagen, zonder voorbeeldcontent.
+  }
+  return blueprint;
+}
+
 // ---- Sjablonen (bouwstap 6) ----
 // Vult de klant-dropdown van het Nieuw-sjabloon-scherm. Wordt bij elk openen van het scherm opnieuw
 // gedaan (niet alleen bij het opstarten), en haalt de klanten zo nodig zelf op, zodat de lijst nooit leeg
@@ -1346,7 +1365,7 @@ document.getElementById('lpTplCreateBtn').addEventListener('click', async () => 
   try {
     const { template, structuurWaarschuwingen } = await lpApi('/templates', {
       method: 'POST',
-      body: JSON.stringify({ naam, klant, blueprintId, status, blueprint })
+      body: JSON.stringify({ naam, klant, blueprintId, status, blueprint: blueprintMetVoorbeeld(blueprint, 'lpTplNewVoorbeeldJson') })
     });
     document.getElementById('lpTemplateNewSection').classList.add('hidden');
     document.getElementById('lpSjablonenTab').classList.remove('hidden');
@@ -1384,14 +1403,22 @@ async function openTemplateDetail(templateId) {
   document.getElementById('lpTplAdvancedDetails').open = !isSlot;
   document.getElementById('lpTplDetailKlant').value = template.klant || '';
   document.getElementById('lpTplDetailBlueprintId').value = template.blueprintId || '';
-  document.getElementById('lpTplDetailBlueprintJson').value = JSON.stringify(template.blueprint || {}, null, 2);
-  document.getElementById('lpTplDetailVoorbeeldJson').value = isSlot ? '{}' : '[]';
+  // voorbeeldSlotData zit opgeslagen in de blueprint, maar hoort in het eigen Voorbeeldcontent-veld te staan
+  // (niet in de ruwe Blueprint JSON). Zo blijft die JSON overzichtelijk en toont de preview meteen weer de
+  // ingevulde voorbeeldpagina.
+  const { voorbeeldSlotData: bewaardVoorbeeld, ...blueprintZonderVoorbeeld } = template.blueprint || {};
+  const heeftBewaardVoorbeeld = isSlot && bewaardVoorbeeld && typeof bewaardVoorbeeld === 'object' && Object.keys(bewaardVoorbeeld).length > 0;
+  document.getElementById('lpTplDetailBlueprintJson').value = JSON.stringify(blueprintZonderVoorbeeld, null, 2);
+  document.getElementById('lpTplDetailVoorbeeldJson').value = isSlot ? JSON.stringify(heeftBewaardVoorbeeld ? bewaardVoorbeeld : {}, null, 2) : '[]';
   document.getElementById('lpTplDetailFeedback').value = '';
   document.getElementById('lpTplDetailRefineStatus').textContent = '';
   document.getElementById('lpTplDetailPreviewFrame').srcdoc = '';
   document.getElementById('lpTemplateDetailError').classList.add('hidden');
   document.getElementById('lpTplSaved').textContent = '';
   document.getElementById('lpTplDeleteError').classList.add('hidden');
+  if (heeftBewaardVoorbeeld) {
+    try { await refreshTemplateDetailPreview(); } catch (err) { /* voorbeeld is een extra, geen blokkade */ }
+  }
 }
 
 async function refreshTemplateDetailPreview() {
@@ -1540,7 +1567,7 @@ document.getElementById('lpTplSaveBlueprintBtn').addEventListener('click', async
   try {
     const { template: updated, structuurWaarschuwingen } = await lpApi(`/templates/${template.id}/blueprint`, {
       method: 'PUT',
-      body: JSON.stringify({ blueprint })
+      body: JSON.stringify({ blueprint: blueprintMetVoorbeeld(blueprint, 'lpTplDetailVoorbeeldJson') })
     });
     lpState.currentTemplate = updated;
     const isSlot = Boolean(updated.blueprint && updated.blueprint.templateFormat === 'slots');

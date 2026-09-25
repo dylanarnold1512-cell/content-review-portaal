@@ -174,7 +174,11 @@ async function getActiveTemplateByBlueprintId(klant, blueprintId) {
   }
   const blueprintJson = await readBlueprintJson(page.id);
   const meta = summarize(page);
-  return { id: meta.blueprintId, naam: meta.naam, clientId: meta.klant, ...blueprintJson };
+  // voorbeeldSlotData is alleen voor het voorbeeldscherm van het sjabloon zelf (zie public/lp.js) en mag
+  // NIET mee naar de pagina-generatie of het renderen van echte pagina's: de AI zou de placeholder-tekst
+  // anders als echte content kunnen overnemen.
+  const { voorbeeldSlotData, ...blueprintVoorPaginas } = blueprintJson;
+  return { id: meta.blueprintId, naam: meta.naam, clientId: meta.klant, ...blueprintVoorPaginas };
 }
 
 async function createTemplate({ klant, naam, blueprintId, status = 'Concept', blueprint }) {
