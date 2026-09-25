@@ -127,6 +127,65 @@ geweigerd):
 - Precies 1 <h1>, en die moet {{heroTitle}} gebruiken.
 `.trim();
 
+
+// Ontwerp-toolkit (25-09-2026): aanleiding was een handgebouwde dienstenpagina van een collega die veel
+// dynamischer en gedetailleerder was dan wat de AI tot dan toe maakte. Die pagina gebruikte alleen
+// technieken die in een sjabloon WEL mogen (puur HTML + CSS + inline SVG): gradient-achtergronden,
+// zachte "blobs", zwevende beeldkaarten, golf-scheidingen tussen secties, hover-effecten op kaarten,
+// kleine label-pillen boven koppen, een gemarkeerd woord in de kop en een formulierkaart. De AI kreeg
+// dit nooit expliciet mee, dus koos die veilig en kaal. Scripts, externe bestanden en scroll-JS mogen
+// NIET (zie templateSafetyCheck in slotEngine.js), daarom staat hieronder ook hoe je dezelfde
+// scroll-animaties zonder JavaScript doet.
+const ONTWERP_TOOLKIT = `ONTWERP-TOOLKIT (gebruik dit standaard, met mate en passend bij de visuele richting; kwaliteit en
+leesbaarheid gaan voor effect):
+- Sectie-achtergronden: wissel wit af met subtiele verlopen (linear-gradient in een lichte tint van de
+  merkkleur) en getinte vlakken. Gebruik uitsluitend de merkkleuren via var(--lp-primary), var(--lp-secondary),
+  var(--lp-bg-alt) enz., verzin geen eigen kleurenpalet.
+- Golf- of schuine scheidingen tussen secties met een inline <svg> (viewBox met preserveAspectRatio="none",
+  fill in de kleur van de volgende sectie). Alleen inline SVG, nooit een extern bestand.
+- Zachte decoratieve vlakken ("blobs"): grote ronde elementen met filter: blur(60px) en lage opacity achter
+  de hero, met een trage keyframes-beweging (18 tot 22 seconden).
+- Hero met beeld: een grote afbeeldingskaart met afgeronde hoeken en zachte schaduw, eventueel een tweede
+  kleinere kaart met witte rand die deels overlapt, en een klein "badge"-kaartje met een kernpunt. Laat
+  kaarten heel rustig zweven (keyframes translateY van hooguit 10 tot 12 px).
+- Kaarten en knoppen: een subtiele hover-lift (transform: translateY(-6px) plus iets grotere schaduw), afbeeldingen
+  in kaarten die bij hover licht inzoomen (transform: scale(1.06)), soepele overgangen (transition van
+  .25 tot .4 seconde).
+- Kopjes: een klein label-pilletje boven een sectiekop (kicker), en in de hero-kop een enkel woord
+  benadrukken met de accentkleur en een handgetekende onderstreping (inline SVG path met stroke-linecap round).
+- Nummerstappen (werkwijze), checklist-iconen in een rond vlak, een galerij-raster met bijschriften over de
+  onderkant van het beeld, en een contact-sectie met een formulierkaart (witte kaart, grote afronding, zachte schaduw).
+- Scroll-animaties ZONDER JavaScript: laat onderdelen inschuiven bij scrollen met CSS scroll-driven animations,
+  ALLEEN binnen @supports (animation-timeline: view()) { ... }, zodat alles ook zonder die ondersteuning gewoon
+  zichtbaar is. Zet nooit opacity: 0 als basisstijl buiten die @supports.
+- Respecteer altijd @media (prefers-reduced-motion: reduce): zet dan alle animaties en overgangen uit.
+- Alle @keyframes krijgen een naam met het voorvoegsel "lpt-" (bv. lpt-zweef), omdat keyframe-namen wereldwijd
+  gelden op de pagina en anders kunnen botsen met het thema.
+- Werk mobielfirst genoeg: gebruik @media (max-width: 900px) om grids naar een kolom te brengen en de
+  hero-tekst kleiner te zetten.
+- NIET toegestaan (wordt geblokkeerd bij het opslaan): <script>, <link>, @import, url(http...), inline
+  event-handlers, iframes. Fonts en merkkleuren komen automatisch van de klant, laad dus zelf geen lettertypes.`;
+
+const VISUELE_RICHTINGEN = {
+  'dynamisch-modern':
+    'Dynamisch en modern: gebruik de ontwerp-toolkit volop (verlopen, zachte blobs, zwevende beeldkaarten, golf-scheidingen, ' +
+    'hover-effecten, scroll-inschuiven met CSS). Veel beeld, veel ademruimte, ronde vormen.',
+  'fotografie-gedreven':
+    'Fotografie-gedreven: grote, aansprekende beelden bepalen de pagina, tekst is ondersteunend. Gebruik de toolkit ' +
+    'met mate (rustige hover-effecten, ronde beeldkaarten).',
+  'icoon-gedreven-zakelijk':
+    'Icoon-gedreven en zakelijk: iconen en korte, feitelijke blokken, weinig beeld. Gebruik de toolkit terughoudend ' +
+    '(getinte vlakken, nette kaarten met hover-lift, geen zwevende beelden).',
+  'minimalistisch-tekstueel':
+    'Minimalistisch en tekstueel: veel witruimte, sterke typografie, weinig decoratie. Alleen heel subtiele hover- en ' +
+    'overgangseffecten, geen blobs en geen golf-scheidingen.'
+};
+
+function beschrijfVisueleRichting(sleutel) {
+  if (!sleutel) return '(geen voorkeur opgegeven, kies zelf iets passends en gebruik de ontwerp-toolkit met mate)';
+  return VISUELE_RICHTINGEN[sleutel] ? `${sleutel}: ${VISUELE_RICHTINGEN[sleutel]}` : String(sleutel);
+}
+
 function buildTemplateSystemPrompt() {
   return `Je bent een senior webdesigner/frontend-developer voor een Nederlands marketingbureau. Je
 ontwerpt een COMPLEET, BESPOKE HTML+CSS-sjabloon voor een terugkerend paginatype — niet de inhoud van
@@ -135,6 +194,8 @@ webdesigner dat zou doen: overweeg fotografie/iconen, ronde hoeken en zachte sch
 getinte/afwisselende sectie-achtergronden, asymmetrische tekst+beeld-layouts, een consistente
 accentkleur, en gebruik een referentiepagina (indien gegeven) als concreet structuurvoorbeeld — niet
 om te kopieren, maar om vergelijkbare kwaliteit en opbouw te evenaren.
+
+${ONTWERP_TOOLKIT}
 
 ${SLOT_SCHEMA_REFERENCE}
 
@@ -257,7 +318,7 @@ async function generateTemplateProposal({
   const userPrompt = `Klant: ${klant}
 Naam van dit sjabloon: ${naam}
 Paginatype / doel: ${paginatype || '(niet opgegeven)'}
-Visuele richting: ${visueleRichting || '(geen voorkeur opgegeven, kies zelf iets passends)'}
+Visuele richting: ${beschrijfVisueleRichting(visueleRichting)}
 Belangrijkste conversiedoel (primaire actie van de bezoeker): ${conversiedoel || '(niet opgegeven)'}
 ${buildVasteOnderdelenTekst(verplichteOnderdelen)}
 ${overigeWensen ? `Overige wensen: ${overigeWensen}` : ''}
@@ -593,6 +654,9 @@ async function callOpenAiVision({ systemPrompt, contentParts }) {
 
 module.exports = {
   VASTE_ONDERDELEN_OPTIES,
+  VISUELE_RICHTINGEN,
+  ONTWERP_TOOLKIT,
+  beschrijfVisueleRichting,
   callOpenAi,
   generateTemplateProposal,
   refineTemplateProposal,
