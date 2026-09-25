@@ -155,9 +155,19 @@ leesbaarheid gaan voor effect):
   benadrukken met de accentkleur en een handgetekende onderstreping (inline SVG path met stroke-linecap round).
 - Nummerstappen (werkwijze), checklist-iconen in een rond vlak, een galerij-raster met bijschriften over de
   onderkant van het beeld, en een contact-sectie met een formulierkaart (witte kaart, grote afronding, zachte schaduw).
+- Golf-scheidingen goed opbouwen (dit ging eerder mis): de <svg> staat ABSOLUUT onderaan de sectie (bottom: -1px,
+  width 100%), het pad vult het ONDERSTE deel van de svg (het pad eindigt met L1440,86 L0,86 Z) en de fill is
+  PRECIES de achtergrondkleur van de VOLGENDE sectie. Vul dus nooit het bovenste deel van de svg. Geef de sectie
+  erboven geen kleurverloop dat bij de golf zichtbaar wordt.
+- Elementen die over de rand van een kaart of foto steken (bv. een rond icoon dat half over de onderrand van een
+  foto hangt) mogen NIET binnen een container met overflow: hidden staan, anders wordt het icoon afgesneden. Zet
+  overflow: hidden op de foto zelf of laat het icoon buiten de foto-container staan en positioneer het op de kaart.
 - Scroll-animaties ZONDER JavaScript: laat onderdelen inschuiven bij scrollen met CSS scroll-driven animations,
   ALLEEN binnen @supports (animation-timeline: view()) { ... }, zodat alles ook zonder die ondersteuning gewoon
-  zichtbaar is. Zet nooit opacity: 0 als basisstijl buiten die @supports.
+  zichtbaar is.
+  Gebruik als bereik ALTIJD animation-range: entry 0% entry 60% (klaar zodra het element goed in beeld is) en
+  NOOIT een bereik met "cover". Met cover blijven elementen onderaan de pagina, die niet ver genoeg kunnen
+  scrollen, half doorzichtig en lijkt het einde van de pagina vaag of verbleekt. Zet nooit opacity: 0 als basisstijl buiten die @supports.
 - Respecteer altijd @media (prefers-reduced-motion: reduce): zet dan alle animaties en overgangen uit.
 - Alle @keyframes krijgen een naam met het voorvoegsel "lpt-" (bv. lpt-zweef), omdat keyframe-namen wereldwijd
   gelden op de pagina en anders kunnen botsen met het thema.

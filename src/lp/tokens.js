@@ -135,8 +135,11 @@ const clientTokens = {
     text: '#0c0a0a',
     textMuted: '#777777',
     bg: '#ffffff',
-    bgAlt: '#eae2e2',
-    border: '#eae2e2',
+    // bgAlt en border gecorrigeerd op 25-09-2026: het huisstijlvoorstel gaf #eae2e2 (een rozige tint) maar die
+    // kleur staat nergens als vlak op mac-bouw.nl. Gemeten op de site: wit, lichtgrijs #f6f6f6 (vlakken en
+    // formuliervelden) en donkere tinten (#3f444b, #151515). Rand: #eaecf1 komt uit de formulier-CSS van de site.
+    bgAlt: '#f6f6f6',
+    border: '#eaecf1',
     maxWidth: '1200px',
     radius: '8px',
     fontHeading: "'Titillium Web', sans-serif",
@@ -151,7 +154,11 @@ const clientTokens = {
     buttonRadius: '0px',
     cardRadius: '2px',
     sfeer: 'Stoer, strak en betrouwbaar, passend bij een aannemer: rechte lijnen, (bijna) vierkante hoeken, ' +
-      'koppen en knoppen in hoofdletters, veel witruimte en weinig decoratie. Animaties subtiel houden.',
+      'koppen en knoppen in hoofdletters, veel witruimte en weinig decoratie. Animaties subtiel houden. ' +
+      'Kleur: blauw is de hoofdkleur (knoppen, iconen, links). Oranje (var(--lp-secondary)) komt op de klantsite ' +
+      'alleen voor als accent in een wisselend woord in de hero en bij hover, dus gebruik oranje spaarzaam: ' +
+      'hooguit een onderstreping of een enkel kopwoord per pagina, NIET voor iconen, sterren, stapnummers of ' +
+      'grote vlakken. Achtergronden zijn wit of lichtgrijs (var(--lp-bg-alt)), nooit gekleurde of roze vlakken.',
     ctaBg: '#0e7bba',
     ctaText: '#ffffff'
   }

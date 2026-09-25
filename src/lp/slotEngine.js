@@ -341,6 +341,12 @@ function findHuisstijlAfwijkingen(css) {
       'Gebruik var(--lp-card-radius) en var(--lp-button-radius) zoals ze zijn, anders wordt het ronder dan de klantsite.'
     );
   }
+  if (/animation-range\s*:[^;}]*\bcover\b/i.test(cssStr)) {
+    waarschuwingen.push(
+      'De scroll-animatie gebruikt een bereik met "cover" (animation-range). Onderaan de pagina komen elementen dan niet ' +
+      'helemaal in beeld en blijven half doorzichtig (de pagina lijkt vaag). Gebruik animation-range: entry 0% entry 60%.'
+    );
+  }
   return waarschuwingen;
 }
 

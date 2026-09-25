@@ -47,3 +47,16 @@ test('huisstijlcheck is een waarschuwing en blokkeert het opslaan niet', () => {
   assert.equal(res.errors.length, 0);
   assert.ok(res.warnings.some((w) => /vaste kleuren/.test(w)));
 });
+
+test('huisstijlcheck: waarschuwt voor een scroll-animatie met cover-bereik', () => {
+  const w = findHuisstijlAfwijkingen('@supports (animation-timeline:view()){.lpt .r{animation-range:entry 8% cover 32%}}');
+  assert.ok(w.some((t) => /cover/.test(t)));
+  assert.equal(findHuisstijlAfwijkingen('.lpt .r{animation-range:entry 0% entry 60%}').length, 0);
+});
+
+test('MAC Bouw huisstijl: lichtgrijs vlak in plaats van de rozige tint, oranje spaarzaam', () => {
+  const t = getTokens('macbouw');
+  assert.equal(t.bgAlt, '#f6f6f6');
+  assert.notEqual(t.border.toLowerCase(), '#eae2e2');
+  assert.match(t.sfeer, /oranje/i);
+});
