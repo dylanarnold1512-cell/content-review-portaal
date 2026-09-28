@@ -14,6 +14,20 @@ const profile = {
     usernameEnv: 'WP_USERNAME_ROOTS',
     appPasswordEnv: 'WP_APP_PASSWORD_ROOTS'
   },
+  // Bedrijfsgegevens (28-09-2026, toegevoegd naar aanleiding van Dylans vraag of de sjabloon-
+  // feedback de echte site kan uitlezen). url is het veld dat formatKlantSiteVoorPrompt (ai.js)
+  // gebruikt om bij ELKE sjabloonfeedback-ronde (refineTemplateProposal) de homepage van de klant op
+  // te halen en te meten (kleuren/fonts per rol, koppen- en knoppenstructuur) — dat mechanisme
+  // bestond al sinds 25-09-2026 maar stond voor Roots nog niet aan omdat dit veld ontbrak (Roots is
+  // vóór 25-09-2026 onboard, MAC Bouw kreeg het al wel meteen mee). Adres en telefoon komen uit
+  // feiten.js (bron: hostelroots.nl, voettekst, gecontroleerd 31-08-2026), geen nieuwe aanname.
+  bedrijf: {
+    naam: 'Hostel Roots',
+    url: 'https://www.hostelroots.nl/',
+    telefoon: '+31 6 52 30 85 18',
+    adres: { straat: 'Stationsstraat 41', postcode: '5038 EC', plaats: 'Tilburg', land: 'NL' },
+    werkgebied: ['Tilburg']
+  },
   // Verwijst naar de tokens in src/lp/tokens.js (clientTokens.roots).
   tokensId: 'roots',
   // Bronprincipe (besluit 8): geen aparte claimlijst, wel een korte lijst met
