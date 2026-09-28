@@ -116,6 +116,9 @@ ${renderCustomFontFaces(tokens)}.${rootClass} {
      kaarten, zodat de pagina aanvoelt als de klantsite. Leeg in tokens = terugval, dus geen
      gedragsverandering voor bestaande klanten. */
   --lp-heading-color: ${tokens.headingColor || tokens.primaryDark};
+  /* kickerColor (28-09-2026, zie tokens.js): losse kleur voor .lp-kicker, apart van heading-color.
+     Leeg = 'inherit', dus geen gedragsverandering voor klanten die dit niet instellen. */
+  --lp-kicker-color: ${tokens.kickerColor || 'inherit'};
   --lp-heading-transform: ${tokens.headingTransform || 'none'};
   --lp-heading-weight: ${tokens.headingWeight || '700'};
   --lp-button-transform: ${tokens.buttonTransform || 'none'};
@@ -181,6 +184,7 @@ ${tokens.themeOverrideCss || ''}
 .${rootClass} .lp-kicker {
   display: block;
   font-family: var(--lp-font-accent);
+  color: var(--lp-kicker-color);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-weight: 500;

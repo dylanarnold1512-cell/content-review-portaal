@@ -30,6 +30,11 @@ const defaultTokens = {
   // (headingColor valt terug op primaryDark, de rondingen op radius, de rest op gewoon).
   // Meten op de echte klantsite (browser, getComputedStyle op h1 tot h3 en knoppen), nooit gokken.
   headingColor: '',
+  // kickerColor (28-09-2026): kleur van de losse .lp-kicker-hulpklasse (zie style.js), apart van
+  // headingColor omdat een klant voor een kort accent-label boven een titel bewust een andere kleur
+  // kan gebruiken dan voor gewone koppen (zie Roots hieronder). Leeg = 'inherit' (geen wijziging
+  // t.o.v. bestaand gedrag, .lp-kicker had tot nu toe geen eigen kleurregel).
+  kickerColor: '',
   headingTransform: 'none',
   headingWeight: '700',
   buttonTransform: 'none',
@@ -73,9 +78,21 @@ const defaultTokens = {
 const clientTokens = {
   roots: {
     ...defaultTokens,
-    primary: '#f2d233',
+    // primary/secondary gecorrigeerd op 28-09-2026: de eerdere waarden (#f2d233, #84c6e8) weken af
+    // van de kleuren die al op 21-09-2026 op hostelroots.nl gemeten waren (zie
+    // lp-fabriek-status.md, "Sjabloon Festivals: opzet vormtaal") en die correctie was destijds nooit
+    // in tokens.js doorgevoerd. Opnieuw bevestigd op 28-09-2026 via getComputedStyle op de echte
+    // sectie-achtergronden van de hero (geel) en de kamers-sectie (blauw) op hostelroots.nl:
+    // rgb(249, 214, 52) en rgb(139, 215, 253).
+    primary: '#F9D634',
     primaryDark: '#111111',
-    secondary: '#84c6e8',
+    secondary: '#8BD7FD',
+    // kickerColor (28-09-2026): gemeten op hostelroots.nl/what-to-do-tilburg/ (getComputedStyle op
+    // de h3/h4.uabb-infobox-title-prefix elementen "Samen erop uit" en "Actieve activiteiten"):
+    // rgb(45, 188, 157). Op verzoek van Marion/Dylan om dezelfde kleur ook te gebruiken voor de
+    // korte tussenkopjes in het Festivals-sjabloon (bv. "Geen gedoe na het festival",
+    // "Praktische informatie").
+    kickerColor: '#2DBC9D',
     text: '#222222',
     bg: '#ffffff',
     bgAlt: '#f6f6f6',
