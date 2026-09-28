@@ -178,9 +178,19 @@ async function loadPerformancePanel() {
   }
 }
 
+function parseFlexibeleDatum(iso) {
+  if (!iso) return null;
+  // Bevat de waarde al een tijdcomponent (bv. "...T00:00:00.000+02:00"), parse
+  // 'm dan direct. Is het een kale datum ("YYYY-MM-DD"), voeg dan zelf
+  // T00:00:00 toe zodat de browser 'm als lokale tijd leest, niet als
+  // UTC-middernacht (dat zou in Nederland soms een dag kunnen terugschuiven).
+  const d = iso.includes('T') ? new Date(iso) : new Date(iso + 'T00:00:00');
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 function formatDatumKort(iso) {
-  if (!iso) return '';
-  const d = new Date(iso + 'T00:00:00');
+  const d = parseFlexibeleDatum(iso);
+  if (!d) return '';
   return d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' });
 }
 
@@ -654,9 +664,8 @@ document.getElementById('annotationPopoverSave')?.addEventListener('click', save
 // openen van het tabblad, net als Prestaties — geen aparte "vernieuwen"-knop
 // nodig, de data is klein en verandert alleen door de klant zelf.
 function formatDatumLang(iso) {
-  if (!iso) return '';
-  const d = new Date(iso + 'T00:00:00');
-  if (Number.isNaN(d.getTime())) return '';
+  const d = parseFlexibeleDatum(iso);
+  if (!d) return '';
   return d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
