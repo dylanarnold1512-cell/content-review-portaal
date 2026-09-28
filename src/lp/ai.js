@@ -14,6 +14,7 @@
 // GPT-5.5 accepteert alleen de standaardwaarde, zie besluiten.md.
 
 const { getTokens } = require('./tokens');
+const { schoonScreenshots, screenshotUitleg } = require('./screenshots');
 const { fetchReferenceSummary } = require('./referenceFetch');
 const { afgeleideVormtaal } = require('./huisstijlMeting');
 const { INLINE_LINK_RE, forEachTextLeaf, ICON_NAMES, findUnknownIcons } = require('./slotEngine');
@@ -259,7 +260,7 @@ Antwoord ALLEEN met een JSON-object met exact twee velden, geen tekst erbuiten:
 }`;
 }
 
-async function callOpenAi({ systemPrompt, userPrompt }) {
+async function callOpenAi({ systemPrompt, userPrompt, beelden }) {
   if (typeof systemPrompt !== 'string' || !systemPrompt.trim()) {
     throw new Error('callOpenAi: systemPrompt ontbreekt of is leeg (typfout in de aanroep?).');
   }
@@ -280,7 +281,13 @@ async function callOpenAi({ systemPrompt, userPrompt }) {
       model,
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
+        {
+          role: 'user',
+          // Met screenshots (zie screenshots.js) gaat de prompt als tekst plus afbeeldingen mee.
+          content: Array.isArray(beelden) && beelden.length
+            ? [{ type: 'text', text: userPrompt }, ...beelden.map((url) => ({ type: 'image_url', image_url: { url, detail: 'high' } }))]
+            : userPrompt
+        }
       ],
       response_format: { type: 'json_object' }
       // Geen temperature-parameter: GPT-5.5 (redeneermodel) ondersteunt alleen
@@ -419,9 +426,11 @@ async function generateTemplateProposal({
   verplichteOnderdelen,
   visueleRichting,
   conversiedoel,
-  overigeWensen
+  overigeWensen,
+  screenshots
 }) {
   const systemPrompt = buildTemplateSystemPrompt();
+  const beelden = schoonScreenshots(screenshots);
   const referentieTekst = await formatReferenceForPrompt(referentieUrl);
   const brandingTekst = formatBrandingForPrompt(klant) + '\n\n' + (await formatKlantSiteVoorPrompt(klant));
   const userPrompt = `Klant: ${klant}
@@ -434,9 +443,9 @@ ${overigeWensen ? `Overige wensen: ${overigeWensen}` : ''}
 
 ${brandingTekst}
 
-${referentieTekst}`;
+${referentieTekst}${beelden.length ? `\n\n${screenshotUitleg(beelden.length)}` : ''}`;
 
-  const result = await callOpenAi({ systemPrompt, userPrompt });
+  const result = await callOpenAi({ systemPrompt, userPrompt, beelden });
   return extractProposal(result);
 }
 

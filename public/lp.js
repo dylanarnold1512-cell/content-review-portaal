@@ -1332,6 +1332,57 @@ function collectVerplichteOnderdelen() {
   return Array.from(document.querySelectorAll('#lpTplOnderdelenChecklist input[type="checkbox"]:checked')).map((cb) => cb.value);
 }
 
+
+// Screenshot(s) van een referentiepagina: elke afbeelding wordt in de browser geknipt in stukken van
+// ongeveer 1400 pixels hoog (max 1200 breed) en als JPEG meegestuurd, zodat één lange screenshot van
+// de hele pagina genoeg is. Maximaal 10 stukken in totaal (zie src/lp/screenshots.js).
+async function screenshotStukken(files) {
+  const lijst = Array.from(files || []);
+  const MAX = 10;
+  const BREEDTE = 1200;
+  const STUK_HOOGTE = 1400;
+  const stukken = [];
+  for (const file of lijst) {
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((resolve, reject) => {
+        const i = new Image();
+        i.onload = () => resolve(i);
+        i.onerror = () => reject(new Error(`Kon "${file.name}" niet lezen als afbeelding.`));
+        i.src = url;
+      });
+      const schaal = Math.min(1, BREEDTE / img.naturalWidth);
+      const w = Math.round(img.naturalWidth * schaal);
+      const totaalH = Math.round(img.naturalHeight * schaal);
+      for (let y = 0; y < totaalH; y += STUK_HOOGTE) {
+        const h = Math.min(STUK_HOOGTE, totaalH - y);
+        if (h < 40) continue;
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, y / schaal, img.naturalWidth, h / schaal, 0, 0, w, h);
+        stukken.push(canvas.toDataURL('image/jpeg', 0.82));
+        if (stukken.length > MAX) {
+          throw new Error(`De screenshot is te lang (meer dan ${MAX} stukken). Gebruik een kortere pagina of knip hem in twee.`);
+        }
+      }
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+  return stukken;
+}
+
+document.getElementById('lpTplNewScreenshot')?.addEventListener('change', (e) => {
+  const el = document.getElementById('lpTplNewScreenshotStatus');
+  if (!el) return;
+  const n = (e.target.files || []).length;
+  el.textContent = n ? `${n} afbeelding${n === 1 ? '' : 'en'} gekozen, wordt bij het genereren meegestuurd.` : '';
+});
+
 document.getElementById('lpTplGenerateBtn').addEventListener('click', async () => {
   const btn = document.getElementById('lpTplGenerateBtn');
   const statusEl = document.getElementById('lpTplGenerateStatus');
@@ -1356,6 +1407,16 @@ document.getElementById('lpTplGenerateBtn').addEventListener('click', async () =
   };
   btn.disabled = true;
   statusEl.textContent = 'Bezig met genereren... (dit kan 10-30 seconden duren)';
+  try {
+    const stukken = await screenshotStukken(document.getElementById('lpTplNewScreenshot').files);
+    if (stukken.length) body.screenshots = stukken;
+  } catch (err) {
+    statusEl.textContent = '';
+    errorEl.textContent = err.message;
+    errorEl.classList.remove('hidden');
+    btn.disabled = false;
+    return;
+  }
   try {
     const { blueprint, voorbeeldSlotData } = await lpApi('/templates/generate', { method: 'POST', body: JSON.stringify(body) });
     document.getElementById('lpTplNewBlueprintJson').value = JSON.stringify(blueprint, null, 2);

@@ -266,12 +266,12 @@ router.delete('/templates/:templateId', requireLpInternal, async (req, res) => {
 // hierboven (die de structuur-eisen alsnog afdwingt). Zie src/lp/ai.js.
 router.post('/templates/generate', requireLpInternal, async (req, res) => {
   try {
-    const { klant, naam, referentieUrl, paginatype, verplichteOnderdelen, visueleRichting, conversiedoel, overigeWensen } = req.body || {};
+    const { klant, naam, referentieUrl, paginatype, verplichteOnderdelen, visueleRichting, conversiedoel, overigeWensen, screenshots } = req.body || {};
     if (!klant || !naam) {
       return res.status(400).json({ error: 'klant en naam zijn verplicht om een voorstel te genereren.' });
     }
     const proposal = await ai.generateTemplateProposal({
-      klant, naam, referentieUrl, paginatype, verplichteOnderdelen, visueleRichting, conversiedoel, overigeWensen
+      klant, naam, referentieUrl, paginatype, verplichteOnderdelen, visueleRichting, conversiedoel, overigeWensen, screenshots
     });
     res.json(proposal);
   } catch (err) {

@@ -465,6 +465,12 @@
         <input type="url" id="lpTplNewReferentieUrl" placeholder="https://... een bestaande pagina die qua structuur/stijl als basis moet dienen" autocomplete="off">
       </div>
       <div class="lp-field-row">
+        <label for="lpTplNewScreenshot">1b. Screenshot van de referentiepagina (optioneel, geeft het beste resultaat)</label>
+        <input type="file" id="lpTplNewScreenshot" accept="image/png,image/jpeg,image/webp" multiple>
+        <p class="admin-footnote" style="margin-top:4px;">Eén screenshot van de hele pagina is genoeg (in Chrome: ontwikkelaarstools, Cmd+Shift+P, "Capture full size screenshot"). Wordt automatisch in stukken geknipt, zodat de AI de opzet echt kan zien. Je kunt ook meerdere afbeeldingen kiezen.</p>
+        <p id="lpTplNewScreenshotStatus" class="admin-footnote" style="margin-top:4px;"></p>
+      </div>
+      <div class="lp-field-row">
         <label for="lpTplNewPaginatype">2. Paginatype / doel</label>
         <input type="text" id="lpTplNewPaginatype" placeholder="bv. festivalpagina, dienstpagina per bouwstap" autocomplete="off">
       </div>
