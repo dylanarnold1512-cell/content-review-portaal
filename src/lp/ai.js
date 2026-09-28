@@ -485,8 +485,8 @@ Feedback van de gebruiker: ${feedback}`;
 // verzonnen URL/placeholder neerzetten. Ze worden apart en pas na de gewone contentgeneratie
 // gevuld, hetzij automatisch (zie pickImagesForPage hieronder) hetzij handmatig door Dylan via de
 // mediakiezer.
-const IMAGE_SRC_RE = /ImageSrc$/;
-const IMAGE_ALT_RE = /ImageAlt$/;
+const IMAGE_SRC_RE = /imagesrc$/i;
+const IMAGE_ALT_RE = /imagealt$/i;
 // Zelfde soort vaste naamgevingsafspraak als ImageSrc/ImageAlt hierboven, nu voor een enkel,
 // vast gepositioneerd linkveld in een sjabloon (bv. "roomsLinkHref": een link naar de
 // kamers/verblijf-pagina) - dit is GEEN lijst zoals linksItems, maar verdient dezelfde
@@ -494,15 +494,44 @@ const IMAGE_ALT_RE = /ImageAlt$/;
 // "ctaHref" matcht hier bewust niet op (dat is de losse boekingslink, geen contentlink).
 const LINK_HREF_RE = /LinkHref$/;
 
-function getImageSlots(template) {
+function getImageSlots(template, slotData) {
   const slots = Array.isArray(template.slots) ? template.slots : [];
-  return slots.filter((s) => IMAGE_SRC_RE.test(s.key));
+  const result = [];
+  slots.forEach((s) => {
+    if (s.type === 'list' && Array.isArray(s.itemFields)) {
+      const velden = s.itemFields.filter((f) => IMAGE_SRC_RE.test(f));
+      if (!velden.length) return;
+      const items = Array.isArray(slotData && slotData[s.key]) ? slotData[s.key] : [];
+      items.forEach((item, idx) => {
+        velden.forEach((veld) => {
+          const context = item && typeof item === 'object' ? item.title || item.text || item.label || '' : '';
+          result.push({ key: `${s.key}.${idx}.${veld}`, label: `${s.label || s.key} #${idx + 1}`, context });
+        });
+      });
+      return;
+    }
+    if (IMAGE_SRC_RE.test(s.key)) {
+      result.push({ key: s.key, label: s.label || s.key, context: '' });
+    }
+  });
+  return result;
 }
 
 function buildContentSystemPrompt(template) {
   const slots = Array.isArray(template.slots) ? template.slots : [];
   const tekstSlots = slots.filter((s) => !IMAGE_SRC_RE.test(s.key) && !IMAGE_ALT_RE.test(s.key));
-  const afbeeldingSlots = slots.filter((s) => IMAGE_SRC_RE.test(s.key) || IMAGE_ALT_RE.test(s.key));
+  // Zowel losse afbeelding-slots als een afbeelding-itemveld binnen een lijst (bv.
+  // offerItems[].imageSrc) horen hier - anders verzint de AI hieronder een placeholder-pad voor
+  // dat lijstveld, precies de fout die bij Roots/Festivals op 28-09-2026 gevonden is.
+  const afbeeldingVeldNamen = [];
+  slots.forEach((s) => {
+    if (s.type === 'list' && Array.isArray(s.itemFields)) {
+      const velden = s.itemFields.filter((f) => IMAGE_SRC_RE.test(f) || IMAGE_ALT_RE.test(f));
+      if (velden.length) afbeeldingVeldNamen.push(`${s.key} (${velden.join(', ')})`);
+    } else if (IMAGE_SRC_RE.test(s.key) || IMAGE_ALT_RE.test(s.key)) {
+      afbeeldingVeldNamen.push(s.key);
+    }
+  });
   const slotBeschrijving = tekstSlots
     .map(
       (s) =>
@@ -511,11 +540,12 @@ function buildContentSystemPrompt(template) {
         }): ${s.label || ''}`
     )
     .join('\n');
-  const afbeeldingNotitie = afbeeldingSlots.length
-    ? `\n\nVul deze afbeelding-slots NIET in, ook niet met een placeholder-tekst of verzonnen URL — ze
-worden apart (automatisch of handmatig) gevuld vanuit de mediabibliotheek: ${afbeeldingSlots
-      .map((s) => s.key)
-      .join(', ')}. Laat ze gewoon weg uit slotData.`
+  const afbeeldingNotitie = afbeeldingVeldNamen.length
+    ? `\n\nVul geen enkel afbeelding-veld in, ook niet met een placeholder-tekst of verzonnen URL —
+dit geldt zowel voor een los afbeelding-slot als voor het afbeeldingveld binnen een lijst-item:
+${afbeeldingVeldNamen.join(', ')}. Bij een lijst-item laat je dat ene veld gewoon weg uit het
+item-object, de overige velden van dat item vul je wel gewoon in. Deze velden worden apart
+(automatisch of handmatig) gevuld vanuit de mediabibliotheek.`
     : '';
   const iconSlotsAanwezig = slots.some(
     (s) =>
@@ -598,11 +628,7 @@ ${JSON.stringify(linkKandidaten || [], null, 2)}`;
     throw new Error('OpenAI-antwoord miste het verwachte veld "slotData".');
   }
   const slotData = { ...result.slotData };
-  // Defensief: ook als het model zich niet aan de instructie hierboven houdt en toch een
-  // afbeelding-slot invult, wordt die hier verwijderd — nooit een verzonnen URL laten staan.
-  for (const key of Object.keys(slotData)) {
-    if (IMAGE_SRC_RE.test(key) || IMAGE_ALT_RE.test(key)) delete slotData[key];
-  }
+  verwijderVerzonnenAfbeeldingen(slotData, template);
   verwijderVerzonnenLinks(slotData, linkKandidaten);
   const iconProblemen = findUnknownIcons(slotData);
   const iconWarning = iconProblemen.length
@@ -611,6 +637,27 @@ ${JSON.stringify(linkKandidaten || [], null, 2)}`;
         .join(', ')}) — deze tonen nu een neutraal fallback-icoon. Pas de content aan met een geldige icoonnaam.`
     : null;
   return { slotData, iconWarning };
+}
+
+// Defensief: ook als het model zich niet aan de instructie in buildContentSystemPrompt houdt en
+// toch een afbeelding-veld invult (een los ImageSrc/ImageAlt-slot, of zo'n veld binnen een
+// lijst-item, bv. offerItems[].imageSrc), wordt dat hier verwijderd — nooit een verzonnen URL of
+// placeholder-pad laten staan. Los geëxporteerd zodat dit zonder een echte OpenAI-aanroep te
+// testen is, zelfde opzet als verwijderVerzonnenLinks hieronder.
+function verwijderVerzonnenAfbeeldingen(slotData, template) {
+  for (const key of Object.keys(slotData)) {
+    if (IMAGE_SRC_RE.test(key) || IMAGE_ALT_RE.test(key)) delete slotData[key];
+  }
+  const slots = Array.isArray(template && template.slots) ? template.slots : [];
+  slots.forEach((s) => {
+    if (s.type !== 'list' || !Array.isArray(slotData[s.key])) return;
+    slotData[s.key].forEach((item) => {
+      if (!item || typeof item !== 'object') return;
+      for (const veld of Object.keys(item)) {
+        if (IMAGE_SRC_RE.test(veld) || IMAGE_ALT_RE.test(veld)) delete item[veld];
+      }
+    });
+  });
 }
 
 // Verwijdert elke link (zowel [ankertekst](url) middenin tekst-slots als een linksItems-item) die
@@ -660,13 +707,28 @@ function verwijderVerzonnenLinks(slotData, linkKandidaten) {
 // afwijkende keuze hier nooit de gewone tekst-contentgeneratie hierboven kan blokkeren. Wijst een
 // slot af (null) als geen enkele kandidaat er ECHT bij past — Dylan vult die dan zelf handmatig in,
 // net als voorheen.
-async function pickImagesForPage({ template, invoer, feiten, watGaatDezePaginaOver, kandidaten }) {
-  const afbeeldingSlots = getImageSlots(template);
+async function pickImagesForPage({
+  template,
+  invoer,
+  feiten,
+  watGaatDezePaginaOver,
+  kandidaten,
+  slotData,
+  afbeeldingSlots: afbeeldingSlotsOverride
+}) {
+  // afbeeldingSlotsOverride: optioneel, voor een aanroeper die zelf al een beperkte lijst heeft
+  // (bv. vulVoorbeeldAan in routes/lp.js, die alleen nog LEGE afbeeldingvelden wil laten kiezen).
+  // Zonder override: alle afbeelding-slots van dit sjabloon, inclusief één entry per item van een
+  // lijst met een afbeeldingveld (bv. offerItems.0.imageSrc, offerItems.1.imageSrc, ...) - slotData
+  // is nodig om te weten hoeveel items zo'n lijst heeft.
+  const afbeeldingSlots = afbeeldingSlotsOverride || getImageSlots(template, slotData);
   if (!afbeeldingSlots.length || !Array.isArray(kandidaten) || !kandidaten.length) {
     return { picks: {} };
   }
 
-  const slotsBeschrijving = afbeeldingSlots.map((s) => `- "${s.key}": ${s.label || s.key}`).join('\n');
+  const slotsBeschrijving = afbeeldingSlots
+    .map((s) => `- "${s.key}": ${s.label || s.key}${s.context ? ` (gaat over: ${s.context})` : ''}`)
+    .join('\n');
 
   const systemPrompt = `Je kiest, voor een Nederlandse landingspagina, per genoemde afbeelding-slot de
 best passende foto uit een aangeleverde lijst kandidaat-foto's (uit de eigen mediabibliotheek van de
@@ -779,8 +841,10 @@ module.exports = {
   generateTemplateProposal,
   refineTemplateProposal,
   generatePageContent,
+  getImageSlots,
   pickImagesForPage,
-  // Puur voor de geautomatiseerde tests (test/ai.test.js) - geen aparte OpenAI-aanroep nodig om
-  // de anti-hallucinatie-filtering op linkvelden te controleren.
-  verwijderVerzonnenLinks
+  // Puur voor de geautomatiseerde tests - geen aparte OpenAI-aanroep nodig om de
+  // anti-hallucinatie-filtering op link- en afbeeldingvelden te controleren.
+  verwijderVerzonnenLinks,
+  verwijderVerzonnenAfbeeldingen
 };

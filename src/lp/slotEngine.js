@@ -201,20 +201,71 @@ function renderSlotTemplate(html, data) {
 // een ImageSrc-slot uit het sjabloon. Werkt op de RAUWE htmlTemplate-tekst, vóór de gewone
 // {{...}}-vervanging hierboven — zo weet de frontend (public/lp.js) op welke afbeelding in de
 // preview-iframe iemand klikt, om 'm meteen te kunnen wisselen via de mediabibliotheek.
+// Twee soorten worden herkend, zelfde onderscheid als tagLinkSlotsForPreview verderop:
+//  1. Een los tekst-slot waarvan de naam op "ImageSrc" eindigt (bv. "heroImageSrc").
+//  2. Een itemveld van een lijst-slot dat op "ImageSrc" eindigt, ongeacht hoofdletter (bv.
+//     "imageSrc" binnen "offerItems") - elk item krijgt de padnaam
+//     "lijstsleutel.__LP_EACH_INDEX__.veld", dezelfde __LP_EACH_INDEX__-truc als
+//     tagTextSlotsForPreview/tagLinkSlotsForPreview hieronder gebruiken. Zonder dit werd een foto
+//     binnen een lijst (zoals een kamertype-kaart) in het voorbeeldscherm nooit klikbaar om te
+//     wisselen - gevonden bij Roots/Festivals op 28-09-2026, zie lp-fabriek-besluiten.md.
 const IMG_TAG_RE = /<img\b[^>]*>/gi;
+const IMAGE_SRC_VELD_RE = /imagesrc$/i;
 
 function tagImageSlotsForPreview(html, slots) {
+  const alleSlots = Array.isArray(slots) ? slots : [];
   const imageSlotKeys = new Set(
-    (Array.isArray(slots) ? slots : []).filter((s) => /ImageSrc$/.test(s.key)).map((s) => s.key)
+    alleSlots.filter((s) => s.type !== 'list' && IMAGE_SRC_VELD_RE.test(s.key)).map((s) => s.key)
   );
-  if (!imageSlotKeys.size) return html;
-  return String(html || '').replace(IMG_TAG_RE, (tag) => {
-    const match = tag.match(/src=["']\{\{\s*([\w.]+)\s*\}\}["']/);
-    if (match && imageSlotKeys.has(match[1])) {
-      return tag.replace(/^<img\b/i, `<img data-lp-slot="${match[1]}"`);
+  const listImageVelden = new Map(); // listKey -> Set(itemveldnamen die op ImageSrc eindigen)
+  alleSlots.forEach((s) => {
+    if (s.type === 'list' && Array.isArray(s.itemFields)) {
+      const velden = s.itemFields.filter((f) => IMAGE_SRC_VELD_RE.test(f));
+      if (velden.length) listImageVelden.set(s.key, new Set(velden));
     }
-    return tag;
   });
+  if (!imageSlotKeys.size && !listImageVelden.size) return html;
+
+  let result = String(html || '');
+
+  if (listImageVelden.size) {
+    // Zelfde patroon als in tagLinkSlotsForPreview: eerst de {{#each ...}}-blokken los tillen,
+    // ALLEEN daarbinnen een itemveld taggen dat op ImageSrc eindigt, en dan terugzetten.
+    const EACH_TOKEN_RE = /{{#each\s+([\w.]+)\s*}}([\s\S]*?){{\/each}}/g;
+    const eachBlocks = [];
+    result = result.replace(EACH_TOKEN_RE, (match, listKey, inner) => {
+      const toegestaneVelden = listImageVelden.get(listKey);
+      const taggedInner = toegestaneVelden
+        ? String(inner).replace(IMG_TAG_RE, (tag) => {
+            if (/data-lp-slot=/.test(tag)) return tag;
+            const m = tag.match(/src=["']\{\{\s*([\w.]+)\s*\}\}["']/);
+            if (m && toegestaneVelden.has(m[1])) {
+              return tag.replace(/^<img\b/i, `<img data-lp-slot="${listKey}.__LP_EACH_INDEX__.${m[1]}"`);
+            }
+            return tag;
+          })
+        : inner;
+      const token = `@@LP_IMG_EACH_BLOCK_${eachBlocks.length}@@`;
+      eachBlocks.push(`{{#each ${listKey}}}${taggedInner}{{/each}}`);
+      return token;
+    });
+    eachBlocks.forEach((block, i) => {
+      result = result.replace(`@@LP_IMG_EACH_BLOCK_${i}@@`, block);
+    });
+  }
+
+  if (imageSlotKeys.size) {
+    result = result.replace(IMG_TAG_RE, (tag) => {
+      if (/data-lp-slot=/.test(tag)) return tag;
+      const match = tag.match(/src=["']\{\{\s*([\w.]+)\s*\}\}["']/);
+      if (match && imageSlotKeys.has(match[1])) {
+        return tag.replace(/^<img\b/i, `<img data-lp-slot="${match[1]}"`);
+      }
+      return tag;
+    });
+  }
+
+  return result;
 }
 
 // Zelfde idee als tagImageSlotsForPreview hierboven, maar dan voor tekst-slots: markeert,

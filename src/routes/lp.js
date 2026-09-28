@@ -340,6 +340,39 @@ function feitenInstructie(klant) {
   return `Gebruik in de voorbeeldteksten UITSLUITEND deze echte gegevens van de klant waar het om bedrijfsnaam, adres, telefoon, e-mail, werkgebied of diensten gaat, en verzin geen plaatsen, nummers of adressen ("Placeholder" mag nooit in de tekst staan):\n${regels}\nReviews mogen alleen als duidelijk voorbeeld (bv. naam "Voorbeeldklant"), nooit als echte klant.`;
 }
 
+// Server-kant tegenhangers van getSlotValue/setSlotValue/labelVoorTextEditPad in public/lp.js: een
+// slotpad is ofwel een gewone top-level sleutel ("heroImageSrc"), ofwel "lijstKey.index.veld" voor
+// een veld binnen een lijst-item (bv. "offerItems.0.imageSrc") - zelfde padconventie als elders in
+// deze codebase (zie slotEngine.js tagImageSlotsForPreview/tagTextSlotsForPreview).
+function getNestedSlotValue(data, path) {
+  if (!path.includes('.')) return data[path];
+  const [listKey, idxStr, veld] = path.split('.');
+  const item = Array.isArray(data[listKey]) ? data[listKey][Number(idxStr)] : undefined;
+  return item ? item[veld] : undefined;
+}
+
+function setNestedSlotValue(data, path, value) {
+  if (!path.includes('.')) {
+    data[path] = value;
+    return;
+  }
+  const [listKey, idxStr, veld] = path.split('.');
+  const idx = Number(idxStr);
+  if (!Array.isArray(data[listKey])) data[listKey] = [];
+  if (!data[listKey][idx]) data[listKey][idx] = {};
+  data[listKey][idx][veld] = value;
+}
+
+// Levert het bijbehorende alt-tekst-pad voor een afbeelding-pad, of null als het geen herkende
+// afbeelding-sleutel is. Twee conventies naast elkaar: top-level slots gebruiken "ImageSrc"/
+// "ImageAlt" (hoofdletter I), itemFields binnen een lijst gebruiken "imageSrc"/"imageAlt"
+// (kleine letter i) - zie ai.js IMAGE_SRC_RE voor dezelfde twee varianten.
+function deriveImageAltKey(path) {
+  if (/ImageSrc$/.test(path)) return path.replace(/ImageSrc$/, 'ImageAlt');
+  if (/imageSrc$/.test(path)) return path.replace(/imageSrc$/, 'imageAlt');
+  return null;
+}
+
 // Vult een sjabloonvoorbeeld aan zodat het zonder pagina toonbaar/deelbaar is. Raakt Notion niet aan
 // en verzint niets: tekst is duidelijk voorbeeldtekst, foto's komen uit de echte mediabibliotheek
 // van de klant (dezelfde keuzelogica als bij een pagina, ai.pickImagesForPage). Mislukt een stap,
@@ -375,7 +408,11 @@ async function vulVoorbeeldAan({ klant, blueprint, slotData, hervulTekst }) {
     }
   }
 
-  const legeFotos = slots.filter((s) => /ImageSrc$/.test(s.key) && isLeeg(data[s.key]));
+  // ai.getImageSlots kent ook afbeeldingvelden binnen een lijst-item (bv. offerItems.0.imageSrc) -
+  // zonder dat zouden lijst-foto's in het sjabloonvoorbeeld altijd leeg/placeholder blijven, precies
+  // de fout die bij Roots/Festivals op 28-09-2026 gevonden is (zie systeem-logboek.md).
+  const alleAfbeeldingSlots = ai.getImageSlots(blueprint, data);
+  const legeFotos = alleAfbeeldingSlots.filter((s) => isLeeg(getNestedSlotValue(data, s.key)));
   if (legeFotos.length) {
     try {
       const client = getLpClient(klant);
@@ -384,7 +421,8 @@ async function vulVoorbeeldAan({ klant, blueprint, slotData, hervulTekst }) {
         waarschuwingen.push('De mediabibliotheek van deze klant is leeg, dus er zijn geen voorbeeldfoto\'s.');
       } else {
         const { picks } = await ai.pickImagesForPage({
-          template: { ...blueprint, slots: legeFotos },
+          template: blueprint,
+          afbeeldingSlots: legeFotos,
           invoer: {},
           feiten: client.feiten || [],
           watGaatDezePaginaOver: `Voorbeeld van het sjabloon "${blueprint.naam || blueprint.blueprintId || ''}" voor ${client.profile.bedrijf?.naam || klant}`,
@@ -392,9 +430,9 @@ async function vulVoorbeeldAan({ klant, blueprint, slotData, hervulTekst }) {
         });
         for (const [slotKey, pick] of Object.entries(picks || {})) {
           if (pick && pick.url) {
-            data[slotKey] = pick.url;
-            const altKey = slotKey.replace(/ImageSrc$/, 'ImageAlt');
-            if (pick.alt && altKey !== slotKey) data[altKey] = pick.alt;
+            setNestedSlotValue(data, slotKey, pick.url);
+            const altKey = deriveImageAltKey(slotKey);
+            if (pick.alt && altKey) setNestedSlotValue(data, altKey, pick.alt);
             aangevuld = true;
           }
         }
@@ -562,13 +600,14 @@ router.post('/pages/:pageId/generate-content', requireLpInternal, async (req, re
         invoer,
         feiten,
         watGaatDezePaginaOver,
-        kandidaten
+        kandidaten,
+        slotData: result.slotData
       });
       for (const [slotKey, pick] of Object.entries(picks || {})) {
         if (pick && pick.url) {
-          result.slotData[slotKey] = pick.url;
-          const altKey = slotKey.replace(/ImageSrc$/, 'ImageAlt');
-          if (pick.alt && altKey !== slotKey) result.slotData[altKey] = pick.alt;
+          setNestedSlotValue(result.slotData, slotKey, pick.url);
+          const altKey = deriveImageAltKey(slotKey);
+          if (pick.alt && altKey) setNestedSlotValue(result.slotData, altKey, pick.alt);
         }
       }
     } catch (imgErr) {

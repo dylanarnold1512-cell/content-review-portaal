@@ -699,11 +699,11 @@ document.getElementById('lpPreviewFullscreenBtn').addEventListener('click', () =
 });
 
 function openImageSwap(slotKey) {
-  const blueprint = lpState.currentPageBlueprint;
-  const slotDef = ((blueprint && blueprint.slots) || []).find((s) => s.key === slotKey);
   lpState.imageSwapSlotKey = slotKey;
   lpState.imageSwapSearch = { search: '', page: 1, totalPages: 1 };
-  document.getElementById('lpImageSwapTitle').textContent = `Afbeelding wijzigen: ${slotDef ? (slotDef.label || slotKey) : slotKey}`;
+  // labelVoorTextEditPad kent ook een pad binnen een lijst-item (bv. "offerItems.0.imageSrc"),
+  // waar de oude top-level-only lookup hierboven altijd op de kale sleutel terugviel.
+  document.getElementById('lpImageSwapTitle').textContent = `Afbeelding wijzigen: ${labelVoorTextEditPad(slotKey)}`;
   document.getElementById('lpImageSwapSearch').value = '';
   document.getElementById('lpImageSwapUploadInput').value = '';
   document.getElementById('lpImageSwapError').classList.add('hidden');
@@ -826,20 +826,18 @@ async function applyImageSwap(item) {
     errorEl.classList.remove('hidden');
     return;
   }
-  slotData[slotKey] = item.url;
-  const altKey = slotKey.replace(/ImageSrc$/, 'ImageAlt');
-  if (altKey !== slotKey) {
+  setSlotValue(slotData, slotKey, item.url);
+  const altKey = deriveImageAltPath(slotKey);
+  if (altKey) {
     // Altijd een alt-tekst zetten bij het handmatig wisselen, ook als dit veld nog niet in de
     // content JSON stond (bv. omdat de AI 'm eerder afwees) - anders blijft de verplichte alt-slot
     // stil leeg staan, zelfde bug als eerder opgelost voor de automatische AI-keuze (zie
     // besluiten.md). Volgorde: eigen alt-tekst van de mediabibliotheek -> mediatitel -> het label
-    // van de alt-slot zelf -> het label van de afbeelding-slot -> de sleutelnaam.
-    const blueprint = lpState.currentPageBlueprint;
-    const slots = (blueprint && blueprint.slots) || [];
-    const altSlotDef = slots.find((s) => s.key === altKey);
-    const srcSlotDef = slots.find((s) => s.key === slotKey);
-    const fallbackLabel = (altSlotDef && altSlotDef.label) || (srcSlotDef && srcSlotDef.label) || altKey;
-    slotData[altKey] = (item.alt && item.alt.trim()) || (item.titel && item.titel.trim()) || fallbackLabel;
+    // van de alt-slot zelf -> het label van de afbeelding-slot -> de sleutelnaam. Werkt ook voor een
+    // afbeeldingveld binnen een lijst-item (bv. "offerItems.0.imageSrc"/"...imageAlt").
+    const altLabel = labelVoorTextEditPad(altKey);
+    const fallbackLabel = altLabel !== altKey ? altLabel : labelVoorTextEditPad(slotKey);
+    setSlotValue(slotData, altKey, (item.alt && item.alt.trim()) || (item.titel && item.titel.trim()) || fallbackLabel);
   }
   textarea.value = JSON.stringify(slotData, null, 2);
   try {
@@ -878,6 +876,15 @@ function setSlotValue(slotData, path, value) {
     return;
   }
   slotData[path] = value;
+}
+
+// Zie deriveImageAltKey in src/routes/lp.js voor de servertegenhanger van dezelfde twee
+// naamgevingsconventies (top-level "ImageSrc"/"ImageAlt" met hoofdletter I, lijst-itemveld
+// "imageSrc"/"imageAlt" met kleine letter i).
+function deriveImageAltPath(path) {
+  if (/ImageSrc$/.test(path)) return path.replace(/ImageSrc$/, 'ImageAlt');
+  if (/imageSrc$/.test(path)) return path.replace(/imageSrc$/, 'imageAlt');
+  return null;
 }
 
 // Menselijk leesbaar label bij het pad, puur voor de titel/het label boven het tekstvakje.

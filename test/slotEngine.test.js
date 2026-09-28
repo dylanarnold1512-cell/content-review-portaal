@@ -68,6 +68,27 @@ test('tagImageSlotsForPreview: alleen <img> met een letterlijke {{sleutel}}-src 
   assert.ok(!out.includes('data-lp-slot="https'), 'een vaste externe afbeelding mag nooit getagd worden');
 });
 
+test('tagImageSlotsForPreview: taggt ook een afbeeldingveld binnen een lijst-item (met __LP_EACH_INDEX__ placeholder)', () => {
+  // Regressietest voor de bug gevonden bij Roots/Festivals op 28-09-2026 (zie systeem-logboek.md):
+  // offerItems/galleryItems zijn list-slots met een lowercase "imageSrc"-itemveld, en dat werd
+  // vóór deze fix helemaal niet herkend, waardoor die foto's nooit klikbaar waren in de preview.
+  const slots = [
+    { key: 'offerItems', type: 'list', itemFields: ['title', 'imageSrc', 'imageAlt'] }
+  ];
+  const html = '{{#each offerItems}}<div><h3>{{title}}</h3><img src="{{imageSrc}}" alt="{{imageAlt}}"></div>{{/each}}';
+  const out = tagImageSlotsForPreview(html, slots);
+  assert.match(out, /<img data-lp-slot="offerItems\.__LP_EACH_INDEX__\.imageSrc" src="\{\{imageSrc\}\}" alt="\{\{imageAlt\}\}">/);
+  // een vast top-level ImageSrc-slot en een lijst-itemveld moeten allebei tegelijk kunnen werken.
+});
+
+test('tagImageSlotsForPreview: een vaste externe <img> binnen een lijst-item wordt nooit getagd', () => {
+  const slots = [{ key: 'galleryItems', type: 'list', itemFields: ['imageSrc'] }];
+  const html = '{{#each galleryItems}}<img src="{{imageSrc}}"><img src="https://vast.test/logo.png">{{/each}}';
+  const out = tagImageSlotsForPreview(html, slots);
+  assert.match(out, /<img data-lp-slot="galleryItems\.__LP_EACH_INDEX__\.imageSrc" src="\{\{imageSrc\}\}">/);
+  assert.ok(!out.includes('data-lp-slot="https'), 'een vaste externe afbeelding binnen een lijst-item mag nooit getagd worden');
+});
+
 test('tagTextSlotsForPreview: taggt een los tekst-slot en een list-itemveld (met __LP_EACH_INDEX__ placeholder)', () => {
   const slots = [
     { key: 'heroTitle', type: 'text' },
