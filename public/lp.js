@@ -478,7 +478,13 @@ async function renderFeitenList(page) {
   const { feiten } = await lpApi(`/clients/${page.klant}/feiten`);
   lpState.feitenById = new Map(feiten.map((f) => [f.id, f]));
   const feitensheet = page.feitensheet || { gebruikt: [], extra: [] };
-  const gebruiktSet = new Set(feitensheet.gebruikt || []);
+  // Een nog niet opgeslagen feitensheet: feiten met standaard: true staan vanzelf aan (zelfde regel als
+  // gebruikteFeitIds in src/lp/feitenDefaults.js, die de server bij content genereren gebruikt).
+  const gebruiktSet = new Set(
+    page.feitensheet && Array.isArray(page.feitensheet.gebruikt)
+      ? page.feitensheet.gebruikt
+      : feiten.filter((f) => f.standaard).map((f) => f.id)
+  );
 
   container.innerHTML = feiten.map((f) => `
     <label class="lp-feit-row">

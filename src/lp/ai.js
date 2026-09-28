@@ -618,6 +618,8 @@ ${
 Aangevinkte feiten uit de feitensheet (bronprincipe — gebruik uitsluitend deze, verzin niets extra's):
 ${JSON.stringify(feiten || [], null, 2)}
 
+Feiten met "standaard": true zijn vaste praktische gegevens van de klant (bv. in- en uitchecktijden, kamertypes, ligging). Neem ze op in de praktische informatie en de kamertypes van de pagina, voor zover het sjabloon daar een plek voor heeft, en gebruik de formulering (bv. namen van kamertypes en tijden) precies zoals ze er staan.
+
 Beschikbare linkbestemmingen (zusterpagina: true = andere landingspagina van deze klant binnen LP
 Fabriek, zusterpagina: false = een echte, bestaande pagina op de eigen live website — behandel beide
 even serieus, gebruik uitsluitend de opgegeven url, kies alleen wat inhoudelijk relevant is):
@@ -714,7 +716,8 @@ async function pickImagesForPage({
   watGaatDezePaginaOver,
   kandidaten,
   slotData,
-  afbeeldingSlots: afbeeldingSlotsOverride
+  afbeeldingSlots: afbeeldingSlotsOverride,
+  fotoRichtlijn
 }) {
   // afbeeldingSlotsOverride: optioneel, voor een aanroeper die zelf al een beperkte lijst heeft
   // (bv. vulVoorbeeldAan in routes/lp.js, die alleen nog LEGE afbeeldingvelden wil laten kiezen).
@@ -755,7 +758,7 @@ ${JSON.stringify(invoer || {}, null, 2)}
 
 Relevante feiten:
 ${JSON.stringify(feiten || [], null, 2)}
-
+${fotoRichtlijn ? `\nRichtlijn van de klant voor de fotokeuze (geef hier de voorkeur aan als er een foto is die erbij past; past er niets, volg dan gewoon de regels hierboven): ${fotoRichtlijn}\n` : ''}
 Afbeelding-slots om te vullen:
 ${slotsBeschrijving}
 

@@ -13,6 +13,7 @@ const ai = require('../lp/ai');
 const { renderPageHtml } = require('../lp/render');
 const { buildRenderPage, contentIsEmpty } = require('../lp/pageRender');
 const { berekenOverrides, zetVerborgen } = require('../lp/overrides');
+const { gebruikteFeitIds } = require('../lp/feitenDefaults');
 const share = require('../lp/share');
 const { validatePage, validateTemplateStructure } = require('../lp/validator');
 const { pushDraft, deletePage: deleteWpPage, searchMedia, uploadMedia, listSitePages } = require('../lp/wordpress');
@@ -333,12 +334,12 @@ function feitenInstructie(klant) {
   let regels = '';
   try {
     const client = getLpClient(klant);
-    regels = (client.feiten || []).map((f) => `- ${f.label}: ${f.waarde}`).join('\n');
+    regels = (client.feiten || []).map((f) => `- ${f.label}: ${f.waarde}${f.standaard ? ' [vast]' : ''}`).join('\n');
   } catch (err) {
     return '';
   }
   if (!regels) return '';
-  return `Gebruik in de voorbeeldteksten UITSLUITEND deze echte gegevens van de klant waar het om bedrijfsnaam, adres, telefoon, e-mail, werkgebied of diensten gaat, en verzin geen plaatsen, nummers of adressen ("Placeholder" mag nooit in de tekst staan):\n${regels}\nReviews mogen alleen als duidelijk voorbeeld (bv. naam "Voorbeeldklant"), nooit als echte klant.`;
+  return `Gebruik in de voorbeeldteksten UITSLUITEND deze echte gegevens van de klant waar het om bedrijfsnaam, adres, telefoon, e-mail, werkgebied, diensten, kamertypes, in- en uitchecktijden of ligging gaat, en verzin geen plaatsen, nummers, tijden of adressen ("Placeholder" mag nooit in de tekst staan):\n${regels}\nGegevens met [vast] zijn vaste praktische informatie: neem ze altijd op in het praktische blok en de kamertypes van het voorbeeld, voor zover het sjabloon daar een plek voor heeft, en noem kamertypes precies zoals ze hier staan. Reviews mogen alleen als duidelijk voorbeeld (bv. naam "Voorbeeldklant"), nooit als echte klant.`;
 }
 
 // Server-kant tegenhangers van getSlotValue/setSlotValue/labelVoorTextEditPad in public/lp.js: een
@@ -427,6 +428,7 @@ async function vulVoorbeeldAan({ klant, blueprint, slotData, hervulTekst }) {
           invoer: {},
           feiten: client.feiten || [],
           watGaatDezePaginaOver: `Voorbeeld van het sjabloon "${blueprint.naam || blueprint.blueprintId || ''}" voor ${client.profile.bedrijf?.naam || klant}`,
+          fotoRichtlijn: client.profile.fotoRichtlijn,
           kandidaten
         });
         for (const [slotKey, pick] of Object.entries(picks || {})) {
@@ -551,7 +553,8 @@ router.post('/pages/:pageId/generate-content', requireLpInternal, async (req, re
     const client = getLpClient(page.klant);
     const feitensheet = page.feitensheet || { gebruikt: [], extra: [] };
     const feitenById = new Map((client.feiten || []).map((f) => [f.id, f]));
-    const gebruikteFeiten = (feitensheet.gebruikt || []).map((id) => feitenById.get(id)).filter(Boolean);
+    // Feiten met standaard: true staan bij een nog niet opgeslagen feitensheet vanzelf aan (feitenDefaults.js).
+    const gebruikteFeiten = gebruikteFeitIds(page.feitensheet, client.feiten).map((id) => feitenById.get(id)).filter(Boolean);
     const feiten = [...gebruikteFeiten, ...(feitensheet.extra || [])];
 
     // Linkkandidaten voor de linksItems-slot en voor inline links middenin de tekst: een mix van
@@ -601,6 +604,7 @@ router.post('/pages/:pageId/generate-content', requireLpInternal, async (req, re
         invoer,
         feiten,
         watGaatDezePaginaOver,
+        fotoRichtlijn: client.profile.fotoRichtlijn,
         kandidaten,
         slotData: result.slotData
       });

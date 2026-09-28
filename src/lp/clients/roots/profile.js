@@ -37,6 +37,9 @@ const profile = {
     'Kortingen of acties noemen die niet in de feiten staan.',
     'Concurrenten bij naam noemen.'
   ],
+  // Richtlijn voor de automatische fotokeuze (ai.pickImagesForPage), voor sfeerfoto's. Bron: Marion
+  // (Hostel Roots) via Dylan, 28-09-2026. De foto's zelf moeten in de WordPress mediabibliotheek staan.
+  fotoRichtlijn: "Bij sfeerfoto's en galerijen: liefst beelden van gezelligheid in de bar, mensen die samen iets drinken of lachen.",
   // Korte notitie over toon, voor wie een pagina reviewt of prompts schrijft.
   toonNotitie:
     'Informeel-vriendelijk, richting festivalgangers en jonge reizigers. ' +

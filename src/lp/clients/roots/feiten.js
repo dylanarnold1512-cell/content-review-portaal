@@ -11,7 +11,8 @@ const feiten = [
     id: 'adres-receptie',
     label: 'Adres receptie',
     waarde: 'Stationsstraat 41, 5038 EC Tilburg',
-    bron: 'hostelroots.nl, voettekst, gecontroleerd 31-08-2026'
+    bron: 'hostelroots.nl, voettekst, gecontroleerd 31-08-2026',
+    standaard: true
   },
   {
     id: 'adres-tiny-house',
@@ -29,13 +30,40 @@ const feiten = [
     id: 'check-in',
     label: 'Check-in tijden',
     waarde: 'Zondag t/m woensdag 15:30-20:30, donderdag t/m zaterdag 15:30-22:00',
-    bron: 'hostelroots.nl, voettekst, gecontroleerd 31-08-2026'
+    bron: 'hostelroots.nl, voettekst, gecontroleerd 31-08-2026',
+    standaard: true
   },
   {
+    // Vervangt "Dagelijks vanaf 07:00" uit de voettekst van hostelroots.nl (31-08-2026): Marion geeft
+    // aan dat dit de uitchecktijd is. Standaard aan zodat het bij elke nieuwe pagina in de praktische
+    // informatie komt.
     id: 'check-out',
     label: 'Check-out tijden',
-    waarde: 'Dagelijks vanaf 07:00',
-    bron: 'hostelroots.nl, voettekst, gecontroleerd 31-08-2026'
+    waarde: 'Uitchecken tot 11 uur, late check-out mogelijk tot 13 uur',
+    bron: 'Marion (Hostel Roots), feedback op het Festivals sjabloon via Dylan, 28-09-2026',
+    standaard: true
+  },
+  {
+    id: 'ligging',
+    label: 'Ligging',
+    waarde: 'Op steenworpafstand van het Centraal Station',
+    bron: 'Marion (Hostel Roots), feedback op het Festivals sjabloon via Dylan, 28-09-2026',
+    standaard: true
+  },
+  {
+    id: 'vroeg-inchecken-festival',
+    label: 'Vroeger inchecken bij festivals',
+    waarde: 'Wij denken altijd mee om vroeger in te checken dan de gebruikelijke check-in tijden, in verband met het festival',
+    bron: 'Marion (Hostel Roots), feedback op het Festivals sjabloon via Dylan, 28-09-2026',
+    standaard: true
+  },
+  {
+    // TH = Tiny House (bevestigd door Dylan, 28-09-2026). Formulering zoals Marion die aanleverde.
+    id: 'kamertypes',
+    label: 'Kamertypes',
+    waarde: 'TH (Tiny House), hotelkamers met eigen of gedeelde badkamer, luxe of standard dorms',
+    bron: 'Marion (Hostel Roots), feedback op het Festivals sjabloon via Dylan, 28-09-2026',
+    standaard: true
   },
   {
     id: 'telefoon',
