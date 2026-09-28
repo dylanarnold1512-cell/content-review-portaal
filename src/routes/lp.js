@@ -12,6 +12,7 @@ const { buildFeitenVoorstel } = require('../lp/siteAnalyse');
 const ai = require('../lp/ai');
 const { renderPageHtml } = require('../lp/render');
 const { buildRenderPage, contentIsEmpty } = require('../lp/pageRender');
+const { berekenOverrides, zetVerborgen } = require('../lp/overrides');
 const share = require('../lp/share');
 const { validatePage, validateTemplateStructure } = require('../lp/validator');
 const { pushDraft, deletePage: deleteWpPage, searchMedia, uploadMedia, listSitePages } = require('../lp/wordpress');
@@ -450,7 +451,7 @@ function wrapPreviewDoc(html) {
   // zie tagTextSlotsForPreview) — volledig onschadelijk als een pagina geen enkele getagde
   // afbeelding of tekst heeft. Twee losse kleuren zodat meteen duidelijk is wat een foto is en
   // wat tekst is.
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>[data-lp-slot]{cursor:pointer;transition:outline .15s ease;}[data-lp-slot]:hover{outline:3px solid #2f6fed;outline-offset:-3px;}[data-lp-text-slot]{cursor:pointer;transition:outline .15s ease;}[data-lp-text-slot]:hover{outline:2px dashed #1a8754;outline-offset:2px;}</style></head><body>${html}</body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>[data-lp-slot]{cursor:pointer;transition:outline .15s ease;}[data-lp-slot]:hover{outline:3px solid #2f6fed;outline-offset:-3px;}[data-lp-text-slot]{cursor:pointer;transition:outline .15s ease;}[data-lp-text-slot]:hover{outline:2px dashed #1a8754;outline-offset:2px;}[data-lp-verborgen]{opacity:.35;filter:grayscale(1);outline:2px dashed #E1502E;outline-offset:-2px;}</style></head><body>${html}</body></html>`;
 }
 
 // Pagina's (in Notion, database "Landingspagina's").
@@ -633,7 +634,26 @@ router.get('/pages/:pageId/preview', requireLpInternal, async (req, res) => {
       return res.json({ html: '<p style="font-family:sans-serif;padding:2rem;color:#666;">Nog geen content JSON ingevuld.</p>' });
     }
     const html = renderPageHtml(buildRenderPage({ blueprint, content, clientId: page.klant, slug: page.slug, invoer: page.invoer }), { forPreview: true });
-    res.json({ html: wrapPreviewDoc(html) });
+    const verborgen = berekenOverrides({ htmlTemplate: blueprint.htmlTemplate, slotData: content.slotData, overrides: content.overrides });
+    res.json({ html: wrapPreviewDoc(html), overrides: { aantalVerborgen: verborgen.aantalVerborgen, waarschuwingen: verborgen.waarschuwingen } });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Onderdeel van deze pagina verbergen of weer tonen (kaart uit een lijst, of een hele sectie). Raakt
+// alleen de pagina zelf aan (overrides in de content JSON), nooit het sjabloon. Zie src/lp/overrides.js.
+router.post('/pages/:pageId/verberg', requireLpInternal, async (req, res) => {
+  try {
+    const { type, lijst, index, verborgen } = req.body || {};
+    const page = await lpNotion.getPage(req.params.pageId);
+    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    if (contentIsEmpty(blueprint, page.content)) {
+      return res.status(400).json({ error: 'Er is nog geen content om onderdelen van te verbergen.' });
+    }
+    const content = zetVerborgen({ content: page.content, htmlTemplate: blueprint.htmlTemplate, type, lijst, index, verborgen });
+    const saved = await lpNotion.updateSection(req.params.pageId, 'content', content);
+    res.json({ content: saved.content });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

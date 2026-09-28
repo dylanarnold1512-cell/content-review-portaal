@@ -618,12 +618,15 @@ async function saveContentJson({ silent } = {}) {
   const blueprint = lpState.currentPageBlueprint;
   const isSlot = Boolean(blueprint && blueprint.templateFormat === 'slots');
   const parsed = JSON.parse(document.getElementById('lpContentJson').value || (isSlot ? '{}' : '[]'));
+  // Verborgen onderdelen (overrides) staan bij de pagina maar niet in dit tekstvak: meenemen, anders
+  // zouden ze bij elke opslag verdwijnen.
+  const bewaardeOverrides = page && page.content && page.content.overrides;
   const content = {
     meta: {
       metaTitle: document.getElementById('lpMetaTitle').value,
       metaDescription: document.getElementById('lpMetaDescription').value
     },
-    ...(isSlot ? { slotData: parsed } : { blocks: parsed })
+    ...(isSlot ? { slotData: parsed, ...(bewaardeOverrides ? { overrides: bewaardeOverrides } : {}) } : { blocks: parsed })
   };
   await lpApi(`/pages/${page.id}/content`, { method: 'PUT', body: JSON.stringify({ content }) });
   lpState.currentPage.content = content;
@@ -647,8 +650,120 @@ document.getElementById('lpSaveContentBtn').addEventListener('click', async () =
 async function refreshPreview() {
   const page = lpState.currentPage;
   if (!page) return;
-  const { html } = await lpApi(`/pages/${page.id}/preview`);
+  const { html, overrides } = await lpApi(`/pages/${page.id}/preview`);
   document.getElementById('lpPreviewFrame').srcdoc = html;
+  toonPreviewStatus(overrides);
+}
+
+// Korte regel boven het voorbeeld: hoeveel onderdelen verborgen zijn, en een waarschuwing als een
+// eerder verborgen onderdeel niet meer op dezelfde plek staat (zie src/lp/overrides.js).
+function toonPreviewStatus(overrides) {
+  const el = document.getElementById('lpPreviewStatus');
+  if (!el) return;
+  const aantal = (overrides && overrides.aantalVerborgen) || 0;
+  const waarschuwingen = (overrides && overrides.waarschuwingen) || [];
+  const regels = [];
+  if (aantal) regels.push(`${aantal} onderdeel${aantal === 1 ? '' : 'en'} verborgen op deze pagina (vervaagd getoond in het voorbeeld, niet op de echte pagina).`);
+  waarschuwingen.forEach((w) => regels.push(w));
+  el.textContent = regels.join(' ');
+  el.classList.toggle('hidden', !regels.length);
+}
+
+// Verbergen of weer tonen van een kaart of sectie, opgeslagen bij de pagina zelf (nooit in het sjabloon).
+async function toggleVerbergen({ type, lijst, index, verborgen }) {
+  const page = lpState.currentPage;
+  if (!page) return;
+  const frame = document.getElementById('lpPreviewFrame');
+  try {
+    lpState.previewScrollY = frame.contentWindow.scrollY || 0;
+  } catch (err) {
+    lpState.previewScrollY = 0;
+  }
+  try {
+    const { content } = await lpApi(`/pages/${page.id}/verberg`, { method: 'POST', body: JSON.stringify({ type, lijst, index, verborgen }) });
+    const huidig = { ...(lpState.currentPage.content || {}) };
+    if (content && content.overrides) huidig.overrides = content.overrides;
+    else delete huidig.overrides;
+    lpState.currentPage.content = huidig;
+    await refreshPreview();
+  } catch (err) {
+    lpState.previewScrollY = 0;
+    alert(formatApiError(err));
+  }
+}
+
+// Hover-balkje in het voorbeeld met "Verberg" / "Toon weer" voor een kaart (data-lp-item) of sectie
+// (data-lp-sectie). Bestaat alleen in het voorbeeldscherm, nooit in de HTML voor WordPress.
+function installeerVerbergBalk(doc) {
+  if (!doc.head || !doc.body) return;
+  const stijl = doc.createElement('style');
+  stijl.textContent = '.lp-verberg-balk{position:absolute;z-index:2147483000;display:none;gap:8px;align-items:center;background:#211D18;color:#fff;font:600 12px/1 system-ui,sans-serif;padding:6px 8px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.3);}'
+    + '.lp-verberg-balk button{font:inherit;background:#E1502E;color:#fff;border:0;border-radius:6px;padding:5px 10px;cursor:pointer;}'
+    + '.lp-verberg-doel{outline:2px solid #E1502E !important;outline-offset:-2px;}';
+  doc.head.appendChild(stijl);
+
+  const balk = doc.createElement('div');
+  balk.className = 'lp-verberg-balk';
+  const label = doc.createElement('span');
+  const knop = doc.createElement('button');
+  knop.type = 'button';
+  balk.appendChild(label);
+  balk.appendChild(knop);
+  doc.body.appendChild(balk);
+
+  let doel = null;
+  let timer = null;
+  const win = doc.defaultView;
+
+  function toon(el) {
+    clearTimeout(timer);
+    if (doel && doel !== el) doel.classList.remove('lp-verberg-doel');
+    doel = el;
+    el.classList.add('lp-verberg-doel');
+    label.textContent = el.hasAttribute('data-lp-item') ? 'Kaart' : 'Sectie';
+    knop.textContent = el.hasAttribute('data-lp-verborgen') ? 'Toon weer' : 'Verberg';
+    balk.style.display = 'flex';
+    const r = el.getBoundingClientRect();
+    const rechts = Math.min(r.right, doc.documentElement.clientWidth);
+    balk.style.top = (Math.max(r.top, 0) + win.scrollY + 8) + 'px';
+    balk.style.left = Math.max(4, rechts - balk.offsetWidth - 8) + 'px';
+  }
+  function verberg() {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      if (doel) doel.classList.remove('lp-verberg-doel');
+      doel = null;
+      balk.style.display = 'none';
+    }, 250);
+  }
+
+  doc.addEventListener('mouseover', (ev) => {
+    const t = ev.target;
+    if (!t || typeof t.closest !== 'function') return;
+    if (balk.contains(t)) {
+      clearTimeout(timer);
+      return;
+    }
+    // Zit iets in een verborgen sectie, dan gaat het om die sectie (terugzetten), niet om de kaart erin.
+    const el = t.closest('[data-lp-sectie][data-lp-verborgen]') || t.closest('[data-lp-item]') || t.closest('[data-lp-sectie]');
+    if (el) toon(el);
+    else verberg();
+  });
+  doc.documentElement.addEventListener('mouseleave', verberg);
+
+  knop.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (!doel) return;
+    const verborgen = !doel.hasAttribute('data-lp-verborgen');
+    if (doel.hasAttribute('data-lp-item')) {
+      const pad = doel.getAttribute('data-lp-item');
+      const punt = pad.lastIndexOf('.');
+      toggleVerbergen({ type: 'item', lijst: pad.slice(0, punt), index: Number(pad.slice(punt + 1)), verborgen });
+    } else {
+      toggleVerbergen({ type: 'sectie', index: Number(doel.getAttribute('data-lp-sectie')), verborgen });
+    }
+  });
 }
 
 document.getElementById('lpPreviewBtn').addEventListener('click', refreshPreview);
@@ -665,6 +780,17 @@ document.getElementById('lpPreviewFrame').addEventListener('load', () => {
     return;
   }
   if (!doc) return;
+  try {
+    installeerVerbergBalk(doc);
+    const scrollY = lpState.previewScrollY || 0;
+    lpState.previewScrollY = 0;
+    if (scrollY) {
+      frame.contentWindow.scrollTo(0, scrollY);
+      setTimeout(() => { try { frame.contentWindow.scrollTo(0, scrollY); } catch (err) { /* iframe vervangen */ } }, 400);
+    }
+  } catch (err) {
+    // Het verbergen-balkje is een extra; nooit de gewone klikbare tekst en afbeeldingen blokkeren.
+  }
   doc.querySelectorAll('[data-lp-slot]').forEach((el) => {
     el.addEventListener('click', (ev) => {
       ev.preventDefault();

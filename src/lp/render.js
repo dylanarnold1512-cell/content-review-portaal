@@ -23,6 +23,7 @@ const { slugify } = require('./utils');
 const { clients } = require('./clients');
 const { buildFormulierCss } = require('./formulierStijl');
 const { bouwServiceSchema } = require('./seoSchema');
+const { berekenOverrides, pasSectiesToe, filterSlotData } = require('./overrides');
 
 function renderPageHtml(page, opts) {
   if (page && page.template) {
@@ -118,21 +119,28 @@ function renderSlotPageHtml(page, opts) {
   // Alleen voor het voorbeeldscherm (opts.forPreview) markeren we afbeeldingen én tekst-slots met
   // welke slot ze zijn, zodat je erop kan klikken om te wisselen/aan te passen — de HTML die naar
   // WordPress gaat blijft schoon (geen data-lp-*-attributen).
-  const htmlTemplate = (opts && opts.forPreview)
+  const forPreview = !!(opts && opts.forPreview);
+  // Aanpassingen per pagina (onderdelen verbergen, zie overrides.js): eerst de secties op de rauwe
+  // sjabloon-HTML, daarna pas de gewone preview-tagging en het invullen van de slots.
+  const overrides = berekenOverrides({ htmlTemplate: htmlTemplateRaw, slotData, overrides: page.overrides });
+  const naSecties = pasSectiesToe(htmlTemplateRaw, overrides.secties, overrides.sectieSet, forPreview);
+  const htmlTemplate = forPreview
     ? tagTextSlotsForPreview(
         tagLinkSlotsForPreview(
-          tagImageSlotsForPreview(htmlTemplateRaw, page.template && page.template.slots),
+          tagImageSlotsForPreview(naSecties.html, page.template && page.template.slots),
           page.template && page.template.slots
         ),
         page.template && page.template.slots
       )
-    : htmlTemplateRaw;
+    : naSecties.html;
   const metFormulier = applyFormulierMarker(htmlTemplate, page.clientId, rootClass, opts);
-  const body = renderSlotTemplate(metFormulier.html, slotData);
-  const schemas = collectSlotSchemas(slotData);
+  const body = renderSlotTemplate(metFormulier.html, slotData, { verborgenItems: overrides.itemSets, forPreview });
+  // Het FAQ schema mag alleen tekst bevatten die ook echt op de pagina staat.
+  const zichtbareSlotData = filterSlotData(slotData, overrides.itemSets, naSecties.verborgenLijsten);
+  const schemas = collectSlotSchemas(zichtbareSlotData);
   // Dienst en werkgebied als structured data (SEO en GEO), naast het FAQ-schema. Zie seoSchema.js.
   const serviceSchema = bouwServiceSchema({
-    slotData,
+    slotData: zichtbareSlotData,
     invoer: page.invoer,
     profile: (clients[page.clientId] || {}).profile
   });

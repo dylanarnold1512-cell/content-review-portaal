@@ -168,16 +168,27 @@ function getPath(obj, path) {
   return path.split('.').reduce((acc, key) => (acc === null || acc === undefined ? undefined : acc[key]), obj);
 }
 
+const { markeerItemWortel } = require('./overrides');
 const EACH_RE = /{{#each\s+([\w.]+)\s*}}([\s\S]*?){{\/each}}/g;
 const VAR_RE = /{{\s*([\w.]+)\s*}}/g;
 
-function renderSlotTemplate(html, data) {
+// opts (optioneel, zie overrides.js): { verborgenItems: Map(lijstsleutel -> Set(indexen)), forPreview }.
+// Een verborgen item wordt op de echte pagina overgeslagen (de originele itemindex blijft voor de
+// overige items gelijk, dus de klikbare velden in het voorbeeld wijzen naar het juiste item). In het
+// voorbeeld blijft het staan, gemarkeerd, zodat het weer zichtbaar gemaakt kan worden.
+function renderSlotTemplate(html, data, opts) {
+  const verborgenItems = (opts && opts.verborgenItems) || null;
+  const forPreview = !!(opts && opts.forPreview);
   const withLoops = String(html || '').replace(EACH_RE, (match, listKey, inner) => {
     const list = getPath(data, listKey);
     if (!Array.isArray(list) || !list.length) return '';
+    const verborgenSet = verborgenItems && verborgenItems.get(listKey);
     return list
-      .map((item, index) =>
-        inner
+      .map((item, index) => {
+        const isVerborgen = !!(verborgenSet && verborgenSet.has(index));
+        if (isVerborgen && !forPreview) return '';
+        const itemInner = forPreview ? markeerItemWortel(inner, listKey, index, isVerborgen) : inner;
+        return itemInner
           .replace(VAR_RE, (m, field) => {
             const value = field === 'this' ? item : getPath(item, field);
             return isIconField(field) ? renderIcon(value) : renderInlineLinks(value);
@@ -186,8 +197,8 @@ function renderSlotTemplate(html, data) {
           // data-lp-text-slot-tag (zie tagTextSlotsForPreview) - bij een normale
           // (niet-preview) render staat deze placeholder nergens in de tekst, dus dan
           // is dit een no-op.
-          .replace(/__LP_EACH_INDEX__/g, String(index))
-      )
+          .replace(/__LP_EACH_INDEX__/g, String(index));
+      })
       .join('');
   });
   return withLoops.replace(VAR_RE, (match, field) => {

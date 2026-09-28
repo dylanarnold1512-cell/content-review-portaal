@@ -1,4 +1,5 @@
 const { forEachTextLeaf, INLINE_LINK_RE } = require('./slotEngine');
+const { berekenOverrides, filterSlotData } = require('./overrides');
 
 // LP Fabriek: validator voor publicatie. Twee paden naast elkaar sinds
 // bouwvolgorde-stap 3 (koerswijziging naar vrije templates, zie
@@ -94,7 +95,11 @@ function validateBlockPage({ blueprint, contentJson }) {
 function validateSlotPage({ blueprint, contentJson }) {
   const errors = [];
   const warnings = [];
-  const slotData = contentJson?.slotData && typeof contentJson.slotData === 'object' ? contentJson.slotData : {};
+  const volledigeSlotData = contentJson?.slotData && typeof contentJson.slotData === 'object' ? contentJson.slotData : {};
+  // Verborgen kaarten (overrides.js) tellen niet mee: de pagina bevat ze straks niet.
+  const verborgen = berekenOverrides({ htmlTemplate: blueprint.htmlTemplate, slotData: volledigeSlotData, overrides: contentJson?.overrides });
+  const slotData = filterSlotData(volledigeSlotData, verborgen.itemSets, null);
+  verborgen.waarschuwingen.forEach((w) => warnings.push(w));
   const meta = contentJson?.meta || {};
   const slots = Array.isArray(blueprint.slots) ? blueprint.slots : [];
 

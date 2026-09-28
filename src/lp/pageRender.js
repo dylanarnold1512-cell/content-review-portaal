@@ -8,7 +8,10 @@
 function buildRenderPage({ blueprint, content, clientId, slug, invoer }) {
   if (blueprint.templateFormat === 'slots') {
     // invoer (bv. de plaatsnaam) is nodig voor het dienst-schema, zie seoSchema.js.
-    return { clientId, slug, template: blueprint, slotData: (content && content.slotData) || {}, invoer: invoer || {} };
+    const pagina = { clientId, slug, template: blueprint, slotData: (content && content.slotData) || {}, invoer: invoer || {} };
+    // Aanpassingen per pagina (onderdelen verbergen, zie overrides.js). Alleen meegeven als ze er zijn.
+    if (content && content.overrides) pagina.overrides = content.overrides;
+    return pagina;
   }
   return { clientId, slug, blocks: (content && content.blocks) || [] };
 }
