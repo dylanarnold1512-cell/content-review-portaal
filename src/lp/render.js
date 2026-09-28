@@ -24,6 +24,7 @@ const { clients } = require('./clients');
 const { buildFormulierCss } = require('./formulierStijl');
 const { bouwServiceSchema } = require('./seoSchema');
 const { berekenOverrides, pasSectiesToe, filterSlotData } = require('./overrides');
+const { pasFormulierCtaToe, FORMULIER_ID } = require('./formulierCta');
 
 function renderPageHtml(page, opts) {
   if (page && page.template) {
@@ -95,7 +96,7 @@ function applyFormulierMarker(html, clientId, rootClass, opts) {
   if (naarWordPress) {
     if (!config) return { html: html.replace(FORMULIER_MARKER_RE, ''), css: '' };
     return {
-      html: html.replace(FORMULIER_MARKER_RE, `<div class="lp-formulier">\n${config.shortcode}\n</div>`),
+      html: html.replace(FORMULIER_MARKER_RE, `<div class="lp-formulier" id="${FORMULIER_ID}">\n${config.shortcode}\n</div>`),
       css: buildFormulierCss(rootClass, config.plugin)
     };
   }
@@ -104,7 +105,7 @@ function applyFormulierMarker(html, clientId, rootClass, opts) {
     : 'Hier komt een formulier, maar voor deze klant is nog geen formulier ingesteld.';
   const css = `<style>\n.${rootClass} .lp-formulier-placeholder { padding: 24px; border: 2px dashed var(--lp-border); border-radius: var(--lp-radius); text-align: center; color: var(--lp-text-muted, var(--lp-text)); font-family: var(--lp-font-body); }\n</style>`;
   return {
-    html: html.replace(FORMULIER_MARKER_RE, `<div class="lp-formulier lp-formulier-placeholder">${tekst}</div>`),
+    html: html.replace(FORMULIER_MARKER_RE, `<div class="lp-formulier lp-formulier-placeholder" id="${FORMULIER_ID}">${tekst}</div>`),
     css
   };
 }
@@ -124,15 +125,19 @@ function renderSlotPageHtml(page, opts) {
   // sjabloon-HTML, daarna pas de gewone preview-tagging en het invullen van de slots.
   const overrides = berekenOverrides({ htmlTemplate: htmlTemplateRaw, slotData, overrides: page.overrides });
   const naSecties = pasSectiesToe(htmlTemplateRaw, overrides.secties, overrides.sectieSet, forPreview, overrides.legeSecties);
+  // CTA's springen naar het formulier op de pagina zelf, plus een CTA-balk halverwege (zie formulierCta.js).
+  // Alleen als het formulier ook echt getoond wordt: op WordPress dus alleen als de klant er een heeft ingesteld.
+  const formulierActief = !(opts && opts.forWordPress) || !!getFormulierConfig(page.clientId);
+  const cta = pasFormulierCtaToe(naSecties.html, { actief: formulierActief, rootClass, slotData });
   const htmlTemplate = forPreview
     ? tagTextSlotsForPreview(
         tagLinkSlotsForPreview(
-          tagImageSlotsForPreview(naSecties.html, page.template && page.template.slots),
+          tagImageSlotsForPreview(cta.html, page.template && page.template.slots),
           page.template && page.template.slots
         ),
         page.template && page.template.slots
       )
-    : naSecties.html;
+    : cta.html;
   const metFormulier = applyFormulierMarker(htmlTemplate, page.clientId, rootClass, opts);
   const body = renderSlotTemplate(metFormulier.html, slotData, { verborgenItems: overrides.itemSets, forPreview });
   // Het FAQ schema mag alleen tekst bevatten die ook echt op de pagina staat.
@@ -151,7 +156,7 @@ function renderSlotPageHtml(page, opts) {
   return `${baseStyle}
 <style>
 ${templateCss}
-</style>${metFormulier.css ? '\n' + metFormulier.css : ''}
+</style>${metFormulier.css ? '\n' + metFormulier.css : ''}${cta.css ? '\n' + cta.css : ''}
 <div class="${rootClass} lpt">
 ${body}
 </div>${schemaScript}`;
