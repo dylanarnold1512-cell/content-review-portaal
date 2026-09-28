@@ -70,7 +70,8 @@ router.get('/:clientId/performance', requireLogin, async (req, res) => {
       return res.status(404).json({ error: 'Prestatiegegevens staan nog niet aan voor deze klant.' });
     }
     const log = await notionService.getPerformanceLog(req.params.clientId);
-    res.json({ log });
+    const laatstBijgewerkt = log.length ? log[log.length - 1].datum : null;
+    res.json({ log, laatstBijgewerkt });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -159,8 +160,10 @@ router.post('/:clientId/kennisdocument', requireLogin, async (req, res) => {
   try {
     const config = getClient(req.params.clientId);
     const tekst = (req.body?.tekst || '').toString();
-    const result = await kennisdocumentService.saveKennisdocument(config.naam, tekst);
-    res.json({ ok: true, bijgewerkt: result.bijgewerkt });
+    const bronRaw = (req.body?.bron || '').toString().trim().slice(0, 200);
+    const bron = bronRaw || undefined;
+    const result = await kennisdocumentService.saveKennisdocument(config.naam, tekst, bron);
+    res.json({ ok: true, bijgewerkt: result.bijgewerkt, bron: bron || 'Portaal' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

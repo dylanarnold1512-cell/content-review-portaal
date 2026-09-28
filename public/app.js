@@ -154,16 +154,27 @@ async function loadItems() {
 // genoeg data is).
 async function loadPerformancePanel() {
   const panel = document.getElementById('performancePanel');
+  const updatedEl = document.getElementById('performanceLastUpdated');
   if (!panel) return;
   if (!state.performanceEnabled) {
     panel.classList.add('hidden');
+    if (updatedEl) updatedEl.classList.add('hidden');
     return;
   }
   try {
     const data = await api(`/${state.clientId}/performance`);
     renderPerformancePanel(data.log);
+    if (updatedEl) {
+      if (data.laatstBijgewerkt) {
+        updatedEl.textContent = `Laatst bijgewerkt: ${formatDatumLang(data.laatstBijgewerkt)}. Zoekconsole-cijfers (vertoningen, clicks, positie) kunnen vanuit Google zelf nog 2 tot 3 dagen vertraging hebben, los van deze update \u2014 een net gepubliceerde pagina kan dus hier nog op 0 staan terwijl Google zelf al wel iets laat zien.`;
+        updatedEl.classList.remove('hidden');
+      } else {
+        updatedEl.classList.add('hidden');
+      }
+    }
   } catch (err) {
     panel.classList.add('hidden');
+    if (updatedEl) updatedEl.classList.add('hidden');
   }
 }
 
@@ -649,16 +660,33 @@ function formatDatumLang(iso) {
   return d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+// Onthoudt de bron van de huidige tekst (bestandsnaam bij upload, of 'Portaal'
+// bij handmatig typen), zodat ook na een reload nog te zien is waar de tekst
+// vandaan komt — dat was precies het ontbrekende stuk: een upload was na het
+// inlezen alleen aan de tekst zelf te zien, niet aan een blijvende bevestiging.
+let kennisdocumentBron = '';
+let kennisdocumentLaatsteUpload = null;
+
+function formatKennisdocumentUpdated(bijgewerkt, bron) {
+  if (!bijgewerkt) return 'Nog niet ingevuld.';
+  const bronSuffix = bron && bron !== 'Portaal' ? ` \u2014 ${bron}` : '';
+  return `Laatst bijgewerkt: ${formatDatumLang(bijgewerkt)}${bronSuffix}`;
+}
+
 async function loadKennisdocument() {
   const textEl = document.getElementById('kennisdocumentText');
   const updatedEl = document.getElementById('kennisdocumentUpdated');
   const errorEl = document.getElementById('kennisdocumentError');
+  const statusEl = document.getElementById('kennisdocumentUploadStatus');
   if (!textEl) return;
   errorEl.textContent = '';
+  if (statusEl) { statusEl.textContent = ''; statusEl.className = 'kennisdocument-status'; }
+  kennisdocumentLaatsteUpload = null;
   try {
     const data = await api(`/${state.clientId}/kennisdocument`);
     textEl.value = data.tekst || '';
-    updatedEl.textContent = data.bijgewerkt ? `Laatst bijgewerkt: ${formatDatumLang(data.bijgewerkt)}` : 'Nog niet ingevuld.';
+    kennisdocumentBron = data.bron || '';
+    updatedEl.textContent = formatKennisdocumentUpdated(data.bijgewerkt, data.bron);
   } catch (err) {
     errorEl.textContent = err.message;
   }
@@ -674,11 +702,16 @@ document.getElementById('kennisdocumentSaveBtn')?.addEventListener('click', asyn
   const origLabel = btn.textContent;
   btn.textContent = 'Opslaan…';
   try {
+    const bronTeSturen = kennisdocumentLaatsteUpload
+      ? `Geüpload: ${kennisdocumentLaatsteUpload}`
+      : (kennisdocumentBron && kennisdocumentBron !== 'Portaal' ? kennisdocumentBron : undefined);
     const data = await api(`/${state.clientId}/kennisdocument`, {
       method: 'POST',
-      body: JSON.stringify({ tekst: textEl.value })
+      body: JSON.stringify({ tekst: textEl.value, ...(bronTeSturen ? { bron: bronTeSturen } : {}) })
     });
-    updatedEl.textContent = data.bijgewerkt ? `Laatst bijgewerkt: ${formatDatumLang(data.bijgewerkt)}` : '';
+    kennisdocumentBron = data.bron || bronTeSturen || 'Portaal';
+    kennisdocumentLaatsteUpload = null;
+    updatedEl.textContent = formatKennisdocumentUpdated(data.bijgewerkt, kennisdocumentBron);
   } catch (err) {
     errorEl.textContent = err.message;
   } finally {
@@ -706,6 +739,7 @@ document.getElementById('kennisdocumentFile')?.addEventListener('change', async 
   const errorEl = document.getElementById('kennisdocumentError');
   const textEl = document.getElementById('kennisdocumentText');
   errorEl.textContent = '';
+  statusEl.className = 'kennisdocument-status';
   statusEl.textContent = `Bezig met inlezen van "${file.name}"…`;
   try {
     const dataBase64 = await readFileAsBase64(file);
@@ -714,8 +748,11 @@ document.getElementById('kennisdocumentFile')?.addEventListener('change', async 
       body: JSON.stringify({ filename: file.name, contentType: file.type, dataBase64 })
     });
     textEl.value = data.tekst;
-    statusEl.textContent = `Ingelezen uit "${file.name}" — controleer de tekst hieronder en klik op Opslaan.`;
+    kennisdocumentLaatsteUpload = file.name;
+    statusEl.className = 'kennisdocument-status kennisdocument-status-success';
+    statusEl.textContent = `✓ "${file.name}" is ingelezen — controleer de tekst hieronder en klik op Opslaan om 'm te bewaren.`;
   } catch (err) {
+    statusEl.className = 'kennisdocument-status';
     statusEl.textContent = '';
     errorEl.textContent = err.message;
   } finally {
