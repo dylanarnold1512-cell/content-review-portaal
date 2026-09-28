@@ -639,7 +639,7 @@ router.get('/pages/:pageId/preview', requireLpInternal, async (req, res) => {
     }
     const html = renderPageHtml(buildRenderPage({ blueprint, content, clientId: page.klant, slug: page.slug, invoer: page.invoer }), { forPreview: true });
     const verborgen = berekenOverrides({ htmlTemplate: blueprint.htmlTemplate, slotData: content.slotData, overrides: content.overrides });
-    res.json({ html: wrapPreviewDoc(html), overrides: { aantalVerborgen: verborgen.aantalVerborgen, waarschuwingen: verborgen.waarschuwingen } });
+    res.json({ html: wrapPreviewDoc(html), overrides: { aantalVerborgen: verborgen.aantalVerborgen, waarschuwingen: verborgen.waarschuwingen, legeSecties: verborgen.legeMeldingen } });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

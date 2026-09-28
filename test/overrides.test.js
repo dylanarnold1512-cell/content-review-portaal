@@ -145,3 +145,52 @@ test('portaal: opslaan van de content neemt overrides mee en het voorbeeld heeft
   assert.match(js, /function installeerVerbergBalk/);
   assert.match(js, /\/verberg`/);
 });
+
+function renderMetData(data, opts) {
+  const page = { clientId: 'test-klant', slug: 's', template: blueprint(), slotData: data };
+  return renderPageHtml(page, opts);
+}
+
+test('een lege lijst laat de hele sectie weg op de echte pagina', () => {
+  const html = renderMetData({ ...slotData(), faqItems: [] });
+  assert.ok(!html.includes('class="faq"'));
+  assert.ok(!html.includes('FAQPage'));
+  assert.ok(html.includes('class="kamers"'));
+  assert.ok(html.includes('Testival'));
+});
+
+test('een ontbrekende lijst telt ook als leeg', () => {
+  const data = slotData();
+  delete data.faqItems;
+  assert.ok(!renderMetData(data).includes('class="faq"'));
+});
+
+test('in het voorbeeld blijft een lege sectie vervaagd staan, zonder Verberg-balk', () => {
+  const html = renderMetData({ ...slotData(), faqItems: [] }, { forPreview: true });
+  assert.ok(/<section data-lp-verborgen="1" data-lp-leeg="1" class="faq">/.test(html));
+  assert.ok(!/data-lp-sectie="2"/.test(html));
+});
+
+test('de eerste sectie en secties met h1 blijven altijd staan, ook zonder lijst-inhoud', () => {
+  const b = blueprint();
+  b.htmlTemplate = '<section class="hero"><h1>{{heroTitle}}</h1>{{#each badges}}<i>{{label}}</i>{{/each}}</section><section class="x"><h1>{{heroTitle}}</h1>{{#each badges}}<i>{{label}}</i>{{/each}}</section>';
+  const html = renderPageHtml({ clientId: 'test-klant', slug: 's', template: b, slotData: { heroTitle: 'T', badges: [] } });
+  assert.ok(html.includes('class="hero"'));
+  assert.ok(html.includes('class="x"'));
+});
+
+test('alle kaarten handmatig verborgen betekent ook een lege sectie', () => {
+  const data = { ...slotData(), offerItems: [{ title: 'A', text: 'a' }] };
+  const html = renderPageHtml({
+    clientId: 'test-klant', slug: 's', template: blueprint(), slotData: data,
+    overrides: { verborgenItems: [{ lijst: 'offerItems', index: 0, label: 'A' }], verborgenSecties: [] }
+  });
+  assert.ok(!html.includes('class="kamers"'));
+});
+
+test('berekenOverrides geeft de lege secties met titel door voor de melding', () => {
+  const b = blueprint();
+  b.htmlTemplate = '<section class="hero"><h1>{{heroTitle}}</h1></section><section class="pr"><h2>Onze projecten</h2>{{#each projecten}}<p>{{title}}</p>{{/each}}</section>';
+  const r = berekenOverrides({ htmlTemplate: b.htmlTemplate, slotData: { heroTitle: 'T' }, overrides: null });
+  assert.deepEqual(r.legeMeldingen, [{ index: 1, titel: 'Onze projecten' }]);
+});

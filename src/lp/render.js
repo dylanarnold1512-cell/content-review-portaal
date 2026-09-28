@@ -123,7 +123,7 @@ function renderSlotPageHtml(page, opts) {
   // Aanpassingen per pagina (onderdelen verbergen, zie overrides.js): eerst de secties op de rauwe
   // sjabloon-HTML, daarna pas de gewone preview-tagging en het invullen van de slots.
   const overrides = berekenOverrides({ htmlTemplate: htmlTemplateRaw, slotData, overrides: page.overrides });
-  const naSecties = pasSectiesToe(htmlTemplateRaw, overrides.secties, overrides.sectieSet, forPreview);
+  const naSecties = pasSectiesToe(htmlTemplateRaw, overrides.secties, overrides.sectieSet, forPreview, overrides.legeSecties);
   const htmlTemplate = forPreview
     ? tagTextSlotsForPreview(
         tagLinkSlotsForPreview(

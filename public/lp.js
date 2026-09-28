@@ -670,6 +670,8 @@ function toonPreviewStatus(overrides) {
   const waarschuwingen = (overrides && overrides.waarschuwingen) || [];
   const regels = [];
   if (aantal) regels.push(`${aantal} onderdeel${aantal === 1 ? '' : 'en'} verborgen op deze pagina (vervaagd getoond in het voorbeeld, niet op de echte pagina).`);
+  const lege = (overrides && overrides.legeSecties) || [];
+  lege.forEach((l) => regels.push(`Lege sectie${l.titel ? ` "${l.titel}"` : ''} wordt niet gepubliceerd, want er is geen inhoud voor de lijst (vervaagd getoond in het voorbeeld).`));
   waarschuwingen.forEach((w) => regels.push(w));
   el.textContent = regels.join(' ');
   el.classList.toggle('hidden', !regels.length);

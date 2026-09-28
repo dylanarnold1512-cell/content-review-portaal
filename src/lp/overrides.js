@@ -91,6 +91,45 @@ function normaliseerOverrides(raw) {
   return out;
 }
 
+
+// Secties die vanzelf wegblijven omdat ze alleen nog een kop en intro zouden tonen: de sectie bevat
+// minstens een {{#each}}-lijst en elke lijst daarin is leeg (of ontbreekt, of is helemaal verborgen).
+// Nooit automatisch: de eerste sectie, een sectie met <h1> of met het formulier.
+function getPad(data, pad) {
+  return String(pad).split('.').reduce((acc, k) => (acc && typeof acc === 'object' ? acc[k] : undefined), data);
+}
+
+function sectieTitel(html) {
+  const m = /<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/i.exec(html);
+  if (!m) return '';
+  const tekst = m[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return tekst.slice(0, 80);
+}
+
+function vindLegeSecties({ htmlTemplate, secties, slotData, itemSets }) {
+  const bron = String(htmlTemplate || '');
+  const data = slotData && typeof slotData === 'object' ? slotData : {};
+  const leeg = new Map();
+  secties.forEach((s, i) => {
+    if (i === 0) return;
+    const binnen = bron.slice(s.start, s.end);
+    if (/<h1[\s>]/i.test(binnen) || /{{\s*formulier\s*}}/.test(binnen)) return;
+    const eachRe = new RegExp(EACH_RE.source, 'g');
+    let m;
+    let aantalLijsten = 0;
+    let alleLeeg = true;
+    while ((m = eachRe.exec(binnen))) {
+      aantalLijsten += 1;
+      const lijst = getPad(data, m[1]);
+      const verborgen = itemSets && itemSets.get(m[1]);
+      const zichtbaar = Array.isArray(lijst) ? lijst.filter((_, idx) => !(verborgen && verborgen.has(idx))) : [];
+      if (zichtbaar.length) { alleLeeg = false; break; }
+    }
+    if (aantalLijsten > 0 && alleLeeg) leeg.set(i, sectieTitel(binnen));
+  });
+  return leeg;
+}
+
 // Bepaalt wat er daadwerkelijk verborgen wordt en wat niet meer klopt (waarschuwingen).
 function berekenOverrides({ htmlTemplate, slotData, overrides }) {
   const data = slotData && typeof slotData === 'object' ? slotData : {};
@@ -126,7 +165,11 @@ function berekenOverrides({ htmlTemplate, slotData, overrides }) {
 
   let aantalItems = 0;
   itemSets.forEach((set) => { aantalItems += set.size; });
-  return { secties, itemSets, sectieSet, waarschuwingen, aantalVerborgen: aantalItems + sectieSet.size };
+  // Lege secties die niet al handmatig verborgen zijn.
+  const legeSecties = vindLegeSecties({ htmlTemplate, secties, slotData: data, itemSets });
+  sectieSet.forEach((i) => legeSecties.delete(i));
+  const legeMeldingen = [...legeSecties.entries()].map(([index, titel]) => ({ index, titel }));
+  return { secties, itemSets, sectieSet, legeSecties, legeMeldingen, waarschuwingen, aantalVerborgen: aantalItems + sectieSet.size };
 }
 
 // Past de sectie-verbergingen toe op de RAUWE sjabloon-HTML (vóór het invullen van de slots).
@@ -135,17 +178,19 @@ function berekenOverrides({ htmlTemplate, slotData, overrides }) {
 //    daarnaast data-lp-verborgen="1".
 // verborgenLijsten: lijst-sleutels die in een weggehaalde sectie stonden (nodig om bv. het FAQ
 // schema niet te laten verwijzen naar tekst die niet meer op de pagina staat).
-function pasSectiesToe(html, secties, sectieSet, forPreview) {
+function pasSectiesToe(html, secties, sectieSet, forPreview, legeSecties) {
   let out = String(html || '');
   const verborgenLijsten = new Set();
   for (let i = secties.length - 1; i >= 0; i -= 1) {
     const s = secties[i];
     const verborgen = sectieSet.has(i);
+    const leeg = !verborgen && !!(legeSecties && legeSecties.has(i));
     if (forPreview) {
       const pos = s.start + '<section'.length;
-      const attrs = ` data-lp-sectie="${i}"${verborgen ? ' data-lp-verborgen="1"' : ''}`;
+      // Een lege sectie krijgt geen data-lp-sectie: geen "Verberg"-balk, hij verdwijnt vanzelf.
+      const attrs = leeg ? ' data-lp-verborgen="1" data-lp-leeg="1"' : ` data-lp-sectie="${i}"${verborgen ? ' data-lp-verborgen="1"' : ''}`;
       out = out.slice(0, pos) + attrs + out.slice(pos);
-    } else if (verborgen) {
+    } else if (verborgen || leeg) {
       const binnen = out.slice(s.start, s.end);
       const eachRe = new RegExp(EACH_RE.source, 'g');
       let m;
