@@ -129,10 +129,11 @@ test('zetVerborgen weigert onbestaande onderdelen', () => {
   assert.throws(() => zetVerborgen({ content, htmlTemplate: HTML, type: 'onzin', index: 0, verborgen: true }), /Onbekend/);
 });
 
-test('validatie: alle kaarten van een verplichte lijst verbergen geeft een fout, een verouderde verberging een waarschuwing', () => {
+test('validatie: alle kaarten van een verplichte lijst verbergen laat de sectie weg (waarschuwing), een verouderde verberging een waarschuwing', () => {
   const alle = { verborgenItems: [0, 1, 2].map((i) => ({ lijst: 'offerItems', index: i, label: slotData().offerItems[i].title })) };
   const r = validatePage({ blueprint: blueprint(), contentJson: { meta: {}, slotData: slotData(), overrides: alle } });
-  assert.ok(r.errors.some((e) => /offerItems|Verplichte lijst/.test(e)));
+  assert.ok(!r.errors.some((e) => /offerItems|Verplichte lijst/.test(e)));
+  assert.ok(r.warnings.some((w) => /wordt niet gepubliceerd/.test(w)));
   const oud = { verborgenItems: [{ lijst: 'offerItems', index: 2, label: 'Weg' }] };
   const r2 = validatePage({ blueprint: blueprint(), contentJson: { meta: {}, slotData: slotData(), overrides: oud } });
   assert.ok(r2.warnings.some((w) => /niet meer op dezelfde plek/.test(w)));
@@ -193,4 +194,12 @@ test('berekenOverrides geeft de lege secties met titel door voor de melding', ()
   b.htmlTemplate = '<section class="hero"><h1>{{heroTitle}}</h1></section><section class="pr"><h2>Onze projecten</h2>{{#each projecten}}<p>{{title}}</p>{{/each}}</section>';
   const r = berekenOverrides({ htmlTemplate: b.htmlTemplate, slotData: { heroTitle: 'T' }, overrides: null });
   assert.deepEqual(r.legeMeldingen, [{ index: 1, titel: 'Onze projecten' }]);
+});
+
+test('validator: verplichte lijst in een sectie die vanzelf wegblijft is een waarschuwing, geen fout', () => {
+  const b = blueprint();
+  const page = { templateFormat: 'slots' };
+  const zonder = validatePage({ blueprint: b, contentJson: { meta: { metaTitle: 'a', metaDescription: 'b' }, slotData: { ...slotData(), offerItems: [] } } });
+  assert.ok(!zonder.errors.some((e) => /offerItems|Verplichte lijst/.test(e)), JSON.stringify(zonder.errors));
+  assert.ok(zonder.warnings.some((w) => /geen inhoud en wordt niet gepubliceerd/.test(w)));
 });

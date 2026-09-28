@@ -1,5 +1,5 @@
 const { forEachTextLeaf, INLINE_LINK_RE } = require('./slotEngine');
-const { berekenOverrides, filterSlotData } = require('./overrides');
+const { berekenOverrides, filterSlotData, pasSectiesToe } = require('./overrides');
 
 // LP Fabriek: validator voor publicatie. Twee paden naast elkaar sinds
 // bouwvolgorde-stap 3 (koerswijziging naar vrije templates, zie
@@ -100,6 +100,9 @@ function validateSlotPage({ blueprint, contentJson }) {
   const verborgen = berekenOverrides({ htmlTemplate: blueprint.htmlTemplate, slotData: volledigeSlotData, overrides: contentJson?.overrides });
   const slotData = filterSlotData(volledigeSlotData, verborgen.itemSets, null);
   verborgen.waarschuwingen.forEach((w) => warnings.push(w));
+  // Lijsten in een sectie die niet gepubliceerd wordt (leeg, of zelf verborgen) hoeven niet gevuld te zijn:
+  // de sectie staat er straks niet, dus er ontbreekt ook niets.
+  const weggelaten = pasSectiesToe(blueprint.htmlTemplate, verborgen.secties, verborgen.sectieSet, false, verborgen.legeSecties).verborgenLijsten;
   const meta = contentJson?.meta || {};
   const slots = Array.isArray(blueprint.slots) ? blueprint.slots : [];
 
@@ -120,7 +123,11 @@ function validateSlotPage({ blueprint, contentJson }) {
     const value = slotData[slot.key];
     if (slot.type === 'list') {
       if (!Array.isArray(value) || !value.length) {
-        errors.push(`Verplichte lijst-slot ontbreekt of is leeg: "${slot.label || slot.key}".`);
+        if (weggelaten.has(slot.key)) {
+          warnings.push(`De sectie met "${slot.label || slot.key}" heeft geen inhoud en wordt niet gepubliceerd.`);
+        } else {
+          errors.push(`Verplichte lijst-slot ontbreekt of is leeg: "${slot.label || slot.key}".`);
+        }
       }
     } else if (value === undefined || value === null || String(value).trim() === '') {
       errors.push(`Verplichte slot ontbreekt: "${slot.label || slot.key}".`);
