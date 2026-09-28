@@ -349,6 +349,25 @@ body {
 @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
 @media (max-width: 700px) { .performance-panel { padding: 0 16px; } }
 
+/* Kennisdocument-tabblad */
+#kennisdocumentTab { max-width: 900px; margin: 0 auto; padding: 20px 28px 40px 28px; }
+.kennisdocument-panel {
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow-card); padding: 24px 26px;
+}
+.kennisdocument-intro { color: var(--text-muted); font-size: 13.5px; line-height: 1.6; margin-bottom: 18px; }
+.kennisdocument-upload-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.kennisdocument-upload-btn { display: inline-block; cursor: pointer; }
+.kennisdocument-status { font-size: 12.5px; color: var(--text-muted); }
+.kennisdocument-textarea {
+  width: 100%; min-height: 320px; border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px 16px; font-family: inherit; font-size: 14px; background: var(--bg); color: var(--text);
+  resize: vertical; line-height: 1.6;
+}
+.kennisdocument-textarea:focus { outline: none; border-color: var(--accent); }
+.kennisdocument-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; }
+.kennisdocument-updated { font-size: 12px; color: var(--text-faint); }
+
 /* "Idee aandragen" modal */
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(20, 20, 43, 0.45); z-index: 100;

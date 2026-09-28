@@ -107,9 +107,13 @@ function switchTab(tab) {
   });
   document.getElementById('blogsTab').classList.toggle('hidden', tab !== 'blogs');
   document.getElementById('prestatiesTab').classList.toggle('hidden', tab !== 'prestaties');
+  document.getElementById('kennisdocumentTab').classList.toggle('hidden', tab !== 'kennisdocument');
   if (tab === 'prestaties') {
     loadPerformancePanel();
     renderPostPerformanceList();
+  }
+  if (tab === 'kennisdocument') {
+    loadKennisdocument();
   }
 }
 
@@ -633,6 +637,91 @@ document.addEventListener('mousedown', (e) => {
 
 document.getElementById('annotationPopoverCancel')?.addEventListener('click', hideAnnotationPopover);
 document.getElementById('annotationPopoverSave')?.addEventListener('click', saveAnnotation);
+
+// Kennisdocument: achtergrondinformatie die de AI spaarzaam gebruikt bij het
+// schrijven van blogs (zie src/services/kennisdocument.js). Geladen bij het
+// openen van het tabblad, net als Prestaties — geen aparte "vernieuwen"-knop
+// nodig, de data is klein en verandert alleen door de klant zelf.
+function formatDatumLang(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+async function loadKennisdocument() {
+  const textEl = document.getElementById('kennisdocumentText');
+  const updatedEl = document.getElementById('kennisdocumentUpdated');
+  const errorEl = document.getElementById('kennisdocumentError');
+  if (!textEl) return;
+  errorEl.textContent = '';
+  try {
+    const data = await api(`/${state.clientId}/kennisdocument`);
+    textEl.value = data.tekst || '';
+    updatedEl.textContent = data.bijgewerkt ? `Laatst bijgewerkt: ${formatDatumLang(data.bijgewerkt)}` : 'Nog niet ingevuld.';
+  } catch (err) {
+    errorEl.textContent = err.message;
+  }
+}
+
+document.getElementById('kennisdocumentSaveBtn')?.addEventListener('click', async () => {
+  const btn = document.getElementById('kennisdocumentSaveBtn');
+  const textEl = document.getElementById('kennisdocumentText');
+  const updatedEl = document.getElementById('kennisdocumentUpdated');
+  const errorEl = document.getElementById('kennisdocumentError');
+  errorEl.textContent = '';
+  btn.disabled = true;
+  const origLabel = btn.textContent;
+  btn.textContent = 'Opslaan…';
+  try {
+    const data = await api(`/${state.clientId}/kennisdocument`, {
+      method: 'POST',
+      body: JSON.stringify({ tekst: textEl.value })
+    });
+    updatedEl.textContent = data.bijgewerkt ? `Laatst bijgewerkt: ${formatDatumLang(data.bijgewerkt)}` : '';
+  } catch (err) {
+    errorEl.textContent = err.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = origLabel;
+  }
+});
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result || '';
+      resolve(result.toString().split(',')[1] || '');
+    };
+    reader.onerror = () => reject(new Error('Bestand kon niet worden gelezen.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+document.getElementById('kennisdocumentFile')?.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('kennisdocumentUploadStatus');
+  const errorEl = document.getElementById('kennisdocumentError');
+  const textEl = document.getElementById('kennisdocumentText');
+  errorEl.textContent = '';
+  statusEl.textContent = `Bezig met inlezen van "${file.name}"…`;
+  try {
+    const dataBase64 = await readFileAsBase64(file);
+    const data = await api(`/${state.clientId}/kennisdocument/extract`, {
+      method: 'POST',
+      body: JSON.stringify({ filename: file.name, contentType: file.type, dataBase64 })
+    });
+    textEl.value = data.tekst;
+    statusEl.textContent = `Ingelezen uit "${file.name}" — controleer de tekst hieronder en klik op Opslaan.`;
+  } catch (err) {
+    statusEl.textContent = '';
+    errorEl.textContent = err.message;
+  } finally {
+    e.target.value = '';
+  }
+});
 
 // "Idee aandragen": geeft de klant zelf een manier om een onderwerp aan te
 // dragen. Komt gewoon als normaal "Idee" in de Notion-planning terecht, dus

@@ -2,6 +2,8 @@ const express = require('express');
 const { getClient } = require('../config/clients');
 const notionService = require('../services/notion');
 const settingsService = require('../services/settings');
+const kennisdocumentService = require('../services/kennisdocument');
+const documentTekst = require('../services/documentTekst');
 const { checkPassword, requireLogin } = require('../middleware/auth');
 
 const router = express.Router();
@@ -136,6 +138,50 @@ router.post('/:clientId/ideas', requireLogin, async (req, res) => {
     res.json({ ok: true, id: result.id });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Kennisdocument: achtergrondinformatie die de AI spaarzaam gebruikt bij het
+// schrijven van blogs (zie src/services/kennisdocument.js voor waar dit
+// vandaan komt). Matcht op de klantnaam zoals die in clients.js staat, dus
+// niet op de slug/clientId.
+router.get('/:clientId/kennisdocument', requireLogin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    const result = await kennisdocumentService.getKennisdocument(config.naam);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/:clientId/kennisdocument', requireLogin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    const tekst = (req.body?.tekst || '').toString();
+    const result = await kennisdocumentService.saveKennisdocument(config.naam, tekst);
+    res.json({ ok: true, bijgewerkt: result.bijgewerkt });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Zet een geüpload .docx/.pdf/.txt-bestand om naar platte tekst, zonder meteen
+// op te slaan — de gebruiker ziet de tekst eerst in het tekstveld en bevestigt
+// zelf met "Opslaan" (zelfde reden als bij de LP Fabriek media-upload: eerst
+// controleren, dan pas persisteren).
+router.post('/:clientId/kennisdocument/extract', requireLogin, async (req, res) => {
+  try {
+    getClient(req.params.clientId); // valideert dat de klant bestaat
+    const { filename, contentType, dataBase64 } = req.body || {};
+    if (!filename || !dataBase64) {
+      return res.status(400).json({ error: 'Bestandsnaam en bestandsdata zijn verplicht.' });
+    }
+    const buffer = Buffer.from(dataBase64, 'base64');
+    const tekst = await documentTekst.extraheerTekst({ filename, contentType, buffer });
+    res.json({ tekst });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 

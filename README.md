@@ -133,6 +133,31 @@ blijft een bewuste, handmatige stap door Dylan of Marc. De status-schakelaar in
 `/lp` zelf (Idee t/m Gepubliceerd) is alleen een label in Notion en raakt
 WordPress niet aan.
 
+## Kennisdocument-tabblad
+
+Sinds 28-09-2026: elke klant heeft in het portaal een tabblad "Kennisdocument"
+— vrije tekst met achtergrondinformatie over het bedrijf (diensten, USP's,
+specifieke feiten) waar de AI spaarzaam en natuurlijk gebruik van maakt bij
+het schrijven van blogs, nooit als checklist. De klant (of Dylan, bijvoorbeeld
+bij Basecamp Utrecht) kan de tekst direct in het tabblad typen/plakken, of een
+`.docx`/`.pdf`/`.txt`-bestand uploaden — de tekst wordt er dan uitgehaald en in
+het tekstveld gezet ter controle, pas na "Opslaan" wordt het echt bewaard.
+
+Dit tabblad praat NIET met Notion, maar rechtstreeks met de n8n Data Table
+"Kennisdocumenten" (dezelfde tabel die `BA - BCU - Blog Generatie` en
+`BA - Shared - Blog Generatie` zelf ook uitlezen bij het schrijven), via de
+n8n public API (`src/services/kennisdocument.js`). Matching gebeurt op de
+klantnaam (`naam` in `clients.js`), die dus exact gelijk moet zijn aan de
+`client_name`-waarde in de Kennisdocumenten-tabel en de Clients-tabel in n8n.
+
+**Eenmalig opzetwerk:**
+1. In n8n: instellingen → n8n API → een nieuwe API key aanmaken (of de
+   bestaande hergebruiken die de portal-achtige workflows ook gebruiken).
+2. Die key als environment variable `N8N_API_KEY` zetten op Render.
+
+Geen aparte aan/uit-schakelaar per klant nodig — het tabblad staat altijd aan;
+een klant zonder kennisdocument ziet gewoon een leeg tekstveld.
+
 ## Prestatie-tracking (Search Console + GA4)
 
 Sinds 25-08-2026 haalt het portaal live SEO/traffic-cijfers per blog op

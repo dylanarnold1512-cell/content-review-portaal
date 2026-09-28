@@ -41,6 +41,7 @@
   <div class="tab-nav" id="tabNav">
     <button type="button" class="tab-btn active" data-tab="blogs">Blogs</button>
     <button type="button" class="tab-btn hidden" data-tab="prestaties" id="prestatiesTabBtn">Prestaties</button>
+    <button type="button" class="tab-btn" data-tab="kennisdocument">Kennisdocument</button>
   </div>
 
   <div id="blogsTab" class="tab-panel">
@@ -61,6 +62,25 @@
   <div id="prestatiesTab" class="tab-panel hidden">
     <div id="performancePanel" class="performance-panel hidden"></div>
     <div class="post-performance-list" id="postPerformanceList"></div>
+  </div>
+
+  <div id="kennisdocumentTab" class="tab-panel hidden">
+    <div class="kennisdocument-panel">
+      <div class="kennisdocument-intro">
+        Achtergrondinformatie over jouw bedrijf waar de AI spaarzaam gebruik van maakt bij het schrijven van blogs — nooit als checklist, alleen waar het natuurlijk past. Upload een bestand of typ/plak de tekst direct hieronder.
+      </div>
+      <div class="kennisdocument-upload-row">
+        <label for="kennisdocumentFile" class="btn-plain-sm kennisdocument-upload-btn">Bestand uploaden (.docx, .pdf, .txt)</label>
+        <input type="file" id="kennisdocumentFile" accept=".docx,.pdf,.txt,.md" class="hidden">
+        <span id="kennisdocumentUploadStatus" class="kennisdocument-status"></span>
+      </div>
+      <textarea id="kennisdocumentText" class="kennisdocument-textarea" placeholder="Nog geen kennisdocument. Upload een bestand of typ hier de belangrijkste informatie over jouw bedrijf, diensten en klanten..."></textarea>
+      <div class="kennisdocument-footer">
+        <span id="kennisdocumentUpdated" class="kennisdocument-updated"></span>
+        <button type="button" id="kennisdocumentSaveBtn" class="btn-save-sm">Opslaan</button>
+      </div>
+      <p id="kennisdocumentError" class="login-error"></p>
+    </div>
   </div>
 </div>
 
