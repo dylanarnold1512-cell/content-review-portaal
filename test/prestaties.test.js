@@ -63,3 +63,29 @@ test('zonder vertoningen komt er een eerlijke samenvatting', () => {
   const r = bouwPrestaties({ overzicht: { ...overzicht, vertoningen: 0, clicks: 0, vertoningen_vorig: 0, clicks_vorig: 0 }, blogs: [], weken: [] }, '2026-09-29');
   assert.match(r.samenvatting[0], /nog geen enkele blog/);
 });
+
+test('indexatiestatus komt bij de blog en bepaalt de actie bij aandacht', () => {
+  const r = bouwPrestaties({
+    overzicht,
+    weken: [],
+    blogs: [blog({ titel: 'Leeg', blog_pad: '/news/leeg' }), blog({ titel: 'Geen data', blog_pad: '/news/geen' })],
+    indexatie: [{ blog_pad: '/news/leeg', status_code: 'ontdekt_niet_geindexeerd', status_tekst: 'Google kent de pagina maar heeft hem nog niet bekeken' }]
+  }, '2026-09-29');
+  const leeg = r.blogs.find((b) => b.titel === 'Leeg');
+  assert.equal(leeg.indexatie.code, 'ontdekt_niet_geindexeerd');
+  assert.equal(r.blogs.find((b) => b.titel === 'Geen data').indexatie, null);
+  const a = r.inzichten.aandacht.find((x) => /Leeg/.test(x.titel));
+  assert.match(a.tekst, /Google: google kent/);
+  assert.match(a.actie, /nog bekijken/);
+});
+
+test('geblokkeerde pagina komt altijd in aandacht', () => {
+  const r = bouwPrestaties({
+    overzicht,
+    weken: [],
+    blogs: [blog({ titel: 'Nieuw', blog_pad: '/news/n', publicatiedatum: '2026-09-27' })],
+    indexatie: [{ blog_pad: '/news/n', status_code: 'geblokkeerd', status_tekst: 'De pagina is voor Google geblokkeerd' }]
+  }, '2026-09-29');
+  assert.equal(r.inzichten.aandacht.length, 1);
+  assert.match(r.inzichten.aandacht[0].actie, /blokkade/);
+});

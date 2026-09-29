@@ -107,6 +107,7 @@ function pvBlogKaart(b, idx) {
         <span class="pv-badge pv-badge-${pvEsc(b.status.code)}">${pvEsc(b.status.label)}</span>
       </div>
       ${b.hoofdwoord ? `<div class="pv-hw"><span class="pv-muted">Hoofdzoekwoord:</span> ${pvEsc(b.hoofdwoord)}. ${pvEsc(b.hoofdwoordTekst || '')}${pijl}</div>` : ''}
+      ${b.indexatie && b.indexatie.tekst ? `<div class="pv-hw"><span class="pv-muted">In Google:</span> ${pvEsc(b.indexatie.tekst)}</div>` : ''}
       <div class="pv-blog-stats">
         <span><b>${pvNl(b.vertoningen)}</b> getoond</span>
         <span><b>${pvNl(b.clicks)}</b> ${b.clicks === 1 ? 'bezoeker' : 'bezoekers'}</span>

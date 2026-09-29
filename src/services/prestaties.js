@@ -12,7 +12,8 @@ const N8N_BASE_URL = (process.env.N8N_BASE_URL || 'https://n8n.advertisr.nl').re
 const TABLES = {
   blogs: process.env.N8N_PRESTATIES_BLOGS_TABLE_ID || 'HfpN6rbJMStyOvyj',
   weken: process.env.N8N_PRESTATIES_WEKEN_TABLE_ID || 'oAD7tfxMzT8hWsao',
-  overzicht: process.env.N8N_PRESTATIES_OVERZICHT_TABLE_ID || 'caOsvqDNlG79IjTA'
+  overzicht: process.env.N8N_PRESTATIES_OVERZICHT_TABLE_ID || 'caOsvqDNlG79IjTA',
+  indexatie: process.env.N8N_PRESTATIES_INDEXATIE_TABLE_ID || 'OCXbGmfnEipDHU9b'
 };
 
 // Drempels voor de vaste regels. Op een plek gezet zodat ze makkelijk te
@@ -58,13 +59,15 @@ function perKlant(klantNaam) {
 // Geeft null terug als de sync voor deze klant nog niet heeft gedraaid, zodat
 // het portaal dan gewoon de oude weergave kan tonen.
 async function getPrestatiesData(klantNaam) {
-  const [overzichtRijen, blogs, weken] = await Promise.all([
+  const [overzichtRijen, blogs, weken, indexatie] = await Promise.all([
     n8nRows(TABLES.overzicht, perKlant(klantNaam), 1),
     n8nRows(TABLES.blogs, perKlant(klantNaam), 250),
-    n8nRows(TABLES.weken, perKlant(klantNaam), 60)
+    n8nRows(TABLES.weken, perKlant(klantNaam), 60),
+    // Indexatie is een extra. Ontbreekt de tabel of de data, dan werkt de rest gewoon.
+    n8nRows(TABLES.indexatie, perKlant(klantNaam), 250).catch(() => [])
   ]);
   if (!overzichtRijen.length) return null;
-  return { overzicht: overzichtRijen[0], blogs, weken };
+  return { overzicht: overzichtRijen[0], blogs, weken, indexatie };
 }
 
 const num = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
@@ -107,13 +110,17 @@ function verschilTekst(nu, vorig, eenheid) {
   return `${nl(Math.abs(delta))} ${woord} dan de periode ervoor (${nl(vorig)})`;
 }
 
-function bouwPrestaties({ overzicht, blogs, weken }, vandaagIso) {
+function bouwPrestaties({ overzicht, blogs, weken, indexatie }, vandaagIso) {
   const vandaag = vandaagIso || new Date().toISOString().slice(0, 10);
   const o = overzicht || {};
   const periodeEind = o.periode_eind || vandaag;
 
+  const indexPerPad = {};
+  (indexatie || []).forEach((r) => { if (r.blog_pad) indexPerPad[r.blog_pad] = r; });
+
   // 1. Per blog
   const blogRijen = (blogs || []).map((b) => {
+    const ix = indexPerPad[b.blog_pad];
     const leeftijd = b.publicatiedatum ? Math.max(0, dagenTussen(b.publicatiedatum, vandaag)) : null;
     const vertoningen = num(b.vertoningen) || 0;
     const clicks = num(b.clicks) || 0;
@@ -134,6 +141,7 @@ function bouwPrestaties({ overzicht, blogs, weken }, vandaagIso) {
     else if (vertoningen > 0) hoofdwoordTekst = 'Nog niet zichtbaar voor dit zoekwoord';
     else hoofdwoordTekst = 'Nog geen meting';
     return {
+      indexatie: ix ? { code: ix.status_code, tekst: ix.status_tekst, laatstGecrawld: ix.laatst_gecrawld || '' } : null,
       titel: b.titel || '(geen titel)',
       cluster: b.cluster || '',
       url: b.blog_url || '',
@@ -242,11 +250,30 @@ function bouwPrestaties({ overzicht, blogs, weken }, vandaagIso) {
   // Aandacht: oudere blogs zonder vertoningen
   const nietGetoond = blogRijen.filter((b) => b.status.code === 'nietgetoond' && b.leeftijdDagen !== null && b.leeftijdDagen >= REGELS.aandachtVanafDagen);
   nietGetoond.sort((a, b) => b.leeftijdDagen - a.leeftijdDagen);
+  const indexActie = {
+    geindexeerd: 'Wij kijken naar het zoekwoord en de inhoud van deze blog.',
+    ontdekt_niet_geindexeerd: 'Google moet de pagina nog bekijken. Dat kan enkele weken duren, wij houden dit in de gaten.',
+    gecrawld_niet_geindexeerd: 'Google heeft de pagina bekeken maar nog niet opgenomen. Wij beoordelen of de inhoud sterker kan.',
+    niet_gevonden: 'Wij controleren de sitemap en vragen indexatie aan.',
+    geblokkeerd: 'Wij lossen de blokkade zo snel mogelijk op.',
+    canonical_probleem: 'Wij controleren welke pagina Google als hoofdversie ziet.'
+  };
   for (const b of cap(nietGetoond)) {
+    const code = b.indexatie && b.indexatie.code;
     aandacht.push({
       titel: `"${b.titel}" is nog niet getoond`,
-      tekst: `De blog staat ${nl(b.leeftijdDagen)} dagen live zonder vertoningen in Google.`,
-      actie: 'Controleren of Google de pagina heeft gevonden en of er interne links naartoe wijzen.'
+      tekst: `De blog staat ${nl(b.leeftijdDagen)} dagen live zonder vertoningen in Google.${b.indexatie && b.indexatie.tekst ? ` Google: ${b.indexatie.tekst.charAt(0).toLowerCase()}${b.indexatie.tekst.slice(1)}.` : ''}`,
+      actie: indexActie[code] || 'Controleren of Google de pagina heeft gevonden en of er interne links naartoe wijzen.'
+    });
+  }
+  // Pagina's die voor Google geblokkeerd zijn of een andere hoofdversie hebben, ongeacht leeftijd
+  for (const b of blogRijen) {
+    if (!b.indexatie || (b.indexatie.code !== 'geblokkeerd' && b.indexatie.code !== 'canonical_probleem')) continue;
+    if (nietGetoond.includes(b)) continue;
+    aandacht.push({
+      titel: `"${b.titel}": ${b.indexatie.tekst.charAt(0).toLowerCase()}${b.indexatie.tekst.slice(1)}`,
+      tekst: 'Dit kan de vindbaarheid van de blog in de weg zitten.',
+      actie: indexActie[b.indexatie.code]
     });
   }
   // Aandacht: hoofdzoekwoord niet gevonden terwijl de blog wel getoond wordt
