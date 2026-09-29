@@ -114,7 +114,7 @@ function pvBlogRegel(b, idx) {
   const gedragRegels = [];
   if (g) {
     if (g.sessiesGoogle !== null && g.sessiesGoogle !== undefined) {
-      gedragRegels.push(`${pvNl(g.sessiesGoogle)} ${g.sessiesGoogle === 1 ? 'bezoek' : 'bezoeken'} vanuit Google${g.sessiesGoogle > 0 && g.betrokkenSeconden ? `, samen ${pvNl(Math.round(g.betrokkenSeconden))} seconden actief op de pagina` : ''}`);
+      gedragRegels.push(`${pvNl(g.sessiesGoogle)} ${g.sessiesGoogle === 1 ? 'bezoek' : 'bezoeken'} vanuit Google${g.sessiesGoogle > 0 && g.betrokkenSeconden ? `, gemiddeld ${pvNl(Math.round(g.betrokkenSeconden))} seconden actief per bezoek` : ''}`);
     }
     const doorkliks = (g.doorkliksContact || 0) + (g.doorkliksBoeken || 0);
     if (doorkliks) gedragRegels.push(`${pvNl(doorkliks)} ${doorkliks === 1 ? 'doorklik' : 'doorkliks'} naar contact of boeken`);
