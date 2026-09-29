@@ -137,7 +137,8 @@ const clients = [
       searchIntent: 'Zoekintentie',
       cluster: 'Cluster',
       seoTitle: 'SEO Meta Title',
-      seoDescription: 'SEO Meta Description'
+      seoDescription: 'SEO Meta Description',
+      slug: 'Slug'
     },
     // Statuswaarden zoals ze in de Trockenblumengrosshandel Notion database staan.
     statusValues: {
