@@ -328,7 +328,7 @@ function formatBrandingForPrompt(klant) {
 - primair: ${tokens.primary} (var(--lp-primary)), donker-primair: ${tokens.primaryDark} (var(--lp-primary-dark))
 - secundair: ${tokens.secondary} (var(--lp-secondary))
 - tekst: ${tokens.text} (var(--lp-text)), gedempte tekst: ${tokens.textMuted} (var(--lp-text-muted))
-- achtergrond: ${tokens.bg} (var(--lp-bg)), alternatieve achtergrond: ${tokens.bgAlt} (var(--lp-bg-alt))
+- achtergrond: ${tokens.bg} (var(--lp-bg)), alternatieve achtergrond: ${tokens.bgAlt} (var(--lp-bg-alt)), donkere achtergrond: ${tokens.bgDark || tokens.primaryDark} (var(--lp-bg-dark), voor donkere secties met witte tekst, bv. een sfeervolle band, cijfers of de afsluitende CTA; gebruik dit ritme van licht en donker als de klantsite dat ook doet)
 - CTA-knop: achtergrond ${tokens.ctaBg} (var(--lp-cta-bg)), tekst ${tokens.ctaText} (var(--lp-cta-text))
 - randradius: ${tokens.radius} (var(--lp-radius)), maximale breedte: ${tokens.maxWidth} (var(--lp-max-width))
 VORMTAAL van deze klant (verplicht volgen, gaat voor de ontwerp-toolkit als die botst):

@@ -100,6 +100,7 @@ ${renderCustomFontFaces(tokens)}.${rootClass} {
   --lp-text-muted: ${tokens.textMuted};
   --lp-bg: ${tokens.bg};
   --lp-bg-alt: ${tokens.bgAlt};
+  --lp-bg-dark: ${tokens.bgDark || tokens.primaryDark};
   --lp-border: ${tokens.border};
   --lp-max-width: ${tokens.maxWidth};
   --lp-radius: ${tokens.radius};

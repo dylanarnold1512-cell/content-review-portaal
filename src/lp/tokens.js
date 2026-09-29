@@ -20,6 +20,8 @@ const defaultTokens = {
   textMuted: '#5B5B5B',
   bg: '#FFFFFF',
   bgAlt: '#F6F6F4',
+  // Donker vlak (bv. bijna zwarte secties). Leeg = valt terug op primaryDark. Per klant invullen als de site donkere secties heeft.
+  bgDark: '',
   border: '#E3E1DC',
   maxWidth: '1200px',
   radius: '8px',
@@ -159,6 +161,9 @@ const clientTokens = {
     // kleur staat nergens als vlak op mac-bouw.nl. Gemeten op de site: wit, lichtgrijs #f6f6f6 (vlakken en
     // formuliervelden) en donkere tinten (#3f444b, #151515). Rand: #eaecf1 komt uit de formulier-CSS van de site.
     bgAlt: '#f6f6f6',
+    // Donkere secties op de homepage (hero, Vakmanschap, Projecten, footer): #151515, gemeten in de CSS van de site
+    // op 25-09-2026 en bevestigd in een screenshot van de homepage op 29-09-2026.
+    bgDark: '#151515',
     border: '#eaecf1',
     maxWidth: '1200px',
     radius: '8px',
