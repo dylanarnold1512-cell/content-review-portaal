@@ -466,3 +466,26 @@ body {
 .pv-uitleg p { margin-top: 8px; }
 .pv-footer { margin-top: 4px; }
 @media (max-width: 700px) { .pv2 { padding: 0 16px; } }
+
+/* Prestaties v2: compacte bloglijst, filters en inzichten met uitklap */
+.pv-sectie-titel { font-weight: 700; }
+.pv-controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.pv-zoek { padding: 7px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 13px; min-width: 200px; background: var(--bg); color: var(--text); }
+.pv-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.pv-chip { border: 1px solid var(--border); background: var(--bg); color: var(--text-muted); border-radius: var(--radius-pill); padding: 5px 12px; font-size: 12.5px; cursor: pointer; }
+.pv-chip-aan { background: var(--text); color: #fff; border-color: var(--text); }
+.pv-teller { font-size: 12px; margin-bottom: 6px; }
+.pv-regel { border: 1px solid var(--border); border-radius: 12px; margin-bottom: 8px; background: var(--bg); }
+.pv-regel-kop { display: flex; align-items: center; gap: 14px; width: 100%; padding: 11px 14px; background: none; border: 0; cursor: pointer; text-align: left; font: inherit; color: inherit; flex-wrap: wrap; }
+.pv-regel-titel { flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; }
+.pv-getal { font-size: 13px; white-space: nowrap; }
+.pv-pijl { font-size: 18px; color: var(--text-muted); width: 16px; text-align: center; }
+.pv-detail { padding: 2px 14px 14px; border-top: 1px solid var(--border); }
+.pv-detail .pv-hw { margin-top: 10px; font-size: 13px; }
+.pv-kw-wrap { margin-top: 10px; overflow-x: auto; }
+.pv-kw { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.pv-kw th, .pv-kw td { text-align: left; padding: 5px 8px 5px 0; border-bottom: 1px solid var(--border); }
+.pv-badge-nieuw { background: var(--gray-soft); color: var(--text-muted); }
+.pv-meer, .pv-toggle { margin-top: 8px; background: none; border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 6px 14px; font-size: 12.5px; cursor: pointer; color: var(--text); }
+.pv-toggle { border: 0; padding: 4px 0; text-decoration: underline; }
+.pv-ins-aantal { font-size: 11px; font-weight: 600; background: var(--gray-soft); color: var(--text-muted); border-radius: var(--radius-pill); padding: 1px 8px; margin-left: 4px; }

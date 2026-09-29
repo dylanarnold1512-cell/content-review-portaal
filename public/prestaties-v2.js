@@ -1,6 +1,8 @@
 // Prestaties v2: weergave voor de klant. Alle teksten komen kant-en-klaar uit
 // de server (src/services/prestaties.js); hier wordt alleen getekend.
 // Alles wat uit data komt gaat door pvEsc zodat er nooit HTML uit data wordt uitgevoerd.
+// De lijst met blogs blijft overzichtelijk bij veel blogs: compacte regels, zoeken,
+// filteren op status, en eerst 10 tonen met een knop voor meer.
 
 function pvEsc(v) {
   return String(v === null || v === undefined ? '' : v)
@@ -13,8 +15,10 @@ const pvDatum = (iso) => {
   const d = new Date(String(iso).slice(0, 10) + 'T00:00:00');
   return d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' });
 };
+const PV_STAP = 10;
+const PV_INZICHT_ZICHTBAAR = 3;
 
-const pvState = { sort: 'vertoningen', cluster: '', open: {}, data: null };
+const pvState = { sort: 'vertoningen', cluster: '', status: '', q: '', toon: PV_STAP, open: {}, insOpen: {}, data: null };
 
 function pvDelta(nu, vorig) {
   if (vorig === null || vorig === undefined) return '';
@@ -40,6 +44,18 @@ function pvTiles(t) {
   ];
   if (t.paginaweergaven !== null && t.paginaweergaven !== undefined) {
     tiles.push({ l: 'Paginaweergaven', v: pvNl(t.paginaweergaven), d: '', h: 'Hoe vaak de blogpagina\'s zijn bekeken.' });
+  }
+  if (t.conversies) {
+    const c = t.conversies;
+    const delen = [];
+    if (c.leads) delen.push(`${pvNl(c.leads)} ${c.leads === 1 ? 'aanvraag' : 'aanvragen'}`);
+    if (c.boekingen) delen.push(`${pvNl(c.boekingen)} ${c.boekingen === 1 ? 'boeking' : 'boekingen'}${c.omzet ? ` (${pvEsc(Number(c.omzet).toLocaleString('nl-NL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }))})` : ''}`);
+    tiles.push({
+      l: 'Van blog naar contact of boeken',
+      v: pvNl(c.doorkliks),
+      d: delen.length ? `<span class="pv-delta pv-up">${delen.join(', ')} in bezoeken die op een blog begonnen</span>` : '<span class="pv-delta pv-flat">nog geen aanvraag of boeking vanuit een blog begonnen bezoek</span>',
+      h: 'Hoe vaak iemand vanaf een blog doorklikte naar de pagina voor contact, offerte of boeken.'
+    });
   }
   return tiles.map((x) => `
     <div class="pv-tile" title="${pvEsc(x.h)}">
@@ -73,23 +89,38 @@ function pvBars(weken, veld, kleurKlasse, titel) {
     </div>`;
 }
 
-function pvInzicht(kop, klasse, lijst, metActie) {
+function pvInzicht(sleutel, kop, klasse, lijst, metActie) {
   if (!lijst.length) return '';
+  const open = Boolean(pvState.insOpen[sleutel]);
+  const zichtbaar = open ? lijst : lijst.slice(0, PV_INZICHT_ZICHTBAAR);
+  const meer = lijst.length - PV_INZICHT_ZICHTBAAR;
   return `
     <div class="pv-ins pv-ins-${klasse}">
-      <div class="pv-ins-kop">${pvEsc(kop)}</div>
-      ${lijst.map((i) => `
+      <div class="pv-ins-kop">${pvEsc(kop)}${lijst.length > 1 ? ` <span class="pv-ins-aantal">${lijst.length}</span>` : ''}</div>
+      ${zichtbaar.map((i) => `
         <div class="pv-ins-item">
           <div class="pv-ins-titel">${pvEsc(i.titel)}</div>
           <div class="pv-ins-tekst">${pvEsc(i.tekst)}</div>
           ${metActie && i.actie ? `<div class="pv-ins-actie">Wat wij doen: ${pvEsc(i.actie)}</div>` : ''}
         </div>`).join('')}
+      ${meer > 0 ? `<button type="button" class="pv-toggle" data-pv-ins="${pvEsc(sleutel)}">${open ? 'Toon minder' : `Toon alle ${lijst.length}`}</button>` : ''}
     </div>`;
 }
 
-function pvBlogKaart(b, idx) {
+function pvBlogRegel(b, idx) {
   const open = Boolean(pvState.open[idx]);
   const dagen = b.leeftijdDagen === null ? '' : b.leeftijdDagen === 0 ? 'vandaag live' : `${b.leeftijdDagen} ${b.leeftijdDagen === 1 ? 'dag' : 'dagen'} live`;
+  const g = b.gedrag;
+  const gedragRegels = [];
+  if (g) {
+    if (g.sessiesGoogle !== null && g.sessiesGoogle !== undefined) {
+      gedragRegels.push(`${pvNl(g.sessiesGoogle)} ${g.sessiesGoogle === 1 ? 'bezoek' : 'bezoeken'} vanuit Google${g.sessiesGoogle > 0 && g.betrokkenSeconden ? `, samen ${pvNl(Math.round(g.betrokkenSeconden))} seconden actief op de pagina` : ''}`);
+    }
+    const doorkliks = (g.doorkliksContact || 0) + (g.doorkliksBoeken || 0);
+    if (doorkliks) gedragRegels.push(`${pvNl(doorkliks)} ${doorkliks === 1 ? 'doorklik' : 'doorkliks'} naar contact of boeken`);
+    if (g.leads) gedragRegels.push(`${pvNl(g.leads)} ${g.leads === 1 ? 'aanvraag' : 'aanvragen'} in bezoeken die hier begonnen`);
+    if (g.boekingen) gedragRegels.push(`${pvNl(g.boekingen)} ${g.boekingen === 1 ? 'boeking' : 'boekingen'} in bezoeken die hier begonnen`);
+  }
   const kw = b.zoekwoorden.length
     ? `<table class="pv-kw"><thead><tr><th>Zoekwoord</th><th>Getoond</th><th>Clicks</th><th>Positie</th></tr></thead><tbody>${b.zoekwoorden.map((z) => `
         <tr><td>${pvEsc(z.q)}</td><td>${pvNl(z.i)}</td><td>${pvNl(z.c)}</td><td>${pvEsc(z.label || '')}</td></tr>`).join('')}</tbody></table>`
@@ -97,51 +128,93 @@ function pvBlogKaart(b, idx) {
   const pijl = b.hkPositie !== null && b.hkPositieVorig !== null
     ? (b.hkPositieVorig - b.hkPositie >= 0.5 ? ' <span class="pv-up">omhoog</span>' : b.hkPositie - b.hkPositieVorig >= 0.5 ? ' <span class="pv-down">omlaag</span>' : '')
     : '';
-  return `
-    <div class="pv-blog">
-      <div class="pv-blog-top">
-        <div>
-          <div class="pv-blog-titel">${b.url ? `<a href="${pvEsc(b.url)}" target="_blank" rel="noopener">${pvEsc(b.titel)}</a>` : pvEsc(b.titel)}</div>
-          <div class="pv-blog-meta">${[b.cluster, dagen].filter(Boolean).map(pvEsc).join(' · ')}</div>
-        </div>
-        <span class="pv-badge pv-badge-${pvEsc(b.status.code)}">${pvEsc(b.status.label)}</span>
-      </div>
+  const detail = open ? `
+    <div class="pv-detail">
       ${b.hoofdwoord ? `<div class="pv-hw"><span class="pv-muted">Hoofdzoekwoord:</span> ${pvEsc(b.hoofdwoord)}. ${pvEsc(b.hoofdwoordTekst || '')}${pijl}</div>` : ''}
       ${b.indexatie && b.indexatie.tekst ? `<div class="pv-hw"><span class="pv-muted">In Google:</span> ${pvEsc(b.indexatie.tekst)}</div>` : ''}
-      <div class="pv-blog-stats">
-        <span><b>${pvNl(b.vertoningen)}</b> getoond</span>
-        <span><b>${pvNl(b.clicks)}</b> ${b.clicks === 1 ? 'bezoeker' : 'bezoekers'}</span>
-        ${b.paginaweergaven !== null && b.paginaweergaven !== undefined ? `<span><b>${pvNl(b.paginaweergaven)}</b> paginaweergaven</span>` : ''}
-      </div>
-      <button type="button" class="pv-toggle" data-pv-toggle="${idx}">${open ? 'Zoekwoorden verbergen' : 'Zoekwoorden tonen'}</button>
-      ${open ? `<div class="pv-kw-wrap">${kw}</div>` : ''}
+      ${gedragRegels.length ? `<div class="pv-hw"><span class="pv-muted">Op de website:</span> ${gedragRegels.map(pvEsc).join('. ')}.</div>` : ''}
+      ${b.paginaweergaven !== null && b.paginaweergaven !== undefined ? `<div class="pv-hw"><span class="pv-muted">Paginaweergaven:</span> ${pvNl(b.paginaweergaven)}</div>` : ''}
+      <div class="pv-kw-wrap">${kw}</div>
+      ${b.url ? `<div class="pv-hw"><a href="${pvEsc(b.url)}" target="_blank" rel="noopener">Bekijk de blog</a></div>` : ''}
+    </div>` : '';
+  return `
+    <div class="pv-regel${open ? ' pv-regel-open' : ''}">
+      <button type="button" class="pv-regel-kop" data-pv-toggle="${idx}" aria-expanded="${open}">
+        <span class="pv-regel-titel">
+          <span class="pv-blog-titel">${pvEsc(b.titel)}</span>
+          <span class="pv-blog-meta">${[b.cluster, dagen].filter(Boolean).map(pvEsc).join(' · ')}</span>
+        </span>
+        <span class="pv-badge pv-badge-${pvEsc(b.status.code)}">${pvEsc(b.status.label)}</span>
+        <span class="pv-getal"><b>${pvNl(b.vertoningen)}</b><span class="pv-muted"> getoond</span></span>
+        <span class="pv-getal"><b>${pvNl(b.clicks)}</b><span class="pv-muted"> ${b.clicks === 1 ? 'bezoeker' : 'bezoekers'}</span></span>
+        <span class="pv-pijl">${open ? '−' : '+'}</span>
+      </button>
+      ${detail}
     </div>`;
 }
 
-function pvBlogsHtml() {
+const PV_STATUSSEN = [
+  ['clicks', 'Krijgt bezoekers'],
+  ['getoond', 'Wordt getoond'],
+  ['nietgetoond', 'Nog niet getoond'],
+  ['nieuw', 'Nieuw']
+];
+
+function pvGefilterd() {
   const d = pvState.data;
   let lijst = d.blogs.map((b, i) => ({ b, i }));
+  if (pvState.status) lijst = lijst.filter((x) => x.b.status.code === pvState.status);
   if (pvState.cluster) lijst = lijst.filter((x) => x.b.cluster === pvState.cluster);
+  const q = pvState.q.trim().toLowerCase();
+  if (q) lijst = lijst.filter((x) => (x.b.titel + ' ' + x.b.hoofdwoord + ' ' + x.b.cluster).toLowerCase().indexOf(q) !== -1);
   if (pvState.sort === 'nieuwste') lijst.sort((a, c) => (c.b.publicatiedatum || '').localeCompare(a.b.publicatiedatum || ''));
+  else if (pvState.sort === 'aandacht') {
+    const rang = { nietgetoond: 0, getoond: 1, nieuw: 2, clicks: 3 };
+    lijst.sort((a, c) => (rang[a.b.status.code] - rang[c.b.status.code]) || (c.b.leeftijdDagen || 0) - (a.b.leeftijdDagen || 0));
+  }
+  return lijst;
+}
+
+function pvLijstHtml() {
+  const lijst = pvGefilterd();
+  if (!lijst.length) return '<div class="pv-muted">Geen blogs gevonden.</div>';
+  const zichtbaar = lijst.slice(0, pvState.toon);
+  const rest = lijst.length - zichtbaar.length;
+  return `
+    <div class="pv-teller pv-muted">${zichtbaar.length} van ${lijst.length} ${lijst.length === 1 ? 'blog' : 'blogs'}</div>
+    ${zichtbaar.map((x) => pvBlogRegel(x.b, x.i)).join('')}
+    ${rest > 0 ? `<button type="button" class="pv-meer" data-pv-meer="1">Toon ${Math.min(PV_STAP, rest)} meer (nog ${rest})</button>` : ''}`;
+}
+
+function pvControlsHtml() {
+  const d = pvState.data;
+  const tel = {};
+  d.blogs.forEach((b) => { tel[b.status.code] = (tel[b.status.code] || 0) + 1; });
   const clusters = [...new Set(d.blogs.map((b) => b.cluster).filter(Boolean))].sort();
   return `
     <div class="pv-blogs-kop">
       <div class="pv-sectie-titel">Per blog</div>
       <div class="pv-controls">
+        <input type="search" class="pv-zoek" data-pv-zoek placeholder="Zoek op titel of zoekwoord" value="${pvEsc(pvState.q)}" aria-label="Zoeken">
         <select data-pv-sort aria-label="Sorteren">
           <option value="vertoningen"${pvState.sort === 'vertoningen' ? ' selected' : ''}>Meest getoond</option>
+          <option value="aandacht"${pvState.sort === 'aandacht' ? ' selected' : ''}>Aandacht eerst</option>
           <option value="nieuwste"${pvState.sort === 'nieuwste' ? ' selected' : ''}>Nieuwste eerst</option>
         </select>
         ${clusters.length > 1 ? `<select data-pv-cluster aria-label="Onderwerp"><option value="">Alle onderwerpen</option>${clusters.map((c) => `<option value="${pvEsc(c)}"${pvState.cluster === c ? ' selected' : ''}>${pvEsc(c)}</option>`).join('')}</select>` : ''}
       </div>
     </div>
-    ${lijst.length ? lijst.map((x) => pvBlogKaart(x.b, x.i)).join('') : '<div class="pv-muted">Geen blogs gevonden.</div>'}`;
+    <div class="pv-chips">
+      <button type="button" class="pv-chip${pvState.status === '' ? ' pv-chip-aan' : ''}" data-pv-chip="">Alle (${d.blogs.length})</button>
+      ${PV_STATUSSEN.filter(([code]) => tel[code]).map(([code, label]) => `<button type="button" class="pv-chip${pvState.status === code ? ' pv-chip-aan' : ''}" data-pv-chip="${code}">${pvEsc(label)} (${tel[code]})</button>`).join('')}
+    </div>`;
 }
 
 function renderPrestatiesV2(d) {
   const el = document.getElementById('performanceV2');
   if (!el) return;
   pvState.data = d;
+  pvState.toon = PV_STAP;
   const t = d.totalen;
   const voortgang = `${t.blogsGepubliceerd} ${t.blogsGepubliceerd === 1 ? 'blog staat' : 'blogs staan'} live${t.blogsPipeline ? `, nog ${t.blogsPipeline} in de planning` : ''}.`;
   el.innerHTML = `
@@ -155,32 +228,79 @@ function renderPrestatiesV2(d) {
     ${d.weken.length ? `<div class="pv-card"><div class="pv-sectie-titel">De laatste weken</div>
       <div class="pv-charts">${pvBars(d.weken, 'vertoningen', 'pv-bar-a', 'Keer getoond per week')}${pvBars(d.weken, 'clicks', 'pv-bar-b', 'Bezoekers vanuit Google per week')}</div>
       <div class="pv-muted pv-legenda">Een stip onder een week betekent dat er in die week een nieuwe blog live ging. De lichte staaf is de week die nog loopt.</div></div>` : ''}
-    ${(d.inzichten.goed.length || d.inzichten.kansen.length || d.inzichten.aandacht.length) ? `
-    <div class="pv-card"><div class="pv-sectie-titel">Wat we zien en wat we doen</div>
-      <div class="pv-ins-grid">
-        ${pvInzicht('Goed nieuws', 'goed', d.inzichten.goed, false)}
-        ${pvInzicht('Kansen', 'kans', d.inzichten.kansen, true)}
-        ${pvInzicht('Aandacht', 'aandacht', d.inzichten.aandacht, true)}
-      </div></div>` : ''}
-    <div class="pv-card" id="pvBlogs">${pvBlogsHtml()}</div>
+    <div id="pvInzichten"></div>
+    <div class="pv-card">
+      <div id="pvBlogControls"></div>
+      <div id="pvBlogList"></div>
+    </div>
     <details class="pv-card pv-uitleg"><summary>Hoe lees ik dit?</summary>
       <p><b>Getoond</b> betekent dat een blog in de zoekresultaten van Google stond. Dat gebeurt vaak eerder dan dat iemand doorklikt.</p>
       <p><b>Positie</b> laten we in pagina's zien. Pagina 1 zijn de eerste tien resultaten, en daar komen de meeste bezoekers vandaan.</p>
       <p>Een nieuwe blog heeft meestal een paar weken nodig voordat Google hem oppakt. Cijfers uit Google lopen bovendien 2 tot 3 dagen achter.</p>
+      <p>Blogs zijn vaak het begin van een oriëntatie. Iemand die eerst een blog leest en later via een andere weg terugkomt om te boeken, zien we niet terug. De cijfers over aanvragen en boekingen laten dus zien wat een blog aantoonbaar bijdraagt, niet alles wat een blog oplevert.</p>
     </details>
     <div class="pv-muted pv-footer">Periode ${pvEsc(pvDatum(d.periode.start))} tot en met ${pvEsc(pvDatum(d.periode.eind))}${d.laatstBijgewerkt ? `. Laatst bijgewerkt op ${pvEsc(pvDatum(d.laatstBijgewerkt))}` : ''}.</div>`;
+  pvTekenInzichten();
+  document.getElementById('pvBlogControls').innerHTML = pvControlsHtml();
+  document.getElementById('pvBlogList').innerHTML = pvLijstHtml();
   el.classList.remove('hidden');
+
+  const herteken = () => {
+    document.getElementById('pvBlogControls').innerHTML = pvControlsHtml();
+    document.getElementById('pvBlogList').innerHTML = pvLijstHtml();
+  };
   el.onclick = (e) => {
-    const btn = e.target.closest('[data-pv-toggle]');
-    if (!btn) return;
-    const i = btn.getAttribute('data-pv-toggle');
-    pvState.open[i] = !pvState.open[i];
-    document.getElementById('pvBlogs').innerHTML = pvBlogsHtml();
+    const toggle = e.target.closest('[data-pv-toggle]');
+    if (toggle) {
+      const i = toggle.getAttribute('data-pv-toggle');
+      pvState.open[i] = !pvState.open[i];
+      document.getElementById('pvBlogList').innerHTML = pvLijstHtml();
+      return;
+    }
+    if (e.target.closest('[data-pv-meer]')) {
+      pvState.toon += PV_STAP;
+      document.getElementById('pvBlogList').innerHTML = pvLijstHtml();
+      return;
+    }
+    const chip = e.target.closest('[data-pv-chip]');
+    if (chip) {
+      pvState.status = chip.getAttribute('data-pv-chip');
+      pvState.toon = PV_STAP;
+      herteken();
+      return;
+    }
+    const ins = e.target.closest('[data-pv-ins]');
+    if (ins) {
+      const k = ins.getAttribute('data-pv-ins');
+      pvState.insOpen[k] = !pvState.insOpen[k];
+      pvTekenInzichten();
+    }
   };
   el.onchange = (e) => {
     if (e.target.matches('[data-pv-sort]')) pvState.sort = e.target.value;
     else if (e.target.matches('[data-pv-cluster]')) pvState.cluster = e.target.value;
     else return;
-    document.getElementById('pvBlogs').innerHTML = pvBlogsHtml();
+    pvState.toon = PV_STAP;
+    document.getElementById('pvBlogList').innerHTML = pvLijstHtml();
   };
+  el.oninput = (e) => {
+    if (!e.target.matches('[data-pv-zoek]')) return;
+    pvState.q = e.target.value;
+    pvState.toon = PV_STAP;
+    document.getElementById('pvBlogList').innerHTML = pvLijstHtml();
+  };
+}
+
+function pvTekenInzichten() {
+  const box = document.getElementById('pvInzichten');
+  if (!box) return;
+  const i = pvState.data.inzichten;
+  if (!(i.goed.length || i.kansen.length || i.aandacht.length)) { box.innerHTML = ''; return; }
+  box.innerHTML = `
+    <div class="pv-card"><div class="pv-sectie-titel">Wat we zien en wat we doen</div>
+      <div class="pv-ins-grid">
+        ${pvInzicht('goed', 'Goed nieuws', 'goed', i.goed, false)}
+        ${pvInzicht('kansen', 'Kansen', 'kans', i.kansen, true)}
+        ${pvInzicht('aandacht', 'Aandacht', 'aandacht', i.aandacht, true)}
+      </div></div>`;
 }

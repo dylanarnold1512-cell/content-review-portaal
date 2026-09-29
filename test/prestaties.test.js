@@ -75,8 +75,8 @@ test('indexatiestatus komt bij de blog en bepaalt de actie bij aandacht', () => 
   assert.equal(leeg.indexatie.code, 'ontdekt_niet_geindexeerd');
   assert.equal(r.blogs.find((b) => b.titel === 'Geen data').indexatie, null);
   const a = r.inzichten.aandacht.find((x) => /Leeg/.test(x.titel));
-  assert.match(a.tekst, /Google: google kent/);
-  assert.match(a.actie, /nog bekijken/);
+  assert.match(a.tekst, /Google kent de pagina, maar heeft hem nog niet bekeken/);
+  assert.match(a.actie, /vragen indexering aan/);
 });
 
 test('geblokkeerde pagina komt altijd in aandacht', () => {
@@ -88,4 +88,32 @@ test('geblokkeerde pagina komt altijd in aandacht', () => {
   }, '2026-09-29');
   assert.equal(r.inzichten.aandacht.length, 1);
   assert.match(r.inzichten.aandacht[0].actie, /blokkade/);
+});
+
+test('gedrag en totalen uit GA4 komen bij de blog, en zonder data blijft het leeg', () => {
+  const r = bouwPrestaties({
+    overzicht,
+    weken: [],
+    blogs: [blog({ titel: 'A', blog_pad: '/news/a' }), blog({ titel: 'B', blog_pad: '/news/b' })],
+    conversies: [
+      { blog_pad: '/news/a', sessies_google: 4, betrokken_seconden: 30, leads: 1, boekingen: 0, omzet: 0, doorkliks_contact: 2, doorkliks_boeken: 1 },
+      { blog_pad: '/news/b', sessies_google: 1, betrokken_seconden: 10, leads: 0, boekingen: 1, omzet: 250.5, doorkliks_contact: 0, doorkliks_boeken: 0 }
+    ]
+  }, '2026-09-29');
+  assert.equal(r.blogs.find((b) => b.titel === 'A').gedrag.leads, 1);
+  assert.deepEqual(r.totalen.conversies, { sessiesGoogle: 5, leads: 1, boekingen: 1, omzet: 250.5, doorkliks: 3 });
+  const leeg = bouwPrestaties({ overzicht, weken: [], blogs: [blog({ blog_pad: '/news/a' })] }, '2026-09-29');
+  assert.equal(leeg.totalen.conversies, null);
+});
+
+test('aandacht toont niet meer dan de bovengrens en blokkades staan bovenaan', () => {
+  const blogs = [];
+  for (let i = 0; i < 20; i++) blogs.push(blog({ titel: 'Leeg ' + i, blog_pad: '/news/l' + i, publicatiedatum: '2026-06-01' }));
+  blogs.push(blog({ titel: 'Nieuw', blog_pad: '/news/n', publicatiedatum: '2026-09-27' }));
+  const r = bouwPrestaties({
+    overzicht, weken: [], blogs,
+    indexatie: [{ blog_pad: '/news/n', status_code: 'geblokkeerd', status_tekst: 'De pagina is voor Google geblokkeerd' }]
+  }, '2026-09-29');
+  assert.ok(r.inzichten.aandacht.length <= 16);
+  assert.match(r.inzichten.aandacht[0].titel, /Nieuw/);
 });
