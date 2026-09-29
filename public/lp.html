@@ -507,10 +507,16 @@
         hieronder) in plaats van opnieuw vanaf nul te beginnen. Dit kan zo vaak als nodig.
       </p>
       <div class="lp-field-row">
+        <label for="lpTplSectieSelect">Waar geldt de feedback voor?</label>
+        <select id="lpTplSectieSelect"><option value="">Hele sjabloon</option></select>
+        <p class="admin-footnote" style="margin-top:4px;">Kies een onderdeel: dan past de AI alleen dat onderdeel aan. Dat is sneller en raakt de rest niet. Kies "Nieuw onderdeel toevoegen na..." om een sectie (bijvoorbeeld een galerij) toe te voegen.</p>
+      </div>
+      <div class="lp-field-row">
         <label for="lpTplFeedback">Feedback / aanpassing</label>
         <textarea id="lpTplFeedback" rows="3" placeholder="bv. maak de hero groter, voeg een reviews-sectie toe, minder tekst in de intro"></textarea>
       </div>
       <button type="button" id="lpTplRefineBtn" class="btn-plain">Verwerk feedback in voorstel</button>
+      <button type="button" id="lpTplUndoBtn" class="btn-plain hidden">Laatste wijziging ongedaan maken</button>
       <span id="lpTplRefineStatus" class="admin-footnote"></span>
 
       <div class="lp-field-row" style="margin-top:16px; max-width:280px;">
@@ -604,10 +610,16 @@
           zo kun je hier net zo vaak op testen zonder dat er telkens een nieuw sjabloon in Notion bijkomt.
         </p>
         <div class="lp-field-row">
+          <label for="lpTplDetailSectieSelect">Waar geldt de feedback voor?</label>
+          <select id="lpTplDetailSectieSelect"><option value="">Hele sjabloon</option></select>
+          <p class="admin-footnote" style="margin-top:4px;">Kies een onderdeel: dan past de AI alleen dat onderdeel aan. Dat is sneller en raakt de rest niet. Kies "Nieuw onderdeel toevoegen na..." om een sectie (bijvoorbeeld een galerij) toe te voegen.</p>
+        </div>
+        <div class="lp-field-row">
           <label for="lpTplDetailFeedback">Feedback / aanpassing</label>
           <textarea id="lpTplDetailFeedback" rows="3" placeholder="bv. maak de hero groter, voeg een reviews-sectie toe, minder tekst in de intro"></textarea>
         </div>
         <button type="button" id="lpTplDetailRefineBtn" class="btn-plain">Verwerk feedback in voorstel</button>
+        <button type="button" id="lpTplDetailUndoBtn" class="btn-plain hidden">Laatste wijziging ongedaan maken</button>
         <span id="lpTplDetailRefineStatus" class="admin-footnote"></span>
 
         <div class="admin-section-title" style="margin-top:16px;">Voorbeeld</div>

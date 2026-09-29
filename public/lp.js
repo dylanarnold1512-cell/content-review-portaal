@@ -31,7 +31,8 @@ const ONDERDEEL_LABELS = {
   praktisch: 'Praktische info',
   reviews: 'Reviews',
   faq: 'FAQ',
-  doelgroep: 'Doelgroeptekst'
+  doelgroep: 'Doelgroeptekst',
+  galerij: 'Galerij / slideshow'
 };
 
 const BLOCK_TEMPLATES = {
@@ -1290,6 +1291,8 @@ document.getElementById('lpNewTemplateBtn').addEventListener('click', () => {
   document.getElementById('lpTplNewBlueprintJson').value = JSON.stringify(emptySlotBlueprintSkeleton(), null, 2);
   document.getElementById('lpTplNewVoorbeeldJson').value = '{}';
   document.getElementById('lpTplFeedback').value = '';
+  delete lpTplUndo.nieuw;
+  document.getElementById('lpTplUndoBtn').classList.add('hidden');
   document.getElementById('lpTplPreviewFrame').srcdoc = '';
   document.getElementById('lpTplGenerateStatus').textContent = '';
   document.getElementById('lpTplRefineStatus').textContent = '';
@@ -1448,6 +1451,46 @@ function buildPreviewBody(klant, blueprint, sample) {
 // zonder eerst een pagina te maken. Het aangevulde voorbeeld gaat terug in het Voorbeeldcontent-veld en
 // wordt dus mee opgeslagen met "Blueprint opslaan"; een volgende keer is er geen aanvulling meer nodig.
 let lpHervulVoorbeeldTekst = false;
+// Feedback per onderdeel (29-09-2026): keuzelijst met de secties van het sjabloon. De waarde is "" (hele
+// sjabloon), "v:<index>" (dit onderdeel aanpassen) of "n:<index>" (nieuw onderdeel toevoegen na dit onderdeel).
+async function vulSectieSelect(selectId, blueprintTaId, voorbeeldTaId) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  const huidig = sel.value;
+  let secties = [];
+  try {
+    const blueprint = JSON.parse(document.getElementById(blueprintTaId).value || '{}');
+    const voorbeeldSlotData = JSON.parse(document.getElementById(voorbeeldTaId).value || '{}');
+    if (blueprint && blueprint.templateFormat === 'slots') {
+      ({ secties } = await lpApi('/templates/secties', { method: 'POST', body: JSON.stringify({ blueprint, voorbeeldSlotData }) }));
+    }
+  } catch (err) { secties = []; }
+  const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  sel.innerHTML = '<option value="">Hele sjabloon (langzamer, kan ook andere onderdelen raken)</option>' +
+    (secties.length
+      ? '<optgroup label="Alleen dit onderdeel aanpassen">' + secties.map((s) => `<option value="v:${s.index}">${esc(s.label)}</option>`).join('') + '</optgroup>' +
+        '<optgroup label="Nieuw onderdeel toevoegen na...">' + secties.map((s) => `<option value="n:${s.index}">Na ${esc(s.label)}</option>`).join('') + '</optgroup>'
+      : '');
+  if ([...sel.options].some((o) => o.value === huidig)) sel.value = huidig;
+}
+
+function leesSectieKeuze(selectId) {
+  const v = document.getElementById(selectId).value;
+  if (!v) return undefined;
+  const [soort, index] = v.split(':');
+  return { modus: soort === 'n' ? 'voeg_toe_na' : 'vervang', index: Number(index) };
+}
+
+// Ongedaan maken van de laatste feedbackronde (de tool bewaart zelf geen versies tot je opslaat).
+const lpTplUndo = {};
+function bewaarVoorUndo(sleutel, blueprintTaId, voorbeeldTaId, knopId) {
+  lpTplUndo[sleutel] = {
+    blueprint: document.getElementById(blueprintTaId).value,
+    voorbeeld: document.getElementById(voorbeeldTaId).value
+  };
+  document.getElementById(knopId).classList.remove('hidden');
+}
+
 async function haalSjabloonPreviewOp(klant, blueprint, sample, voorbeeldTextareaId, statusId) {
   const hervulTekst = lpHervulVoorbeeldTekst;
   lpHervulVoorbeeldTekst = false;
@@ -1488,6 +1531,7 @@ async function refreshTemplatePreview() {
     frame.srcdoc = `<p style="font-family:sans-serif;padding:2rem;color:#b00020;">Ongeldige JSON: ${err.message}</p>`;
     return;
   }
+  vulSectieSelect('lpTplSectieSelect', 'lpTplNewBlueprintJson', 'lpTplNewVoorbeeldJson');
   const { html } = await haalSjabloonPreviewOp(klant, blueprint, sample, 'lpTplNewVoorbeeldJson', 'lpTplRefineStatus');
   frame.srcdoc = html;
 }
@@ -1543,15 +1587,18 @@ document.getElementById('lpTplRefineBtn').addEventListener('click', async () => 
     return;
   }
   btn.disabled = true;
-  statusEl.textContent = 'Bezig met verwerken... (dit kan 10-30 seconden duren)';
+  const sectie = leesSectieKeuze('lpTplSectieSelect');
+  statusEl.textContent = sectie ? 'Bezig met verwerken van dit onderdeel...' : 'Bezig met verwerken... (dit kan 10-30 seconden duren)';
   try {
-    const { blueprint, voorbeeldSlotData } = await lpApi('/templates/refine', {
+    const { blueprint, voorbeeldSlotData, waarschuwingen, uitleg } = await lpApi('/templates/refine', {
       method: 'POST',
-      body: JSON.stringify({ klant, naam, huidigBlueprint, huidigeVoorbeeldSlotData, feedback })
+      body: JSON.stringify({ klant, naam, huidigBlueprint, huidigeVoorbeeldSlotData, feedback, sectie })
     });
+    bewaarVoorUndo('nieuw', 'lpTplNewBlueprintJson', 'lpTplNewVoorbeeldJson', 'lpTplUndoBtn');
     document.getElementById('lpTplNewBlueprintJson').value = JSON.stringify(blueprint, null, 2);
     document.getElementById('lpTplNewVoorbeeldJson').value = JSON.stringify(voorbeeldSlotData, null, 2);
-    statusEl.textContent = 'Voorstel aangepast — bekijk het voorbeeld hieronder.';
+    statusEl.textContent = 'Voorstel aangepast — bekijk het voorbeeld hieronder.' + (uitleg ? ' ' + uitleg : '') +
+      (waarschuwingen && waarschuwingen.length ? ' ' + waarschuwingen.join(' ') : '');
     document.getElementById('lpTplFeedback').value = '';
     await refreshTemplatePreview();
   } catch (err) {
@@ -1647,6 +1694,8 @@ async function openTemplateDetail(templateId) {
   document.getElementById('lpTplDetailVoorbeeldJson').value = isSlot ? JSON.stringify(heeftBewaardVoorbeeld ? bewaardVoorbeeld : {}, null, 2) : '[]';
   document.getElementById('lpTplDetailFeedback').value = '';
   document.getElementById('lpTplDetailRefineStatus').textContent = '';
+  delete lpTplUndo.detail;
+  document.getElementById('lpTplDetailUndoBtn').classList.add('hidden');
   document.getElementById('lpTplDetailPreviewFrame').srcdoc = '';
   document.getElementById('lpTemplateDetailError').classList.add('hidden');
   document.getElementById('lpTplSaved').textContent = '';
@@ -1672,6 +1721,7 @@ async function refreshTemplateDetailPreview() {
     frame.srcdoc = `<p style="font-family:sans-serif;padding:2rem;color:#b00020;">Ongeldige JSON: ${err.message}</p>`;
     return;
   }
+  vulSectieSelect('lpTplDetailSectieSelect', 'lpTplDetailBlueprintJson', 'lpTplDetailVoorbeeldJson');
   const { html } = await haalSjabloonPreviewOp(klant, blueprint, sample, 'lpTplDetailVoorbeeldJson', 'lpTplDetailRefineStatus');
   frame.srcdoc = html;
 }
@@ -1722,21 +1772,25 @@ document.getElementById('lpTplDetailRefineBtn').addEventListener('click', async 
     return;
   }
   btn.disabled = true;
-  statusEl.textContent = 'Bezig met verwerken... (dit kan 10-30 seconden duren)';
+  const sectie = leesSectieKeuze('lpTplDetailSectieSelect');
+  statusEl.textContent = sectie ? 'Bezig met verwerken van dit onderdeel...' : 'Bezig met verwerken... (dit kan 10-30 seconden duren)';
   try {
-    const { blueprint, voorbeeldSlotData } = await lpApi('/templates/refine', {
+    const { blueprint, voorbeeldSlotData, waarschuwingen, uitleg } = await lpApi('/templates/refine', {
       method: 'POST',
       body: JSON.stringify({
         klant: document.getElementById('lpTplDetailKlant').value,
         naam: template.naam,
         huidigBlueprint,
         huidigeVoorbeeldSlotData,
-        feedback
+        feedback,
+        sectie
       })
     });
+    bewaarVoorUndo('detail', 'lpTplDetailBlueprintJson', 'lpTplDetailVoorbeeldJson', 'lpTplDetailUndoBtn');
     document.getElementById('lpTplDetailBlueprintJson').value = JSON.stringify(blueprint, null, 2);
     document.getElementById('lpTplDetailVoorbeeldJson').value = JSON.stringify(voorbeeldSlotData, null, 2);
-    statusEl.textContent = 'Voorstel aangepast — bekijk het voorbeeld en klik op "Blueprint opslaan" als je het wilt bewaren.';
+    statusEl.textContent = 'Voorstel aangepast — bekijk het voorbeeld en klik op "Blueprint opslaan" als je het wilt bewaren.' +
+      (uitleg ? ' ' + uitleg : '') + (waarschuwingen && waarschuwingen.length ? ' ' + waarschuwingen.join(' ') : '');
     document.getElementById('lpTplDetailFeedback').value = '';
     await refreshTemplateDetailPreview();
   } catch (err) {
@@ -1746,6 +1800,28 @@ document.getElementById('lpTplDetailRefineBtn').addEventListener('click', async 
   } finally {
     btn.disabled = false;
   }
+});
+
+document.getElementById('lpTplDetailUndoBtn').addEventListener('click', async () => {
+  const u = lpTplUndo.detail;
+  if (!u) return;
+  document.getElementById('lpTplDetailBlueprintJson').value = u.blueprint;
+  document.getElementById('lpTplDetailVoorbeeldJson').value = u.voorbeeld;
+  document.getElementById('lpTplDetailUndoBtn').classList.add('hidden');
+  document.getElementById('lpTplDetailRefineStatus').textContent = 'Laatste wijziging ongedaan gemaakt.';
+  delete lpTplUndo.detail;
+  await refreshTemplateDetailPreview();
+});
+
+document.getElementById('lpTplUndoBtn').addEventListener('click', async () => {
+  const u = lpTplUndo.nieuw;
+  if (!u) return;
+  document.getElementById('lpTplNewBlueprintJson').value = u.blueprint;
+  document.getElementById('lpTplNewVoorbeeldJson').value = u.voorbeeld;
+  document.getElementById('lpTplUndoBtn').classList.add('hidden');
+  document.getElementById('lpTplRefineStatus').textContent = 'Laatste wijziging ongedaan gemaakt.';
+  delete lpTplUndo.nieuw;
+  await refreshTemplatePreview();
 });
 
 document.getElementById('lpTplStatusSelect').addEventListener('change', async (e) => {

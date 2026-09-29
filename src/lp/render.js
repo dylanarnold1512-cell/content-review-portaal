@@ -25,6 +25,7 @@ const { buildFormulierCss } = require('./formulierStijl');
 const { bouwServiceSchema } = require('./seoSchema');
 const { berekenOverrides, pasSectiesToe, filterSlotData } = require('./overrides');
 const { pasFormulierCtaToe, FORMULIER_ID } = require('./formulierCta');
+const { pasGalerijToe, zorgVoorGalerijSlot } = require('./galerij');
 
 function renderPageHtml(page, opts) {
   if (page && page.template) {
@@ -110,7 +111,8 @@ function applyFormulierMarker(html, clientId, rootClass, opts) {
   };
 }
 
-function renderSlotPageHtml(page, opts) {
+function renderSlotPageHtml(paginaRuw, opts) {
+  const page = paginaRuw.template ? { ...paginaRuw, template: zorgVoorGalerijSlot(paginaRuw.template) } : paginaRuw;
   const tokens = getTokens(page.clientId);
   const rootClass = `lp-root-${slugify(page.slug)}`;
   const baseStyle = renderStyle(rootClass, tokens);
@@ -129,15 +131,18 @@ function renderSlotPageHtml(page, opts) {
   // Alleen als het formulier ook echt getoond wordt: op WordPress dus alleen als de klant er een heeft ingesteld.
   const formulierActief = !(opts && opts.forWordPress) || !!getFormulierConfig(page.clientId);
   const cta = pasFormulierCtaToe(naSecties.html, { actief: formulierActief, rootClass, slotData });
+  // Galerij / slideshow: de marker {{galerij}} wordt gewone sjabloon-HTML (zie galerij.js), vóór het taggen
+  // en invullen van de slots, zodat foto's klikbaar en verbergbaar zijn zoals elke andere lijst.
+  const galerij = pasGalerijToe(cta.html, { rootClass });
   const htmlTemplate = forPreview
     ? tagTextSlotsForPreview(
         tagLinkSlotsForPreview(
-          tagImageSlotsForPreview(cta.html, page.template && page.template.slots),
+          tagImageSlotsForPreview(galerij.html, page.template && page.template.slots),
           page.template && page.template.slots
         ),
         page.template && page.template.slots
       )
-    : cta.html;
+    : galerij.html;
   const metFormulier = applyFormulierMarker(htmlTemplate, page.clientId, rootClass, opts);
   const body = renderSlotTemplate(metFormulier.html, slotData, { verborgenItems: overrides.itemSets, forPreview });
   // Het FAQ schema mag alleen tekst bevatten die ook echt op de pagina staat.
@@ -156,7 +161,7 @@ function renderSlotPageHtml(page, opts) {
   return `${baseStyle}
 <style>
 ${templateCss}
-</style>${metFormulier.css ? '\n' + metFormulier.css : ''}${cta.css ? '\n' + cta.css : ''}
+</style>${metFormulier.css ? '\n' + metFormulier.css : ''}${cta.css ? '\n' + cta.css : ''}${galerij.css ? '\n' + galerij.css : ''}
 <div class="${rootClass} lpt">
 ${body}
 </div>${schemaScript}`;

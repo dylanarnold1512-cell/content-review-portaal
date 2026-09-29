@@ -37,7 +37,7 @@ test('halverwege komt een CTA-balk met de knoptekst, niet vlak voor het formulie
   const balk = html.indexOf('lp-cta-balk" data-lp-cta-balk');
   assert.ok(balk > html.indexOf('class="a"'));
   assert.ok(balk < html.indexOf('class="contact"'));
-  assert.ok(html.slice(balk).startsWith('lp-cta-balk" data-lp-cta-balk="1"><a href="#lp-formulier">Neem contact op</a>'));
+  assert.ok(html.slice(balk).startsWith('lp-cta-balk" data-lp-cta-balk="1"><a class="knop lp-cta-button" href="#lp-formulier">Neem contact op</a>'));
 });
 
 test('zonder formulier in het sjabloon verandert er niets', () => {
@@ -80,4 +80,18 @@ test('pasFormulierCtaToe doet niets als het formulier niet actief is', () => {
 test('optionele ctaBandTekst komt in de balk', () => {
   const r = pasFormulierCtaToe(HTML, { actief: true, rootClass: 'x', slotData: { ctaBandTekst: 'Klaar?' } });
   assert.ok(r.html.includes('<p class="lp-cta-balk-tekst">{{ctaBandTekst}}</p>'));
+});
+
+test('de balk krijgt de klassen van de eerste CTA-knop plus de centrale knopklasse', () => {
+  const { knopKlassen } = require('../src/lp/formulierCta');
+  assert.equal(knopKlassen('<a class="hero-knop groot" href="#lp-formulier">x</a>'), 'hero-knop groot lp-cta-button');
+  assert.equal(knopKlassen('<a href="#lp-formulier">x</a>'), 'lp-cta-button');
+  assert.equal(knopKlassen('<a class="lp-cta-button a" href="#lp-formulier">x</a>'), 'a lp-cta-button');
+});
+
+test('de centrale knopstijl volgt de vormtaal van de klant (afronding en hoofdletters)', () => {
+  const html = render({ forWordPress: true });
+  assert.ok(html.includes('border-radius: var(--lp-button-radius)'));
+  assert.ok(html.includes('text-transform: var(--lp-button-transform)'));
+  assert.ok(!html.includes('.lp-cta-balk a {'));
 });

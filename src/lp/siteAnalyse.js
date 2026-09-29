@@ -235,6 +235,75 @@ function detecteerSeoPlugin(html) {
 
 // Haalt de homepage (en, indien opgegeven, een contactpagina) op en levert de ruwe bevindingen.
 // Een mislukte contactpagina-ophaal blokkeert de rest niet (zelfde aanpak als huisstijl.js).
+// ---- Veelgestelde vragen op de site (29-09-2026) ----
+// Deterministisch (geen AI): een vraag met zijn antwoord staat er letterlijk of niet. Herkent vier vormen:
+// FAQPage in JSON-LD, Bootstrap-accordeon (.accordion-item met .accordion-button en .accordion-body, zoals op
+// mac-bouw.nl), <details><summary>, en Elementor-accordeon/toggle (.elementor-tab-title en -content).
+function schoonTekst(html) {
+  return String(html || '')
+    .replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#0?39;|&apos;/g, "'")
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#8217;/g, "'").replace(/&euml;/g, 'ë').replace(/&eacute;/g, 'é')
+    .replace(/\s+/g, ' ').trim();
+}
+
+function vindFaq(html) {
+  const bron = String(html || '');
+  const uit = [];
+  const voegToe = (vraag, antwoord, vorm) => {
+    const v = schoonTekst(vraag);
+    const a = schoonTekst(antwoord).slice(0, 1200);
+    if (!v || !a || v.length < 8 || v.length > 250) return;
+    if (uit.some((x) => x.vraag.toLowerCase() === v.toLowerCase())) return;
+    uit.push({ vraag: v, antwoord: a, vorm });
+  };
+
+  // 1. JSON-LD FAQPage
+  const ldRe = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let m;
+  const zoekFaq = (node) => {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) return node.forEach(zoekFaq);
+    const type = [].concat(node['@type'] || []);
+    if (type.includes('FAQPage')) {
+      [].concat(node.mainEntity || []).forEach((q) => voegToe(q && q.name, q && q.acceptedAnswer && q.acceptedAnswer.text, 'jsonld'));
+    }
+    if (node['@graph']) zoekFaq(node['@graph']);
+  };
+  while ((m = ldRe.exec(bron))) {
+    try { zoekFaq(JSON.parse(m[1])); } catch (err) { /* ongeldige JSON-LD negeren */ }
+  }
+
+  // 2. Bootstrap-accordeon: elk item loopt tot het volgende item; het antwoord stopt bij de afsluiting van de rij.
+  const itemStarts = [];
+  const itemRe = /<div[^>]*class=["'][^"']*\baccordion-item\b[^"']*["'][^>]*>/gi;
+  while ((m = itemRe.exec(bron))) itemStarts.push(m.index);
+  itemStarts.forEach((start, i) => {
+    const eind = i + 1 < itemStarts.length ? itemStarts[i + 1] : Math.min(bron.length, start + 6000);
+    const chunk = bron.slice(start, eind);
+    const knop = /<button[^>]*class=["'][^"']*accordion-button[^"']*["'][^>]*>([\s\S]*?)<\/button>/i.exec(chunk);
+    const bodyStart = chunk.search(/<div[^>]*class=["'][^"']*accordion-body[^"']*["'][^>]*>/i);
+    if (!knop || bodyStart < 0) return;
+    let body = chunk.slice(bodyStart).replace(/^<div[^>]*>/i, '');
+    // Bij het laatste item eindigt het antwoord bij het einde van de accordeon (drie divs dicht).
+    const sluit = body.search(/<\/div>\s*<\/div>\s*<\/div>/i);
+    if (sluit >= 0) body = body.slice(0, sluit);
+    voegToe(knop[1], body, 'accordion');
+  });
+
+  // 3. <details><summary>
+  const detRe = /<details[^>]*>\s*<summary[^>]*>([\s\S]*?)<\/summary>([\s\S]*?)<\/details>/gi;
+  while ((m = detRe.exec(bron))) voegToe(m[1], m[2], 'details');
+
+  // 4. Elementor: titels en inhoud in dezelfde volgorde
+  const titels = [...bron.matchAll(/<[^>]*class=["'][^"']*elementor-tab-title[^"']*["'][^>]*>([\s\S]*?)<\/(?:div|h\d)>/gi)].map((x) => x[1]);
+  const inhoud = [...bron.matchAll(/<div[^>]*class=["'][^"']*elementor-tab-content[^"']*["'][^>]*>([\s\S]*?)<\/div>/gi)].map((x) => x[1]);
+  if (titels.length && titels.length === inhoud.length) titels.forEach((t, i) => voegToe(t, inhoud[i], 'elementor'));
+
+  return uit.slice(0, 12);
+}
+
 async function verzamelRuweSiteData(url, contactUrl) {
   const pageRes = await fetchText(url);
   if (!pageRes.ok) {
@@ -264,6 +333,7 @@ async function verzamelRuweSiteData(url, contactUrl) {
     formulieren: detecteerFormulieren(gecombineerdeHtml),
     bedrijfsgegevens: vindBedrijfsgegevens(gecombineerdeHtml),
     seoPlugin: detecteerSeoPlugin(gecombineerdeHtml),
+    faq: vindFaq(html),
     structuur: extractStructureOutline(html)
   };
 }
@@ -310,6 +380,11 @@ function bouwZekereFeiten(ruweData, datum) {
   (g.telefoon || []).slice(0, 3).forEach((t) => feiten.push({ label: 'Telefoonnummer', waarde: t, bron: `${domein}, tel:-link of structured data in de HTML, gecontroleerd ${datum}` }));
   (g.email || []).slice(0, 2).forEach((e) => feiten.push({ label: 'E-mailadres', waarde: e, bron: `${domein}, mailto:-link of structured data in de HTML, gecontroleerd ${datum}` }));
   if (g.adres) feiten.push({ label: 'Adres', waarde: g.adres, bron: `${domein}, structured data (JSON-LD) in de HTML, gecontroleerd ${datum}` });
+  (ruweData.faq || []).forEach((f) => feiten.push({
+    label: 'Veelgestelde vraag',
+    waarde: `Vraag: ${f.vraag} Antwoord: ${f.antwoord}`,
+    bron: `${domein}, veelgestelde vragen op de site (${f.vorm}), gecontroleerd ${datum}`
+  }));
   if (ruweData.seoPlugin) feiten.push({ label: 'SEO plugin op site', waarde: ruweData.seoPlugin, bron: `${domein}, signatuur in de HTML-head, gecontroleerd ${datum}` });
   return feiten;
 }
@@ -367,5 +442,6 @@ module.exports = {
   detecteerFormulieren,
   vindBedrijfsgegevens,
   detecteerSeoPlugin,
+  vindFaq,
   bouwZekereFeiten
 };

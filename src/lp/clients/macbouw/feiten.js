@@ -102,6 +102,33 @@ const feiten = [
     bron: 'Standaard MetForm-shortcode met het formulier-id 3048 dat op mac-bouw.nl/contact/ in de ' +
       'pagina staat (wrapper metform-wrap-cf10094-3048), gecontroleerd 25-09-2026. Nog niet in ' +
       'WordPress zelf getest op een landingspagina.'
+  },
+  // Veelgestelde vragen van de homepage (accordeon), letterlijk uit de pagina (DOM) gelezen op 29-09-2026.
+  // Bewust NIET overgenomen: "Wat onderscheidt ..." (het antwoord bevat de sjabloonfout "meer dan elk jaar
+  // ervaring", dus geen bruikbaar feit) en "Hoe gaat ... om met budgetten en deadlines" (algemene
+  // belofte zonder concrete gegevens). Aan/uit te zetten per pagina in de feitensheet.
+  {
+    id: 'faq-soorten-projecten',
+    label: 'Veelgestelde vraag',
+    waarde: 'Vraag: Welke soorten projecten kan Aannemersbedrijf MAC Bouw B.V. aanpakken? Antwoord: Wij zijn ' +
+      'gespecialiseerd in diverse soorten projecten, waaronder nieuwbouw, verbouwingen, renovaties, timmerwerk, ' +
+      'onderhoud en dakkapellen. Of je nu een kleine reparatie nodig hebt, een complete renovatie plant of een ' +
+      'nieuw huis wilt bouwen, wij hebben de expertise en ervaring om jouw project tot een succes te maken. Ons ' +
+      'team van vakmensen staat klaar om aan al jouw bouwbehoeften te voldoen.',
+    bron: 'mac-bouw.nl, homepage, veelgestelde vragen (accordeon), gecontroleerd 29-09-2026',
+    standaard: true
+  },
+  {
+    id: 'faq-offerte-aanvragen',
+    label: 'Veelgestelde vraag',
+    waarde: 'Vraag: Hoe kan ik een offerte aanvragen bij Aannemersbedrijf MAC Bouw B.V.? Antwoord: Het aanvragen ' +
+      'van een offerte bij Aannemersbedrijf MAC Bouw B.V. is eenvoudig. Je kunt contact met ons opnemen via ' +
+      'telefoon, e-mail of het contactformulier op onze website invullen. Onze vriendelijke en professionele ' +
+      'medewerkers zullen graag naar jouw wensen luisteren, je vragen beantwoorden en een gedetailleerde offerte ' +
+      'opstellen op basis van de specificaties van jouw project. We streven ernaar om zo snel mogelijk te ' +
+      'reageren en je te voorzien van alle benodigde informatie.',
+    bron: 'mac-bouw.nl, homepage, veelgestelde vragen (accordeon), gecontroleerd 29-09-2026',
+    standaard: true
   }
 ];
 

@@ -156,3 +156,25 @@ test('detecteerFormulieren: MetForm zonder eenduidig id laat het id leeg', () =>
   assert.equal(gevonden[0].plugin, 'MetForm');
   assert.equal(gevonden[0].formulierId, null);
 });
+
+test('vindFaq: Bootstrap-accordeon zoals op mac-bouw.nl', () => {
+  const { vindFaq } = require('../src/lp/siteAnalyse');
+  const html = '<div class="rts-accordion"><div class="accordion-item"><div class="accordion-header"><button class="accordion-button " type="button">Hoe kan ik een offerte aanvragen bij  MAC Bouw?</button></div><div class="accordion-collapse collapse show"><div class="accordion-body"><p>Bel ons of mail.</p></div></div></div>' +
+    '<div class="accordion-item"><div class="accordion-header"><button class="accordion-button collapsed">Welke projecten pakken jullie aan?</button></div><div class="accordion-collapse collapse"><div class="accordion-body">Nieuwbouw &amp; verbouw.</div></div></div></div></div></div><p>rest</p>';
+  const r = vindFaq(html);
+  assert.equal(r.length, 2);
+  assert.equal(r[0].vraag, 'Hoe kan ik een offerte aanvragen bij MAC Bouw?');
+  assert.equal(r[0].antwoord, 'Bel ons of mail.');
+  assert.equal(r[1].antwoord, 'Nieuwbouw & verbouw.');
+});
+
+test('vindFaq: JSON-LD FAQPage, details en geen FAQ', () => {
+  const { vindFaq, bouwZekereFeiten } = require('../src/lp/siteAnalyse');
+  const ld = '<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Werken jullie ook in Lisse?","acceptedAnswer":{"@type":"Answer","text":"Ja, in heel de regio."}}]}</script>';
+  assert.equal(vindFaq(ld)[0].antwoord, 'Ja, in heel de regio.');
+  assert.equal(vindFaq('<details><summary>Wat kost een dakkapel?</summary><p>Dat hangt af van de maat.</p></details>')[0].vorm, 'details');
+  assert.deepEqual(vindFaq('<p>geen vragen hier</p>'), []);
+  const feiten = bouwZekereFeiten({ url: 'https://x.nl', faq: vindFaq(ld) }, '2026-09-29');
+  assert.equal(feiten[0].label, 'Veelgestelde vraag');
+  assert.ok(feiten[0].waarde.startsWith('Vraag: Werken jullie ook in Lisse?'));
+});

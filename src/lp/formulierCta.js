@@ -35,9 +35,19 @@ function kiesBalkPositie(html, secties) {
 const BALK_CSS = (rootClass) => `<style>
 .${rootClass} .lp-cta-balk { padding: 40px 24px; text-align: center; font-family: var(--lp-font-body); }
 .${rootClass} .lp-cta-balk-tekst { margin: 0 0 16px; font-family: var(--lp-font-heading); font-size: 1.5rem; line-height: 1.25; color: var(--lp-text); }
-.${rootClass} .lp-cta-balk a { display: inline-block; padding: 14px 28px; border-radius: var(--lp-radius); background: var(--lp-cta-bg); color: var(--lp-cta-text); text-decoration: none; font-weight: 700; }
 .${rootClass} .lp-formulier { scroll-margin-top: 110px; }
 </style>`;
+
+// Zoekt de eerste CTA-knop die naar het formulier springt en geeft zijn klassen terug, zodat de balk
+// dezelfde knop krijgt als de hero of de kop van het sjabloon. Altijd aangevuld met de centrale klasse
+// lp-cta-button (zie style.js), die de vormtaal van de klant regelt.
+const FORMULIER_ANKER_RE = new RegExp('<a\\b[^>]*\\bhref=(["\'])#' + FORMULIER_ID + '\\1[^>]*>', 'i');
+function knopKlassen(html) {
+  const m = FORMULIER_ANKER_RE.exec(String(html || ''));
+  const cls = m ? /\sclass=(["'])([^"']*)\1/i.exec(m[0]) : null;
+  const eigen = cls ? cls[2].split(/\s+/).filter((c) => c && c !== 'lp-cta-button') : [];
+  return [...eigen, 'lp-cta-button'].join(' ');
+}
 
 // html: sjabloon-HTML na het verbergen van secties, vóór het taggen voor het voorbeeld.
 // actief: true als er een formulier is dat getoond wordt. slotData wordt alleen gelezen (ctaBandTekst is optioneel).
@@ -54,7 +64,7 @@ function pasFormulierCtaToe(html, { actief, rootClass, slotData }) {
     const balk =
       `<div class="lp-cta-balk" data-lp-cta-balk="1">` +
       (heeftTekst ? `<p class="lp-cta-balk-tekst">{{ctaBandTekst}}</p>` : '') +
-      `<a href="#${FORMULIER_ID}">{{ctaLabel}}</a></div>`;
+      `<a class="${knopKlassen(out)}" href="#${FORMULIER_ID}">{{ctaLabel}}</a></div>`;
     const pos = secties[k].end;
     out = out.slice(0, pos) + balk + out.slice(pos);
     balkToegevoegd = true;
@@ -62,4 +72,4 @@ function pasFormulierCtaToe(html, { actief, rootClass, slotData }) {
   return { html: out, css: balkToegevoegd || out !== bron ? BALK_CSS(rootClass) : '', balkToegevoegd };
 }
 
-module.exports = { pasFormulierCtaToe, FORMULIER_ID, kiesBalkPositie };
+module.exports = { pasFormulierCtaToe, FORMULIER_ID, kiesBalkPositie, knopKlassen };

@@ -252,6 +252,12 @@ function validateTemplateStructure(blueprint) {
   warnings.push(...findThemeCollidingClasses(html));
   // Waarschuwing, 25-09-2026: eigen kleuren of vergrote rondingen wijken af van de huisstijl van de klant.
   warnings.push(...findHuisstijlAfwijkingen(css));
+  // Waarschuwing, 29-09-2026: een CTA-knop zonder de centrale klasse lp-cta-button volgt de knopvorm van de
+  // klant niet automatisch, waardoor knoppen op een pagina van elkaar kunnen verschillen.
+  const ctaZonderKlasse = [...html.matchAll(/<a\b[^>]*\bhref=(["'])\{\{\s*ctaHref\s*\}\}\1[^>]*>/gi)].filter((m) => !/lp-cta-button/.test(m[0]));
+  if (ctaZonderKlasse.length) {
+    warnings.push(`${ctaZonderKlasse.length} CTA-knop(pen) hebben niet de klasse "lp-cta-button": de knopvorm van de klant (afronding, hoofdletters, lettertype) wordt dan niet overgenomen. Vraag in de feedback om die klasse op elke CTA-knop.`);
+  }
 
   const h1Matches = [...html.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/gi)];
   if (h1Matches.length !== 1) {

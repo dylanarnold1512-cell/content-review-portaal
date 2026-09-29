@@ -199,14 +199,22 @@ ${tokens.themeOverrideCss || ''}
 }
 .${rootClass} .lp-section { padding: 56px 0; }
 .${rootClass} .lp-section--alt { background: var(--lp-bg-alt); }
+/* Centrale knopstijl (29-09-2026): elke CTA-knop op de pagina volgt de vormtaal van de klant (kleur,
+   lettertype, hoofdletters, afronding). De CTA-balk halverwege de pagina (formulierCta.js) gebruikt
+   dezelfde klasse, zodat alle knoppen er hetzelfde uitzien. Sjablonen mogen erbovenop eigen
+   aanvullingen zetten; deze regel is bewust laag in specificiteit. */
 .${rootClass} .lp-cta-button {
   display: inline-block;
-  padding: 12px 24px;
-  border-radius: var(--lp-radius);
+  padding: 14px 28px;
+  border-radius: var(--lp-button-radius);
   background: var(--lp-cta-bg);
   color: var(--lp-cta-text);
   text-decoration: none;
-  font-weight: 600;
+  font-family: var(--lp-font-heading);
+  font-weight: 700;
+  line-height: 1.2;
+  text-transform: var(--lp-button-transform);
+  cursor: pointer;
 }
 .${rootClass} .lp-grid {
   display: grid;

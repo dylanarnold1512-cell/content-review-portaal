@@ -12,6 +12,8 @@ const { buildFeitenVoorstel } = require('../lp/siteAnalyse');
 const ai = require('../lp/ai');
 const { renderPageHtml } = require('../lp/render');
 const { buildRenderPage, contentIsEmpty } = require('../lp/pageRender');
+const { zorgVoorGalerijSlot } = require('../lp/galerij');
+const { beschrijfSecties } = require('../lp/sectieRefine');
 const { berekenOverrides, zetVerborgen } = require('../lp/overrides');
 const { gebruikteFeitIds } = require('../lp/feitenDefaults');
 const share = require('../lp/share');
@@ -283,12 +285,28 @@ router.post('/templates/generate', requireLpInternal, async (req, res) => {
 // zie src/lp/ai.js, refineTemplateProposal.
 router.post('/templates/refine', requireLpInternal, async (req, res) => {
   try {
-    const { klant, naam, huidigBlueprint, huidigeVoorbeeldSlotData, feedback } = req.body || {};
+    const { klant, naam, huidigBlueprint, huidigeVoorbeeldSlotData, feedback, sectie } = req.body || {};
     if (!klant || !naam) {
       return res.status(400).json({ error: 'klant en naam zijn verplicht.' });
     }
+    // Feedback per onderdeel (sectie: { modus, index }): alleen dat onderdeel wordt aangepast, zie sectieRefine.js.
+    if (sectie && Number.isInteger(Number(sectie.index)) && sectie.index !== '' && sectie.index !== null) {
+      const deel = await ai.refineSectionProposal({ klant, naam, huidigBlueprint, huidigeVoorbeeldSlotData, feedback, sectie });
+      return res.json(deel);
+    }
     const proposal = await ai.refineTemplateProposal({ klant, naam, huidigBlueprint, huidigeVoorbeeldSlotData, feedback });
     res.json(proposal);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Lijst van de onderdelen (secties) van een sjabloon, voor de keuzelijst bij "Feedback verwerken".
+router.post('/templates/secties', requireLpInternal, (req, res) => {
+  try {
+    const { blueprint, voorbeeldSlotData } = req.body || {};
+    if (!blueprint || blueprint.templateFormat !== 'slots') return res.json({ secties: [] });
+    res.json({ secties: beschrijfSecties(blueprint.htmlTemplate, voorbeeldSlotData) });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -301,8 +319,9 @@ router.post('/templates/refine', requireLpInternal, async (req, res) => {
 // slot-pad.
 router.post('/templates/preview', requireLpInternal, async (req, res) => {
   try {
-    const { klant, blocks, blueprint, slotData, hervulTekst } = req.body || {};
+    const { klant, blocks, blueprint: blueprintRuw, slotData, hervulTekst } = req.body || {};
     if (!klant) return res.status(400).json({ error: 'klant is verplicht.' });
+    const blueprint = zorgVoorGalerijSlot(blueprintRuw);
 
     if (blueprint && blueprint.templateFormat === 'slots') {
       // Sjabloon delen zonder eerst een pagina te maken: lege voorbeeldtekst en lege afbeelding-slots

@@ -111,3 +111,11 @@ test('validateTemplateStructure: geen waarschuwing bij repeat(auto-fit,...)', ()
   assert.equal(result.ok, true);
   assert.deepEqual(result.warnings, []);
 });
+
+test('waarschuwt bij een CTA-knop zonder de centrale knopklasse', () => {
+  const bp = { templateFormat: 'slots', cssTemplate: '', htmlTemplate: '<section><h1>{{heroTitle}}</h1><a class="x" href="{{ctaHref}}">{{ctaLabel}}</a><a class="lp-cta-button" href="{{ctaHref}}">b</a></section>', slots: [] };
+  const r = require('../src/lp/validator').validateTemplateStructure(bp);
+  assert.ok(r.warnings.some((w) => w.includes('lp-cta-button')));
+  const ok = require('../src/lp/validator').validateTemplateStructure({ ...bp, htmlTemplate: bp.htmlTemplate.replace('class="x"', 'class="x lp-cta-button"') });
+  assert.ok(!ok.warnings.some((w) => w.includes('lp-cta-button')));
+});

@@ -17,12 +17,13 @@ const { getTokens } = require('./tokens');
 const { schoonScreenshots, screenshotUitleg } = require('./screenshots');
 const { fetchReferenceSummary } = require('./referenceFetch');
 const { afgeleideVormtaal } = require('./huisstijlMeting');
+const { zorgVoorGalerijSlot } = require('./galerij');
 const { INLINE_LINK_RE, forEachTextLeaf, ICON_NAMES, findUnknownIcons } = require('./slotEngine');
 
 // De optionele "vaste onderdelen"-checklist in het sjabloon-formulier (Stap
 // 1, vraag 3). Hero, CTA en interne links zijn altijd al verplicht via de
 // vaste slot-namen/regels hieronder, dus die staan hier expres niet in.
-const VASTE_ONDERDELEN_OPTIES = ['usps', 'stappen', 'aanbod', 'praktisch', 'reviews', 'faq', 'doelgroep'];
+const VASTE_ONDERDELEN_OPTIES = ['usps', 'stappen', 'aanbod', 'praktisch', 'reviews', 'faq', 'doelgroep', 'galerij'];
 
 const VASTE_ONDERDELEN_LABELS = {
   usps: "USP's",
@@ -31,7 +32,8 @@ const VASTE_ONDERDELEN_LABELS = {
   praktisch: 'Praktische info',
   reviews: 'Reviews',
   faq: 'FAQ',
-  doelgroep: 'Doelgroeptekst'
+  doelgroep: 'Doelgroeptekst',
+  galerij: 'Galerij / slideshow'
 };
 
 const SLOT_SCHEMA_REFERENCE = `
@@ -74,6 +76,17 @@ mechanisch gecontroleerd):
   klant wordt automatisch op die plek gezet en krijgt vanzelf de kleuren en het lettertype van de
   pagina. Zet {{formulier}} hoogstens een keer in het sjabloon. Geef de omliggende sectie zelf wel
   een duidelijke kop en een korte intro (via gewone slots).
+- GALERIJ / SLIDESHOW: wil je een fotogalerij of slideshow, zet dan op die plek exact de tekst {{galerij}}
+  (bv. <div class="werk-galerij">{{galerij}}</div>) in een eigen sectie met een kop en een korte intro
+  (via gewone slots). Het systeem bouwt daar zelf een swipebare slideshow met pijltjes en puntjes in de
+  huisstijl van de klant, en maakt het slot "galleryItems" vanzelf aan. Schrijf dus GEEN eigen
+  galerij-HTML, geen carrousel, geen script en geen eigen CSS voor de slides. Zet {{galerij}} hoogstens een
+  keer in het sjabloon, en gebruik nooit een eigen lijst-slot voor een galerij als je {{galerij}} gebruikt.
+- KNOPPEN: geef elke CTA-knop (elke <a> met href {{ctaHref}} of vergelijkbare hoofdactie) naast je eigen
+  klasse ook de klasse "lp-cta-button". Die klasse regelt kleur, lettertype, hoofdletters en afronding van
+  de klant. Zet op een knop dus geen eigen border-radius, text-transform of font-family, en gebruik
+  var(--lp-button-radius) en var(--lp-button-transform) als je iets aan de vorm wilt aanvullen. Alle knoppen
+  op de pagina moeten er hetzelfde uitzien.
 - "linksItems" (type list, itemFields ["label","href","reason","zusterpagina"], verplicht ALTIJD
   false) — interne links. Zet deze slot NOOIT op verplicht true: een pagina mag best 0 relevante
   links hebben (kwaliteit boven kwantiteit, zie de contentgeneratie-instructies), dus een lege lijst
@@ -228,6 +241,12 @@ const SEO_GEO_CONTENT_REGELS = `SEO EN GEO BIJ HET SCHRIJVEN (elke pagina moet o
   "Hoe verloopt een verbouwing van begin tot eind?"). Begin elk antwoord met het directe antwoord in een tot twee
   zinnen en licht daarna kort toe. Alleen antwoorden die door de aangeleverde feiten gedekt zijn: geen prijzen,
   doorlooptijden, garanties of cijfers verzinnen (bronprincipe).
+  Feiten met het label "Veelgestelde vraag" zijn echte vragen met antwoord van de klantsite zelf. Gebruik ze als
+  basis van de FAQ: herschrijf ze voor deze dienst en plaats en kopieer ze niet letterlijk (dat geeft dubbele
+  content met de hoofdsite). Voeg daarnaast zelf vragen toe die mensen bij deze dienst en plaats echt stellen,
+  bijvoorbeeld over het werkgebied, de aanpak of de offerte, zodat de FAQ ook nieuwe zoekvragen dekt. Ook die
+  antwoorden moeten door de feiten gedekt zijn. Behandel een zin uit een klant FAQ die er niet klopt of onvolledig
+  uitziet nooit als feit.
 - Entiteiten kloppen: gebruik de bedrijfsnaam, het werkgebied en de contactgegevens EXACT zoals in de feiten. Noem
   geen andere plaatsen, wijken, straten, klanten of projecten die niet in de feiten of de invoer staan.
 - Lokale relevantie zonder verzinsels: maak elke pagina uniek met wat je echt weet over deze plaats uit de invoer
@@ -260,7 +279,7 @@ Antwoord ALLEEN met een JSON-object met exact twee velden, geen tekst erbuiten:
 }`;
 }
 
-async function callOpenAi({ systemPrompt, userPrompt, beelden }) {
+async function callOpenAi({ systemPrompt, userPrompt, beelden, reasoningEffort }) {
   if (typeof systemPrompt !== 'string' || !systemPrompt.trim()) {
     throw new Error('callOpenAi: systemPrompt ontbreekt of is leeg (typfout in de aanroep?).');
   }
@@ -271,29 +290,34 @@ async function callOpenAi({ systemPrompt, userPrompt, beelden }) {
     );
   }
   const model = process.env.OPENAI_MODEL || 'gpt-5.5';
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  const basis = {
+    model,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      {
+        role: 'user',
+        // Met screenshots (zie screenshots.js) gaat de prompt als tekst plus afbeeldingen mee.
+        content: Array.isArray(beelden) && beelden.length
+          ? [{ type: 'text', text: userPrompt }, ...beelden.map((url) => ({ type: 'image_url', image_url: { url, detail: 'high' } }))]
+          : userPrompt
+      }
+    ],
+    response_format: { type: 'json_object' }
+    // Geen temperature-parameter: GPT-5.5 (redeneermodel) ondersteunt alleen
+    // de standaardwaarde (1) — zie besluiten.md.
+  };
+  const verstuur = (body) => fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        {
-          role: 'user',
-          // Met screenshots (zie screenshots.js) gaat de prompt als tekst plus afbeeldingen mee.
-          content: Array.isArray(beelden) && beelden.length
-            ? [{ type: 'text', text: userPrompt }, ...beelden.map((url) => ({ type: 'image_url', image_url: { url, detail: 'high' } }))]
-            : userPrompt
-        }
-      ],
-      response_format: { type: 'json_object' }
-      // Geen temperature-parameter: GPT-5.5 (redeneermodel) ondersteunt alleen
-      // de standaardwaarde (1) — zie besluiten.md.
-    })
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify(body)
   });
+  // reasoningEffort (29-09-2026): minder nadenken = sneller. Alleen meegestuurd als een aanroeper erom vraagt
+  // (feedback per onderdeel). Accepteert het model de parameter niet, dan proberen we het zonder.
+  let res = await verstuur(reasoningEffort ? { ...basis, reasoning_effort: reasoningEffort } : basis);
+  if (!res.ok && reasoningEffort && res.status === 400) {
+    const tekst = await res.clone().text().catch(() => '');
+    if (/reasoning/i.test(tekst)) res = await verstuur(basis);
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`OpenAI-aanroep faalde (status ${res.status}): ${text.slice(0, 500)}`);
@@ -314,7 +338,7 @@ function extractProposal(result) {
   if (!result || typeof result !== 'object' || !result.blueprint) {
     throw new Error('OpenAI-antwoord miste het verwachte veld "blueprint".');
   }
-  const blueprint = { ...result.blueprint, templateFormat: 'slots' };
+  const blueprint = zorgVoorGalerijSlot({ ...result.blueprint, templateFormat: 'slots' });
   return {
     blueprint,
     voorbeeldSlotData:
@@ -410,11 +434,14 @@ Aantal afbeeldingen op de pagina: ${summary.structuur.aantalAfbeeldingen}`;
 }
 
 function buildVasteOnderdelenTekst(verplichteOnderdelen) {
-  const gekozen = (Array.isArray(verplichteOnderdelen) ? verplichteOnderdelen : [])
-    .map((key) => VASTE_ONDERDELEN_LABELS[key])
-    .filter(Boolean);
-  return gekozen.length
-    ? `Verplicht op elke pagina van dit type: ${gekozen.join(', ')} (naast de altijd-verplichte hero, CTA en interne links). Voeg zelf gerust extra secties toe als dat bij de referentie/het paginatype past.`
+  const keys = (Array.isArray(verplichteOnderdelen) ? verplichteOnderdelen : []).filter((k) => VASTE_ONDERDELEN_LABELS[k]);
+  const metGalerij = keys.includes('galerij');
+  const gekozen = keys.filter((k) => k !== 'galerij').map((key) => VASTE_ONDERDELEN_LABELS[key]);
+  const galerijTekst = metGalerij
+    ? ' Neem ook een galerij / slideshow op: maak een sectie met een kop en een korte intro en zet daarin exact de marker {{galerij}} (zie de uitleg over de galerij hierboven). Verzin zelf geen slideshow, geen scripts en geen eigen galerij-HTML.'
+    : '';
+  return keys.length
+    ? `Verplicht op elke pagina van dit type: ${gekozen.length ? gekozen.join(', ') : 'geen vaste tekstonderdelen'} (naast de altijd-verplichte hero, CTA en interne links). Voeg zelf gerust extra secties toe als dat bij de referentie/het paginatype past.${galerijTekst}`
     : 'Geen specifieke onderdelen verplicht gesteld — gebruik je eigen inzicht welke secties bij dit paginatype passen (naast de altijd-verplichte hero, CTA en interne links).';
 }
 
@@ -479,6 +506,85 @@ Feedback van de gebruiker: ${feedback}`;
 
   const result = await callOpenAi({ systemPrompt, userPrompt });
   return extractProposal(result);
+}
+
+// Feedback per onderdeel (29-09-2026, zie sectieRefine.js): de AI past ALLEEN de gekozen sectie aan (of maakt
+// een nieuw onderdeel na een sectie) en geeft alleen de wijziging terug. Veel korter dan het hele sjabloon
+// opnieuw schrijven, en de rest van het sjabloon blijft mechanisch onaangeroerd.
+async function refineSectionProposal({ klant, naam, huidigBlueprint, huidigeVoorbeeldSlotData, feedback, sectie }) {
+  if (!feedback || !feedback.trim()) {
+    throw new Error('Vul feedback in om het voorstel aan te passen.');
+  }
+  const { haalSectie, slotSleutelsIn, pasSectiePatchToe } = require('./sectieRefine');
+  const modus = sectie && sectie.modus === 'voeg_toe_na' ? 'voeg_toe_na' : 'vervang';
+  const doel = haalSectie(huidigBlueprint && huidigBlueprint.htmlTemplate, Number(sectie && sectie.index));
+  const nr = Number(sectie.index) + 1;
+  const sample = huidigeVoorbeeldSlotData && typeof huidigeVoorbeeldSlotData === 'object' ? huidigeVoorbeeldSlotData : {};
+  const sleutels = slotSleutelsIn(doel.html);
+  const slots = Array.isArray(huidigBlueprint.slots) ? huidigBlueprint.slots : [];
+  const sampleDeel = {};
+  sleutels.forEach((k) => { if (k in sample) sampleDeel[k] = sample[k]; });
+
+  const systemPrompt = `Je bent een senior webdesigner/frontend-developer voor een Nederlands marketingbureau. Je past
+een ONDERDEEL van een bestaand landingspagina-sjabloon aan op basis van feedback. Je werkt op precies een
+onderdeel (een <section>); de rest van het sjabloon raak je niet aan en krijg je alleen als referentie.
+
+${ONTWERP_TOOLKIT}
+
+${SEO_GEO_SJABLOON_REGELS}
+
+${SLOT_SCHEMA_REFERENCE}
+
+${modus === 'vervang'
+  ? `OPDRACHT: pas onderdeel ${nr} aan volgens de feedback. Geef het VOLLEDIGE nieuwe onderdeel terug in "sectieHtml".`
+  : `OPDRACHT: maak een NIEUW onderdeel dat direct NA onderdeel ${nr} komt, volgens de feedback. "sectieHtml" is alleen dat nieuwe onderdeel.`}
+
+Antwoord ALLEEN met een JSON-object, geen tekst erbuiten:
+{
+  "sectieHtml": string,   // precies een <section ...>...</section>, gebruik alleen bestaande slot-keys of nieuwe uit "slotsToevoegen"
+  "cssToevoegen": string, // nieuwe CSS voor dit onderdeel, elke selector onder ".lpt", gebruik NIEUWE unieke klassenamen voor nieuwe stijlen
+  "cssVervangen": [ { "zoek": string, "vervang": string } ], // alleen als een BESTAANDE regel moet veranderen. "zoek" staat letterlijk en precies een keer in de huidige CSS en hoort alleen bij dit onderdeel. Leeg laten als niet nodig.
+  "slotsToevoegen": [ ],  // nieuwe slot-definities (zelfde vorm als in het blueprint), alleen als dit onderdeel echt nieuwe velden nodig heeft
+  "voorbeeldSlotDataToevoegen": { }, // voorbeeldwaarden voor die nieuwe slots (herkenbare Nederlandse placeholder)
+  "uitleg": string        // een zin: wat je hebt veranderd
+}
+Regels: verander niets buiten dit onderdeel. Wijzig bestaande CSS-regels zo min mogelijk, want klassen kunnen ook bij andere
+onderdelen horen; geef nieuwe stijlen liever een nieuwe klasse. Bevat het onderdeel de <h1>, dan blijft die {{heroTitle}}.
+Hernoem of verwijder geen bestaande slots.`;
+
+  const userPrompt = `Klant: ${klant}
+Naam van dit sjabloon: ${naam}
+
+${formatBrandingForPrompt(klant)}
+
+${await formatKlantSiteVoorPrompt(klant)}
+
+Huidige HTML van onderdeel ${nr} (van ${doel.aantal}):
+${doel.html}
+
+Huidige CSS van het hele sjabloon (alleen ter referentie):
+${huidigBlueprint.cssTemplate || ''}
+
+Bestaande slots:
+${JSON.stringify(slots.map((s) => ({ key: s.key, type: s.type, itemFields: s.itemFields })))}
+
+Voorbeeldwaarden van de slots in dit onderdeel:
+${JSON.stringify(sampleDeel, null, 2)}
+
+Feedback van de gebruiker: ${feedback}`;
+
+  const patch = await callOpenAi({
+    systemPrompt,
+    userPrompt,
+    reasoningEffort: process.env.OPENAI_REFINE_EFFORT || 'low'
+  });
+  const toegepast = pasSectiePatchToe(huidigBlueprint, sample, { modus, index: Number(sectie.index) }, patch);
+  return {
+    blueprint: { ...toegepast.blueprint, templateFormat: 'slots' },
+    voorbeeldSlotData: toegepast.voorbeeldSlotData,
+    waarschuwingen: toegepast.waarschuwingen,
+    uitleg: typeof patch.uitleg === 'string' ? patch.uitleg : ''
+  };
 }
 
 // ---- Stap 2: content voor één pagina genereren binnen een goedgekeurd
@@ -549,6 +655,10 @@ function buildContentSystemPrompt(template) {
         }): ${s.label || ''}`
     )
     .join('\n');
+  const galerijNotitie = slots.some((s) => s.key === 'galleryItems')
+    ? `\n\nGalerij: geef bij "galleryItems" precies 6 items terug, elk alleen { "caption": "" }. Foto's, alt-teksten en
+bijschriften worden later apart gevuld uit de mediabibliotheek. Verzin geen bijschriften.`
+    : '';
   const afbeeldingNotitie = afbeeldingVeldNamen.length
     ? `\n\nVul geen enkel afbeelding-veld in, ook niet met een placeholder-tekst of verzonnen URL —
 dit geldt zowel voor een los afbeelding-slot als voor het afbeeldingveld binnen een lijst-item:
@@ -575,7 +685,7 @@ aangeleverd (feitensheet, invoervelden, "waar gaat deze pagina over") — verzin
 data of andere harde feiten.
 
 Slots die gevuld moeten worden:
-${slotBeschrijving}${afbeeldingNotitie}${iconNotitie}
+${slotBeschrijving}${afbeeldingNotitie}${galerijNotitie}${iconNotitie}
 
 Interne links — kwaliteit boven kwantiteit: je krijgt een lijst "Beschikbare linkbestemmingen" (een
 mix van andere landingspagina's van deze klant en echte, bestaande pagina's op de eigen website).
@@ -849,9 +959,11 @@ module.exports = {
   beschrijfVisueleRichting,
   buildTemplateSystemPrompt,
   buildContentSystemPrompt,
+  buildVasteOnderdelenTekst,
   callOpenAi,
   generateTemplateProposal,
   refineTemplateProposal,
+  refineSectionProposal,
   generatePageContent,
   getImageSlots,
   pickImagesForPage,
