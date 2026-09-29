@@ -3,6 +3,7 @@ const { getClient } = require('../config/clients');
 const notionService = require('../services/notion');
 const settingsService = require('../services/settings');
 const kennisdocumentService = require('../services/kennisdocument');
+const prestatiesService = require('../services/prestaties');
 const documentTekst = require('../services/documentTekst');
 const { checkPassword, requireLogin } = require('../middleware/auth');
 
@@ -72,6 +73,27 @@ router.get('/:clientId/performance', requireLogin, async (req, res) => {
     const log = await notionService.getPerformanceLog(req.params.clientId);
     const laatstBijgewerkt = log.length ? log[log.length - 1].datum : null;
     res.json({ log, laatstBijgewerkt });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Nieuwe Prestaties-weergave (v2). Staat achter de vlag performanceV2 in
+// clients.js, of tijdelijk aan via ?v2=1 om te testen. Geeft 404 zolang er
+// geen data is, zodat het portaal dan de oude weergave blijft tonen.
+router.get('/:clientId/performance-v2', requireLogin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    const settings = await settingsService.getClientSettings(req.params.clientId, config);
+    if (!settings.performanceEnabled) {
+      return res.status(404).json({ error: 'Prestatiegegevens staan nog niet aan voor deze klant.' });
+    }
+    if (!config.performanceV2 && req.query.v2 !== '1') {
+      return res.status(404).json({ error: 'De nieuwe weergave staat nog niet aan.' });
+    }
+    const data = await prestatiesService.getPrestaties(config.naam);
+    if (!data) return res.status(404).json({ error: 'Er is nog geen prestatiedata.' });
+    res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

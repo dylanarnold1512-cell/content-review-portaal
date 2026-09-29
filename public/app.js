@@ -161,6 +161,25 @@ async function loadPerformancePanel() {
     if (updatedEl) updatedEl.classList.add('hidden');
     return;
   }
+  // Eerst de nieuwe weergave proberen. Lukt dat niet (vlag uit of nog geen
+  // data), dan blijft de oude weergave hieronder gewoon werken.
+  try {
+    const v2Param = new URLSearchParams(location.search).get('prestaties') === 'nieuw' ? '?v2=1' : '';
+    const v2 = await api(`/${state.clientId}/performance-v2${v2Param}`);
+    renderPrestatiesV2(v2);
+    state.performanceV2Active = true;
+    panel.classList.add('hidden');
+    if (updatedEl) updatedEl.classList.add('hidden');
+    const oudeLijst = document.getElementById('postPerformanceList');
+    if (oudeLijst) oudeLijst.classList.add('hidden');
+    return;
+  } catch (err) {
+    state.performanceV2Active = false;
+    const v2El = document.getElementById('performanceV2');
+    if (v2El) v2El.classList.add('hidden');
+    const oudeLijst = document.getElementById('postPerformanceList');
+    if (oudeLijst) oudeLijst.classList.remove('hidden');
+  }
   try {
     const data = await api(`/${state.clientId}/performance`);
     renderPerformancePanel(data.log);
@@ -309,6 +328,7 @@ function renderTopKeywords(raw) {
 function renderPostPerformanceList() {
   const listEl = document.getElementById('postPerformanceList');
   if (!listEl) return;
+  if (state.performanceV2Active) return;
   const published = state.items.filter(
     (i) => i.status === state.statusValues.published && i.impressions30d != null
   );
