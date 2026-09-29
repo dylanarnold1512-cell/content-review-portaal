@@ -64,6 +64,13 @@ function helderheid(hex) {
   return { licht: (max + min) / 2, chroma: max - min };
 }
 
+// Een donker vlak (bv. bijna zwarte secties): erg donker en vrijwel kleurloos of diep gekleurd. Zuiver #000000 telt
+// niet mee, dat is bijna altijd tekst of een rand en geen sectieachtergrond.
+function isDonker(hex) {
+  const { licht } = helderheid(hex);
+  return licht < 0.2 && hex.toLowerCase() !== '#000000';
+}
+
 // Een neutraal lichtgrijs vlak (geschikt als alternatieve achtergrond): licht en vrijwel kleurloos.
 function isLichtNeutraal(hex) {
   const { licht, chroma } = helderheid(hex);
@@ -147,6 +154,7 @@ function meetHuisstijl(css) {
   return {
     achtergronden: top(achtergronden, 10),
     lichtNeutraleAchtergronden: top(achtergronden.filter(isLichtNeutraal), 5),
+    donkereAchtergronden: top(achtergronden.filter(isDonker), 5),
     randen: top(randen, 6),
     themaKleuren: eigenschappen.slice(0, 10),
     fontFaceFamilies: [...fontFaceFamilies],
@@ -173,7 +181,9 @@ function afgeleideVormtaal(meting) {
   if (/^\d+(\.\d+)?(px|rem|em)$/.test(knopRadius)) v.buttonRadius = knopRadius;
   const kaartRadius = normaliseerRadius(topWaarde(meting.kaarten.radius));
   if (/^\d+(\.\d+)?(px|rem|em)$/.test(kaartRadius)) v.cardRadius = kaartRadius;
+  // Donker sectievlak: alleen invullen als de site er echt een gebruikt (meting), anders leeg (valt terug op primaryDark).
+  if (meting.donkereAchtergronden && meting.donkereAchtergronden.length) v.bgDark = topWaarde(meting.donkereAchtergronden);
   return v;
 }
 
-module.exports = { meetHuisstijl, afgeleideVormtaal, isLichtNeutraal, naarHex, splitBlokken };
+module.exports = { meetHuisstijl, afgeleideVormtaal, isLichtNeutraal, isDonker, naarHex, splitBlokken };

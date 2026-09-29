@@ -84,3 +84,11 @@ test('style: gewichten uit de tokens gaan voor de standaard, zonder codewijzigin
   assert.match(href, /family=Nieuw\+Lettertype:wght@300;700/);
   assert.match(href, /family=Jost:wght@400;500;600;700/);
 });
+
+test('meting vindt een donker sectievlak en negeert zuiver zwart', () => {
+  const { meetHuisstijl, afgeleideVormtaal } = require('../src/lp/huisstijlMeting');
+  const m = meetHuisstijl('.a{background-color:#151515}.b{background:#151515}.c{background:#f6f6f6}.d{background:#000000}');
+  assert.equal(afgeleideVormtaal(m).bgDark, '#151515');
+  const geen = meetHuisstijl('.c{background:#f6f6f6}');
+  assert.equal(afgeleideVormtaal(geen).bgDark, undefined);
+});

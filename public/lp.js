@@ -1857,7 +1857,7 @@ function collectIntakeFeiten() {
 
 const LP_TOKEN_FIELD_IDS = {
   primary: 'lpTokenPrimary', primaryDark: 'lpTokenPrimaryDark', secondary: 'lpTokenSecondary',
-  text: 'lpTokenText', textMuted: 'lpTokenTextMuted', bg: 'lpTokenBg', bgAlt: 'lpTokenBgAlt',
+  text: 'lpTokenText', textMuted: 'lpTokenTextMuted', bg: 'lpTokenBg', bgAlt: 'lpTokenBgAlt', bgDark: 'lpTokenBgDark',
   border: 'lpTokenBorder', maxWidth: 'lpTokenMaxWidth', radius: 'lpTokenRadius',
   fontHeading: 'lpTokenFontHeading', fontBody: 'lpTokenFontBody', ctaBg: 'lpTokenCtaBg', ctaText: 'lpTokenCtaText',
   // Vormtaal (25-09-2026, zie tokens.js): hoofdletters, kopkleur, rondingen en sfeer van de klantsite.
