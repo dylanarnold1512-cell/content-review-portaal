@@ -135,7 +135,9 @@ const clients = [
       mainKeyword: 'Hoofdkeyword',
       secondaryKeywords: 'Secundaire keywords',
       searchIntent: 'Zoekintentie',
-      cluster: 'Cluster'
+      cluster: 'Cluster',
+      seoTitle: 'SEO Meta Title',
+      seoDescription: 'SEO Meta Description'
     },
     // Statuswaarden zoals ze in de Trockenblumengrosshandel Notion database staan.
     statusValues: {
