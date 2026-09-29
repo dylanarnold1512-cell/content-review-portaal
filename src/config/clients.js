@@ -31,7 +31,7 @@ const clients = [
     performanceEnabled: false,
     // Nieuwe Prestaties-weergave (data uit de n8n Prestatie Sync v2). Zet op
     // true zodra de sync draait en de cijfers zijn nagelopen.
-    performanceV2: false,
+    performanceV2: true,
     // Namen van de Notion-properties zoals ze in deze database heten.
     // Per klant configureerbaar, want niet elke database zal exact dezelfde
     // kolomnamen gebruiken.
