@@ -434,6 +434,33 @@
       <button type="button" id="lpIntakeAnalyseerFeitenBtn" class="btn-plain">Analyseer feiten &amp; CTA</button>
       <span id="lpIntakeAnalyseerFeitenStatus" class="admin-footnote"></span>
 
+      <div class="admin-section-title" style="margin-top:24px;">Hoe maken we de pagina's?</div>
+      <p class="admin-footnote">
+        Bij sjablonen bouwt de LP Fabriek de pagina zelf uit een sjabloon met de huisstijl van de klant. Bij klonen wordt een
+        bestaande pagina op de site van de klant 1 op 1 gekopieerd (zelfde layout en opmaak) en wordt alleen de inhoud vervangen.
+        Klonen werkt nu voor sites die met Beaver Builder zijn gebouwd.
+      </p>
+      <div class="lp-field-row">
+        <label for="lpIntakeWerkwijze">Werkwijze</label>
+        <select id="lpIntakeWerkwijze">
+          <option value="sjablonen">Sjablonen (de LP Fabriek zoals die nu werkt)</option>
+          <option value="klonen">Pagina's klonen vanaf een voorbeeldpagina</option>
+          <option value="beide">Allebei</option>
+        </select>
+      </div>
+      <div id="lpIntakeKloonBlok" class="hidden">
+        <p class="admin-footnote">
+          Welke bestaande pagina's van de klant moeten als voorbeeld dienen? Plak de link of het paginanummer uit WordPress.
+          Je krijgt in de chat daarna de stappen die je zelf nog moet doen (onder andere een stukje code in Code Snippets op de site van de klant).
+        </p>
+        <div id="lpIntakeKloonRows"></div>
+        <button type="button" id="lpIntakeKloonAddBtn" class="btn-plain">+ Voorbeeldpagina toevoegen</button>
+        <div class="lp-field-row" style="margin-top:8px;">
+          <label for="lpIntakeKloonOpmerking">Waarvoor worden de klonen gebruikt? (optioneel)</label>
+          <textarea id="lpIntakeKloonOpmerking" rows="2" placeholder="bv. per stad een eigen pagina, alleen plaatsnaam en foto's wisselen"></textarea>
+        </div>
+      </div>
+
       <div class="modal-actions" style="margin-top:16px;">
         <button type="button" id="lpIntakeSubmitBtn" class="btn btn-approve">Intake verzenden</button>
       </div>

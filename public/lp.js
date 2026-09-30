@@ -2033,6 +2033,45 @@ function collectIntakeFeiten() {
     .filter((f) => f.label && f.waarde && f.bron);
 }
 
+// Werkwijze per klant: sjablonen (LP Fabriek), klonen vanaf een voorbeeldpagina, of allebei.
+function addIntakeKloonRow() {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'lp-columns';
+  wrapper.dataset.kloonRow = '1';
+  wrapper.style.marginBottom = '8px';
+  wrapper.innerHTML = `
+    <div class="lp-col"><input type="text" class="lp-kloon-verwijzing" placeholder="Link of paginanummer (bv. https://klant.nl/voorbeeld/)"></div>
+    <div class="lp-col"><input type="text" class="lp-kloon-naam" placeholder="Naam (bv. Hostel bij Breda)"></div>
+    <button type="button" class="btn-plain lp-kloon-remove">Verwijder</button>
+  `;
+  wrapper.querySelector('.lp-kloon-remove').addEventListener('click', () => wrapper.remove());
+  document.getElementById('lpIntakeKloonRows').appendChild(wrapper);
+}
+
+function toonKloonBlok() {
+  const werkwijze = document.getElementById('lpIntakeWerkwijze').value;
+  const blok = document.getElementById('lpIntakeKloonBlok');
+  blok.classList.toggle('hidden', werkwijze === 'sjablonen');
+  if (werkwijze !== 'sjablonen' && !document.querySelector('#lpIntakeKloonRows [data-kloon-row]')) addIntakeKloonRow();
+}
+document.getElementById('lpIntakeWerkwijze').addEventListener('change', toonKloonBlok);
+document.getElementById('lpIntakeKloonAddBtn').addEventListener('click', addIntakeKloonRow);
+
+function collectIntakeKloon() {
+  const werkwijze = document.getElementById('lpIntakeWerkwijze').value;
+  if (werkwijze === 'sjablonen') return { werkwijze, kloonPaginas: null };
+  const paginas = Array.from(document.querySelectorAll('#lpIntakeKloonRows [data-kloon-row]'))
+    .map((row) => ({
+      verwijzing: row.querySelector('.lp-kloon-verwijzing').value.trim(),
+      naam: row.querySelector('.lp-kloon-naam').value.trim()
+    }))
+    .filter((p) => p.verwijzing);
+  return {
+    werkwijze,
+    kloonPaginas: { paginas, opmerking: document.getElementById('lpIntakeKloonOpmerking').value.trim() }
+  };
+}
+
 const LP_TOKEN_FIELD_IDS = {
   primary: 'lpTokenPrimary', primaryDark: 'lpTokenPrimaryDark', secondary: 'lpTokenSecondary',
   text: 'lpTokenText', textMuted: 'lpTokenTextMuted', bg: 'lpTokenBg', bgAlt: 'lpTokenBgAlt', bgDark: 'lpTokenBgDark',
@@ -2209,8 +2248,17 @@ document.getElementById('lpIntakeSubmitBtn').addEventListener('click', async () 
     return;
   }
 
+  const kloon = collectIntakeKloon();
+  if (kloon.werkwijze !== 'sjablonen' && !kloon.kloonPaginas.paginas.length) {
+    errorEl.textContent = 'Geef minstens een voorbeeldpagina op om te klonen, of kies de werkwijze Sjablonen.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
   const intake = {
     klantnaam,
+    werkwijze: kloon.werkwijze,
+    kloonPaginas: kloon.kloonPaginas,
     taal: document.getElementById('lpIntakeTaal').value,
     wpEnvNamen: {
       urlEnv: document.getElementById('lpIntakeWpUrlEnv').value.trim(),
@@ -2242,6 +2290,10 @@ document.getElementById('lpIntakeSubmitBtn').addEventListener('click', async () 
     document.getElementById('lpIntakeWpPassEnv').value = '';
     document.getElementById('lpIntakeReferentieUrl').value = '';
     document.getElementById('lpIntakeFeitenRows').innerHTML = '';
+    document.getElementById('lpIntakeWerkwijze').value = 'sjablonen';
+    document.getElementById('lpIntakeKloonRows').innerHTML = '';
+    document.getElementById('lpIntakeKloonOpmerking').value = '';
+    toonKloonBlok();
     document.getElementById('lpIntakeVoorstelSection').classList.add('hidden');
     await loadIntakes();
   } catch (err) {
