@@ -3,7 +3,7 @@
 
 const express = require('express');
 const { clients: lpClients, getLpClient } = require('../lp/clients');
-const { haalVelden, maakKloon, stelInhoudVoor } = require('../lp/wpKloon');
+const { haalVelden, haalKlonen, maakKloon, stelInhoudVoor } = require('../lp/wpKloon');
 const { gebruikteFeitIds } = require('../lp/feitenDefaults');
 const { requireLpInternal } = require('../middleware/auth');
 
@@ -25,6 +25,16 @@ router.post('/velden', requireLpInternal, async (req, res) => {
     const { klant, bron } = req.body || {};
     getLpClient(klant); // onbekende klant geeft een duidelijke fout
     res.json(await haalVelden({ bron }));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Eerder gemaakte klonen van deze klant (uit WordPress zelf, zie haalKlonen).
+router.get('/klonen', requireLpInternal, async (req, res) => {
+  try {
+    getLpClient(req.query.klant);
+    res.json({ klonen: await haalKlonen() });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

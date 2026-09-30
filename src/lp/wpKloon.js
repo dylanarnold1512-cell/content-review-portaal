@@ -193,6 +193,33 @@ async function haalVelden({ bron }, opties) {
   };
 }
 
+// Lijst van eerder gemaakte klonen. WordPress merkt elke kloon (meta _lpfabriek_kloon), de lijst komt dus uit
+// WordPress zelf en klopt ook als een pagina daar is gepubliceerd of verwijderd. De webhook heeft hiervoor geen
+// aparte modus nodig: bron "klonen" op de velden route geeft de lijst.
+const STATUS_NAMEN = { draft: 'Concept', publish: 'Live', pending: 'In afwachting', private: 'Privé', future: 'Gepland' };
+
+function normaliseerKlonen(data) {
+  const lijst = data && Array.isArray(data.klonen) ? data.klonen : null;
+  if (!lijst) throw new Error('Onverwacht antwoord van WordPress: geen lijst met klonen. Is het bijgewerkte PHP fragment geplaatst?');
+  return lijst.map((k) => ({
+    id: Number(k.id) || 0,
+    titel: String(k.titel || '(zonder titel)'),
+    slug: String(k.slug || ''),
+    status: String(k.status || ''),
+    statusNaam: STATUS_NAMEN[k.status] || String(k.status || ''),
+    datum: String(k.datum || ''),
+    bron: Number(k.bron) || 0,
+    bronTitel: String(k.bron_titel || ''),
+    url: String(k.url || ''),
+    bewerkUrl: String(k.bewerk_url || ''),
+    builderUrl: String(k.builder_url || '')
+  }));
+}
+
+async function haalKlonen(opties) {
+  return normaliseerKlonen(await roepWebhook({ modus: 'velden', bron: 'klonen' }, opties));
+}
+
 async function maakKloon(invoer, opties) {
   const verzoek = bouwKloonVerzoek(invoer);
   return normaliseerAntwoord(await roepWebhook(verzoek, opties));
@@ -270,6 +297,8 @@ module.exports = {
   roepWebhook,
   normaliseerAntwoord,
   haalVelden,
+  haalKlonen,
+  normaliseerKlonen,
   maakKloon,
   controleerHtmlStructuur,
   bouwAiPrompt,

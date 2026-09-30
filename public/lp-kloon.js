@@ -46,9 +46,56 @@
     btn.addEventListener('click', () => {
       const actief = btn.dataset.lpTab === 'kloon';
       $('lpKloonTab').classList.toggle('hidden', !actief);
-      if (actief) laadBronnen();
+      if (actief) { laadBronnen(); laadLijst(); }
     });
   });
+
+  function datumTekst(iso) {
+    const d = new Date(iso);
+    return isNaN(d) ? '' : d.toLocaleString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function renderLijst(klonen) {
+    const houder = $('lpKloonLijst');
+    houder.innerHTML = '';
+    if (!klonen.length) { houder.textContent = 'Nog geen klonen gemaakt.'; return; }
+    const tabel = el('table', { class: 'admin-table' });
+    tabel.appendChild(el('thead', {}, [el('tr', {}, ['Pagina', 'Status', 'Gemaakt', 'Bron', 'Links'].map((t) => el('th', { text: t })))]));
+    const body = el('tbody');
+    klonen.forEach((k) => {
+      const links = el('td');
+      [['Builder', k.builderUrl], ['Bewerken', k.bewerkUrl], [k.status === 'publish' ? 'Bekijken' : 'Voorbeeld', k.url]].forEach(([tekst, url]) => {
+        if (!url) return;
+        links.appendChild(el('a', { href: url, target: '_blank', rel: 'noopener', text: tekst }));
+        links.appendChild(document.createTextNode('  '));
+      });
+      body.appendChild(el('tr', {}, [
+        el('td', { text: `${k.titel} (nr. ${k.id})` }),
+        el('td', { text: k.statusNaam }),
+        el('td', { text: datumTekst(k.datum) }),
+        el('td', { text: k.bronTitel || (k.bron ? `nr. ${k.bron}` : '') }),
+        links
+      ]));
+    });
+    tabel.appendChild(body);
+    houder.appendChild(tabel);
+  }
+
+  async function laadLijst() {
+    const klant = $('lpKloonKlant').value || (state.klanten[0] && state.klanten[0].id);
+    const houder = $('lpKloonLijst');
+    if (!klant) {
+      // De klantenlijst is nog niet geladen: laadBronnen roept dit opnieuw aan zodra die er is.
+      return;
+    }
+    try {
+      const { klonen } = await lpApi(`/kloon/klonen?klant=${encodeURIComponent(klant)}`);
+      renderLijst(klonen);
+    } catch (err) {
+      houder.textContent = `Lijst niet beschikbaar: ${formatApiError(err)}`;
+    }
+  }
+  $('lpKloonLijstBtn').addEventListener('click', laadLijst);
 
   async function laadBronnen() {
     if (state.geladen) return;
@@ -61,6 +108,7 @@
       klantSel.onchange = vulBronnen;
       vulBronnen();
       state.geladen = true;
+      laadLijst();
       if (!klanten.length) toonFout('Er zijn nog geen klanten met een bronpagina. Voeg kloonBronnen toe aan het klantprofiel.');
     } catch (err) {
       toonFout(formatApiError(err));
@@ -327,7 +375,9 @@
     const btn = dryRun ? $('lpKloonControleBtn') : $('lpKloonMaakBtn');
     setBtnLoading(btn, true, dryRun ? 'Controleren...' : 'Aanmaken...');
     try {
-      toonResultaat(await lpApi('/kloon/maak', { method: 'POST', body: JSON.stringify(verzoek) }));
+      const r = await lpApi('/kloon/maak', { method: 'POST', body: JSON.stringify(verzoek) });
+      toonResultaat(r);
+      if (!dryRun) laadLijst();
     } catch (err) {
       toonFout(formatApiError(err));
     } finally {

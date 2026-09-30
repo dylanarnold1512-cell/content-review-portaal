@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const {
   labelVelden, schoneSlug, bouwKloonVerzoek, roepWebhook, normaliseerAntwoord, haalVelden, maakKloon,
-  controleerHtmlStructuur, stelInhoudVoor, webhookConfig
+  controleerHtmlStructuur, stelInhoudVoor, webhookConfig, haalKlonen, normaliseerKlonen
 } = require('../src/lp/wpKloon');
 
 const ENV = { LP_KLOON_WEBHOOK_URL: 'https://n8n.test/webhook/lp-wp-kloon', LP_KLOON_WEBHOOK_KEY: 'geheim' };
@@ -186,4 +186,27 @@ test('stelInhoudVoor: alleen bekende velden komen terug, opmaakwijziging geeft e
 test('stelInhoudVoor: zonder opdracht of zonder velden een duidelijke fout', async () => {
   await assert.rejects(stelInhoudVoor({ opdracht: '', velden: [{ id: 'a', huidig: 'x' }], callAi: async () => ({}) }), /waar de nieuwe pagina over gaat/);
   await assert.rejects(stelInhoudVoor({ opdracht: 'x', velden: [], callAi: async () => ({}) }), /Geen tekstvelden/);
+});
+
+test('haalKlonen: vraagt de lijst via de velden route met bron klonen en normaliseert het antwoord', async () => {
+  let verstuurd;
+  const fetchFn = async (url, init) => {
+    verstuurd = JSON.parse(init.body);
+    return { ok: true, status: 200, json: async () => ({ klonen: [
+      { id: 15300, titel: 'Testival in Tilburg', slug: 'testival-in-tilburg', status: 'publish', datum: '2026-09-30T09:00:00+00:00', bron: 14894, bron_titel: 'Hostel bij Breda', url: 'https://x/t/', bewerk_url: 'https://x/wp-admin/post.php?post=15300&action=edit', builder_url: 'https://x/t/?fl_builder' },
+      { id: 15295, status: 'draft' }
+    ] }) };
+  };
+  const lijst = await haalKlonen({ fetchFn, env: ENV });
+  assert.deepStrictEqual(verstuurd, { modus: 'velden', bron: 'klonen' });
+  assert.strictEqual(lijst.length, 2);
+  assert.strictEqual(lijst[0].statusNaam, 'Live');
+  assert.strictEqual(lijst[0].bronTitel, 'Hostel bij Breda');
+  assert.strictEqual(lijst[1].statusNaam, 'Concept');
+  assert.strictEqual(lijst[1].titel, '(zonder titel)');
+});
+
+test('normaliseerKlonen: een antwoord zonder lijst geeft een duidelijke fout', () => {
+  assert.throws(() => normaliseerKlonen({ velden: [] }), /PHP fragment/);
+  assert.deepStrictEqual(normaliseerKlonen({ klonen: [] }), []);
 });
