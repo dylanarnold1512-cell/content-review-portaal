@@ -107,7 +107,7 @@ async function listAllSettings(clientsConfig) {
     return {
       id: c.id,
       naam: c.naam,
-      heeftPrestaties: Boolean(c.performanceLogDatabaseId),
+      heeftPrestaties: Boolean(c.performanceLogDatabaseId || c.performanceV2),
       reviewEnabled: settings ? settings.reviewEnabled : Boolean(c.reviewEnabled),
       performanceEnabled: settings ? settings.performanceEnabled : Boolean(c.performanceEnabled),
       ideaEnrichmentEnabled: settings ? settings.ideaEnrichmentEnabled : Boolean(c.ideaEnrichmentEnabled),

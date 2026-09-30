@@ -81,6 +81,7 @@ const clients = [
     id: 'ppe',
     naam: 'PPExport',
     notionTokenEnv: 'NOTION_TOKEN_PPE',
+    performanceV2: true,
     databaseId: 'e85219a5-27a4-44f8-8651-4ef6b957658e', // "PPE Commercial Content Database"
     // reviewEnabled hieronder is alleen nog de fallback-waarde voor als de
     // "Portaal Instellingen"-database in Notion niet bereikbaar is. Sta uit
@@ -120,6 +121,7 @@ const clients = [
     id: 'trockenblumengrosshandel',
     naam: 'Trockenblumengrosshandel',
     notionTokenEnv: 'NOTION_TOKEN_TBG',
+    performanceV2: true,
     databaseId: '3e75becfdb7245fabaf3207a751c326d', // "Trockenblumengrosshandel Content Planning"
     // Shared klant, testfase op 25-08-2026. Dylan is de reviewer (logt in met
     // PORTAL_PASSWORD_TBG) tot de eerste blog gecontroleerd is, daarna gaat
