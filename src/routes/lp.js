@@ -16,6 +16,9 @@ const { zorgVoorGalerijSlot } = require('../lp/galerij');
 const { beschrijfSecties } = require('../lp/sectieRefine');
 const { berekenOverrides, zetVerborgen } = require('../lp/overrides');
 const { gebruikteFeitIds } = require('../lp/feitenDefaults');
+const { bouwKopie } = require('../lp/dupliceer');
+const gelijk = require('../lp/gelijkenis');
+const { verzamelTekst } = gelijk;
 const share = require('../lp/share');
 const { validatePage, validateTemplateStructure } = require('../lp/validator');
 const { pushDraft, deletePage: deleteWpPage, searchMedia, uploadMedia, listSitePages } = require('../lp/wordpress');
@@ -560,85 +563,103 @@ router.put('/pages/:pageId/status', requireLpInternal, async (req, res) => {
 // mislukt (bv. een WordPress- of OpenAI-fout), gaat de rest van de content
 // gewoon door en komt er een korte waarschuwing mee terug in plaats van dat
 // de hele generatie faalt.
-router.post('/pages/:pageId/generate-content', requireLpInternal, async (req, res) => {
+// Zusterpagina's: zelfde klant en zelfde sjabloon, maximaal 8 (nieuwste eerst), met inhoud. Wordt gebruikt om de
+// AI te laten afwijken en om gelijkenis te controleren. Een pagina die niet te laden is wordt overgeslagen.
+const MAX_ZUSTERS = 8;
+async function haalZusterPaginas(page, allePaginas) {
+  const lijst = (allePaginas || await lpNotion.listPages({ klant: page.klant }))
+    .filter((p) => p.id !== page.id && p.blueprint === page.blueprint)
+    .slice(0, MAX_ZUSTERS);
+  const geladen = await Promise.allSettled(lijst.map((p) => lpNotion.getPage(p.id)));
+  return geladen.filter((r) => r.status === 'fulfilled').map((r) => r.value);
+}
+
+// Maakt een content voorstel voor een pagina (AI, links, foto's). Slaat niets op.
+async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } = {}) {
+  const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+  if (blueprint.templateFormat !== 'slots') {
+    throw new Error('AI-contentgeneratie is alleen beschikbaar voor sjablonen in het nieuwe (slot-gebaseerde) formaat.');
+  }
+  const invoer = page.invoer || {};
+  const client = getLpClient(page.klant);
+  const feitensheet = page.feitensheet || { gebruikt: [], extra: [] };
+  const feitenById = new Map((client.feiten || []).map((f) => [f.id, f]));
+  // Feiten met standaard: true staan bij een nog niet opgeslagen feitensheet vanzelf aan (feitenDefaults.js).
+  const gebruikteFeiten = gebruikteFeitIds(page.feitensheet, client.feiten).map((id) => feitenById.get(id)).filter(Boolean);
+  const feiten = [...gebruikteFeiten, ...(feitensheet.extra || [])];
+
+  // Linkkandidaten voor de linksItems-slot en voor inline links middenin de tekst: een mix van
+  // andere LP Fabriek-pagina's van dezelfde klant (zusterpagina: true) en echte, bestaande
+  // pagina's op de live website van de klant (zusterpagina: false) — beide tellen mee, Dylan
+  // wilde niet beperkt blijven tot alleen onderling linkende landingspagina's. Het ophalen van de
+  // site-pagina's mag nooit de hele contentgeneratie blokkeren als het misgaat (bv. WP-fout).
+  const allePaginas = await lpNotion.listPages({ klant: page.klant });
+  const zusterKandidaten = allePaginas
+    .filter((p) => p.id !== page.id && p.titel && p.wpUrl)
+    .map((p) => ({ label: p.titel, url: p.wpUrl, omschrijving: '(eigen landingspagina van deze klant)', zusterpagina: true }));
+
+  let siteKandidaten = [];
+  let linkWarning = null;
   try {
-    const page = await lpNotion.getPage(req.params.pageId);
-    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
-    if (blueprint.templateFormat !== 'slots') {
-      return res.status(400).json({ error: 'AI-contentgeneratie is alleen beschikbaar voor sjablonen in het nieuwe (slot-gebaseerde) formaat.' });
+    const sitePaginas = await listSitePages({ profile: client.profile });
+    siteKandidaten = sitePaginas
+      .filter((p) => p.url)
+      .map((p) => ({ label: p.titel || p.url, url: p.url, omschrijving: p.omschrijving || '', zusterpagina: false }));
+    if (!siteKandidaten.length) {
+      linkWarning = 'Geen gepubliceerde site-pagina\'s gevonden op de eigen WordPress-site — alleen zusterpagina\'s (indien aanwezig) zijn als linkkandidaat gebruikt.';
     }
-    const { watGaatDezePaginaOver, ctaOverride } = req.body || {};
-    const invoer = page.invoer || {};
-    const client = getLpClient(page.klant);
-    const feitensheet = page.feitensheet || { gebruikt: [], extra: [] };
-    const feitenById = new Map((client.feiten || []).map((f) => [f.id, f]));
-    // Feiten met standaard: true staan bij een nog niet opgeslagen feitensheet vanzelf aan (feitenDefaults.js).
-    const gebruikteFeiten = gebruikteFeitIds(page.feitensheet, client.feiten).map((id) => feitenById.get(id)).filter(Boolean);
-    const feiten = [...gebruikteFeiten, ...(feitensheet.extra || [])];
+  } catch (siteErr) {
+    // Nooit de hele contentgeneratie blokkeren als dit misgaat (bv. WP-fout) — geen site-pagina's
+    // als kandidaat is niet erger dan de oude situatie (alleen zusterpagina's). Wel zichtbaar
+    // maken via linkWarning, zodat dit niet stilletjes onopgemerkt blijft zoals de eerste keer.
+    linkWarning = `Site-pagina's ophalen bij WordPress is niet gelukt (${siteErr.message}) — alleen zusterpagina's (indien aanwezig) zijn als linkkandidaat gebruikt.`;
+  }
 
-    // Linkkandidaten voor de linksItems-slot en voor inline links middenin de tekst: een mix van
-    // andere LP Fabriek-pagina's van dezelfde klant (zusterpagina: true) en echte, bestaande
-    // pagina's op de live website van de klant (zusterpagina: false) — beide tellen mee, Dylan
-    // wilde niet beperkt blijven tot alleen onderling linkende landingspagina's. Het ophalen van de
-    // site-pagina's mag nooit de hele contentgeneratie blokkeren als het misgaat (bv. WP-fout).
-    const allePaginas = await lpNotion.listPages({ klant: page.klant });
-    const zusterKandidaten = allePaginas
-      .filter((p) => p.id !== page.id && p.titel && p.wpUrl)
-      .map((p) => ({ label: p.titel, url: p.wpUrl, omschrijving: '(eigen landingspagina van deze klant)', zusterpagina: true }));
+  const linkKandidaten = [...zusterKandidaten, ...siteKandidaten];
 
-    let siteKandidaten = [];
-    let linkWarning = null;
-    try {
-      const sitePaginas = await listSitePages({ profile: client.profile });
-      siteKandidaten = sitePaginas
-        .filter((p) => p.url)
-        .map((p) => ({ label: p.titel || p.url, url: p.url, omschrijving: p.omschrijving || '', zusterpagina: false }));
-      if (!siteKandidaten.length) {
-        linkWarning = 'Geen gepubliceerde site-pagina\'s gevonden op de eigen WordPress-site — alleen zusterpagina\'s (indien aanwezig) zijn als linkkandidaat gebruikt.';
-      }
-    } catch (siteErr) {
-      // Nooit de hele contentgeneratie blokkeren als dit misgaat (bv. WP-fout) — geen site-pagina's
-      // als kandidaat is niet erger dan de oude situatie (alleen zusterpagina's). Wel zichtbaar
-      // maken via linkWarning, zodat dit niet stilletjes onopgemerkt blijft zoals de eerste keer.
-      linkWarning = `Site-pagina's ophalen bij WordPress is niet gelukt (${siteErr.message}) — alleen zusterpagina's (indien aanwezig) zijn als linkkandidaat gebruikt.`;
-    }
+  const zusters = await haalZusterPaginas(page, allePaginas);
+  const result = await ai.generatePageContent({
+    klant: page.klant,
+    template: blueprint,
+    invoer,
+    feiten,
+    watGaatDezePaginaOver,
+    ctaOverride,
+    linkKandidaten,
+    zusterInhoud: zusters.filter((z) => z.content).map((z) => ({ titel: z.titel, tekst: verzamelTekst(z.content).join('\n').slice(0, 2500) }))
+  });
 
-    const linkKandidaten = [...zusterKandidaten, ...siteKandidaten];
-
-    const result = await ai.generatePageContent({
-      klant: page.klant,
+  let imageWarning = null;
+  try {
+    const { items: kandidaten } = await searchMedia({ profile: client.profile, perPage: 100 });
+    const { picks } = await ai.pickImagesForPage({
       template: blueprint,
       invoer,
       feiten,
       watGaatDezePaginaOver,
-      ctaOverride,
-      linkKandidaten
+      fotoRichtlijn: client.profile.fotoRichtlijn,
+      kandidaten,
+      slotData: result.slotData
     });
-
-    let imageWarning = null;
-    try {
-      const { items: kandidaten } = await searchMedia({ profile: client.profile, perPage: 100 });
-      const { picks } = await ai.pickImagesForPage({
-        template: blueprint,
-        invoer,
-        feiten,
-        watGaatDezePaginaOver,
-        fotoRichtlijn: client.profile.fotoRichtlijn,
-        kandidaten,
-        slotData: result.slotData
-      });
-      for (const [slotKey, pick] of Object.entries(picks || {})) {
-        if (pick && pick.url) {
-          setNestedSlotValue(result.slotData, slotKey, pick.url);
-          const altKey = deriveImageAltKey(slotKey);
-          if (pick.alt && altKey) setNestedSlotValue(result.slotData, altKey, pick.alt);
-        }
+    for (const [slotKey, pick] of Object.entries(picks || {})) {
+      if (pick && pick.url) {
+        setNestedSlotValue(result.slotData, slotKey, pick.url);
+        const altKey = deriveImageAltKey(slotKey);
+        if (pick.alt && altKey) setNestedSlotValue(result.slotData, altKey, pick.alt);
       }
-    } catch (imgErr) {
-      imageWarning = `Automatisch afbeeldingen kiezen is niet gelukt (${imgErr.message}) — vul afbeeldingen zelf in via het voorbeeldscherm.`;
     }
+  } catch (imgErr) {
+    imageWarning = `Automatisch afbeeldingen kiezen is niet gelukt (${imgErr.message}) — vul afbeeldingen zelf in via het voorbeeldscherm.`;
+  }
 
-    res.json({ ...result, imageWarning, linkWarning });
+  return { ...result, imageWarning, linkWarning };
+}
+
+router.post('/pages/:pageId/generate-content', requireLpInternal, async (req, res) => {
+  try {
+    const page = await lpNotion.getPage(req.params.pageId);
+    const { watGaatDezePaginaOver, ctaOverride } = req.body || {};
+    res.json(await maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride }));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -689,7 +710,103 @@ router.get('/pages/:pageId/validate', requireLpInternal, async (req, res) => {
     const page = await lpNotion.getPage(req.params.pageId);
     const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
     const result = validatePage({ blueprint, contentJson: page.content || {} });
+    // Extra SEO en GEO waarschuwingen voor pagina's die op elkaar lijken (blokkeert nooit).
+    try {
+      const extra = await seoWaarschuwingen(page);
+      result.warnings = [...(result.warnings || []), ...extra];
+    } catch (e) { /* een fout in deze extra controle mag de validatie nooit blokkeren */ }
     res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+async function seoWaarschuwingen(page) {
+  const uit = [];
+  const client = getLpClient(page.klant);
+  const plaats = gelijk.plaatsWaarde(page.invoer);
+  const zusters = await haalZusterPaginas(page);
+  const heeftContent = page.content && Object.keys(page.content.slotData || {}).length;
+  if (plaats) {
+    const werkgebied = [
+      ...((client.profile && client.profile.bedrijf && client.profile.bedrijf.werkgebied) || []),
+      ...((client.feiten || []).filter((f) => /werkgebied/i.test(f.label || '')).map((f) => f.waarde))
+    ].join(' ; ');
+    const w = gelijk.werkgebiedWaarschuwing(plaats, werkgebied);
+    if (w) uit.push(w);
+    if (zusters.length && !gelijk.heeftLokaleGegevens(page.feitensheet)) {
+      uit.push(`Bij deze pagina staan geen lokale gegevens voor ${plaats} (extra feit met label "Lokale informatie"). Zonder eigen lokale feiten wordt de tekst al snel een variant van de andere plaatsen.`);
+    }
+  }
+  if (heeftContent) {
+    uit.push(...gelijk.gelijkenisWaarschuwingen(page, zusters));
+    uit.push(...gelijk.restantWaarschuwingen(page, zusters));
+  }
+  return uit;
+}
+
+// Pagina dupliceren. modus 'opzet' (standaard): invoer en feitensheet mee, tekst opnieuw schrijven.
+// modus 'kopieer': ook de tekst mee, met de oude plaatsnaam vervangen. WordPress link, deellink en status worden
+// nooit overgenomen (nieuwe pagina start als "Formulier ingevuld").
+async function maakKopie(origineel, opties) {
+  const kopie = bouwKopie(origineel, opties);
+  const nieuw = await lpNotion.createPage({ klant: kopie.klant, blueprint: kopie.blueprint, titel: kopie.titel, slug: kopie.slug, invoer: kopie.invoer });
+  if (kopie.feitensheet) await lpNotion.updateSection(nieuw.id, 'feitensheet', kopie.feitensheet);
+  if (kopie.content) await lpNotion.updateSection(nieuw.id, 'content', kopie.content);
+  return { kopie, id: nieuw.id };
+}
+
+router.post('/pages/:pageId/dupliceer', requireLpInternal, async (req, res) => {
+  try {
+    const { titel, slug, invoer, modus, lokaleGegevens } = req.body || {};
+    const origineel = await lpNotion.getPage(req.params.pageId);
+    const { id, kopie } = await maakKopie(origineel, { titel, slug, invoer, modus, lokaleGegevens });
+    const page = await lpNotion.getPage(id);
+    res.json({ page, modus: kopie.modus });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Meerdere plaatsen tegelijk. Per plaats een kopie in modus 'opzet'; met schrijfMeteen laat de server ook de AI de
+// tekst schrijven en slaat die op (concept, nog niet naar WordPress). Een plaats die mislukt stopt de rest niet.
+router.post('/pages/:pageId/dupliceer-meerdere', requireLpInternal, async (req, res) => {
+  try {
+    const { plaatsen, plaatsSleutel, schrijfMeteen, lokaleGegevens } = req.body || {};
+    const namen = [...new Set((Array.isArray(plaatsen) ? plaatsen : String(plaatsen || '').split(/\r?\n/)).map((n) => String(n).trim()).filter(Boolean))].slice(0, 15);
+    if (!namen.length) return res.status(400).json({ error: 'Geef minstens een plaats op.' });
+    const origineel = await lpNotion.getPage(req.params.pageId);
+    const sleutel = plaatsSleutel || Object.keys(origineel.invoer || {}).find((k) => !k.startsWith('_') && gelijk.PLAATS_SLEUTEL_RE.test(k));
+    if (!sleutel) return res.status(400).json({ error: 'Deze pagina heeft geen invoerveld voor een plaats, gebruik "Dupliceer pagina" en pas de invoer zelf aan.' });
+    const oudePlaats = gelijk.plaatsWaarde(origineel.invoer);
+    const { titelVoorPlaats } = require('../lp/dupliceer');
+    const resultaten = [];
+    for (const naam of namen) {
+      try {
+        const { id } = await maakKopie(origineel, {
+          titel: titelVoorPlaats(origineel.titel, oudePlaats, naam),
+          invoer: { [sleutel]: naam },
+          modus: 'opzet',
+          lokaleGegevens: (lokaleGegevens && lokaleGegevens[naam]) || ''
+        });
+        const r = { plaats: naam, id, geschreven: false };
+        if (schrijfMeteen) {
+          try {
+            const nieuw = await lpNotion.getPage(id);
+            const voorstel = await maakContentVoorstel(nieuw, {});
+            await lpNotion.updateSection(id, 'content', { meta: { metaTitle: voorstel.slotData.metaTitle || '', metaDescription: voorstel.slotData.metaDescription || '' }, slotData: voorstel.slotData, overrides: {} });
+            r.geschreven = true;
+            r.waarschuwingen = [voorstel.imageWarning, voorstel.linkWarning, voorstel.iconWarning].filter(Boolean);
+          } catch (e) {
+            r.fout = `Pagina is aangemaakt, maar de tekst schrijven mislukte: ${e.message}`;
+          }
+        }
+        resultaten.push(r);
+      } catch (e) {
+        resultaten.push({ plaats: naam, fout: e.message });
+      }
+    }
+    res.json({ resultaten });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

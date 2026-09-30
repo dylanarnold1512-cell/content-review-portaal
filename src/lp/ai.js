@@ -717,7 +717,20 @@ Antwoord ALLEEN met een JSON-object met exact één veld, geen tekst erbuiten:
 { "slotData": <object met per slot-key de ingevulde waarde (tekst of array van items)> }`;
 }
 
-async function generatePageContent({ klant, template, invoer, feiten, watGaatDezePaginaOver, ctaOverride, linkKandidaten }) {
+// Teksten van zusterpagina's (zelfde klant en sjabloon), zodat de nieuwe pagina er niet op gaat lijken.
+// Pagina's die alleen in de plaatsnaam verschillen zijn slecht voor SEO en GEO (doorway pagina's).
+function bouwZusterBlok(zusterInhoud) {
+  const lijst = Array.isArray(zusterInhoud) ? zusterInhoud.filter((z) => z && z.tekst) : [];
+  if (!lijst.length) return '';
+  return `
+
+Bestaande zusterpagina's van deze klant met hetzelfde sjabloon (alleen ter vergelijking):
+${lijst.map((z) => `--- ${z.titel} ---\n${z.tekst}`).join('\n\n')}
+
+Belangrijk voor SEO en GEO: deze nieuwe pagina mag NIET op deze zusterpagina's lijken. Gebruik andere zinnen, een andere volgorde van argumenten, andere voorbeelden en andere kopjes. Kopieer geen zinnen en verander niet alleen de plaatsnaam. Onderscheid de pagina met wat er specifiek is voor deze plaats of dit onderwerp, maar alleen als dat in de feiten staat (zoals "Lokale informatie"). Noem geen plaatsnamen van de zusterpagina's, tenzij de feiten dat vragen.`;
+}
+
+async function generatePageContent({ klant, template, invoer, feiten, watGaatDezePaginaOver, ctaOverride, linkKandidaten, zusterInhoud }) {
   const systemPrompt = buildContentSystemPrompt(template);
   const userPrompt = `Klant: ${klant}
 
@@ -742,7 +755,7 @@ Feiten met "standaard": true zijn vaste praktische gegevens van de klant (bv. in
 Beschikbare linkbestemmingen (zusterpagina: true = andere landingspagina van deze klant binnen LP
 Fabriek, zusterpagina: false = een echte, bestaande pagina op de eigen live website — behandel beide
 even serieus, gebruik uitsluitend de opgegeven url, kies alleen wat inhoudelijk relevant is):
-${JSON.stringify(linkKandidaten || [], null, 2)}`;
+${JSON.stringify(linkKandidaten || [], null, 2)}${bouwZusterBlok(zusterInhoud)}`;
 
   const result = await callOpenAi({ systemPrompt, userPrompt });
   if (!result || typeof result !== 'object' || !result.slotData) {
@@ -965,6 +978,7 @@ module.exports = {
   refineTemplateProposal,
   refineSectionProposal,
   generatePageContent,
+  bouwZusterBlok,
   getImageSlots,
   pickImagesForPage,
   // Puur voor de geautomatiseerde tests - geen aparte OpenAI-aanroep nodig om de

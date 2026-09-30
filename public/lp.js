@@ -442,6 +442,108 @@ document.getElementById('lpPageDeleteBtn').addEventListener('click', async () =>
   }
 });
 
+// -- Pagina dupliceren --
+const PLAATS_SLEUTEL_RE = /plaats|stad|gemeente|locatie|regio/i;
+function lpDupPlaatsSleutel(invoer) {
+  return Object.keys(invoer || {}).find((k) => !k.startsWith('_') && PLAATS_SLEUTEL_RE.test(k));
+}
+
+document.getElementById('lpDupBtn').addEventListener('click', () => {
+  const page = lpState.currentPage;
+  if (!page) return;
+  const panel = document.getElementById('lpDupPanel');
+  panel.classList.toggle('hidden');
+  if (panel.classList.contains('hidden')) return;
+  document.getElementById('lpDupTitel').value = '';
+  document.getElementById('lpDupLokaal').value = '';
+  document.getElementById('lpDupStatus').textContent = '';
+  document.getElementById('lpDupResultaat').innerHTML = '';
+  const sleutel = lpDupPlaatsSleutel(page.invoer);
+  const box = document.getElementById('lpDupInvoer');
+  box.innerHTML = '';
+  Object.keys(page.invoer || {}).filter((k) => !k.startsWith('_') && typeof page.invoer[k] === 'string').forEach((k) => {
+    const label = document.createElement('label');
+    label.style.display = 'block';
+    label.textContent = k + (k === sleutel ? ' (pas dit aan voor de nieuwe plaats)' : '') + ' ';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = page.invoer[k];
+    input.dataset.dupKey = k;
+    input.style.width = '100%';
+    if (k === sleutel) input.style.borderColor = '#c60';
+    label.appendChild(input);
+    box.appendChild(label);
+  });
+});
+
+document.getElementById('lpDupMaakBtn').addEventListener('click', async () => {
+  const page = lpState.currentPage;
+  if (!page) return;
+  const btn = document.getElementById('lpDupMaakBtn');
+  const statusEl = document.getElementById('lpDupStatus');
+  const invoer = {};
+  document.querySelectorAll('#lpDupInvoer [data-dup-key]').forEach((i) => { invoer[i.dataset.dupKey] = i.value; });
+  const sleutel = lpDupPlaatsSleutel(page.invoer);
+  if (sleutel && invoer[sleutel].trim().toLowerCase() === String(page.invoer[sleutel] || '').trim().toLowerCase()) {
+    statusEl.textContent = 'Pas eerst de plaats aan, anders is de kopie identiek aan de originele pagina.';
+    return;
+  }
+  setBtnLoading(btn, true, 'Bezig met kopieren...');
+  try {
+    const modus = document.querySelector('input[name="lpDupModus"]:checked').value;
+    const { page: nieuw } = await lpApi(`/pages/${page.id}/dupliceer`, {
+      method: 'POST',
+      body: JSON.stringify({ titel: document.getElementById('lpDupTitel').value, invoer, modus, lokaleGegevens: document.getElementById('lpDupLokaal').value })
+    });
+    statusEl.textContent = 'Kopie gemaakt. De nieuwe pagina wordt geopend.';
+    document.getElementById('lpDupPanel').classList.add('hidden');
+    await loadPages();
+    await openPageDetail(nieuw.id);
+  } catch (err) {
+    statusEl.textContent = formatApiError(err);
+  } finally {
+    setBtnLoading(btn, false);
+  }
+});
+
+document.getElementById('lpDupMeerBtn').addEventListener('click', async () => {
+  const page = lpState.currentPage;
+  if (!page) return;
+  const btn = document.getElementById('lpDupMeerBtn');
+  const statusEl = document.getElementById('lpDupStatus');
+  const lijst = document.getElementById('lpDupResultaat');
+  const plaatsen = document.getElementById('lpDupPlaatsen').value.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+  if (!plaatsen.length) { statusEl.textContent = 'Vul minstens een plaats in.'; return; }
+  const schrijfMeteen = document.getElementById('lpDupSchrijf').checked;
+  lijst.innerHTML = '';
+  statusEl.textContent = schrijfMeteen ? 'Bezig, dit kan enkele minuten duren. Sluit dit scherm niet.' : 'Bezig met aanmaken...';
+  setBtnLoading(btn, true, 'Bezig...');
+  try {
+    // Een plaats per aanroep: het schrijven duurt lang en een enkele aanroep zou anders een time-out kunnen krijgen.
+    for (let i = 0; i < plaatsen.length; i += 1) {
+      statusEl.textContent = `Bezig met ${plaatsen[i]} (${i + 1} van ${plaatsen.length})...`;
+      let r;
+      try {
+        ({ resultaten: [r] } = await lpApi(`/pages/${page.id}/dupliceer-meerdere`, {
+          method: 'POST',
+          body: JSON.stringify({ plaatsen: [plaatsen[i]], schrijfMeteen })
+        }));
+      } catch (err) {
+        r = { plaats: plaatsen[i], fout: formatApiError(err) };
+      }
+      const li = document.createElement('li');
+      li.textContent = r.fout ? `${r.plaats}: ${r.fout}` : `${r.plaats}: aangemaakt${r.geschreven ? ' en tekst geschreven' : ', tekst nog te schrijven'}${r.waarschuwingen && r.waarschuwingen.length ? ' (' + r.waarschuwingen.join(' ') + ')' : ''}`;
+      lijst.appendChild(li);
+    }
+    statusEl.textContent = 'Klaar. Controleer elke pagina onder Paginas; de controle toont ook of de pagina te veel op de andere lijkt.';
+    await loadPages();
+  } catch (err) {
+    statusEl.textContent = formatApiError(err);
+  } finally {
+    setBtnLoading(btn, false);
+  }
+});
+
 // -- Invoer --
 function renderInvoerFields(page, blueprint) {
   const container = document.getElementById('lpInvoerFields');

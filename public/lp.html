@@ -744,9 +744,34 @@
             <option>Fout</option>
           </select>
         </div>
+        <button type="button" id="lpDupBtn" class="btn-plain">Dupliceer pagina</button>
         <button type="button" id="lpPageDeleteBtn" class="btn-plain lp-btn-danger">Verwijder pagina</button>
       </div>
       <p id="lpPageDeleteError" class="admin-error hidden"></p>
+      <div id="lpDupPanel" class="hidden" style="border:1px solid #ccc;border-radius:8px;padding:16px;margin:12px 0;">
+        <h3 style="margin-top:0;">Dupliceer pagina</h3>
+        <p class="admin-footnote">De kopie start als nieuwe pagina met status "Formulier ingevuld". De WordPress link, de deellink en de status worden niet overgenomen.</p>
+        <label>Titel van de nieuwe pagina <input type="text" id="lpDupTitel" style="width:100%;"></label>
+        <div id="lpDupInvoer" style="margin-top:8px;"></div>
+        <label style="display:block;margin-top:8px;">Lokale gegevens (een per regel, alleen feiten die kloppen)
+          <textarea id="lpDupLokaal" rows="3" style="width:100%;" placeholder="Bijvoorbeeld: Aantal woningen in de wijk, bekende projecten in de buurt, afstand tot het kantoor"></textarea>
+        </label>
+        <p class="admin-footnote">Lokale gegevens maken de pagina echt anders dan de andere plaatsen. Zonder eigen feiten lijkt de tekst snel op elkaar, en dat is slecht voor Google en AI antwoorden.</p>
+        <fieldset style="border:0;padding:0;margin:8px 0;">
+          <label style="display:block;"><input type="radio" name="lpDupModus" value="opzet" checked> Alleen de opzet kopieren, de AI schrijft de tekst opnieuw (aanbevolen, foto's worden opnieuw gekozen)</label>
+          <label style="display:block;"><input type="radio" name="lpDupModus" value="kopieer"> Ook de tekst kopieren, met de oude plaatsnaam vervangen (bedoeld voor events)</label>
+        </fieldset>
+        <button type="button" id="lpDupMaakBtn" class="btn-plain">Maak kopie</button>
+        <hr>
+        <h4>Meerdere plaatsen tegelijk</h4>
+        <label>Plaatsen, een per regel
+          <textarea id="lpDupPlaatsen" rows="4" style="width:100%;"></textarea>
+        </label>
+        <label style="display:block;margin-top:8px;"><input type="checkbox" id="lpDupSchrijf"> Schrijf de tekst meteen (duurt ongeveer een minuut per plaats)</label>
+        <button type="button" id="lpDupMeerBtn" class="btn-plain" style="margin-top:8px;">Maak alle kopieen</button>
+        <p id="lpDupStatus" class="admin-footnote"></p>
+        <ul id="lpDupResultaat"></ul>
+      </div>
       <p class="admin-footnote">
         Let op: deze status-schakelaar raakt WordPress niet aan. "Gepubliceerd" hier betekent dat
         Dylan/Marc de pagina zelf live hebben gezet in WordPress — dat blijft altijd een bewuste,
