@@ -224,6 +224,7 @@
       <button type="button" class="tab-btn" data-lp-tab="nieuw">Nieuwe pagina</button>
       <button type="button" class="tab-btn" data-lp-tab="sjablonen">Sjablonen</button>
       <button type="button" class="tab-btn" data-lp-tab="intake">Nieuwe klant</button>
+      <button type="button" class="tab-btn" data-lp-tab="kloon">WordPress kloon</button>
     </div>
     <button id="lpLogoutBtn" class="btn-plain">Uitloggen</button>
   </div>
@@ -435,6 +436,72 @@
 
       <div class="modal-actions" style="margin-top:16px;">
         <button type="button" id="lpIntakeSubmitBtn" class="btn btn-approve">Intake verzenden</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="lpKloonTab" class="tab-panel hidden">
+    <div class="lp-shell">
+      <div id="lpKloonError" class="admin-error hidden"></div>
+      <div class="lp-h1">WordPress kloon</div>
+      <p class="admin-footnote">
+        Kloont een bestaande pagina van de klantsite 1 op 1 (zelfde layout en opmaak) en vervangt alleen de inhoud.
+        Het resultaat is altijd een concept in WordPress. Niets gaat live zonder dat je het zelf doet.
+      </p>
+      <div class="lp-field-row">
+        <label for="lpKloonKlant">Klant</label>
+        <select id="lpKloonKlant"></select>
+      </div>
+      <div class="lp-field-row">
+        <label for="lpKloonBron">Bronpagina</label>
+        <select id="lpKloonBron"></select>
+        <span class="lp-field-hint">De pagina die als voorbeeld dient. De opmaak wordt overgenomen.</span>
+      </div>
+      <button type="button" id="lpKloonVeldenBtn" class="btn btn-approve">Velden ophalen</button>
+
+      <div id="lpKloonEditor" class="hidden">
+        <div class="lp-h1" style="margin-top:28px;">Nieuwe pagina</div>
+        <div class="lp-field-row">
+          <label for="lpKloonTitel">Titel van de pagina</label>
+          <input type="text" id="lpKloonTitel" autocomplete="off" placeholder="bv. Hostel bij Eindhoven">
+        </div>
+        <div class="lp-field-row">
+          <label for="lpKloonSlug">Slug (optioneel)</label>
+          <input type="text" id="lpKloonSlug" autocomplete="off" placeholder="wordt anders afgeleid van de titel">
+        </div>
+        <div class="lp-field-row">
+          <label for="lpKloonMetaTitel">SEO titel (optioneel)</label>
+          <input type="text" id="lpKloonMetaTitel" autocomplete="off">
+        </div>
+        <div class="lp-field-row">
+          <label for="lpKloonMetaBeschrijving">SEO beschrijving (optioneel)</label>
+          <textarea id="lpKloonMetaBeschrijving" class="lp-json-textarea" style="min-height:70px;"></textarea>
+          <span class="lp-field-hint">Wordt alleen opgeslagen als de klant een SEO plugin in het profiel heeft staan.</span>
+        </div>
+
+        <div class="lp-h1" style="margin-top:28px;">Overal vervangen</div>
+        <p class="admin-footnote">Bijvoorbeeld een plaatsnaam: zoek "Breda", vervang door "Eindhoven". Geldt voor alle teksten en links in de layout.</p>
+        <div id="lpKloonZoekRijen"></div>
+        <button type="button" id="lpKloonZoekAddBtn" class="btn-plain">+ Regel toevoegen</button>
+
+        <div class="lp-h1" style="margin-top:28px;">Teksten laten schrijven</div>
+        <div class="lp-field-row">
+          <label for="lpKloonOpdracht">Waar gaat de nieuwe pagina over?</label>
+          <textarea id="lpKloonOpdracht" class="lp-json-textarea" style="min-height:90px;" placeholder="bv. Hostel Roots als slaapplek voor bezoekers van festivals in Eindhoven"></textarea>
+          <span class="lp-field-hint">De AI herschrijft alleen de velden die hieronder zijn aangevinkt, met de feiten van de klant. Je beoordeelt alles zelf voordat er iets wordt aangemaakt.</span>
+        </div>
+        <button type="button" id="lpKloonVoorstelBtn" class="btn btn-approve">Teksten voorstellen</button>
+        <p id="lpKloonVoorstelInfo" class="admin-footnote hidden"></p>
+
+        <div class="lp-h1" style="margin-top:28px;">Inhoud van de pagina</div>
+        <p class="admin-footnote">Gewijzigde velden krijgen een gele rand. Foto's kies je uit de mediabibliotheek van de klant.</p>
+        <div id="lpKloonVelden"></div>
+
+        <div class="modal-actions" style="margin-top:24px;">
+          <button type="button" id="lpKloonControleBtn" class="btn-plain">Controle zonder aanmaken</button>
+          <button type="button" id="lpKloonMaakBtn" class="btn btn-approve">Concept aanmaken in WordPress</button>
+        </div>
+        <div id="lpKloonResultaat" class="hidden" style="margin-top:16px;"></div>
       </div>
     </div>
   </div>
@@ -849,5 +916,6 @@
 </div>
 
 <script src="/lp.js"></script>
+<script src="/lp-kloon.js"></script>
 </body>
 </html>

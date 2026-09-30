@@ -5,6 +5,7 @@ const cookieSession = require('cookie-session');
 const apiRoutes = require('./src/routes/api');
 const adminRoutes = require('./src/routes/admin');
 const lpRoutes = require('./src/routes/lp');
+const lpKloonRoutes = require('./src/routes/lpKloon');
 const shareRoutes = require('./src/routes/share');
 
 const app = express();
@@ -29,6 +30,7 @@ app.use(
 );
 
 app.use('/api/admin', adminRoutes);
+app.use('/api/lp/kloon', lpKloonRoutes); // moet voor /api/lp staan
 app.use('/api/lp', lpRoutes);
 app.use('/api', apiRoutes);
 // Publieke deellink voor de klant, zonder inlog (zie src/routes/share.js en src/lp/share.js).
