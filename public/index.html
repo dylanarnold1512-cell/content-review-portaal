@@ -69,20 +69,36 @@
 
   <div id="kennisdocumentTab" class="tab-panel hidden">
     <div class="kennisdocument-panel">
-      <div class="kennisdocument-intro">
-        Achtergrondinformatie over jouw bedrijf waar de AI spaarzaam gebruik van maakt bij het schrijven van blogs — nooit als checklist, alleen waar het natuurlijk past. Upload een bestand of typ/plak de tekst direct hieronder.
-      </div>
-      <div class="kennisdocument-upload-row">
-        <label for="kennisdocumentFile" class="btn-plain-sm kennisdocument-upload-btn">Bestand uploaden (.docx, .pdf, .txt)</label>
+      <div class="kd-header">Jouw kennisdocument</div>
+      <div class="kd-body">
+        <p class="kennisdocument-intro">
+          Achtergrondinformatie over jouw bedrijf waar de AI spaarzaam gebruik van maakt bij het schrijven van blogs. Nooit als checklist, alleen waar het natuurlijk past.
+        </p>
+        <label for="kennisdocumentFile" class="kd-dropzone" id="kdDropzone">
+          <svg class="kd-drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 17v-6"/><path d="m9.5 13.5 2.5-2.5 2.5 2.5"/></svg>
+          <span class="kd-drop-title">Sleep een bestand hierheen, of klik om te selecteren</span>
+          <span class="kd-drop-sub">Word, PDF of tekstbestand (.docx, .pdf, .txt)</span>
+        </label>
         <input type="file" id="kennisdocumentFile" accept=".docx,.pdf,.txt,.md" class="hidden">
-        <span id="kennisdocumentUploadStatus" class="kennisdocument-status"></span>
+        <p id="kennisdocumentUploadStatus" class="kennisdocument-status"></p>
+
+        <div class="kd-table-wrap">
+          <table class="kd-table">
+            <thead><tr><th>Naam</th><th>Type</th><th>Bijgewerkt</th><th>Grootte</th><th class="kd-actie">Acties</th></tr></thead>
+            <tbody id="kdTabelBody"></tbody>
+          </table>
+        </div>
+
+        <div id="kdEditor" class="kd-editor hidden">
+          <label for="kennisdocumentText" class="kd-editor-label">Tekst van het kennisdocument</label>
+          <textarea id="kennisdocumentText" class="kennisdocument-textarea" placeholder="Nog geen kennisdocument. Upload een bestand of typ hier de belangrijkste informatie over jouw bedrijf, diensten en klanten..."></textarea>
+          <div class="kennisdocument-footer">
+            <span id="kennisdocumentUpdated" class="kennisdocument-updated"></span>
+            <button type="button" id="kennisdocumentSaveBtn" class="btn-save-sm">Opslaan</button>
+          </div>
+        </div>
+        <p id="kennisdocumentError" class="login-error"></p>
       </div>
-      <textarea id="kennisdocumentText" class="kennisdocument-textarea" placeholder="Nog geen kennisdocument. Upload een bestand of typ hier de belangrijkste informatie over jouw bedrijf, diensten en klanten..."></textarea>
-      <div class="kennisdocument-footer">
-        <span id="kennisdocumentUpdated" class="kennisdocument-updated"></span>
-        <button type="button" id="kennisdocumentSaveBtn" class="btn-save-sm">Opslaan</button>
-      </div>
-      <p id="kennisdocumentError" class="login-error"></p>
     </div>
   </div>
 </div>

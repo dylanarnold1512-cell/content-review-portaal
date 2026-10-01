@@ -803,6 +803,51 @@ function formatKennisdocumentUpdated(bijgewerkt, bron) {
   return `Laatst bijgewerkt: ${formatDatumLang(bijgewerkt)}${bronSuffix}`;
 }
 
+const KD_ICOON_BESTAND = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/></svg>';
+const KD_ICOON_OOG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+
+let kennisdocumentBijgewerkt = '';
+let kennisdocumentOpgeslagenTekst = '';
+
+function kdBestandsnaam(bron) {
+  if (bron && bron.startsWith('Ge\u00fcpload: ')) return bron.slice('Ge\u00fcpload: '.length);
+  return '';
+}
+
+// Toont het huidige kennisdocument als een rij in de tabel (zelfde opzet als
+// een bestandenlijst) en laat de tekst via het oog-icoon openen of sluiten.
+function renderKennisTabel() {
+  const body = document.getElementById('kdTabelBody');
+  const textEl = document.getElementById('kennisdocumentText');
+  const editor = document.getElementById('kdEditor');
+  if (!body || !textEl) return;
+  const tekst = textEl.value.trim();
+  if (!tekst) {
+    body.innerHTML = '<tr><td colspan="5" class="kd-leeg">Nog geen kennisdocument. Sleep een bestand in het vak hierboven, of typ de tekst zelf.</td></tr>';
+    if (editor) editor.classList.remove('hidden');
+    return;
+  }
+  const bestand = kennisdocumentLaatsteUpload || kdBestandsnaam(kennisdocumentBron);
+  const naam = bestand || 'Kennisdocument';
+  const ext = (bestand.split('.').pop() || '').toLowerCase();
+  const type = bestand ? ({ pdf: 'PDF', docx: 'Word', txt: 'Tekst', md: 'Tekst' }[ext] || 'Bestand') : 'Getypt';
+  const woorden = tekst.split(/\s+/).length;
+  const nietOpgeslagen = kennisdocumentLaatsteUpload || textEl.value !== kennisdocumentOpgeslagenTekst;
+  const datum = nietOpgeslagen ? '<span class="kd-badge">Nog niet opgeslagen</span>' : (kennisdocumentBijgewerkt ? formatDatumLang(kennisdocumentBijgewerkt) : '');
+  const open = editor && !editor.classList.contains('hidden');
+  body.innerHTML = `<tr>
+    <td class="kd-naam">${escapeHtml(naam)}</td>
+    <td class="kd-icoon" title="${type}">${KD_ICOON_BESTAND}</td>
+    <td class="kd-datum">${datum}</td>
+    <td class="kd-datum">${woorden.toLocaleString('nl-NL')} woorden</td>
+    <td class="kd-actie"><button type="button" class="kd-oog ${open ? 'actief' : ''}" id="kdOogBtn" aria-label="Tekst bekijken of bewerken" title="Tekst bekijken of bewerken">${KD_ICOON_OOG}</button></td>
+  </tr>`;
+  document.getElementById('kdOogBtn').addEventListener('click', () => {
+    editor.classList.toggle('hidden');
+    renderKennisTabel();
+  });
+}
+
 async function loadKennisdocument() {
   const textEl = document.getElementById('kennisdocumentText');
   const updatedEl = document.getElementById('kennisdocumentUpdated');
@@ -816,7 +861,11 @@ async function loadKennisdocument() {
     const data = await api(`/${state.clientId}/kennisdocument`);
     textEl.value = data.tekst || '';
     kennisdocumentBron = data.bron || '';
+    kennisdocumentBijgewerkt = data.bijgewerkt || '';
+    kennisdocumentOpgeslagenTekst = textEl.value;
     updatedEl.textContent = formatKennisdocumentUpdated(data.bijgewerkt, data.bron);
+    document.getElementById('kdEditor')?.classList.add('hidden');
+    renderKennisTabel();
   } catch (err) {
     errorEl.textContent = err.message;
   }
@@ -841,7 +890,10 @@ document.getElementById('kennisdocumentSaveBtn')?.addEventListener('click', asyn
     });
     kennisdocumentBron = data.bron || bronTeSturen || 'Portaal';
     kennisdocumentLaatsteUpload = null;
+    kennisdocumentBijgewerkt = data.bijgewerkt || '';
+    kennisdocumentOpgeslagenTekst = textEl.value;
     updatedEl.textContent = formatKennisdocumentUpdated(data.bijgewerkt, kennisdocumentBron);
+    renderKennisTabel();
   } catch (err) {
     errorEl.textContent = err.message;
   } finally {
@@ -862,6 +914,25 @@ function readFileAsBase64(file) {
   });
 }
 
+document.getElementById('kennisdocumentText')?.addEventListener('input', () => renderKennisTabel());
+
+// Slepen van een bestand op het vak werkt hetzelfde als klikken en kiezen.
+(function () {
+  const zone = document.getElementById('kdDropzone');
+  const input = document.getElementById('kennisdocumentFile');
+  if (!zone || !input) return;
+  ['dragenter', 'dragover'].forEach((ev) => zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.add('sleep'); }));
+  ['dragleave', 'drop'].forEach((ev) => zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.remove('sleep'); }));
+  zone.addEventListener('drop', (e) => {
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!f) return;
+    const dt = new DataTransfer();
+    dt.items.add(f);
+    input.files = dt.files;
+    input.dispatchEvent(new Event('change'));
+  });
+})();
+
 document.getElementById('kennisdocumentFile')?.addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -880,7 +951,9 @@ document.getElementById('kennisdocumentFile')?.addEventListener('change', async 
     textEl.value = data.tekst;
     kennisdocumentLaatsteUpload = file.name;
     statusEl.className = 'kennisdocument-status kennisdocument-status-success';
-    statusEl.textContent = `✓ "${file.name}" is ingelezen — controleer de tekst hieronder en klik op Opslaan om 'm te bewaren.`;
+    statusEl.textContent = `✓ "${file.name}" is ingelezen. Controleer de tekst hieronder en klik op Opslaan om 'm te bewaren.`;
+    document.getElementById('kdEditor')?.classList.remove('hidden');
+    renderKennisTabel();
   } catch (err) {
     statusEl.className = 'kennisdocument-status';
     statusEl.textContent = '';
