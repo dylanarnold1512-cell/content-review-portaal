@@ -4,6 +4,8 @@ let state = {
   statusValues: {},
   items: [],
   filter: 'alle',
+  datumFilter: 'alle',
+  sorteer: 'nieuw',
   selectedId: null,
   searchQuery: '',
   activeTab: 'blogs'
@@ -140,6 +142,7 @@ async function loadItems() {
   }
   updateUrlForSelection();
   renderFilters();
+  renderDateFilters();
   renderList();
   renderDetail();
   if (state.performanceEnabled) {
@@ -392,15 +395,105 @@ function renderFilters() {
   });
 }
 
+const MAANDEN_NL = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
+
+function maandSleutel(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+
+function maandLabel(sleutel) {
+  const [j, m] = sleutel.split('-').map(Number);
+  return MAANDEN_NL[m - 1] + ' ' + j;
+}
+
+// Past het datumfilter toe op de publicatiedatum van een blog. Blogs zonder
+// datum (bijvoorbeeld ideeën) vallen alleen onder "Alle data".
+function pastBijDatumFilter(item) {
+  const f = state.datumFilter;
+  if (f === 'alle') return true;
+  const d = parseFlexibeleDatum(item.publicatiedatum);
+  if (!d) return false;
+  const nu = new Date();
+  if (f === '30d') {
+    const grens = new Date(nu.getFullYear(), nu.getMonth(), nu.getDate() - 30);
+    return d >= grens && d <= nu;
+  }
+  if (f === '90d') {
+    const grens = new Date(nu.getFullYear(), nu.getMonth(), nu.getDate() - 90);
+    return d >= grens && d <= nu;
+  }
+  if (f === 'jaar') return d.getFullYear() === nu.getFullYear();
+  if (f.startsWith('maand:')) return maandSleutel(d) === f.slice(6);
+  return true;
+}
+
+function isNieuwBlog(item) {
+  if (item.status !== state.statusValues.published) return false;
+  const d = parseFlexibeleDatum(item.publicatiedatum);
+  if (!d) return false;
+  const nu = new Date();
+  const grens = new Date(nu.getFullYear(), nu.getMonth(), nu.getDate() - 7);
+  return d >= grens && d <= nu;
+}
+
+function renderDateFilters() {
+  const el = document.getElementById('dateFilters');
+  if (!el) return;
+  const chips = [['alle', 'Alle data'], ['30d', 'Laatste 30 dagen'], ['90d', 'Laatste 90 dagen'], ['jaar', 'Dit jaar']];
+  const maanden = [...new Set(state.items.map((i) => parseFlexibeleDatum(i.publicatiedatum)).filter(Boolean).map(maandSleutel))].sort().reverse();
+  const maandActief = state.datumFilter.startsWith('maand:') ? state.datumFilter.slice(6) : '';
+  el.innerHTML =
+    chips.map(([code, label]) => `<div class="filter-chip ${state.datumFilter === code ? 'active' : ''}" data-datum="${code}">${label}</div>`).join('') +
+    (maanden.length
+      ? `<select class="date-select" id="maandSelect" aria-label="Kies een maand"><option value="">Kies maand</option>${maanden
+          .map((m) => `<option value="${m}" ${m === maandActief ? 'selected' : ''}>${maandLabel(m)}</option>`)
+          .join('')}</select>`
+      : '') +
+    `<div class="filter-chip sort-chip" id="sorteerKnop" title="Volgorde wisselen">${state.sorteer === 'nieuw' ? 'Nieuwste eerst' : 'Oudste eerst'}</div>`;
+  el.querySelectorAll('[data-datum]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      state.datumFilter = chip.dataset.datum;
+      renderDateFilters();
+      renderList();
+    });
+  });
+  const sel = document.getElementById('maandSelect');
+  if (sel) {
+    sel.addEventListener('change', () => {
+      state.datumFilter = sel.value ? 'maand:' + sel.value : 'alle';
+      renderDateFilters();
+      renderList();
+    });
+  }
+  document.getElementById('sorteerKnop').addEventListener('click', () => {
+    state.sorteer = state.sorteer === 'nieuw' ? 'oud' : 'nieuw';
+    renderDateFilters();
+    renderList();
+  });
+}
+
 function getFiltered() {
   let items = state.filter === 'alle' ? state.items : state.items.filter((i) => i.status === state.filter);
+  items = items.filter(pastBijDatumFilter);
   const q = state.searchQuery.trim().toLowerCase();
   if (q) {
     items = items.filter(
       (i) => (i.titel || '').toLowerCase().includes(q) || (i.categorie || '').toLowerCase().includes(q)
     );
   }
-  return items;
+  // Sorteren op publicatiedatum. Blogs zonder datum staan altijd onderaan.
+  const tijd = (i) => {
+    const d = parseFlexibeleDatum(i.publicatiedatum);
+    return d ? d.getTime() : null;
+  };
+  return items.slice().sort((a, b) => {
+    const ta = tijd(a);
+    const tb = tijd(b);
+    if (ta === null && tb === null) return 0;
+    if (ta === null) return 1;
+    if (tb === null) return -1;
+    return state.sorteer === 'nieuw' ? tb - ta : ta - tb;
+  });
 }
 
 document.getElementById('searchInput')?.addEventListener('input', (e) => {
@@ -418,14 +511,14 @@ function renderList() {
         (item) => `
     <div class="card ${item.id === state.selectedId ? 'selected' : ''}" data-id="${item.id}">
       <div class="card-top">
-        <p class="card-title">${item.titel || '(geen titel)'}</p>
+        <p class="card-title">${item.titel || '(geen titel)'}${isNieuwBlog(item) ? ' <span class="nieuw-label">Nieuw</span>' : ''}</p>
         <span class="badge ${badgeClass(item.status)}">${item.status || '—'}</span>
       </div>
       <div class="card-meta">${item.categorie || ''} ${item.publicatiedatum ? '· ' + item.publicatiedatum : ''}</div>
     </div>
   `
       )
-      .join('') || `<div class="empty-state">Geen blogs in deze status.</div>`;
+      .join('') || `<div class="empty-state">Geen blogs gevonden met deze filters.</div>`;
   listEl.querySelectorAll('.card').forEach((card) => {
     card.addEventListener('click', () => {
       state.selectedId = card.dataset.id;
