@@ -222,7 +222,7 @@ function renderPrestatiesV2(d) {
     <div class="pv-card pv-samenvatting">
       <div class="pv-sectie-titel">Zo gaat het nu</div>
       <p>${d.samenvatting.map(pvEsc).join(' ')}</p>
-      ${d.periode && d.periode.eind ? `<p class="pv-muted">Google geeft de cijfers van de laatste 2 tot 3 dagen pas later door. Daarom lopen deze cijfers tot en met ${pvEsc(pvDatum(d.periode.eind))}${d.laatstBijgewerkt ? `. Bijgewerkt op ${pvEsc(pvDatum(d.laatstBijgewerkt))}` : ''}.</p>` : ''}
+      ${d.periode && d.periode.eind ? `<p class="pv-muted"><em>Google geeft de cijfers van de laatste 2 tot 3 dagen pas later door. Daarom lopen deze cijfers tot en met ${pvEsc(pvDatum(d.periode.eind))}${d.laatstBijgewerkt ? `. Bijgewerkt op ${pvEsc(pvDatum(d.laatstBijgewerkt))}` : ''}.</em></p>` : ''}
     </div>
     <div class="pv-tiles">${pvTiles(t)}</div>
     <div class="pv-voortgang">${pvEsc(voortgang)}</div>
