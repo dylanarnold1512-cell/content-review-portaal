@@ -439,37 +439,44 @@ function isNieuwBlog(item) {
 function renderDateFilters() {
   const el = document.getElementById('dateFilters');
   if (!el) return;
-  const chips = [['alle', 'Alle data'], ['30d', 'Laatste 30 dagen'], ['90d', 'Laatste 90 dagen'], ['jaar', 'Dit jaar']];
+  const periodes = [['alle', 'Alle data'], ['30d', 'Laatste 30 dagen'], ['90d', 'Laatste 90 dagen'], ['jaar', 'Dit jaar']];
   const maanden = [...new Set(state.items.map((i) => parseFlexibeleDatum(i.publicatiedatum)).filter(Boolean).map(maandSleutel))].sort().reverse();
-  const maandActief = state.datumFilter.startsWith('maand:') ? state.datumFilter.slice(6) : '';
-  el.innerHTML =
-    chips.map(([code, label]) => `<div class="filter-chip ${state.datumFilter === code ? 'active' : ''}" data-datum="${code}">${label}</div>`).join('') +
+  const opties =
+    periodes.map(([code, label]) => `<option value="${code}" ${state.datumFilter === code ? 'selected' : ''}>${label}</option>`).join('') +
     (maanden.length
-      ? `<select class="date-select" id="maandSelect" aria-label="Kies een maand"><option value="">Kies maand</option>${maanden
-          .map((m) => `<option value="${m}" ${m === maandActief ? 'selected' : ''}>${maandLabel(m)}</option>`)
-          .join('')}</select>`
-      : '') +
-    `<div class="filter-chip sort-chip" id="sorteerKnop" title="Volgorde wisselen">${state.sorteer === 'nieuw' ? 'Nieuwste eerst' : 'Oudste eerst'}</div>`;
-  el.querySelectorAll('[data-datum]').forEach((chip) => {
-    chip.addEventListener('click', () => {
-      state.datumFilter = chip.dataset.datum;
-      renderDateFilters();
-      renderList();
-    });
+      ? `<optgroup label="Per maand">${maanden
+          .map((m) => `<option value="maand:${m}" ${state.datumFilter === 'maand:' + m ? 'selected' : ''}>${maandLabel(m)}</option>`)
+          .join('')}</optgroup>`
+      : '');
+  const gefilterd = state.filter !== 'alle' || state.datumFilter !== 'alle' || state.searchQuery.trim() !== '';
+  el.innerHTML =
+    `<label class="filter-field"><span>Periode</span><select class="date-select" id="periodeSelect">${opties}</select></label>` +
+    `<label class="filter-field"><span>Volgorde</span><select class="date-select" id="sorteerSelect">` +
+    `<option value="nieuw" ${state.sorteer === 'nieuw' ? 'selected' : ''}>Nieuwste eerst</option>` +
+    `<option value="oud" ${state.sorteer === 'oud' ? 'selected' : ''}>Oudste eerst</option></select></label>` +
+    `<div class="filter-meta"><span id="filterAantal"></span>${gefilterd ? '<button type="button" class="filter-reset" id="filterReset">Wis filters</button>' : ''}</div>`;
+  document.getElementById('periodeSelect').addEventListener('change', (e) => {
+    state.datumFilter = e.target.value;
+    renderList();
   });
-  const sel = document.getElementById('maandSelect');
-  if (sel) {
-    sel.addEventListener('change', () => {
-      state.datumFilter = sel.value ? 'maand:' + sel.value : 'alle';
-      renderDateFilters();
+  document.getElementById('sorteerSelect').addEventListener('change', (e) => {
+    state.sorteer = e.target.value;
+    renderList();
+  });
+  const reset = document.getElementById('filterReset');
+  if (reset) {
+    reset.addEventListener('click', () => {
+      state.filter = 'alle';
+      state.datumFilter = 'alle';
+      state.searchQuery = '';
+      const zoek = document.getElementById('searchInput');
+      if (zoek) zoek.value = '';
+      renderFilters();
       renderList();
     });
   }
-  document.getElementById('sorteerKnop').addEventListener('click', () => {
-    state.sorteer = state.sorteer === 'nieuw' ? 'oud' : 'nieuw';
-    renderDateFilters();
-    renderList();
-  });
+  const aantal = document.getElementById('filterAantal');
+  if (aantal) aantal.textContent = getFiltered().length + ' van ' + state.items.length + ' blogs';
 }
 
 function getFiltered() {
@@ -502,6 +509,7 @@ document.getElementById('searchInput')?.addEventListener('input', (e) => {
 });
 
 function renderList() {
+  renderDateFilters();
   const listEl = document.getElementById('list');
   const filtered = getFiltered();
   document.getElementById('listTitle').textContent = `Blogs (${filtered.length})`;
