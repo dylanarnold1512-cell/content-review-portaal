@@ -242,21 +242,37 @@ const SEO_GEO_CONTENT_REGELS = `SEO EN GEO BIJ HET SCHRIJVEN (elke pagina moet o
   een concreet feit of voordeel uit de aangeleverde feiten en een duidelijke oproep, binnen de lengte-eisen.
 - Veelgestelde vragen: schrijf ze als echte vragen zoals mensen ze stellen (bv. "Werken jullie ook in [plaats]?",
   "Hoe verloopt een verbouwing van begin tot eind?"). Begin elk antwoord met het directe antwoord in een tot twee
-  zinnen en licht daarna kort toe. Alleen antwoorden die door de aangeleverde feiten gedekt zijn: geen prijzen,
+  zinnen en licht daarna kort toe. Alleen antwoorden die door de aangeleverde feiten of bronteksten gedekt zijn: geen prijzen,
   doorlooptijden, garanties of cijfers verzinnen (bronprincipe).
   Feiten met het label "Veelgestelde vraag" zijn echte vragen met antwoord van de klantsite zelf. Gebruik ze als
   basis van de FAQ: herschrijf ze voor deze dienst en plaats en kopieer ze niet letterlijk (dat geeft dubbele
   content met de hoofdsite). Voeg daarnaast zelf vragen toe die mensen bij deze dienst en plaats echt stellen,
   bijvoorbeeld over het werkgebied, de aanpak of de offerte, zodat de FAQ ook nieuwe zoekvragen dekt. Ook die
-  antwoorden moeten door de feiten gedekt zijn. Behandel een zin uit een klant FAQ die er niet klopt of onvolledig
+  antwoorden moeten door de feiten of bronteksten gedekt zijn. Behandel een zin uit een klant FAQ die er niet klopt of onvolledig
   uitziet nooit als feit.
 - Entiteiten kloppen: gebruik de bedrijfsnaam, het werkgebied en de contactgegevens EXACT zoals in de feiten. Noem
-  geen andere plaatsen, wijken, straten, klanten of projecten die niet in de feiten of de invoer staan.
+  geen andere plaatsen, wijken, straten, klanten of projecten die niet in de feiten, de bronteksten of de invoer staan.
 - Lokale relevantie zonder verzinsels: maak elke pagina uniek met wat je echt weet over deze plaats uit de invoer
   en de feiten (werkgebied, afstand tot het kantoor als dat in de feiten staat). Kopieer geen tekst tussen pagina's
   van andere plaatsen door alleen de plaatsnaam te wisselen.
 - Concreet en citeerbaar: korte, feitelijke zinnen, stappenplannen als genummerde stappen, diensten als opsomming.
 - Alt-teksten: beschrijf wat er te zien is en noem de dienst of plaats alleen als dat klopt.`;
+
+// Bronteksten van de klantsite (02-10-2026, zie siteTeksten.js). Aanleiding: pagina's waren te karig omdat de AI
+// alleen een korte feitenlijst had, terwijl de eigen site van de klant veel meer vertelt. De AI krijgt nu de teksten
+// van de hele site mee en moet daar de inhoud uit halen, zonder dat Dylan feiten hoeft uit te zoeken.
+const SITE_BRON_REGELS = `BRONTEKSTEN VAN DE KLANTSITE (als ze zijn meegegeven, zijn ze je belangrijkste bron):
+- Haal hier de inhoud uit: wat de diensten inhouden, wat er inbegrepen is, de werkwijze, voordelen, voor wie het is, ervaring,
+  soorten werk en de manier van praten (tone of voice). Vul elk onderdeel van de pagina met concrete informatie uit deze
+  teksten, niet met algemene zinnen. Een dienstkaart, stap of voordeel krijgt twee tot drie concrete zinnen als de bron dat
+  toelaat, binnen de lengte-eisen van het sjabloon. Een kaart met alleen "Bekijk de mogelijkheden voor ..." is te weinig.
+- Schrijf in eigen woorden en pas de tekst aan op deze pagina (dienst en plaats). Neem geen zin van meer dan acht woorden
+  letterlijk over: dezelfde tekst op de hoofdsite en op de landingspagina is dubbele content. Behoud wel de feiten.
+- Gebruik ALLEEN wat in de bronteksten, de feitensheet of de invoer staat. Prijzen, aantallen, jaartallen, garanties en
+  certificeringen alleen als ze er exact zo staan. Bij tegenstrijdige teksten gaat de homepage of de dienstpagina voor.
+- Een plaats of project uit de bronteksten blijft bij wat de bron zegt: schrijf bijvoorbeeld niet dat het kantoor in een andere
+  plaats zit dan de bron zegt. Noem een plaats alleen als die in de invoer of de bronteksten staat.
+- Mis je voor een onderdeel bronmateriaal, maak het onderdeel dan korter en feitelijker. Vul het nooit met verzinsels.`;
 
 function buildTemplateSystemPrompt() {
   return `Je bent een senior webdesigner/frontend-developer voor een Nederlands marketingbureau. Je
@@ -684,8 +700,10 @@ ${ICON_NAMES.join(', ')}.`
   return `Je schrijft de INHOUD voor één landingspagina, binnen een AL GOEDGEKEURD sjabloon. De
 structuur/opmaak ligt al vast (dat pas je niet aan) — jij vult alleen de genoemde slots met concrete,
 Nederlandse tekst op basis van de aangeleverde informatie. Gebruik ALLEEN feiten die expliciet zijn
-aangeleverd (feitensheet, invoervelden, "waar gaat deze pagina over") — verzin geen adressen, prijzen,
-data of andere harde feiten.
+aangeleverd (bronteksten van de klantsite, feitensheet, invoervelden, "waar gaat deze pagina over") — verzin
+geen adressen, prijzen, data of andere harde feiten.
+
+${SITE_BRON_REGELS}
 
 Slots die gevuld moeten worden:
 ${slotBeschrijving}${afbeeldingNotitie}${galerijNotitie}${iconNotitie}
@@ -733,7 +751,7 @@ ${lijst.map((z) => `--- ${z.titel} ---\n${z.tekst}`).join('\n\n')}
 Belangrijk voor SEO en GEO: deze nieuwe pagina mag NIET op deze zusterpagina's lijken. Gebruik andere zinnen, een andere volgorde van argumenten, andere voorbeelden en andere kopjes. Kopieer geen zinnen en verander niet alleen de plaatsnaam. Onderscheid de pagina met wat er specifiek is voor deze plaats of dit onderwerp, maar alleen als dat in de feiten staat (zoals "Lokale informatie"). Noem geen plaatsnamen van de zusterpagina's, tenzij de feiten dat vragen.`;
 }
 
-async function generatePageContent({ klant, template, invoer, feiten, watGaatDezePaginaOver, ctaOverride, linkKandidaten, zusterInhoud }) {
+async function generatePageContent({ klant, template, invoer, feiten, watGaatDezePaginaOver, ctaOverride, linkKandidaten, zusterInhoud, siteTeksten }) {
   const systemPrompt = buildContentSystemPrompt(template);
   const userPrompt = `Klant: ${klant}
 
@@ -752,6 +770,8 @@ ${
 
 Aangevinkte feiten uit de feitensheet (bronprincipe — gebruik uitsluitend deze, verzin niets extra's):
 ${JSON.stringify(feiten || [], null, 2)}
+
+${siteTeksten ? `Bronteksten van de eigen website van de klant (automatisch gelezen, ${siteTeksten.split('\n--- ').length} pagina's). Dit is je hoofdbron voor de inhoud, volg de regels voor brontekst hierboven:\n${siteTeksten}` : 'Er zijn geen bronteksten van de klantsite beschikbaar, werk alleen met de feiten en de invoer.'}
 
 Feiten met "standaard": true zijn vaste praktische gegevens van de klant (bv. in- en uitchecktijden, kamertypes, ligging). Neem ze op in de praktische informatie en de kamertypes van de pagina, voor zover het sjabloon daar een plek voor heeft, en gebruik de formulering (bv. namen van kamertypes en tijden) precies zoals ze er staan.
 

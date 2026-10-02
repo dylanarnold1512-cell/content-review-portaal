@@ -22,6 +22,7 @@ const { verzamelTekst } = gelijk;
 const share = require('../lp/share');
 const { validatePage, validateTemplateStructure } = require('../lp/validator');
 const { pushDraft, deletePage: deleteWpPage, searchMedia, uploadMedia, listSitePages } = require('../lp/wordpress');
+const { haalSiteTeksten, formatSiteTekstenVoorPrompt } = require('../lp/siteTeksten');
 const { checkLpPassword, requireLpInternal } = require('../middleware/auth');
 
 const router = express.Router();
@@ -617,6 +618,20 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
 
   const linkKandidaten = [...zusterKandidaten, ...siteKandidaten];
 
+  // Bronteksten van de hele klantsite (siteTeksten.js): de AI leest standaard alle echte pagina's van de website van de
+  // klant, behalve onze eigen landingspagina's, en gebruikt die als hoofdbron. Nooit blokkerend: lukt het niet, dan
+  // werkt de generatie met alleen de feiten en komt er een melding.
+  let siteTekstWarning = null;
+  let siteTeksten = '';
+  try {
+    const eigenUrls = allePaginas.map((p) => p.wpUrl).filter(Boolean);
+    const site = await haalSiteTeksten({ url: (client.profile.bedrijf || {}).url, uitsluit: eigenUrls });
+    siteTeksten = formatSiteTekstenVoorPrompt(site);
+    if (!siteTeksten) siteTekstWarning = `De teksten van de klantsite konden niet gelezen worden (${site.fout || 'geen pagina\'s gevonden'}), de tekst is alleen op de feiten gebaseerd en kan daardoor karig zijn.`;
+  } catch (siteTekstErr) {
+    siteTekstWarning = `De teksten van de klantsite konden niet gelezen worden (${siteTekstErr.message}), de tekst is alleen op de feiten gebaseerd en kan daardoor karig zijn.`;
+  }
+
   const zusters = await haalZusterPaginas(page, allePaginas);
   const result = await ai.generatePageContent({
     klant: page.klant,
@@ -626,6 +641,7 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
     watGaatDezePaginaOver,
     ctaOverride,
     linkKandidaten,
+    siteTeksten,
     zusterInhoud: zusters.filter((z) => z.content).map((z) => ({ titel: z.titel, tekst: verzamelTekst(z.content).join('\n').slice(0, 2500) }))
   });
 
@@ -652,7 +668,7 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
     imageWarning = `Automatisch afbeeldingen kiezen is niet gelukt (${imgErr.message}) — vul afbeeldingen zelf in via het voorbeeldscherm.`;
   }
 
-  return { ...result, imageWarning, linkWarning };
+  return { ...result, imageWarning, linkWarning, siteTekstWarning };
 }
 
 router.post('/pages/:pageId/generate-content', requireLpInternal, async (req, res) => {
@@ -796,7 +812,7 @@ router.post('/pages/:pageId/dupliceer-meerdere', requireLpInternal, async (req, 
             const voorstel = await maakContentVoorstel(nieuw, {});
             await lpNotion.updateSection(id, 'content', { meta: { metaTitle: voorstel.slotData.metaTitle || '', metaDescription: voorstel.slotData.metaDescription || '' }, slotData: voorstel.slotData, overrides: {} });
             r.geschreven = true;
-            r.waarschuwingen = [voorstel.imageWarning, voorstel.linkWarning, voorstel.iconWarning].filter(Boolean);
+            r.waarschuwingen = [voorstel.imageWarning, voorstel.linkWarning, voorstel.siteTekstWarning, voorstel.iconWarning].filter(Boolean);
           } catch (e) {
             r.fout = `Pagina is aangemaakt, maar de tekst schrijven mislukte: ${e.message}`;
           }
