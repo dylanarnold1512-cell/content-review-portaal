@@ -44,6 +44,7 @@ test('themaScript haalt thema ruimte weg: padding en marge van de ouders en lege
   const s = themaScript('lp-root-x');
   assert.match(s, /padding-bottom/);
   assert.match(s, /header,footer,nav/);
+  assert.match(s, /r\.contains\(q\[k\]\)/, "footers binnen de eigen pagina tellen niet mee");
   assert.match(s, /s\.contains\(r\)/);
 });
 
