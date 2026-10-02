@@ -46,3 +46,7 @@ test('themaScript haalt thema ruimte weg: padding en marge van de ouders en lege
   assert.match(s, /header,footer,nav/);
   assert.match(s, /s\.contains\(r\)/);
 });
+
+test('themaScript beoordeelt een blok op zichtbare tekst, zodat een alinea met alleen ons script (WordPress wikkelt het in een p) toch verdwijnt', () => {
+  assert.match(themaScript('lp-root-x'), /n\(s\.innerText\)/);
+});
