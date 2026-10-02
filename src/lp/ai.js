@@ -274,6 +274,9 @@ const SITE_BRON_REGELS = `BRONTEKSTEN VAN DE KLANTSITE (als ze zijn meegegeven, 
 - Een plaats of project uit de bronteksten blijft bij wat de bron zegt: schrijf bijvoorbeeld niet dat het kantoor in een andere
   plaats zit dan de bron zegt. Noem een plaats alleen als die in de invoer of de bronteksten staat.
 - Reviews: gebruik alleen echte reviews die in de bronteksten, de feitensheet of de invoer staan, met de naam zoals de bron die geeft.
+  De tekst van een review neem je LETTERLIJK over uit de bron: je mag een review inkorten door hele zinnen weg te laten, maar nooit
+  herschrijven, samenvatten of woorden veranderen. Laat je een veld leeg omdat de bron niets noemt, gebruik dan een lege tekst (""),
+  nooit "Niet vermeld", "Onbekend" of een streepje.
   Bij elke review zet je in het veld onder de naam (bijvoorbeeld "project") altijd hetzelfde soort gegeven: de soort klus als de
   bron die noemt (bijvoorbeeld "Verbouwing" of "Dakkapel"), anders de plaats van de klant als die er staat, anders laat je het
   veld leeg. Zet daar nooit een eigenschap of onderwerp uit de tekst, zoals "Communicatie" of "Service". Verzin geen reviews, namen of sterren.
@@ -792,6 +795,7 @@ ${JSON.stringify(linkKandidaten || [], null, 2)}${bouwZusterBlok(zusterInhoud)}`
   const slotData = { ...result.slotData };
   verwijderVerzonnenAfbeeldingen(slotData, template);
   verwijderVerzonnenLinks(slotData, linkKandidaten);
+  verwijderPlaceholderWaarden(slotData);
   const iconProblemen = findUnknownIcons(slotData);
   const iconWarning = iconProblemen.length
     ? `Niet-herkende icoonwaarde(n) gevonden (${iconProblemen
@@ -799,6 +803,17 @@ ${JSON.stringify(linkKandidaten || [], null, 2)}${bouwZusterBlok(zusterInhoud)}`
         .join(', ')}) — deze tonen nu een neutraal fallback-icoon. Pas de content aan met een geldige icoonnaam.`
     : null;
   return { slotData, iconWarning };
+}
+
+// Een veld in een lijst-item zonder bron (bv. de soort klus onder een review) hoort leeg te blijven. Het model vult
+// soms toch een tekst als "Niet vermeld" in omdat het slot verplicht lijkt; die tekst zou dan zichtbaar op de pagina
+// komen (02-10-2026, bloemendaal). Alleen velden binnen een lijst, nooit losse tekstvelden.
+const PLACEHOLDER_WAARDE_RE = /^\s*(niet vermeld|niet bekend|onbekend|n\.?\s?v\.?\s?t\.?|n\/a|geen|unknown|-+|\u2014)\s*\.?\s*$/i;
+function verwijderPlaceholderWaarden(slotData) {
+  forEachTextLeaf(slotData, (path, value, set) => {
+    if (!path.includes('.')) return;
+    if (PLACEHOLDER_WAARDE_RE.test(value)) set('');
+  });
 }
 
 // Defensief: ook als het model zich niet aan de instructie in buildContentSystemPrompt houdt en
@@ -1012,5 +1027,6 @@ module.exports = {
   // Puur voor de geautomatiseerde tests - geen aparte OpenAI-aanroep nodig om de
   // anti-hallucinatie-filtering op link- en afbeeldingvelden te controleren.
   verwijderVerzonnenLinks,
+  verwijderPlaceholderWaarden,
   verwijderVerzonnenAfbeeldingen
 };
