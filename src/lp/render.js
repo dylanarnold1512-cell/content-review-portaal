@@ -25,7 +25,7 @@ const { buildFormulierCss } = require('./formulierStijl');
 const { bouwServiceSchema } = require('./seoSchema');
 const { berekenOverrides, pasSectiesToe, filterSlotData } = require('./overrides');
 const { pasFormulierCtaToe, FORMULIER_ID } = require('./formulierCta');
-const { themaCss, themaScript } = require('./themaFix');
+const { themaCss, themaScript, versluierScripts } = require('./themaFix');
 const { pasGalerijToe, zorgVoorGalerijSlot } = require('./galerij');
 
 function renderPageHtml(page, opts) {
@@ -160,13 +160,14 @@ function renderSlotPageHtml(paginaRuw, opts) {
   const schemaScript = schemas.length
     ? `\n<script type="application/ld+json">${JSON.stringify(schemas.length === 1 ? schemas[0] : schemas)}</script>`
     : '';
-  return `${baseStyle}
+  const uit = `${baseStyle}
 <style>
 ${templateCss}
 </style>${metFormulier.css ? '\n' + metFormulier.css : ''}${cta.css ? '\n' + cta.css : ''}${galerij.css ? '\n' + galerij.css : ''}${naarWp ? '\n' + themaCss(rootClass) : ''}
 <div class="${rootClass} lpt">
 ${body}
 </div>${naarWp ? '\n' + themaScript(rootClass) : ''}${schemaScript}`;
+  return naarWp ? versluierScripts(uit) : uit;
 }
 
 // FAQPage JSON-LD, zelfde schema-vorm als de oude src/lp/blocks/faq.js —

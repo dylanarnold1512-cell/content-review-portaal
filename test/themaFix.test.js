@@ -22,7 +22,20 @@ test('alleen de echte WordPress pagina krijgt de thema correcties, het voorbeeld
   const wp = renderPageHtml(pagina, { forWordPress: true });
   const voorbeeld = renderPageHtml(pagina, { forPreview: true });
   assert.match(wp, /100vw/);
-  assert.match(wp, /querySelectorAll\('h1'\)/);
+  assert.match(Buffer.from(/atob\("([^"]+)"\)/.exec(wp)[1], 'base64').toString('utf8'), /querySelectorAll\('h1'\)/);
   assert.doesNotMatch(voorbeeld, /100vw/);
   assert.doesNotMatch(voorbeeld, /querySelectorAll\('h1'\)/);
+});
+
+test('scripts gaan als base64 naar WordPress, zodat WordPress er geen tekens in verandert', () => {
+  const html = renderPageHtml({ ...pagina, template: { ...pagina.template, htmlTemplate: '<section><h1>{{heroTitle}}</h1>{{galerij}}</section>' } }, { forWordPress: true });
+  const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+  assert.ok(scripts.length >= 2);
+  for (const s of scripts) {
+    assert.doesNotMatch(s, /[&<>]/);
+    const b64 = /atob\("([^"]+)"\)/.exec(s)[1];
+    const js = Buffer.from(b64, 'base64').toString('utf8');
+    assert.doesNotThrow(() => new Function(js));
+  }
+  assert.match(Buffer.from(/atob\("([^"]+)"\)/.exec(scripts[0])[1], 'base64').toString('utf8') + Buffer.from(/atob\("([^"]+)"\)/.exec(scripts[1])[1], 'base64').toString('utf8'), /lp-galerij/);
 });

@@ -38,7 +38,9 @@ test('render: foto\'s komen uit galleryItems, css en script zitten erbij, sectie
   assert.ok(html.includes('src="https://x.nl/a.jpg"'));
   assert.ok(html.includes('.lp-galerij-track'));
   assert.ok(html.includes('var(--lp-button-radius)'));
-  assert.ok(html.includes('<script>(function()'));
+  // Op WordPress gaat het script als base64 mee (zie themaFix.js versluierScripts).
+  const uitgepakt = [...html.matchAll(/atob\("([^"]+)"\)/g)].map((m) => Buffer.from(m[1], 'base64').toString('utf8')).join('\n');
+  assert.ok(uitgepakt.includes('lp-galerij-track'));
   assert.ok(!html.includes('{{galerij}}'));
 });
 

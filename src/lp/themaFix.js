@@ -25,4 +25,15 @@ function themaScript(rootClass) {
   return `<script>${js}</script>`;
 }
 
-module.exports = { themaCss, themaScript };
+// WordPress verandert tekens in inline scripts: && wordt &#038;&#038; (daardoor een scriptfout, gevonden op
+// MAC Bouw 02-10-2026) en < en > kunnen ook geschreven worden. Daarom gaat elk gewoon inline script op de
+// WordPress pagina als base64 mee en wordt het in de browser uitgepakt. Base64 bevat alleen letters, cijfers,
+// plus, slash en is-teken, dus WordPress kan er niets aan veranderen. Scripts met een type (JSON-LD) blijven staan.
+function versluierScripts(html) {
+  return String(html).replace(/<script>([\s\S]*?)<\/script>/g, (_, js) => {
+    const b64 = Buffer.from(js, 'utf8').toString('base64');
+    return `<script>new Function(new TextDecoder().decode(Uint8Array.from(atob("${b64}"),function(c){return c.charCodeAt(0)})))()</script>`;
+  });
+}
+
+module.exports = { themaCss, themaScript, versluierScripts };
