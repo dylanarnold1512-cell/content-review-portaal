@@ -129,6 +129,7 @@ er visueel uitziet als niet gecentreerd. Dit wordt ook mechanisch gecontroleerd 
 (waarschuwing, geen blokkade), maar voorkom het liever meteen in je eigen ontwerp.
 
 Klassenamen (21-09-2026): het sjabloon draait op de echte site van de klant, binnen het WordPress thema, dat zelf ook CSS heeft. Gebruik daarom GEEN generieke klassenamen die thema's en frameworks (Bootstrap) zelf stijlen: container, row, col-*, clearfix, wrapper, content, main, header, footer, nav, btn, btn-primary, btn-secondary, button, card, badge, alert. Geef eigen klassen een duidelijk voorvoegsel, bijvoorbeeld "lp-container", "lp-btn" of "festival-card". Dit wordt ook gecontroleerd bij het opslaan (waarschuwing).
+Elementen (02-10-2026): WordPress thema's geven ook eigen opmaak aan HTML elementen, zoals blockquote (groot aanhalingsteken, gecentreerde grote tekst), q, cite, figure, address en dl. Gebruik voor een review of citaat daarom een gewone div met eigen klasse (bijvoorbeeld "lp-review-kaart") en zet de tekst, naam en functie in p en span. Zet in je CSS expliciet lettergrootte, uitlijning en kleur van de tekst in zo'n kaart, en zet ::before en ::after van de kaart op content:none, zodat het thema er niets overheen legt.
 
 Sjabloon-taal in htmlTemplate (mini-engine, GEEN volledige templatetaal):
 - {{veldNaam}} voor een tekstwaarde (wordt automatisch HTML-geescaped).
