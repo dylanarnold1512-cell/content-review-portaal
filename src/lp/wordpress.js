@@ -65,7 +65,7 @@ async function pushDraft({ profile, wpPaginaId, titel, html, slug, metaTitel, me
   if (slug) body.slug = slug;
   if (Object.keys(gewenstMeta).length) body.meta = gewenstMeta;
 
-  const res = await fetch(endpoint, {
+  const stuur = (eindpunt) => fetch(eindpunt, {
     method: 'POST', // WordPress' REST API gebruikt POST voor zowel aanmaken als bijwerken.
     headers: {
       'Content-Type': 'application/json',
@@ -74,14 +74,23 @@ async function pushDraft({ profile, wpPaginaId, titel, html, slug, metaTitel, me
     body: JSON.stringify(body)
   });
 
-  const data = await res.json().catch(() => ({}));
+  let res = await stuur(endpoint);
+  let data = await res.json().catch(() => ({}));
+  // De opgeslagen WordPress pagina bestaat niet meer (bijvoorbeeld definitief verwijderd in WordPress):
+  // dan maken we een nieuwe conceptpagina aan in plaats van te blijven falen met "Ongeldig bericht ID".
+  let opnieuwAangemaakt = false;
+  if (!res.ok && wpPaginaId && res.status === 404 && (data.code === 'rest_post_invalid_id' || /bericht ID/i.test(data.message || ''))) {
+    res = await stuur(`${url}/wp-json/wp/v2/pages`);
+    data = await res.json().catch(() => ({}));
+    opnieuwAangemaakt = true;
+  }
   if (!res.ok) {
     const message = data?.message || res.statusText;
     throw new Error(`WordPress-fout (${res.status}): ${message}`);
   }
 
   const seo = await controleerSeoOpslag({ url, username, appPassword, id: data.id, gewenstMeta, slug });
-  return { id: data.id, link: data.link, seo };
+  return { id: data.id, link: data.link, seo, opnieuwAangemaakt };
 }
 
 async function controleerSeoOpslag({ url, username, appPassword, id, gewenstMeta, slug }) {

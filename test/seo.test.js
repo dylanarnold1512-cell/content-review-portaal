@@ -119,3 +119,22 @@ test('AI-prompts bevatten de SEO en GEO regels voor sjabloon en content', () => 
   assert.match(inhoud, /SEO EN GEO BIJ HET SCHRIJVEN/);
   assert.match(inhoud, /Antwoord eerst/);
 });
+
+test('publiceren: een verwijderde WordPress pagina wordt opnieuw als concept aangemaakt', async () => {
+  const oud = global.fetch;
+  const urls = [];
+  global.fetch = async (url, opts = {}) => {
+    urls.push(url);
+    if (opts.method === 'POST' && /pages\/99$/.test(url)) {
+      return { ok: false, status: 404, statusText: 'Not Found', json: async () => ({ code: 'rest_post_invalid_id', message: 'Ongeldig bericht ID.' }) };
+    }
+    return { ok: true, status: 200, statusText: 'OK', json: async () => ({ id: 8, link: 'https://klant.nl/?p=8' }) };
+  };
+  try {
+    const profile = { ...getLpClient('macbouw').profile, seo: undefined };
+    const res = await pushDraft({ profile, wpPaginaId: 99, titel: 'T', html: '<p>x</p>' });
+    assert.equal(res.id, 8);
+    assert.equal(res.opnieuwAangemaakt, true);
+    assert.ok(urls.some((u) => /wp\/v2\/pages$/.test(u)));
+  } finally { global.fetch = oud; }
+});
