@@ -17,10 +17,11 @@ const profile = {
   // Formulier voor op de landingspagina (25-09-2026): een sjabloon met de marker {{formulier}} krijgt op
   // de echte WordPress-pagina deze shortcode (WordPress rendert 'm zelf), in het portaalvoorbeeld een
   // nette placeholder. plugin bepaalt de opmaakregels (src/lp/formulierStijl.js). Bron van id en plugin:
-  // zie feiten.js (contactformulier, contactformulier-shortcode).
+  // zie feiten.js (contactformulier, contactformulier-shortcode). 02-10-2026: MAC Bouw is van MetForm naar
+  // Contact Form 7 overgegaan (MetForm 3048 bleef voor bezoekers leeg), formulier "Offerte", opgegeven door Dylan.
   formulier: {
-    plugin: 'MetForm',
-    shortcode: '[metform form_id="3048"]'
+    plugin: 'Contact Form 7',
+    shortcode: '[contact-form-7 id="5d59c34" title="Offerte"]'
   },
   // SEO plugin op de klantsite (Yoast SEO, vastgesteld 25-09-2026 in de HTML van mac-bouw.nl). Bepaalt in welke
   // velden de metatitel en metabeschrijving worden opgeslagen bij publiceren (src/lp/wordpress.js). Let op: Yoast

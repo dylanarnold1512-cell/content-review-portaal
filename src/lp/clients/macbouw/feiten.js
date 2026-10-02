@@ -5,7 +5,7 @@
 // Bewust NIET overgenomen uit de intake: drie van de vier gedetecteerde formulieren. Twee hadden
 // alleen het veld "s" (de standaard WordPress zoekparameter) en een had geen enkel veld; dat bleken
 // bij nakijken in de browser zoekformulieren te zijn (adminbalk, zoekbalk, zoekknop in de header).
-// Alleen het MetForm-formulier (id 3048) is het echte contactformulier en staat hieronder. Aanvullen per pagina met
+// Het echte contactformulier staat hieronder (sinds 02-10-2026 Contact Form 7, eerder MetForm id 3048). Aanvullen per pagina met
 // pagina-specifieke feiten uit de feitensheet: dit bestand is de vaste basis, niet de volledige
 // lijst per pagina.
 //
@@ -88,20 +88,15 @@ const feiten = [
   },
   {
     id: 'contactformulier',
-    label: 'Contactformulier op site (MetForm)',
-    waarde: 'MetForm, formulier-id 3048. Velden: mf-first-name (Voor- en achternaam), mf-email ' +
-      '(E-mailadres), mf-subject (Onderwerp), mf-comment (Bericht). Verzendknop: "Verzenden". ' +
-      'Geen captcha aangetroffen.',
-    bron: 'mac-bouw.nl/contact/, formulier-id en velden rechtstreeks uit de pagina (DOM) gelezen in de ' +
-      'browser, gecontroleerd 25-09-2026'
+    label: 'Contactformulier op site (Contact Form 7)',
+    waarde: 'Contact Form 7, formulier "Offerte" (id 5d59c34).',
+    bron: 'opgegeven door Dylan op 02-10-2026: MAC Bouw is overgegaan van MetForm naar Contact Form 7'
   },
   {
     id: 'contactformulier-shortcode',
-    label: 'Shortcode contactformulier (MetForm)',
-    waarde: '[metform form_id="3048"]',
-    bron: 'Standaard MetForm-shortcode met het formulier-id 3048 dat op mac-bouw.nl/contact/ in de ' +
-      'pagina staat (wrapper metform-wrap-cf10094-3048), gecontroleerd 25-09-2026. Nog niet in ' +
-      'WordPress zelf getest op een landingspagina.'
+    label: 'Shortcode contactformulier (Contact Form 7)',
+    waarde: '[contact-form-7 id="5d59c34" title="Offerte"]',
+    bron: 'opgegeven door Dylan op 02-10-2026 (formulier "Offerte"). Nog niet getest op een landingspagina.'
   },
   // Veelgestelde vragen van de homepage (accordeon), letterlijk uit de pagina (DOM) gelezen op 29-09-2026.
   // Bewust NIET overgenomen: "Wat onderscheidt ..." (het antwoord bevat de sjabloonfout "meer dan elk jaar
