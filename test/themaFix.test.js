@@ -39,3 +39,10 @@ test('scripts gaan als base64 naar WordPress, zodat WordPress er geen tekens in 
   }
   assert.match(Buffer.from(/atob\("([^"]+)"\)/.exec(scripts[0])[1], 'base64').toString('utf8') + Buffer.from(/atob\("([^"]+)"\)/.exec(scripts[1])[1], 'base64').toString('utf8'), /lp-galerij/);
 });
+
+test('themaScript haalt thema ruimte weg: padding en marge van de ouders en lege blokken naast de pagina', () => {
+  const s = themaScript('lp-root-x');
+  assert.match(s, /padding-bottom/);
+  assert.match(s, /header,footer,nav/);
+  assert.match(s, /s\.contains\(r\)/);
+});

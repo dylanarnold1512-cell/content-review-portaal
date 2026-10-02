@@ -11,6 +11,13 @@
 //    tweede H1 naast de H1 van onze hero. Fix: een klein script zoekt elke H1 buiten onze pagina, klimt
 //    omhoog naar het blok dat alleen de titel (en eventueel een kruimelpad) bevat en verbergt dat blok.
 //    Werkt zonder kennis van het thema. Het logo, menu en afbeeldingen worden nooit verborgen.
+// 3. Het thema zet rond de content vaak eigen ruimte (MAC Bouw: 100 px padding boven en onder de
+//    content container) en lege blokken erna (een lege alinea, een leeg entry-footer blok). Daardoor
+//    staat er een wit vlak tussen onze pagina en de footer van de site. Fix (02-10-2026): hetzelfde
+//    script zet de verticale padding en marge op 0 van elke ouder van onze pagina, tot aan het blok dat
+//    de header, footer of het menu van het thema bevat, en verbergt elk blok naast onze pagina en naast
+//    die ouders dat helemaal leeg is (geen tekst, geen afbeelding, geen veld). Werkt zonder kennis van
+//    het thema. Een blok met zichtbare tekst blijft staan.
 
 function themaCss(rootClass) {
   return `<style>
@@ -21,7 +28,7 @@ body:has(.${rootClass}) { overflow-x: clip; }
 
 // Staat als gewone tekst in de content. Geen afhankelijkheden, geen bibliotheken.
 function themaScript(rootClass) {
-  const js = `(function(){var r=document.querySelector('.${rootClass}');if(!r)return;function n(t){return(t||'').replace(/\\s+/g,' ').trim();}var hs=document.querySelectorAll('h1');for(var i=0;i<hs.length;i++){var h=hs[i];if(r.contains(h)||h.contains(r))continue;if(!(r.compareDocumentPosition(h)&2))continue;var len=n(h.textContent).length;if(!len)continue;var blok=h,p=h.parentElement;while(p&&p!==document.body&&p!==document.documentElement){if(p.contains(r))break;if(p.querySelector('img,input,textarea,select,form,video,iframe'))break;if(p.querySelectorAll('a').length>5)break;if(n(p.textContent).length>len+60)break;blok=p;p=p.parentElement;}blok.style.setProperty('display','none','important');}})();`;
+  const js = `(function(){var r=document.querySelector('.${rootClass}');if(!r)return;function n(t){return(t||'').replace(/\\s+/g,' ').trim();}var hs=document.querySelectorAll('h1');for(var i=0;i<hs.length;i++){var h=hs[i];if(r.contains(h)||h.contains(r))continue;if(!(r.compareDocumentPosition(h)&2))continue;var len=n(h.textContent).length;if(!len)continue;var blok=h,p=h.parentElement;while(p&&p!==document.body&&p!==document.documentElement){if(p.contains(r))break;if(p.querySelector('img,input,textarea,select,form,video,iframe'))break;if(p.querySelectorAll('a').length>5)break;if(n(p.textContent).length>len+60)break;blok=p;p=p.parentElement;}blok.style.setProperty('display','none','important');}var L='img,input,textarea,select,form,video,iframe,canvas,svg,picture';var e=r;while(e&&e!==document.body&&e!==document.documentElement){var pa=e.parentElement;if(!pa)break;var sb=pa.children;for(var j=0;j<sb.length;j++){var s=sb[j];if(s===e||s.contains(r))continue;if(/^(SCRIPT|STYLE|LINK|NOSCRIPT)$/.test(s.tagName))continue;if(!n(s.textContent)&&!s.querySelector(L)){s.style.setProperty('display','none','important');}}if(pa.querySelector('header,footer,nav'))break;pa.style.setProperty('padding-top','0','important');pa.style.setProperty('padding-bottom','0','important');pa.style.setProperty('margin-top','0','important');pa.style.setProperty('margin-bottom','0','important');e=pa;}})();`;
   return `<script>${js}</script>`;
 }
 
