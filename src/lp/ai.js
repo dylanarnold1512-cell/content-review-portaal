@@ -75,7 +75,10 @@ mechanisch gecontroleerd):
   NIET toe aan "slots" en verzin zelf geen formulier, velden of shortcode. Het echte formulier van de
   klant wordt automatisch op die plek gezet en krijgt vanzelf de kleuren en het lettertype van de
   pagina. Zet {{formulier}} hoogstens een keer in het sjabloon. Geef de omliggende sectie zelf wel
-  een duidelijke kop en een korte intro (via gewone slots).
+  een duidelijke kop en een korte intro (via gewone slots). Een echt formulier heeft veel ruimte nodig
+  (keuzetegels, vinkjes, velden naast elkaar): geef de plek van {{formulier}} liefst de volle breedte
+  van de sectie, onder de kop en intro, of anders minstens 600 px. Het formulier past zich bij een
+  smalle plek wel aan, maar een zijkolom van 450 px of minder ziet er altijd krap uit.
 - GALERIJ / SLIDESHOW: wil je een fotogalerij of slideshow, zet dan op die plek exact de tekst {{galerij}}
   (bv. <div class="werk-galerij">{{galerij}}</div>) in een eigen sectie met een kop en een korte intro
   (via gewone slots). Het systeem bouwt daar zelf een swipebare slideshow met pijltjes en puntjes in de

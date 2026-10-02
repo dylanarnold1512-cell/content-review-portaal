@@ -17,6 +17,8 @@
 // deze CSS nooit buiten onze eigen content lekt naar de rest van de WordPress-pagina (het thema, de
 // header/footer, of andere content op dezelfde pagina).
 
+const { responsiefFormulierCss, responsiefCf7Css } = require('./formulierCheck');
+
 function genericFormCss(rootClass) {
   return `.${rootClass} input[type="text"],
 .${rootClass} input[type="email"],
@@ -106,7 +108,8 @@ const PLUGIN_CSS_BUILDERS = {
   border-radius: var(--lp-radius);
   padding: 12px 24px;
   font-weight: 600;
-}`,
+}
+${responsiefCf7Css(rootClass)}`,
 
   'Gravity Forms': (rootClass) => `.${rootClass} .gform_wrapper .gfield_label {
   font-weight: 600;
@@ -218,11 +221,11 @@ const PLUGIN_CSS_BUILDERS = {
 // (die ook een onherkend/custom formulier al netjes laten aansluiten bij de pagina), plus - als het
 // plugin herkend is (zie detecteerFormulieren in siteAnalyse.js) - de plugin-specifieke overrides
 // erbovenop voor een preciezere match.
-function buildFormulierCss(rootClass, plugin) {
+function buildFormulierCss(rootClass, plugin, opts) {
   if (!rootClass || !rootClass.trim()) {
     throw new Error('buildFormulierCss heeft een rootClass nodig om de CSS onder te scopen.');
   }
-  const blokken = [genericFormCss(rootClass)];
+  const blokken = [genericFormCss(rootClass), responsiefFormulierCss(rootClass)];
   const pluginBuilder = plugin && PLUGIN_CSS_BUILDERS[plugin];
   if (pluginBuilder) {
     blokken.push(pluginBuilder(rootClass));

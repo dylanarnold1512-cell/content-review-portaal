@@ -53,9 +53,9 @@ test('op WordPress zonder ingesteld formulier blijven de CTA-links zoals ze zijn
   assert.ok(!html.includes('lp-cta-balk'));
 });
 
-test('in het voorbeeld werkt het ook, met de placeholder als doel', () => {
+test('in het voorbeeld werkt het ook, met het voorbeeldformulier als doel', () => {
   const html = render({ forPreview: true });
-  assert.ok(html.includes('lp-formulier-placeholder" id="lp-formulier"'));
+  assert.ok(html.includes('class="lp-formulier" id="lp-formulier"'));
   assert.ok(html.includes('data-lp-cta-balk'));
 });
 

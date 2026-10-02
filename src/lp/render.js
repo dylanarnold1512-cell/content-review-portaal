@@ -22,6 +22,7 @@ const { renderSlotTemplate, tagImageSlotsForPreview, tagTextSlotsForPreview, tag
 const { slugify } = require('./utils');
 const { clients } = require('./clients');
 const { buildFormulierCss } = require('./formulierStijl');
+const { formulierAanpasScript, formulierControleScript, voorbeeldFormulierHtml } = require('./formulierCheck');
 const { bouwServiceSchema } = require('./seoSchema');
 const { berekenOverrides, pasSectiesToe, filterSlotData } = require('./overrides');
 const { pasFormulierCtaToe, FORMULIER_ID } = require('./formulierCta');
@@ -90,16 +91,28 @@ function getFormulierConfig(clientId) {
 function applyFormulierMarker(html, clientId, rootClass, opts) {
   if (!FORMULIER_MARKER_RE.test(html)) {
     FORMULIER_MARKER_RE.lastIndex = 0;
-    return { html, css: '' };
+    return { html, css: '', script: '' };
   }
   FORMULIER_MARKER_RE.lastIndex = 0;
   const config = getFormulierConfig(clientId);
   const naarWordPress = !!(opts && opts.forWordPress);
   if (naarWordPress) {
-    if (!config) return { html: html.replace(FORMULIER_MARKER_RE, ''), css: '' };
+    if (!config) return { html: html.replace(FORMULIER_MARKER_RE, ''), css: '', script: '' };
     return {
       html: html.replace(FORMULIER_MARKER_RE, `<div class="lp-formulier" id="${FORMULIER_ID}">\n${config.shortcode}\n</div>`),
-      css: buildFormulierCss(rootClass, config.plugin)
+      css: buildFormulierCss(rootClass, config.plugin),
+      script: formulierAanpasScript()
+    };
+  }
+  // Portaalvoorbeeld (opts.forPreview, 02-10-2026): een voorbeeldformulier met alle lastige onderdelen en een
+  // automatische controle op uitlopen, zodat je een slechte plek meteen in het portaal ziet. De deellink voor
+  // de klant houdt de placeholder.
+  if (config && opts && opts.forPreview) {
+    const noot = `.${rootClass} .lp-voorbeeldformulier-noot { margin: 12px 0 0; font-size: .8rem; opacity: .75; font-family: var(--lp-font-body); }`;
+    return {
+      html: html.replace(FORMULIER_MARKER_RE, `<div class="lp-formulier" id="${FORMULIER_ID}">\n${voorbeeldFormulierHtml()}\n</div>`),
+      css: `${buildFormulierCss(rootClass, config.plugin).replace('</style>', noot + '\n</style>')}`,
+      script: formulierControleScript()
     };
   }
   const tekst = config
@@ -108,7 +121,8 @@ function applyFormulierMarker(html, clientId, rootClass, opts) {
   const css = `<style>\n.${rootClass} .lp-formulier-placeholder { padding: 24px; border: 2px dashed var(--lp-border); border-radius: var(--lp-radius); text-align: center; color: var(--lp-text-muted, var(--lp-text)); font-family: var(--lp-font-body); }\n</style>`;
   return {
     html: html.replace(FORMULIER_MARKER_RE, `<div class="lp-formulier lp-formulier-placeholder" id="${FORMULIER_ID}">${tekst}</div>`),
-    css
+    css,
+    script: ''
   };
 }
 
@@ -166,7 +180,7 @@ ${templateCss}
 </style>${metFormulier.css ? '\n' + metFormulier.css : ''}${cta.css ? '\n' + cta.css : ''}${galerij.css ? '\n' + galerij.css : ''}${naarWp ? '\n' + themaCss(rootClass) : ''}
 <div class="${rootClass} lpt">
 ${body}
-</div>${naarWp ? '\n' + themaScript(rootClass) : ''}${schemaScript}`;
+</div>${naarWp ? '\n' + themaScript(rootClass) : ''}${metFormulier.script ? '\n' + metFormulier.script : ''}${schemaScript}`;
   return naarWp ? versluierScripts(uit) : uit;
 }
 

@@ -2328,3 +2328,54 @@ document.getElementById('lpTplHervulBtn').addEventListener('click', () => {
   lpHervulVoorbeeldTekst = true;
   document.getElementById('lpTplPreviewBtn').click();
 });
+
+// Formuliercontrole (02-10-2026): het voorbeeldformulier in een pagina- of sjabloonvoorbeeld meet zelf of er
+// iets uitloopt (zie src/lp/formulierCheck.js) en stuurt de uitkomst hierheen. We tonen een melding boven het
+// voorbeeld. De voorbeeldweergave toont NIET de opmaak van de klantsite, dus de echte pagina blijft de eindcontrole.
+window.addEventListener('message', (ev) => {
+  const data = ev.data;
+  if (!data || data.type !== 'lp-formulier-check') return;
+  const frame = Array.from(document.querySelectorAll('iframe')).find((f) => {
+    try { return f.contentWindow === ev.source; } catch (err) { return false; }
+  });
+  if (!frame) return;
+  const anker = frame.closest('#lpPreviewWrapper') || frame;
+  let balk = anker.previousElementSibling;
+  if (!balk || !balk.classList || !balk.classList.contains('lp-formcheck')) {
+    balk = document.createElement('div');
+    balk.className = 'lp-formcheck';
+    anker.insertAdjacentElement('beforebegin', balk);
+  }
+  const problemen = Array.isArray(data.problemen) ? data.problemen : [];
+  const ok = problemen.length === 0;
+  balk.style.cssText = `margin:0 0 10px;padding:10px 14px;border-radius:10px;font-size:.9rem;line-height:1.5;border:1px solid ${ok ? '#b7dfc2' : '#f0c38e'};background:${ok ? '#eef9f1' : '#fff5e6'};color:#222;`;
+  balk.textContent = '';
+  const kop = document.createElement('strong');
+  kop.textContent = ok
+    ? `Formuliercontrole: geen problemen gevonden (gecontroleerd bij ${data.breedte} px en bij ${data.controleBreedte} px).`
+    : 'Formuliercontrole: het formulier staat hier niet goed.';
+  balk.appendChild(kop);
+  if (!ok) {
+    const lijst = document.createElement('ul');
+    lijst.style.cssText = 'margin:6px 0 0;padding-left:20px;';
+    problemen.slice(0, 4).forEach((p) => {
+      const li = document.createElement('li');
+      li.textContent = p;
+      lijst.appendChild(li);
+    });
+    if (problemen.length > 4) {
+      const li = document.createElement('li');
+      li.textContent = `en nog ${problemen.length - 4} andere meldingen`;
+      lijst.appendChild(li);
+    }
+    balk.appendChild(lijst);
+    const tip = document.createElement('div');
+    tip.style.cssText = 'margin-top:6px;';
+    tip.textContent = 'Zet het formulier in het sjabloon op een bredere plek, bijvoorbeeld onder de tekst over de volle breedte.';
+    balk.appendChild(tip);
+  }
+  const noot = document.createElement('div');
+  noot.style.cssText = 'margin-top:6px;font-size:.8rem;opacity:.75;';
+  noot.textContent = 'Dit is een voorbeeldformulier met onze opmaak. Controleer na publiceren altijd ook de echte pagina, want daar komt ook de opmaak van de klantsite bij.';
+  balk.appendChild(noot);
+});

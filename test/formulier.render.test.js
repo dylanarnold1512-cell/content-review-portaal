@@ -21,8 +21,17 @@ test('formulier-marker: op WordPress de shortcode plus opmaak, marker verdwijnt'
   assert.ok(html.includes('.lp-root-test-pagina .wpcf7-form .wpcf7-radio'), 'opmaak valt onder de rootClass');
 });
 
-test('formulier-marker: voorbeeld en deellink tonen een placeholder, nooit de kale shortcode', () => {
-  for (const opts of [undefined, {}, { forPreview: true }]) {
+test('formulier-marker: portaalvoorbeeld toont een voorbeeldformulier met controle, nooit de kale shortcode', () => {
+  const html = renderPageHtml(pagina('macbouw', TEMPLATE), { forPreview: true });
+  assert.ok(!html.includes('[contact-form-7'));
+  assert.ok(!html.includes('{{formulier}}'));
+  assert.ok(html.includes('lp-voorbeeldformulier'));
+  assert.ok(html.includes('lp-formulier-check'));
+  assert.ok(html.includes('@container lpform'));
+});
+
+test('formulier-marker: deellink toont een placeholder, nooit de kale shortcode', () => {
+  for (const opts of [undefined, {}]) {
     const html = renderPageHtml(pagina('macbouw', TEMPLATE), opts);
     assert.ok(!html.includes('[contact-form-7'), 'geen kale shortcode in het voorbeeld');
     assert.ok(html.includes('lp-formulier-placeholder'));

@@ -78,6 +78,7 @@ test('buildFormulierCss: elke Contact Form 7 selector valt onder de rootClass', 
   const regels = css.replace(/<\/?style>/g, '').split('}').map((r) => r.split('{')[0]).filter((r) => r.trim());
   for (const blok of regels) {
     for (const sel of blok.split(',')) {
+      if (sel.trim().startsWith('@')) continue;
       assert.ok(sel.trim().startsWith('.lp-root-macbouw-hillegom'), `niet gescoped: ${sel.trim()}`);
     }
   }
