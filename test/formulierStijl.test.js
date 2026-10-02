@@ -36,8 +36,9 @@ test('buildFormulierCss: met een onbekende pluginnaam val je gewoon terug op de 
 
 test('buildFormulierCss: Contact Form 7 krijgt de wpcf7-specifieke overrides erbij, nog steeds gescoped', () => {
   const css = buildFormulierCss('lp-root-roots-boeken', 'Contact Form 7');
-  assert.ok(css.includes('.wpcf7-form-control'));
   assert.ok(css.includes('.wpcf7-submit'));
+  assert.ok(css.includes('.wpcf7-radio'));
+  assert.ok(css.includes('.wpcf7-checkbox'));
   assert.ok(alleSelectorsBevattenRootClass(css, 'lp-root-roots-boeken'));
 });
 
@@ -59,4 +60,25 @@ test('buildFormulierCss: elk plugin uit PLUGIN_CSS_BUILDERS levert geldige, gesc
 test('buildFormulierCss: gooit een duidelijke fout zonder rootClass, om nooit ongescoped CSS te produceren', () => {
   assert.throws(() => buildFormulierCss('', 'Contact Form 7'), /rootClass/);
   assert.throws(() => buildFormulierCss(null, null), /rootClass/);
+});
+
+test('buildFormulierCss: Contact Form 7 stylet niet generiek op .wpcf7-form-control (breekt radio en checkbox wrappers)', () => {
+  const css = buildFormulierCss('lp-root-macbouw-hillegom', 'Contact Form 7');
+  assert.ok(!/\.wpcf7-form-control\s*[{,]/.test(css), 'geen selector op .wpcf7-form-control');
+  assert.ok(css.includes('input[type="file"]'));
+  const wrapper = css.match(/\.wpcf7-radio,[\s\S]*?\{([\s\S]*?)\}/)[1];
+  assert.match(wrapper, /border:\s*0/);
+  assert.match(wrapper, /padding:\s*0/);
+  assert.match(wrapper, /margin:\s*0/);
+  assert.match(wrapper, /background:\s*transparent/);
+});
+
+test('buildFormulierCss: elke Contact Form 7 selector valt onder de rootClass', () => {
+  const css = buildFormulierCss('lp-root-macbouw-hillegom', 'Contact Form 7');
+  const regels = css.replace(/<\/?style>/g, '').split('}').map((r) => r.split('{')[0]).filter((r) => r.trim());
+  for (const blok of regels) {
+    for (const sel of blok.split(',')) {
+      assert.ok(sel.trim().startsWith('.lp-root-macbouw-hillegom'), `niet gescoped: ${sel.trim()}`);
+    }
+  }
 });

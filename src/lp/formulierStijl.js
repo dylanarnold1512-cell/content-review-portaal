@@ -69,7 +69,18 @@ function genericFormCss(rootClass) {
 // !important nodig om die daadwerkelijk te overschrijven, de generieke regels hierboven zijn dan niet
 // specifiek genoeg.
 const PLUGIN_CSS_BUILDERS = {
-  'Contact Form 7': (rootClass) => `.${rootClass} .wpcf7-form-control {
+  // Contact Form 7 (02-10-2026, MAC Bouw): CF7 geeft de klasse "wpcf7-form-control" niet alleen aan echte
+  // invoervelden, maar ook aan de wrappers van radio en checkbox groepen (.wpcf7-radio, .wpcf7-checkbox).
+  // Generieke opmaak op die klasse gaf die wrappers breedte, padding, rand en marge: losse lijntjes en
+  // scheve uitlijning. Daarom stylen we hier alleen echte invoervelden (op type) en resetten we de
+  // wrappers expliciet. Alles blijft onder de rootClass, zodat de opmaak van het formulier op de
+  // contactpagina van de klant nooit overschreven wordt.
+  'Contact Form 7': (rootClass) => `.${rootClass} .wpcf7-form input[type="text"],
+.${rootClass} .wpcf7-form input[type="email"],
+.${rootClass} .wpcf7-form input[type="tel"],
+.${rootClass} .wpcf7-form input[type="file"],
+.${rootClass} .wpcf7-form textarea,
+.${rootClass} .wpcf7-form select {
   width: 100%;
   box-sizing: border-box;
   padding: 12px 14px;
@@ -78,7 +89,17 @@ const PLUGIN_CSS_BUILDERS = {
   border-radius: var(--lp-radius);
   font-family: var(--lp-font-body);
 }
-.${rootClass} .wpcf7-submit {
+.${rootClass} .wpcf7-form .wpcf7-radio,
+.${rootClass} .wpcf7-form .wpcf7-checkbox,
+.${rootClass} .wpcf7-form .wpcf7-acceptance {
+  width: auto;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+}
+.${rootClass} .wpcf7-form .wpcf7-submit {
+  width: auto;
   background: var(--lp-cta-bg);
   color: var(--lp-cta-text);
   border: none;

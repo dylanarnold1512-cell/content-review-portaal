@@ -17,8 +17,8 @@ test('formulier-marker: op WordPress de shortcode plus opmaak, marker verdwijnt'
   const html = renderPageHtml(pagina('macbouw', TEMPLATE), { forWordPress: true });
   assert.ok(html.includes('[contact-form-7 id="9898a61" title="Offerte aanvraag MAC Bouw"]'));
   assert.ok(!html.includes('{{formulier}}'));
-  assert.ok(html.includes('.wpcf7-form-control'));
-  assert.ok(html.includes('.lp-root-test-pagina .wpcf7-form-control'), 'opmaak valt onder de rootClass');
+  assert.ok(html.includes('.wpcf7-radio'));
+  assert.ok(html.includes('.lp-root-test-pagina .wpcf7-form .wpcf7-radio'), 'opmaak valt onder de rootClass');
 });
 
 test('formulier-marker: voorbeeld en deellink tonen een placeholder, nooit de kale shortcode', () => {
