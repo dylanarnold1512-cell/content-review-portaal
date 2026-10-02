@@ -272,6 +272,10 @@ const SITE_BRON_REGELS = `BRONTEKSTEN VAN DE KLANTSITE (als ze zijn meegegeven, 
   certificeringen alleen als ze er exact zo staan. Bij tegenstrijdige teksten gaat de homepage of de dienstpagina voor.
 - Een plaats of project uit de bronteksten blijft bij wat de bron zegt: schrijf bijvoorbeeld niet dat het kantoor in een andere
   plaats zit dan de bron zegt. Noem een plaats alleen als die in de invoer of de bronteksten staat.
+- Reviews: gebruik alleen echte reviews die in de bronteksten, de feitensheet of de invoer staan, met de naam zoals de bron die geeft.
+  Bij elke review zet je in het veld onder de naam (bijvoorbeeld "project") altijd hetzelfde soort gegeven: de soort klus als de
+  bron die noemt (bijvoorbeeld "Verbouwing" of "Dakkapel"), anders de plaats van de klant als die er staat, anders laat je het
+  veld leeg. Zet daar nooit een eigenschap of onderwerp uit de tekst, zoals "Communicatie" of "Service". Verzin geen reviews, namen of sterren.
 - Mis je voor een onderdeel bronmateriaal, maak het onderdeel dan korter en feitelijker. Vul het nooit met verzinsels.`;
 
 function buildTemplateSystemPrompt() {
