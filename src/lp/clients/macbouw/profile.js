@@ -21,7 +21,7 @@ const profile = {
   // Contact Form 7 overgegaan (MetForm 3048 bleef voor bezoekers leeg), formulier "Offerte", opgegeven door Dylan.
   formulier: {
     plugin: 'Contact Form 7',
-    shortcode: '[contact-form-7 id="5d59c34" title="Offerte"]'
+    shortcode: '[contact-form-7 id="9898a61" title="Offerte aanvraag MAC Bouw"]'
   },
   // SEO plugin op de klantsite (Yoast SEO, vastgesteld 25-09-2026 in de HTML van mac-bouw.nl). Bepaalt in welke
   // velden de metatitel en metabeschrijving worden opgeslagen bij publiceren (src/lp/wordpress.js). Let op: Yoast

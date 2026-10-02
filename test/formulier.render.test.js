@@ -15,7 +15,7 @@ const TEMPLATE = '<h1>{{heroTitle}}</h1><div class="contact">{{formulier}}</div>
 
 test('formulier-marker: op WordPress de shortcode plus opmaak, marker verdwijnt', () => {
   const html = renderPageHtml(pagina('macbouw', TEMPLATE), { forWordPress: true });
-  assert.ok(html.includes('[contact-form-7 id="5d59c34" title="Offerte"]'));
+  assert.ok(html.includes('[contact-form-7 id="9898a61" title="Offerte aanvraag MAC Bouw"]'));
   assert.ok(!html.includes('{{formulier}}'));
   assert.ok(html.includes('.wpcf7-form-control'));
   assert.ok(html.includes('.lp-root-test-pagina .wpcf7-form-control'), 'opmaak valt onder de rootClass');

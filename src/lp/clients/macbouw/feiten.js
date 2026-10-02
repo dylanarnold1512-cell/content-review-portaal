@@ -89,13 +89,13 @@ const feiten = [
   {
     id: 'contactformulier',
     label: 'Contactformulier op site (Contact Form 7)',
-    waarde: 'Contact Form 7, formulier "Offerte" (id 5d59c34).',
+    waarde: 'Contact Form 7, formulier "Offerte aanvraag MAC Bouw" (id 9898a61).',
     bron: 'opgegeven door Dylan op 02-10-2026: MAC Bouw is overgegaan van MetForm naar Contact Form 7'
   },
   {
     id: 'contactformulier-shortcode',
     label: 'Shortcode contactformulier (Contact Form 7)',
-    waarde: '[contact-form-7 id="5d59c34" title="Offerte"]',
+    waarde: '[contact-form-7 id="9898a61" title="Offerte aanvraag MAC Bouw"]',
     bron: 'opgegeven door Dylan op 02-10-2026 (formulier "Offerte"). Nog niet getest op een landingspagina.'
   },
   // Veelgestelde vragen van de homepage (accordeon), letterlijk uit de pagina (DOM) gelezen op 29-09-2026.

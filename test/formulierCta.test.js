@@ -29,7 +29,7 @@ test('CTA-knoppen worden een jumplink naar het formulier, met een id op het form
   assert.ok(!html.includes('mac-bouw.nl/contact/'));
   assert.equal((html.match(/href="#lp-formulier"/g) || []).length, 3); // kop, hero en de balk
   assert.ok(html.includes('id="lp-formulier"'));
-  assert.ok(html.includes('[contact-form-7 id="5d59c34" title="Offerte"]'));
+  assert.ok(html.includes('[contact-form-7 id="9898a61" title="Offerte aanvraag MAC Bouw"]'));
 });
 
 test('halverwege komt een CTA-balk met de knoptekst, niet vlak voor het formulier en niet na de hero', () => {
