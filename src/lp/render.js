@@ -25,6 +25,7 @@ const { buildFormulierCss } = require('./formulierStijl');
 const { bouwServiceSchema } = require('./seoSchema');
 const { berekenOverrides, pasSectiesToe, filterSlotData } = require('./overrides');
 const { pasFormulierCtaToe, FORMULIER_ID } = require('./formulierCta');
+const { themaCss, themaScript } = require('./themaFix');
 const { pasGalerijToe, zorgVoorGalerijSlot } = require('./galerij');
 
 function renderPageHtml(page, opts) {
@@ -123,6 +124,7 @@ function renderSlotPageHtml(paginaRuw, opts) {
   // welke slot ze zijn, zodat je erop kan klikken om te wisselen/aan te passen — de HTML die naar
   // WordPress gaat blijft schoon (geen data-lp-*-attributen).
   const forPreview = !!(opts && opts.forPreview);
+  const naarWp = !!(opts && opts.forWordPress);
   // Aanpassingen per pagina (onderdelen verbergen, zie overrides.js): eerst de secties op de rauwe
   // sjabloon-HTML, daarna pas de gewone preview-tagging en het invullen van de slots.
   const overrides = berekenOverrides({ htmlTemplate: htmlTemplateRaw, slotData, overrides: page.overrides });
@@ -161,10 +163,10 @@ function renderSlotPageHtml(paginaRuw, opts) {
   return `${baseStyle}
 <style>
 ${templateCss}
-</style>${metFormulier.css ? '\n' + metFormulier.css : ''}${cta.css ? '\n' + cta.css : ''}${galerij.css ? '\n' + galerij.css : ''}
+</style>${metFormulier.css ? '\n' + metFormulier.css : ''}${cta.css ? '\n' + cta.css : ''}${galerij.css ? '\n' + galerij.css : ''}${naarWp ? '\n' + themaCss(rootClass) : ''}
 <div class="${rootClass} lpt">
 ${body}
-</div>${schemaScript}`;
+</div>${naarWp ? '\n' + themaScript(rootClass) : ''}${schemaScript}`;
 }
 
 // FAQPage JSON-LD, zelfde schema-vorm als de oude src/lp/blocks/faq.js —
