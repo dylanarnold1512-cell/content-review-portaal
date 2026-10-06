@@ -79,6 +79,15 @@ function toggleSwitch(id, clientId, field, checked, disabled, disabledReason) {
   </label>`;
 }
 
+// Uitleg bij de kolomkoppen, getoond als popup bij het erover heen gaan.
+const HEADER_TIPS = [
+  { label: 'Review', tip: 'De klant ziet bij elke blog de knoppen Goedkeuren en Afwijzen. Uit: de klant kan de blogs alleen bekijken.' },
+  { label: 'Prestaties', tip: 'Toont het tabblad Prestaties (Search Console en GA4). Zet aan zodra er ongeveer een maand data is, anders ziet de klant vooral nullen. Kan alleen als de prestatiekoppeling is ingesteld.' },
+  { label: 'Ideeën', tip: 'De klant krijgt de knop Idee aandragen. Ideeën worden automatisch aangevuld en komen eerst bij jou ter goedkeuring.' },
+  { label: 'Merkprofiel', tip: 'Toont het tabblad Merkprofiel. De klant ziet hoe wij het bedrijf hebben vastgesteld en kan feiten bevestigen, aanpassen of uitsluiten. Het tabblad verschijnt alleen als er een vastgesteld profiel is.' },
+  { label: 'Naar blogs', tip: 'Reacties van de klant op het merkprofiel schrijven het Kennisdocument opnieuw, waar de blogs op schrijven. Let op: dit overschrijft het huidige Kennisdocument. Zet dit pas aan bij de overstap naar het profiel.' }
+];
+
 function renderTable() {
   const rows = adminState.clients.map((c) => `
   <div class="admin-row">
@@ -119,11 +128,7 @@ function renderTable() {
   document.getElementById('adminTable').innerHTML = `
   <div class="admin-row admin-row-head">
     <div class="admin-row-name">Klant</div>
-    <div class="admin-row-setting"><span class="admin-row-label">Review</span></div>
-    <div class="admin-row-setting"><span class="admin-row-label">Prestaties</span></div>
-    <div class="admin-row-setting"><span class="admin-row-label">Ideeën</span></div>
-    <div class="admin-row-setting" title="Toont het tabblad Merkprofiel aan de klant"><span class="admin-row-label">Merkprofiel</span></div>
-    <div class="admin-row-setting" title="Reacties van de klant op het merkprofiel schrijven het Kennisdocument opnieuw"><span class="admin-row-label">Naar blogs</span></div>
+    ${HEADER_TIPS.map((h, i) => `<div class="admin-row-setting"><span class="admin-row-label admin-tip${i >= 3 ? ' admin-tip-rechts' : ''}" tabindex="0" data-tip="${h.tip}">${h.label}</span></div>`).join('')}
   </div>
   ${rows}
   `;

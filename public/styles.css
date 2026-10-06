@@ -144,6 +144,18 @@ body {
 .admin-row:not(.admin-row-head):hover { background: var(--bg); }
 /* De merkprofiel schakelaars vormen een eigen groep, met een lijntje ervoor. */
 .admin-row > .admin-row-setting:nth-child(5) { border-left: 1px solid var(--border); padding-left: 8px; }
+.admin-layout-breed .admin-table { overflow: visible; }
+.admin-layout-breed .admin-row-head { border-radius: var(--radius) var(--radius) 0 0; }
+/* Popup met uitleg bij de kolomkoppen. */
+.admin-tip { position: relative; cursor: help; border-bottom: 1px dotted var(--text-faint); }
+.admin-tip::after {
+  content: attr(data-tip); position: absolute; top: calc(100% + 10px); left: 50%; transform: translateX(-50%);
+  width: 240px; padding: 10px 12px; border-radius: 10px; background: var(--text); color: #fff;
+  font-size: 12px; font-weight: 500; line-height: 1.5; letter-spacing: 0; text-transform: none; text-align: left;
+  box-shadow: var(--shadow-soft); opacity: 0; pointer-events: none; transition: opacity 0.12s ease; z-index: 20;
+}
+.admin-tip-rechts::after { left: auto; right: -8px; transform: none; }
+.admin-tip:hover::after, .admin-tip:focus::after { opacity: 1; }
 /* Op een grote scherm staat het label alleen in de kopregel. */
 @media (min-width: 720px) {
   .admin-row:not(.admin-row-head) .admin-row-label { display: none; }
