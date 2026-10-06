@@ -69,7 +69,9 @@ const clients = [
       // Top 5 zoekwoorden (30d) waar deze blog op scoort in Search Console,
       // één regel per zoekwoord met positie/clicks/vertoningen. Gevuld door
       // de dagelijkse n8n-sync, getoond per blog op de Prestaties-tab.
-      topKeywords30d: 'Top zoekwoorden (30d)'
+      topKeywords30d: 'Top zoekwoorden (30d)',
+      intent: 'Intentie',
+      existingUrl: 'Bestaande URL'
     },
     // Statuswaarden zoals ze echt in Notion staan (bevestigd op 24-08-2026).
     statusValues: {

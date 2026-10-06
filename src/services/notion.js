@@ -1,3 +1,4 @@
+const { vindOverlap } = require('./dubbelingen');
 const { Client } = require('@notionhq/client');
 const { getClient } = require('../config/clients');
 
@@ -68,6 +69,8 @@ function summarizePage(page, fields) {
     pageviews30d: fields.pageviews30d ? readProperty(page, fields.pageviews30d) : null,
     strategieOnderbouwing: fields.strategyRationale ? readProperty(page, fields.strategyRationale) : '',
     topKeywords30d: fields.topKeywords30d ? readProperty(page, fields.topKeywords30d) : '',
+    intentie: fields.intent ? readProperty(page, fields.intent) : '',
+    bestaandeUrl: fields.existingUrl ? readProperty(page, fields.existingUrl) : '',
     laatstGewijzigd: page.last_edited_time
   };
 }
@@ -209,9 +212,22 @@ async function listIdeaProposals(clientId) {
     filter: { property: config.fields.status, select: { equals: config.statusValues.idea } },
     page_size: 100
   });
-  return res.results
+  const ideeen = res.results
     .map((page) => summarizePage(page, config.fields))
     .filter((item) => item.slug);
+  if (!ideeen.length) return ideeen;
+
+  // Dubbelingencontrole: vergelijk met alle andere rijen (gepland, gepubliceerd, andere ideeën).
+  // Faalt de extra query, dan tonen we de ideeën gewoon zonder waarschuwing.
+  try {
+    const alle = await notion.databases.query({ database_id: config.databaseId, page_size: 100 });
+    const anderen = alle.results
+      .map((page) => summarizePage(page, config.fields))
+      .filter((item) => item.status !== config.statusValues.rejected);
+    return ideeen.map((idee) => ({ ...idee, overlap: vindOverlap(idee, anderen) }));
+  } catch (err) {
+    return ideeen.map((idee) => ({ ...idee, overlap: [] }));
+  }
 }
 
 // decision: 'approve' zet 'm op Gepland (loopt gewoon de bestaande planning

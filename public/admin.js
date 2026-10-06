@@ -244,6 +244,9 @@ function renderIdeaProposals(byClient) {
           <div><span class="seo-label">SEO titel</span>${escapeHtmlAdmin(p.seoTitle)}</div>
           <div><span class="seo-label">Meta omschrijving</span>${escapeHtmlAdmin(p.seoDescription)}</div>
           <div><span class="seo-label">Voorgestelde publicatiedatum</span>${escapeHtmlAdmin(p.publicatiedatum)}</div>
+          ${(p.overlap && p.overlap.length) ? `<div class="proposal-overlap"><span class="seo-label">Mogelijke dubbeling</span>${p.overlap.map((o) => `${escapeHtmlAdmin(o.titel)} (${escapeHtmlAdmin(o.status)}, ${o.reden === 'zelfde' ? 'zelfde hoofdkeyword' : 'overlappend hoofdkeyword'})`).join('<br>')}</div>` : ''}
+          ${p.intentie ? `<div><span class="seo-label">Intentie</span>${escapeHtmlAdmin(p.intentie)}</div>` : ''}
+          ${p.bestaandeUrl ? `<div><span class="seo-label">Bestaande URL</span>${escapeHtmlAdmin(p.bestaandeUrl)}</div>` : ''}
           ${p.opmerkingenKlant ? `<div><span class="seo-label">Toelichting klant</span>${escapeHtmlAdmin(p.opmerkingenKlant)}</div>` : ''}
         </div>
         <div class="proposal-actions">
