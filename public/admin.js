@@ -110,7 +110,7 @@ function renderTable() {
       ${toggleSwitch('mp-' + c.id, c.id, 'merkprofiel', c.merkprofiel, false)}
     </div>
     <div class="admin-row-setting">
-      <span class="admin-row-label">Naar Kennisdoc.</span>
+      <span class="admin-row-label">Naar blogs</span>
       ${toggleSwitch('mpk-' + c.id, c.id, 'merkprofielNaarKennisdocument', c.merkprofielNaarKennisdocument, false)}
     </div>
   </div>
@@ -122,8 +122,8 @@ function renderTable() {
     <div class="admin-row-setting"><span class="admin-row-label">Review</span></div>
     <div class="admin-row-setting"><span class="admin-row-label">Prestaties</span></div>
     <div class="admin-row-setting"><span class="admin-row-label">Ideeën</span></div>
-    <div class="admin-row-setting"><span class="admin-row-label">Merkprofiel</span></div>
-    <div class="admin-row-setting"><span class="admin-row-label">Naar Kennisdoc.</span></div>
+    <div class="admin-row-setting" title="Toont het tabblad Merkprofiel aan de klant"><span class="admin-row-label">Merkprofiel</span></div>
+    <div class="admin-row-setting" title="Reacties van de klant op het merkprofiel schrijven het Kennisdocument opnieuw"><span class="admin-row-label">Naar blogs</span></div>
   </div>
   ${rows}
   `;
