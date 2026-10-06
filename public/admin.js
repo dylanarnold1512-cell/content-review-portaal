@@ -85,6 +85,7 @@ function toggleSwitch(id, clientId, field, checked, disabled, disabledReason) {
 
 // Uitleg bij de kolomkoppen, getoond als popup bij het erover heen gaan.
 const HEADER_TIPS = [
+  { label: 'Status', tip: 'Actief: alles werkt. Gepauzeerd of beëindigd: de klant kan niet meer inloggen op het portaal en ziet een melding. De workflows in n8n volgen deze status nog niet automatisch.' },
   { label: 'Review', tip: 'De klant ziet bij elke blog de knoppen Goedkeuren en Afwijzen. Uit: de klant kan de blogs alleen bekijken.' },
   { label: 'Prestaties', tip: 'Toont het tabblad Prestaties (Search Console en GA4). Zet aan zodra er ongeveer een maand data is, anders ziet de klant vooral nullen. Kan alleen als de prestatiekoppeling is ingesteld.' },
   { label: 'Ideeën', tip: 'De klant krijgt de knop Idee aandragen. Ideeën worden automatisch aangevuld en komen eerst bij jou ter goedkeuring.' },
@@ -98,6 +99,12 @@ function renderTable() {
     <div class="admin-row-name">
       ${c.naam}
       ${c.inNotion ? '' : '<span class="admin-row-badge" title="Nog geen rij in de Notion-database — wordt automatisch aangemaakt bij de eerste wijziging.">nieuw</span>'}
+    </div>
+    <div class="admin-row-setting">
+      <span class="admin-row-label">Status</span>
+      <select class="admin-status admin-status-${c.klantstatus || 'actief'}" data-client="${c.id}" data-statusveld="klantstatus" aria-label="Klantstatus van ${c.naam}">
+        ${['actief', 'gepauzeerd', 'beëindigd'].map((s) => `<option value="${s}"${(c.klantstatus || 'actief') === s ? ' selected' : ''}>${s}</option>`).join('')}
+      </select>
     </div>
     <div class="admin-row-setting">
       <span class="admin-row-label">Review</span>
@@ -132,10 +139,43 @@ function renderTable() {
   document.getElementById('adminTable').innerHTML = `
   <div class="admin-row admin-row-head">
     <div class="admin-row-name">Klant</div>
-    ${HEADER_TIPS.map((h, i) => `<div class="admin-row-setting"><span class="admin-row-label admin-tip${i >= 3 ? ' admin-tip-rechts' : ''}" tabindex="0" data-tip="${h.tip}">${h.label}</span></div>`).join('')}
+    ${HEADER_TIPS.map((h, i) => `<div class="admin-row-setting"><span class="admin-row-label admin-tip${i >= 4 ? ' admin-tip-rechts' : ''}" tabindex="0" data-tip="${h.tip}">${h.label}</span></div>`).join('')}
   </div>
   ${rows}
   `;
+
+  document.querySelectorAll('#adminTable select[data-statusveld]').forEach((select) => {
+    select.addEventListener('change', async () => {
+      const client = select.dataset.client;
+      const entry = adminState.clients.find((c) => c.id === client) || {};
+      const oud = entry.klantstatus || 'actief';
+      const nieuw = select.value;
+      if (nieuw !== 'actief') {
+        const akkoord = window.confirm(
+          `${entry.naam || 'Deze klant'} wordt ${nieuw}. De klant kan daarna niet meer inloggen op het portaal. Doorgaan?`
+        );
+        if (!akkoord) {
+          select.value = oud;
+          return;
+        }
+      }
+      select.disabled = true;
+      try {
+        await adminApi(`/settings/${encodeURIComponent(client)}`, {
+          method: 'POST',
+          body: JSON.stringify({ field: 'klantstatus', value: nieuw })
+        });
+        entry.klantstatus = nieuw;
+        select.className = `admin-status admin-status-${nieuw}`;
+        renderError('');
+      } catch (err) {
+        select.value = oud;
+        renderError(err.message);
+      } finally {
+        select.disabled = false;
+      }
+    });
+  });
 
   document.querySelectorAll('#adminTable input[type="checkbox"][data-client]').forEach((input) => {
     input.addEventListener('change', async () => {

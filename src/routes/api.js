@@ -24,11 +24,15 @@ router.get('/client-info', (req, res) => {
   res.json({ id: client.id, naam: client.naam });
 });
 
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   const { clientId, password } = req.body || {};
   try {
     if (!checkPassword(clientId, password)) {
       return res.status(401).json({ error: 'Onjuist wachtwoord.' });
+    }
+    const status = (await settingsService.getClientSettings(clientId, getClient(clientId))).klantstatus;
+    if (status !== 'actief') {
+      return res.status(403).json({ error: settingsService.klantstatusMelding(status), code: 'KLANT_INACTIEF' });
     }
     req.session.clientId = clientId;
     res.json({ ok: true, clientId });
@@ -42,8 +46,17 @@ router.post('/logout', (req, res) => {
   res.json({ ok: true });
 });
 
-router.get('/me', (req, res) => {
-  res.json({ clientId: req.session?.clientId || null });
+router.get('/me', async (req, res) => {
+  const clientId = req.session?.clientId || null;
+  if (clientId) {
+    try {
+      const status = (await settingsService.getClientSettings(clientId, getClient(clientId))).klantstatus;
+      if (status !== 'actief') return res.json({ clientId: null });
+    } catch (err) {
+      // Bij een fout blijft de klant actief.
+    }
+  }
+  res.json({ clientId });
 });
 
 router.get('/:clientId/items', requireLogin, async (req, res) => {

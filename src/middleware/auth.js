@@ -14,12 +14,24 @@ function checkPassword(clientId, password) {
 // Simpele sessie-gate: één gedeeld wachtwoord per klant. Prima voor één of een
 // handvol reviewers per klant; bij individuele accounts per persoon is dit het
 // eerste stuk dat je zou vervangen (zie README, "later uitbreiden").
-function requireLogin(req, res, next) {
+async function requireLogin(req, res, next) {
   const clientId = req.params.clientId || req.body.clientId;
-  if (req.session && req.session.clientId === clientId) {
-    return next();
+  if (!(req.session && req.session.clientId === clientId)) {
+    return res.status(401).json({ error: 'Niet ingelogd voor deze klant.' });
   }
-  return res.status(401).json({ error: 'Niet ingelogd voor deze klant.' });
+  // Gepauzeerde en beëindigde klanten komen er niet meer in, ook niet met een
+  // sessie die nog openstaat. Lukt het ophalen van de status niet, dan blijft
+  // de klant actief (zie getClientSettings).
+  try {
+    const settingsService = require('../services/settings');
+    const status = (await settingsService.getClientSettings(clientId, getClient(clientId))).klantstatus;
+    if (status !== 'actief') {
+      return res.status(403).json({ error: settingsService.klantstatusMelding(status), code: 'KLANT_INACTIEF' });
+    }
+  } catch (err) {
+    console.error('Klantstatus controle mislukt, klant blijft actief:', err.message);
+  }
+  return next();
 }
 
 // Eén los admin-wachtwoord voor het instellingenpaneel (/admin), volledig

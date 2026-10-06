@@ -43,6 +43,13 @@ router.get('/settings', requireAdmin, async (req, res) => {
 router.post('/settings/:clientId', requireAdmin, async (req, res) => {
   try {
     const { field, value } = req.body || {};
+    if (field === 'klantstatus') {
+      if (!settingsService.KLANTSTATUS_WAARDEN.includes(value)) {
+        return res.status(400).json({ error: `Onbekende klantstatus: ${value}` });
+      }
+      await settingsService.updateClientSetting(req.params.clientId, field, value);
+      return res.json({ ok: true, melding: '' });
+    }
     if (!['reviewEnabled', 'performanceEnabled', 'ideaEnrichmentEnabled', 'merkprofiel', 'merkprofielNaarKennisdocument'].includes(field)) {
       return res.status(400).json({ error: `Onbekend instellingveld: ${field}` });
     }

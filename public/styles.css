@@ -124,7 +124,7 @@ body {
   box-shadow: var(--shadow-card); overflow: hidden;
 }
 .admin-row {
-  display: grid; grid-template-columns: minmax(160px, 1fr) repeat(5, 92px); align-items: center;
+  display: grid; grid-template-columns: minmax(160px, 1fr) 112px repeat(5, 92px); align-items: center;
   padding: 16px 20px; border-bottom: 1px solid var(--border); gap: 12px;
 }
 .admin-row:last-child { border-bottom: none; }
@@ -139,11 +139,14 @@ body {
 .admin-row-setting { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
 .admin-row-label { font-size: 11.5px; color: var(--text-faint); }
 .admin-row-head .admin-row-setting { align-items: center; }
-.admin-layout.admin-layout-breed { max-width: 900px; }
+.admin-layout.admin-layout-breed { max-width: 1000px; }
+.admin-status { font: inherit; font-size: 12.5px; padding: 5px 8px; border-radius: var(--radius-pill); border: 1px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; }
+.admin-status-gepauzeerd { background: #fff6dd; border-color: #ecd07a; }
+.admin-status-beëindigd { background: #ffecec; border-color: #e8a5a5; }
 .admin-row:not(.admin-row-head) { transition: background 0.12s ease; }
 .admin-row:not(.admin-row-head):hover { background: var(--bg); }
 /* De merkprofiel schakelaars vormen een eigen groep, met een lijntje ervoor. */
-.admin-row > .admin-row-setting:nth-child(5) { border-left: 1px solid var(--border); padding-left: 8px; }
+.admin-row > .admin-row-setting:nth-child(6) { border-left: 1px solid var(--border); padding-left: 8px; }
 .admin-layout-breed .admin-table { overflow: visible; }
 .admin-layout-breed .admin-row-head { border-radius: var(--radius) var(--radius) 0 0; }
 /* Popup met uitleg bij de kolomkoppen. */
@@ -165,7 +168,7 @@ body {
   .admin-row-head { display: none; }
   .admin-row { grid-template-columns: repeat(3, 1fr); row-gap: 14px; }
   .admin-row > .admin-row-name { grid-column: 1 / -1; }
-  .admin-row > .admin-row-setting:nth-child(5) { border-left: none; padding-left: 0; }
+  .admin-row > .admin-row-setting:nth-child(6) { border-left: none; padding-left: 0; }
 }
 
 .admin-toggle { position: relative; display: inline-flex; align-items: center; cursor: pointer; }

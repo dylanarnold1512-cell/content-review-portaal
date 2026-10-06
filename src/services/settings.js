@@ -21,6 +21,21 @@ const PROPERTY_BY_FIELD = {
   merkprofielNaarKennisdocument: 'Merkprofiel naar Kennisdocument'
 };
 
+const KLANTSTATUS_WAARDEN = ['actief', 'gepauzeerd', 'beëindigd'];
+
+// Leeg of onbekend telt als actief, zodat een klant nooit per ongeluk
+// afgesloten wordt door een ontbrekende of foute waarde in Notion.
+function normaliseerKlantstatus(waarde) {
+  const w = String(waarde || '').trim().toLowerCase();
+  return KLANTSTATUS_WAARDEN.includes(w) ? w : 'actief';
+}
+
+function klantstatusMelding(status) {
+  if (status === 'gepauzeerd') return 'Dit portaal is tijdelijk gepauzeerd. Neem contact op met Advertisr als je vragen hebt.';
+  if (status === 'beëindigd') return 'Dit portaal is niet meer beschikbaar. Neem contact op met Advertisr als je vragen hebt.';
+  return '';
+}
+
 let notion = null;
 function getNotionClient() {
   if (notion) return notion;
@@ -57,7 +72,8 @@ async function fetchAllFromNotion() {
         performanceEnabled: Boolean(props['Prestaties ingeschakeld']?.checkbox),
         ideaEnrichmentEnabled: Boolean(props['Ideeën-verrijking ingeschakeld']?.checkbox),
         merkprofiel: Boolean(props['Merkprofiel ingeschakeld']?.checkbox),
-        merkprofielNaarKennisdocument: Boolean(props['Merkprofiel naar Kennisdocument']?.checkbox)
+        merkprofielNaarKennisdocument: Boolean(props['Merkprofiel naar Kennisdocument']?.checkbox),
+        klantstatus: normaliseerKlantstatus(props['Klantstatus']?.select?.name)
       });
     }
     cursor = res.has_more ? res.next_cursor : undefined;
@@ -91,7 +107,8 @@ async function getClientSettings(clientId, fallback = {}) {
         performanceEnabled: settings.performanceEnabled,
         ideaEnrichmentEnabled: settings.ideaEnrichmentEnabled,
         merkprofiel: settings.merkprofiel,
-        merkprofielNaarKennisdocument: settings.merkprofielNaarKennisdocument
+        merkprofielNaarKennisdocument: settings.merkprofielNaarKennisdocument,
+        klantstatus: settings.klantstatus
       };
     }
   } catch (err) {
@@ -102,7 +119,8 @@ async function getClientSettings(clientId, fallback = {}) {
     performanceEnabled: Boolean(fallback.performanceEnabled),
     ideaEnrichmentEnabled: Boolean(fallback.ideaEnrichmentEnabled),
     merkprofiel: Boolean(fallback.merkprofiel),
-    merkprofielNaarKennisdocument: Boolean(fallback.merkprofielNaarKennisdocument)
+    merkprofielNaarKennisdocument: Boolean(fallback.merkprofielNaarKennisdocument),
+    klantstatus: normaliseerKlantstatus(fallback.klantstatus)
   };
 }
 
@@ -122,14 +140,18 @@ async function listAllSettings(clientsConfig) {
       heeftMerkprofiel: true,
       merkprofiel: settings ? settings.merkprofiel : Boolean(c.merkprofiel),
       merkprofielNaarKennisdocument: settings ? settings.merkprofielNaarKennisdocument : Boolean(c.merkprofielNaarKennisdocument),
+      klantstatus: settings ? settings.klantstatus : normaliseerKlantstatus(c.klantstatus),
       inNotion: Boolean(settings)
     };
   });
 }
 
 async function updateClientSetting(clientId, field, value) {
-  const propertyName = PROPERTY_BY_FIELD[field];
+  const isStatus = field === 'klantstatus';
+  const propertyName = isStatus ? 'Klantstatus' : PROPERTY_BY_FIELD[field];
   if (!propertyName) throw new Error(`Onbekend instellingveld: ${field}`);
+  if (isStatus && !KLANTSTATUS_WAARDEN.includes(value)) throw new Error(`Onbekende klantstatus: ${value}`);
+  const waarde = isStatus ? { select: { name: value } } : { checkbox: Boolean(value) };
 
   const client = getNotionClient();
   const map = await getSettingsMap();
@@ -138,7 +160,7 @@ async function updateClientSetting(clientId, field, value) {
   if (existing) {
     await client.pages.update({
       page_id: existing.pageId,
-      properties: { [propertyName]: { checkbox: Boolean(value) } }
+      properties: { [propertyName]: waarde }
     });
   } else {
     // Nog geen rij voor deze klant in Notion — maak 'm aan op basis van clients.js.
@@ -149,7 +171,7 @@ async function updateClientSetting(clientId, field, value) {
       properties: {
         Klant: { title: [{ text: { content: config.naam } }] },
         'Client ID': { rich_text: [{ text: { content: clientId } }] },
-        [propertyName]: { checkbox: Boolean(value) }
+        [propertyName]: waarde
       }
     });
   }
@@ -158,4 +180,11 @@ async function updateClientSetting(clientId, field, value) {
   await getSettingsMap({ forceRefresh: true });
 }
 
-module.exports = { getClientSettings, listAllSettings, updateClientSetting };
+module.exports = {
+  getClientSettings,
+  listAllSettings,
+  updateClientSetting,
+  normaliseerKlantstatus,
+  klantstatusMelding,
+  KLANTSTATUS_WAARDEN
+};
