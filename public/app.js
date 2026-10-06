@@ -94,8 +94,23 @@ async function enterApp(clientId, clientMeta) {
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('clientName').textContent = clientMeta ? clientMeta.naam : clientId;
-  switchTab('blogs');
+  // Een directe link naar één blog (bijvoorbeeld uit de review mail) opent die blog
+  // meteen in Blogs. Anders is het Overzicht de startpagina.
+  const komtUitDeepLink = Boolean(deepLinkItemId);
+  switchTab(komtUitDeepLink ? 'blogs' : 'overzicht');
   await loadItems();
+  if (window.renderOverzicht) window.renderOverzicht(state, badgeClass, openBlogUitOverzicht);
+}
+
+// Opent een blog vanuit het Overzicht in het tabblad Blogs.
+function openBlogUitOverzicht(id) {
+  state.selectedId = id;
+  state.filter = 'alle';
+  switchTab('blogs');
+  updateUrlForSelection();
+  renderFilters();
+  renderList();
+  renderDetail();
 }
 
 // Blogs = de contentplanning zelf (ideeën t/m gepubliceerd, incl. de
@@ -107,7 +122,10 @@ function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.tab === tab);
   });
+  const overzichtTab = document.getElementById('overzichtTab');
+  if (overzichtTab) overzichtTab.classList.toggle('hidden', tab !== 'overzicht');
   document.getElementById('blogsTab').classList.toggle('hidden', tab !== 'blogs');
+  if (tab === 'overzicht' && window.renderOverzicht) window.renderOverzicht(state, badgeClass, openBlogUitOverzicht);
   document.getElementById('prestatiesTab').classList.toggle('hidden', tab !== 'prestaties');
   document.getElementById('kennisdocumentTab').classList.toggle('hidden', tab !== 'kennisdocument');
   const merkprofielTab = document.getElementById('merkprofielTab');

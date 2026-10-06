@@ -614,3 +614,21 @@ body {
 .mp-bouw select, .mp-bouw input[type=text] { width: 100%; box-sizing: border-box; }
 .mp-bouw-rij { align-items: center; margin-top: 12px; }
 .mp-bouw-status { font-size: 13px; color: #4b5563; }
+
+/* Overzicht: startpagina met wat aandacht vraagt en de planning. */
+#overzichtTab { max-width: 1280px; margin: 0 auto; padding: 20px 28px 40px 28px; }
+.ov-kaarten { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 28px; }
+.ov-kaart { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-card); padding: 16px 18px; }
+.ov-kaart-aandacht { border-color: var(--accent); background: var(--accent-soft); }
+.ov-getal { font-size: 30px; font-weight: 700; color: var(--text); line-height: 1.1; }
+.ov-label { margin-top: 4px; font-size: 13px; color: var(--text-muted); }
+.ov-sectie { margin-bottom: 28px; }
+.ov-kop { font-size: 16px; font-weight: 700; margin: 0 0 12px 0; color: var(--text); }
+.ov-maand { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--text-muted); margin: 18px 0 8px 0; }
+.ov-lijst { display: flex; flex-direction: column; gap: 8px; }
+.ov-rij { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; text-align: left; width: 100%; font: inherit; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; cursor: pointer; }
+.ov-rij:hover { border-color: var(--text-faint); }
+.ov-rij-titel { font-weight: 600; color: var(--text); }
+.ov-rij-meta { font-size: 12.5px; color: var(--text-muted); }
+.ov-leeg { color: var(--text-muted); font-size: 14px; margin: 0; }
+@media (max-width: 719px) { #overzichtTab { padding: 16px; } .ov-rij { grid-template-columns: 1fr auto; } .ov-rij-meta { display: none; } }
