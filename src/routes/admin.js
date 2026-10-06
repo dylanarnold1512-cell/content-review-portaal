@@ -41,7 +41,7 @@ router.get('/settings', requireAdmin, async (req, res) => {
 router.post('/settings/:clientId', requireAdmin, async (req, res) => {
   try {
     const { field, value } = req.body || {};
-    if (!['reviewEnabled', 'performanceEnabled', 'ideaEnrichmentEnabled'].includes(field)) {
+    if (!['reviewEnabled', 'performanceEnabled', 'ideaEnrichmentEnabled', 'merkprofiel', 'merkprofielNaarKennisdocument'].includes(field)) {
       return res.status(400).json({ error: `Onbekend instellingveld: ${field}` });
     }
     await settingsService.updateClientSetting(req.params.clientId, field, Boolean(value));

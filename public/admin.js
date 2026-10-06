@@ -105,6 +105,14 @@ function renderTable() {
       <span class="admin-row-label">Ideeën</span>
       ${toggleSwitch('idea-' + c.id, c.id, 'ideaEnrichmentEnabled', c.ideaEnrichmentEnabled, false)}
     </div>
+    <div class="admin-row-setting">
+      <span class="admin-row-label">Merkprofiel</span>
+      ${toggleSwitch('mp-' + c.id, c.id, 'merkprofiel', c.merkprofiel, false)}
+    </div>
+    <div class="admin-row-setting">
+      <span class="admin-row-label">Naar Kennisdoc.</span>
+      ${toggleSwitch('mpk-' + c.id, c.id, 'merkprofielNaarKennisdocument', c.merkprofielNaarKennisdocument, false)}
+    </div>
   </div>
   `).join('');
 
@@ -114,6 +122,8 @@ function renderTable() {
     <div class="admin-row-setting"><span class="admin-row-label">Review</span></div>
     <div class="admin-row-setting"><span class="admin-row-label">Prestaties</span></div>
     <div class="admin-row-setting"><span class="admin-row-label">Ideeën</span></div>
+    <div class="admin-row-setting"><span class="admin-row-label">Merkprofiel</span></div>
+    <div class="admin-row-setting"><span class="admin-row-label">Naar Kennisdoc.</span></div>
   </div>
   ${rows}
   `;

@@ -212,13 +212,15 @@ router.post('/:clientId/kennisdocument/extract', requireLogin, async (req, res) 
 });
 
 // Merkprofiel: het klantprofiel als kaarten waarop de klant kan reageren (zie
-// src/services/merkprofiel.js). Staat per klant uit tot clients.js
-// merkprofiel: true is gezet. Reacties van de klant schrijven het Kennisdocument
-// alleen opnieuw als ook merkprofielNaarKennisdocument: true is gezet.
+// src/services/merkprofiel.js). Staat per klant uit tot de schakelaar
+// in /admin (of clients.js als vangnet) merkprofiel aan staat. Reacties van de
+// klant schrijven het Kennisdocument alleen opnieuw als ook "Merkprofiel naar
+// Kennisdocument" aan staat.
 router.get('/:clientId/merkprofiel', requireLogin, async (req, res) => {
   try {
     const config = getClient(req.params.clientId);
-    if (!config.merkprofiel) return res.json({ beschikbaar: false });
+    const settings = await settingsService.getClientSettings(req.params.clientId, config);
+    if (!settings.merkprofiel) return res.json({ beschikbaar: false });
     const result = await merkprofielService.getMerkprofiel(config.naam);
     res.json({ ...result, klantNaam: config.naam });
   } catch (err) {
@@ -229,11 +231,12 @@ router.get('/:clientId/merkprofiel', requireLogin, async (req, res) => {
 router.post('/:clientId/merkprofiel/beoordeel', requireLogin, async (req, res) => {
   try {
     const config = getClient(req.params.clientId);
-    if (!config.merkprofiel) return res.status(404).json({ error: 'Niet beschikbaar.' });
+    const settings = await settingsService.getClientSettings(req.params.clientId, config);
+    if (!settings.merkprofiel) return res.status(404).json({ error: 'Niet beschikbaar.' });
     const { regelId, status, opmerking, regelTekst } = req.body || {};
     const result = await merkprofielService.saveBeoordeling(config.naam, { regelId, status, opmerking, regelTekst });
     let kennisdocumentBijgewerkt = false;
-    if (config.merkprofielNaarKennisdocument) {
+    if (settings.merkprofielNaarKennisdocument) {
       try {
         await merkprofielService.syncKennisdocument(config.naam);
         kennisdocumentBijgewerkt = true;

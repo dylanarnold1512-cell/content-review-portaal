@@ -16,7 +16,9 @@ const CACHE_TTL_MS = 30 * 1000;
 const PROPERTY_BY_FIELD = {
   reviewEnabled: 'Review ingeschakeld',
   performanceEnabled: 'Prestaties ingeschakeld',
-  ideaEnrichmentEnabled: 'Ideeën-verrijking ingeschakeld'
+  ideaEnrichmentEnabled: 'Ideeën-verrijking ingeschakeld',
+  merkprofiel: 'Merkprofiel ingeschakeld',
+  merkprofielNaarKennisdocument: 'Merkprofiel naar Kennisdocument'
 };
 
 let notion = null;
@@ -53,7 +55,9 @@ async function fetchAllFromNotion() {
         naam: (props['Klant']?.title || []).map((t) => t.plain_text).join('') || clientId,
         reviewEnabled: Boolean(props['Review ingeschakeld']?.checkbox),
         performanceEnabled: Boolean(props['Prestaties ingeschakeld']?.checkbox),
-        ideaEnrichmentEnabled: Boolean(props['Ideeën-verrijking ingeschakeld']?.checkbox)
+        ideaEnrichmentEnabled: Boolean(props['Ideeën-verrijking ingeschakeld']?.checkbox),
+        merkprofiel: Boolean(props['Merkprofiel ingeschakeld']?.checkbox),
+        merkprofielNaarKennisdocument: Boolean(props['Merkprofiel naar Kennisdocument']?.checkbox)
       });
     }
     cursor = res.has_more ? res.next_cursor : undefined;
@@ -85,7 +89,9 @@ async function getClientSettings(clientId, fallback = {}) {
       return {
         reviewEnabled: settings.reviewEnabled,
         performanceEnabled: settings.performanceEnabled,
-        ideaEnrichmentEnabled: settings.ideaEnrichmentEnabled
+        ideaEnrichmentEnabled: settings.ideaEnrichmentEnabled,
+        merkprofiel: settings.merkprofiel,
+        merkprofielNaarKennisdocument: settings.merkprofielNaarKennisdocument
       };
     }
   } catch (err) {
@@ -94,7 +100,9 @@ async function getClientSettings(clientId, fallback = {}) {
   return {
     reviewEnabled: Boolean(fallback.reviewEnabled),
     performanceEnabled: Boolean(fallback.performanceEnabled),
-    ideaEnrichmentEnabled: Boolean(fallback.ideaEnrichmentEnabled)
+    ideaEnrichmentEnabled: Boolean(fallback.ideaEnrichmentEnabled),
+    merkprofiel: Boolean(fallback.merkprofiel),
+    merkprofielNaarKennisdocument: Boolean(fallback.merkprofielNaarKennisdocument)
   };
 }
 
@@ -111,6 +119,9 @@ async function listAllSettings(clientsConfig) {
       reviewEnabled: settings ? settings.reviewEnabled : Boolean(c.reviewEnabled),
       performanceEnabled: settings ? settings.performanceEnabled : Boolean(c.performanceEnabled),
       ideaEnrichmentEnabled: settings ? settings.ideaEnrichmentEnabled : Boolean(c.ideaEnrichmentEnabled),
+      heeftMerkprofiel: true,
+      merkprofiel: settings ? settings.merkprofiel : Boolean(c.merkprofiel),
+      merkprofielNaarKennisdocument: settings ? settings.merkprofielNaarKennisdocument : Boolean(c.merkprofielNaarKennisdocument),
       inNotion: Boolean(settings)
     };
   });
