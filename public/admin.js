@@ -260,7 +260,7 @@ async function loadSettings() {
   }
 }
 
-const INTAKE_STATUS_OPTIONS = ['Nieuw', 'In behandeling', 'Afgerond'];
+const INTAKE_STATUS_OPTIONS = ['Nieuw', 'In behandeling', 'Afgerond', 'Fout'];
 
 function renderIntakeError(message) {
   const el = document.getElementById('intakeError');
@@ -296,6 +296,10 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
     portaalSlug: document.getElementById('intakePortaalSlug').value.trim(),
     searchConsoleUrl: document.getElementById('intakeGsc').value.trim(),
     ga4PropertyId: document.getElementById('intakeGa4').value.trim(),
+    leadEvent: document.getElementById('intakeLeadEvent').value.trim(),
+    boekingEvent: document.getElementById('intakeBoekingEvent').value.trim(),
+    contactPaden: document.getElementById('intakeContactPaden').value.trim(),
+    boekPaden: document.getElementById('intakeBoekPaden').value.trim(),
     portalWachtwoord: document.getElementById('intakePassword').value.trim(),
     reviewEnabled: document.getElementById('intakeReview').checked,
     performanceEnabled: document.getElementById('intakePerformance').checked,
@@ -340,6 +344,8 @@ function renderIntakeList(intakes) {
         ${i.wpPostType ? `<div><span class="seo-label">WP post type</span>${escapeHtmlAdmin(i.wpPostType)}</div>` : ''}
         ${i.merknaam ? `<div><span class="seo-label">Merknaam</span>${escapeHtmlAdmin(i.merknaam)}</div>` : ''}
         ${i.portaalSlug ? `<div><span class="seo-label">Portaal slug</span>${escapeHtmlAdmin(i.portaalSlug)}</div>` : ''}
+        ${i.ga4PropertyId ? `<div><span class="seo-label">GA4</span>${escapeHtmlAdmin(i.ga4PropertyId)}${i.leadEvent ? ' / lead: ' + escapeHtmlAdmin(i.leadEvent) : ''}${i.boekingEvent ? ' / boeking: ' + escapeHtmlAdmin(i.boekingEvent) : ''}</div>` : ''}
+        ${i.foutreden ? `<div class="admin-error"><span class="seo-label">Foutreden</span>${escapeHtmlAdmin(i.foutreden)}</div>` : ''}
         ${i.notities ? `<div><span class="seo-label">Notities</span>${escapeHtmlAdmin(i.notities)}</div>` : ''}
       </div>
       <div class="proposal-actions">

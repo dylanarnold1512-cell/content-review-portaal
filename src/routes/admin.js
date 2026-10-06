@@ -108,7 +108,7 @@ router.post('/intake', requireAdmin, async (req, res) => {
 router.post('/intake/:pageId/status', requireAdmin, async (req, res) => {
   try {
     const { status } = req.body || {};
-    if (!['Nieuw', 'In behandeling', 'Afgerond'].includes(status)) {
+    if (!['Nieuw', 'In behandeling', 'Afgerond', 'Fout'].includes(status)) {
       return res.status(400).json({ error: `Onbekende status: ${status}` });
     }
     await intakeService.updateIntakeStatus(req.params.pageId, status);
