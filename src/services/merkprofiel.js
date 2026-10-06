@@ -267,6 +267,31 @@ function bouwKennisdocument(secties, beoordelingen) {
 
 // Schrijft het Kennisdocument opnieuw na een reactie van de klant. Alleen
 // aangeroepen voor klanten met merkprofielNaarKennisdocument aan in clients.js.
+const SYNC_BRON = 'Merkprofiel (bevestigd door klant)';
+
+// Bewaart het Kennisdocument zoals het was, de eerste keer dat het profiel het
+// overneemt, zodat de overstap terug te draaien is. De rij krijgt een status
+// die het tabblad niet toont en komt in dezelfde tabel als de profielen.
+async function bewaarBackup(clientNaam, huidig) {
+  if (!huidig.tekst || !huidig.tekst.trim() || huidig.bron === SYNC_BRON) return false;
+  await n8nRows(PROFIEL_TABLE_ID, '/rows', {
+    method: 'POST',
+    body: JSON.stringify({
+      data: [{
+        client_name: clientNaam,
+        concept: huidig.tekst,
+        bron_paginas: huidig.bron || '',
+        aangemaakt: new Date().toISOString().split('T')[0],
+        status: 'backup kennisdocument',
+        verslag: 'Back-up van het Kennisdocument voor de overstap naar het merkprofiel',
+        verschillen: ''
+      }],
+      returnType: 'count'
+    })
+  });
+  return true;
+}
+
 async function syncKennisdocument(clientNaam) {
   const rij = await getProfielRij(clientNaam);
   if (!rij) throw new Error('Geen vastgesteld profiel gevonden.');
@@ -274,7 +299,10 @@ async function syncKennisdocument(clientNaam) {
   if (!secties) throw new Error('Het profiel heeft niet de vaste kopjes.');
   const beoordelingen = await getBeoordelingen(clientNaam);
   const tekst = bouwKennisdocument(secties, beoordelingen);
-  return kennisdocument.saveKennisdocument(clientNaam, tekst, 'Merkprofiel (bevestigd door klant)');
+  const huidig = await kennisdocument.getKennisdocument(clientNaam);
+  const backup = await bewaarBackup(clientNaam, huidig);
+  const result = await kennisdocument.saveKennisdocument(clientNaam, tekst, SYNC_BRON);
+  return { ...result, backup };
 }
 
 module.exports = {

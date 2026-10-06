@@ -561,3 +561,46 @@ body {
 .pv-meer, .pv-toggle { margin-top: 8px; background: none; border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 6px 14px; font-size: 12.5px; cursor: pointer; color: var(--text); }
 .pv-toggle { border: 0; padding: 4px 0; text-decoration: underline; }
 .pv-ins-aantal { font-size: 11px; font-weight: 600; background: var(--gray-soft); color: var(--text-muted); border-radius: var(--radius-pill); padding: 1px 8px; margin-left: 4px; }
+
+/* Intakeformulier */
+.ik-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; align-items: start; }
+.ik-form { display: flex; flex-direction: column; gap: 14px; }
+.ik-kaart { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px 18px; }
+.ik-kaart label { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 4px; }
+.ik-kaart input[type=text], .ik-kaart input[type=url], .ik-kaart select, .ik-kaart textarea { width: 100%; box-sizing: border-box; }
+.ik-kaart textarea { min-height: 64px; }
+.ik-kop { display: flex; gap: 12px; align-items: center; margin-bottom: 4px; }
+.ik-kop h3 { margin: 0; font-size: 16px; }
+.ik-kop p { margin: 2px 0 0; font-size: 12.5px; color: #6b7280; }
+.ik-nr { flex: 0 0 28px; height: 28px; border-radius: 50%; background: #eef2ff; color: #3730a3; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
+.ik-rij { display: flex; gap: 8px; }
+.ik-rij input { flex: 1; }
+.ik-knop { white-space: nowrap; }
+.ik-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }
+.ik-melding { margin-top: 10px; padding: 9px 12px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; font-size: 13px; }
+.ik-hint { font-size: 12px; color: #6b7280; margin: 8px 0 0; }
+.ik-extra { margin-top: 6px; padding-top: 4px; border-top: 1px dashed #e5e7eb; }
+.ik-schakel { display: flex !important; align-items: center; gap: 10px; cursor: pointer; font-weight: 500 !important; }
+.ik-schakel input { position: absolute; opacity: 0; width: 0; height: 0; }
+.ik-spoor { width: 36px; height: 20px; border-radius: 10px; background: #d1d5db; position: relative; flex: 0 0 36px; transition: background .15s; }
+.ik-spoor::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left .15s; }
+.ik-schakel input:checked + .ik-spoor { background: #16a34a; }
+.ik-schakel input:checked + .ik-spoor::after { left: 18px; }
+.ik-schakel input:focus-visible + .ik-spoor { outline: 2px solid #2563eb; outline-offset: 2px; }
+.ik-zijbalk { position: sticky; top: 16px; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; }
+.ik-zijbalk-kop { font-weight: 700; margin-bottom: 6px; }
+.ik-voortgang-tekst { font-size: 12.5px; color: #4b5563; margin-bottom: 8px; }
+.ik-balk { height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; }
+.ik-balk-vulling { height: 100%; width: 0; background: #16a34a; transition: width .2s; }
+.ik-check { list-style: none; padding: 0; margin: 12px 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.ik-check li { display: flex; align-items: center; gap: 8px; }
+.ik-check em { color: #9ca3af; font-style: normal; font-size: 12px; }
+.ik-vink { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid #d1d5db; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; color: #fff; flex: 0 0 16px; }
+.ik-ok .ik-vink { background: #16a34a; border-color: #16a34a; }
+.ik-open .ik-vink { border-color: #dc2626; }
+.ik-opslaan { width: 100%; margin-top: 4px; }
+@media (max-width: 860px) {
+  .ik-layout { grid-template-columns: 1fr; }
+  .ik-zijbalk { position: static; order: -1; }
+  .ik-grid { grid-template-columns: 1fr; }
+}

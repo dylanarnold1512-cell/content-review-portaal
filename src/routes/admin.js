@@ -1,5 +1,7 @@
 const express = require('express');
-const { clients } = require('../config/clients');
+const { clients, getClient } = require('../config/clients');
+const merkprofielService = require('../services/merkprofiel');
+const intakeAnalyse = require('../services/intakeAnalyse');
 const settingsService = require('../services/settings');
 const notionService = require('../services/notion');
 const intakeService = require('../services/intake');
@@ -44,8 +46,19 @@ router.post('/settings/:clientId', requireAdmin, async (req, res) => {
     if (!['reviewEnabled', 'performanceEnabled', 'ideaEnrichmentEnabled', 'merkprofiel', 'merkprofielNaarKennisdocument'].includes(field)) {
       return res.status(400).json({ error: `Onbekend instellingveld: ${field}` });
     }
+    let melding = '';
+    // Aanzetten van "Naar blogs" schrijft meteen het Kennisdocument opnieuw uit
+    // het profiel (met een back-up van het oude). Mislukt dat, dan blijft de
+    // schakelaar uit.
+    if (field === 'merkprofielNaarKennisdocument' && value) {
+      const config = getClient(req.params.clientId);
+      const result = await merkprofielService.syncKennisdocument(config.naam);
+      melding = result.backup
+        ? 'Het Kennisdocument is vervangen door het merkprofiel. Het oude Kennisdocument is bewaard.'
+        : 'Het Kennisdocument is bijgewerkt vanuit het merkprofiel.';
+    }
     await settingsService.updateClientSetting(req.params.clientId, field, Boolean(value));
-    res.json({ ok: true });
+    res.json({ ok: true, melding });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -89,6 +102,17 @@ router.get('/intake', requireAdmin, async (req, res) => {
     res.json({ intakes });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Vult het intakeformulier voor: haalt de homepage op en stelt naam, Client ID,
+// omschrijving en WordPress voor (src/services/intakeAnalyse.js).
+router.post('/intake/analyseer', requireAdmin, async (req, res) => {
+  try {
+    const result = await intakeAnalyse.analyseerWebsite((req.body || {}).website);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'De website kon niet worden geanalyseerd.' });
   }
 });
 

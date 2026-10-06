@@ -57,110 +57,109 @@
   </div>
 
   <div id="intakeTab" class="tab-panel hidden">
-    <div class="admin-layout">
+    <div class="admin-layout admin-layout-breed">
       <div id="intakeError" class="admin-error hidden"></div>
-      <div class="admin-section-title">Intake nieuwe klant</div>
+      <div class="admin-section-title">Nieuwe klant</div>
       <p class="admin-footnote">
-        Grove input is genoeg — Claude verfijnt de contentclusters daarna zelf met DataForSEO-onderzoek
-        en bouwt op basis hiervan de Notion-database, de n8n-workflows en de portal-entry.
-        OAuth-koppelingen (Search Console, GA4) blijven een handmatige stap.
+        Begin met de website van de klant. We vullen zoveel mogelijk zelf in en jij controleert het. Rechts zie je wat er nog nodig is.
+        Grove input is genoeg: de contentclusters worden daarna verfijnd met DataForSEO onderzoek. De koppelingen met Search Console en GA4 blijven een handmatige stap.
       </p>
-      <form id="intakeForm" class="intake-form">
-        <label for="intakeKlant">Klantnaam *</label>
-        <input type="text" id="intakeKlant" required autocomplete="off">
+      <div class="ik-layout">
+        <form id="intakeForm" class="ik-form">
+          <section class="ik-kaart">
+            <header class="ik-kop"><span class="ik-nr">1</span><div><h3>Klant en website</h3><p>Vul de website in en klik op Analyseer.</p></div></header>
+            <label for="intakeWebsite">Website</label>
+            <div class="ik-rij">
+              <input type="text" id="intakeWebsite" placeholder="bijv. www.bedrijf.nl" autocomplete="off">
+              <button type="button" id="intakeAnalyseer" class="btn btn-approve ik-knop">Analyseer</button>
+            </div>
+            <div id="ikAnalyse" class="ik-melding hidden"></div>
+            <div class="ik-grid">
+              <div><label for="intakeKlant">Klantnaam *</label><input type="text" id="intakeKlant" required autocomplete="off"></div>
+              <div><label for="intakeClientId">Client ID</label><input type="text" id="intakeClientId" placeholder="wordt automatisch gemaakt" autocomplete="off"></div>
+              <div><label for="intakeTier">Tier</label>
+                <select id="intakeTier">
+                  <option value="Volledig (DataForSEO + auto-topics)">Volledig (DataForSEO + auto-topics)</option>
+                  <option value="Licht (alleen Search Console)">Licht (alleen Search Console)</option>
+                </select></div>
+              <div><label for="intakeBlogsPerMaand">Blogs per maand</label>
+                <select id="intakeBlogsPerMaand">
+                  <option value="4" selected>4</option>
+                  <option value="6">6</option>
+                  <option value="8">8</option>
+                  <option value="10">10</option>
+                </select></div>
+            </div>
+            <label for="intakeBusiness">Omschrijving van de klant</label>
+            <textarea id="intakeBusiness" placeholder="Wat doet de klant, voor wie, waarin onderscheiden ze zich?"></textarea>
+          </section>
 
-        <label for="intakeClientId">Client ID (slug)</label>
-        <input type="text" id="intakeClientId" placeholder="bijv. bedrijfsnaam-stad" autocomplete="off">
+          <section class="ik-kaart">
+            <header class="ik-kop"><span class="ik-nr">2</span><div><h3>Inhoud</h3><p>Waar gaan de blogs over en hoe klinken ze.</p></div></header>
+            <label for="intakeTopics">Onderwerpsrichtingen</label>
+            <textarea id="intakeTopics" placeholder="2 tot 4 ruwe richtingen, één per regel"></textarea>
+            <label for="intakeTone">Tone of voice (optioneel)</label>
+            <textarea id="intakeTone" placeholder="Merkrichtlijnen of schrijfstijl"></textarea>
+            <label for="intakeDriveUrl">Content Drive map (optioneel)</label>
+            <input type="url" id="intakeDriveUrl" placeholder="https://drive.google.com/drive/folders/...">
+          </section>
 
-        <label for="intakeTier">Tier</label>
-        <select id="intakeTier">
-          <option value="Volledig (DataForSEO + auto-topics)">Volledig (DataForSEO + auto-topics)</option>
-          <option value="Licht (alleen Search Console)">Licht (alleen Search Console)</option>
-        </select>
+          <section class="ik-kaart">
+            <header class="ik-kop"><span class="ik-nr">3</span><div><h3>WordPress</h3><p>Voor het klaarzetten van de blogs als concept.</p></div></header>
+            <label class="ik-schakel"><input type="checkbox" id="intakeWordpress"><span class="ik-spoor"></span><span>WordPress van toepassing</span></label>
+            <div class="ik-extra hidden" data-toon-bij="intakeWordpress">
+              <label for="intakeWordpressUrl">WordPress site URL</label>
+              <input type="url" id="intakeWordpressUrl" placeholder="https://...">
+              <div class="ik-grid">
+                <div><label for="intakeWpGebruikersnaam">Gebruikersnaam</label><input type="text" id="intakeWpGebruikersnaam" autocomplete="off"></div>
+                <div><label for="intakeWpAppPassword">Application password</label><input type="text" id="intakeWpAppPassword" placeholder="xxxx xxxx xxxx xxxx xxxx xxxx" autocomplete="off"></div>
+                <div><label for="intakeWpPostType">Post type</label>
+                  <select id="intakeWpPostType">
+                    <option value="posts">post</option>
+                    <option value="news">news</option>
+                    <option value="pages">page</option>
+                  </select></div>
+              </div>
+            </div>
+          </section>
 
-        <label for="intakeWebsite">Website</label>
-        <input type="url" id="intakeWebsite" placeholder="https://...">
+          <section class="ik-kaart">
+            <header class="ik-kop"><span class="ik-nr">4</span><div><h3>Meten</h3><p>Het tabblad Prestaties voor de klant.</p></div></header>
+            <label class="ik-schakel"><input type="checkbox" id="intakePerformance"><span class="ik-spoor"></span><span>Prestaties meten en tonen</span></label>
+            <div class="ik-extra hidden" data-toon-bij="intakePerformance">
+              <div class="ik-grid">
+                <div><label for="intakeGsc">Search Console property</label><input type="url" id="intakeGsc" placeholder="https://..."></div>
+                <div><label for="intakeGa4">GA4 property ID</label><input type="text" id="intakeGa4" placeholder="bijv. 303860041"></div>
+                <div><label for="intakeLeadEvent">Lead event in GA4</label><input type="text" id="intakeLeadEvent" placeholder="bijv. generate_lead"></div>
+                <div><label for="intakeBoekingEvent">Aankoop of boeking event</label><input type="text" id="intakeBoekingEvent" placeholder="bijv. purchase"></div>
+                <div><label for="intakeContactPaden">Contactpagina's</label><input type="text" id="intakeContactPaden" placeholder="bijv. /contact,/offerte"></div>
+                <div><label for="intakeBoekPaden">Boek of bestelpagina's</label><input type="text" id="intakeBoekPaden" placeholder="bijv. /boeken"></div>
+              </div>
+              <p class="ik-hint">Laat een event leeg als de klant dat niet heeft. Vraag eerst of het event echt afgaat op een echte lead of aankoop en niet op een klik.</p>
+            </div>
+          </section>
 
-        <label for="intakeBusiness">Business omschrijving</label>
-        <textarea id="intakeBusiness" placeholder="Wat doet de klant, voor wie, waarin onderscheiden ze zich?"></textarea>
+          <section class="ik-kaart">
+            <header class="ik-kop"><span class="ik-nr">5</span><div><h3>Review en meldingen</h3><p>Wie controleert de blogs en wat is aan.</p></div></header>
+            <label class="ik-schakel"><input type="checkbox" id="intakeReview" checked><span class="ik-spoor"></span><span>Klant kan blogs goedkeuren in het portaal</span></label>
+            <label class="ik-schakel"><input type="checkbox" id="intakeIdea"><span class="ik-spoor"></span><span>Klant kan ideeën aandragen</span></label>
+            <label for="intakeNotificatieEmails">Notificatie e-mailadres(sen) (optioneel)</label>
+            <input type="text" id="intakeNotificatieEmails" placeholder="Alleen invullen als de klant zelf blogs wil controleren, komma gescheiden">
+            <p class="ik-hint">Laat dit leeg tot jij de eerste blog zelf hebt gecontroleerd.</p>
+            <label for="intakeNotes">Notities (optioneel)</label>
+            <textarea id="intakeNotes"></textarea>
+          </section>
+        </form>
 
-        <label for="intakeTone">Tone of voice (optioneel)</label>
-        <textarea id="intakeTone" placeholder="Merkrichtlijnen / schrijfstijl"></textarea>
-
-        <label for="intakeMerknaam">Merknaam / excludePhrase (optioneel)</label>
-        <input type="text" id="intakeMerknaam" placeholder="bijv. Basecamp Utrecht — wordt uitgesloten in blogkoppelingen" autocomplete="off">
-
-        <label for="intakeTopics">Voorlopige onderwerpsrichtingen</label>
-        <textarea id="intakeTopics" placeholder="2-4 ruwe richtingen, één per regel"></textarea>
-
-        <label for="intakeBlogsPerMaand">Blogs per maand</label>
-        <select id="intakeBlogsPerMaand">
-          <option value="4" selected>4</option>
-          <option value="6">6</option>
-          <option value="8">8</option>
-          <option value="10">10</option>
-        </select>
-
-        <label for="intakeDriveUrl">Content Drive-map (optioneel)</label>
-        <input type="url" id="intakeDriveUrl" placeholder="https://drive.google.com/drive/folders/...">
-
-        <label for="intakeNotificatieEmails">Notificatie e-mailadres(sen) (optioneel)</label>
-        <input type="text" id="intakeNotificatieEmails" placeholder="Alleen invullen als klant zelf blogs wil controleren, komma-gescheiden">
-
-        <label for="intakePortaalSlug">Portaal slug</label>
-        <input type="text" id="intakePortaalSlug" placeholder="bijv. basecamp-utrecht" autocomplete="off">
-
-        <label class="intake-checkbox"><input type="checkbox" id="intakeWordpress"> WordPress van toepassing</label>
-        <label for="intakeWordpressUrl">WordPress site URL</label>
-        <input type="url" id="intakeWordpressUrl" placeholder="https://...">
-
-        <label for="intakeWpGebruikersnaam">WordPress gebruikersnaam</label>
-        <input type="text" id="intakeWpGebruikersnaam" placeholder="bijv. dylanarnold1512" autocomplete="off">
-
-        <label for="intakeWpAppPassword">WordPress application password</label>
-        <input type="text" id="intakeWpAppPassword" placeholder="bijv. xxxx xxxx xxxx xxxx xxxx xxxx" autocomplete="off">
-
-        <label for="intakeWpPostType">WordPress post type</label>
-        <select id="intakeWpPostType">
-          <option value="posts">post</option>
-          <option value="news">news</option>
-          <option value="pages">page</option>
-        </select>
-        
-        <label for="intakeGsc">Search Console property URL</label>
-        <input type="url" id="intakeGsc" placeholder="https://...">
-
-        <label for="intakeGa4">GA4 property ID</label>
-        <input type="text" id="intakeGa4" placeholder="bijv. 303860041">
-
-        <label for="intakeLeadEvent">Lead event in GA4</label>
-        <input type="text" id="intakeLeadEvent" placeholder="bijv. generate_lead (leeg als de klant geen leads heeft)">
-
-        <label for="intakeBoekingEvent">Aankoop of boeking event in GA4</label>
-        <input type="text" id="intakeBoekingEvent" placeholder="bijv. purchase (leeg als de klant dat niet heeft)">
-
-        <label for="intakeContactPaden">Contactpagina's</label>
-        <input type="text" id="intakeContactPaden" placeholder="bijv. /contact,/offerte">
-
-        <label for="intakeBoekPaden">Boek of bestelpagina's</label>
-        <input type="text" id="intakeBoekPaden" placeholder="bijv. /boeken (leeg als die er niet is)">
-
-        <label for="intakePassword">Portal wachtwoord wens</label>
-        <input type="text" id="intakePassword" autocomplete="off">
-
-        <div class="intake-toggles">
-          <label class="intake-checkbox"><input type="checkbox" id="intakeReview" checked> Review inschakelen</label>
-          <label class="intake-checkbox"><input type="checkbox" id="intakePerformance"> Prestaties inschakelen</label>
-          <label class="intake-checkbox"><input type="checkbox" id="intakeIdea"> Ideeën-verrijking inschakelen</label>
-        </div>
-
-        <label for="intakeNotes">Notities (optioneel)</label>
-        <textarea id="intakeNotes"></textarea>
-
-        <div class="modal-actions">
-          <button type="submit" class="btn btn-approve">Intake opslaan</button>
-        </div>
-      </form>
+        <aside class="ik-zijbalk">
+          <div class="ik-zijbalk-kop">Wat is er nog nodig</div>
+          <div id="ikVoortgang" class="ik-voortgang-tekst"></div>
+          <div class="ik-balk"><div id="ikBalk" class="ik-balk-vulling"></div></div>
+          <ul id="ikCheck" class="ik-check"></ul>
+          <button type="submit" form="intakeForm" class="btn btn-approve ik-opslaan">Intake opslaan</button>
+          <p class="ik-hint">Na opslaan verwerkt n8n de intake binnen een uur. Bij een probleem zie je de status Fout met de reden.</p>
+        </aside>
+      </div>
 
       <div class="admin-section-title">Eerdere intakes</div>
       <div id="intakeList"></div>

@@ -137,12 +137,24 @@ function renderTable() {
     input.addEventListener('change', async () => {
       const { client, field } = input.dataset;
       const value = input.checked;
+      if (field === 'merkprofielNaarKennisdocument' && value) {
+        const naam = (adminState.clients.find((c) => c.id === client) || {}).naam || 'deze klant';
+        const akkoord = window.confirm(
+          `Dit vervangt het Kennisdocument van ${naam} door het merkprofiel, en de blogs schrijven daarna op basis daarvan. ` +
+          'Het huidige Kennisdocument wordt eerst bewaard. Doorgaan?'
+        );
+        if (!akkoord) {
+          input.checked = false;
+          return;
+        }
+      }
       input.disabled = true;
       try {
-        await adminApi(`/settings/${encodeURIComponent(client)}`, {
+        const antwoord = await adminApi(`/settings/${encodeURIComponent(client)}`, {
           method: 'POST',
           body: JSON.stringify({ field, value })
         });
+        if (antwoord && antwoord.melding) window.alert(antwoord.melding);
         const entry = adminState.clients.find((c) => c.id === client);
         if (entry) entry[field] = value;
         renderError('');
@@ -292,15 +304,15 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
     wpGebruikersnaam: document.getElementById('intakeWpGebruikersnaam').value.trim(),
     wpAppPassword: document.getElementById('intakeWpAppPassword').value.trim(),
     wpPostType: document.getElementById('intakeWpPostType').value,
-    merknaam: document.getElementById('intakeMerknaam').value.trim(),
-    portaalSlug: document.getElementById('intakePortaalSlug').value.trim(),
+    merknaam: document.getElementById('intakeKlant').value.trim(),
+    portaalSlug: document.getElementById('intakeClientId').value.trim(),
     searchConsoleUrl: document.getElementById('intakeGsc').value.trim(),
     ga4PropertyId: document.getElementById('intakeGa4').value.trim(),
     leadEvent: document.getElementById('intakeLeadEvent').value.trim(),
     boekingEvent: document.getElementById('intakeBoekingEvent').value.trim(),
     contactPaden: document.getElementById('intakeContactPaden').value.trim(),
     boekPaden: document.getElementById('intakeBoekPaden').value.trim(),
-    portalWachtwoord: document.getElementById('intakePassword').value.trim(),
+    portalWachtwoord: '',
     reviewEnabled: document.getElementById('intakeReview').checked,
     performanceEnabled: document.getElementById('intakePerformance').checked,
     ideaEnrichmentEnabled: document.getElementById('intakeIdea').checked,
@@ -310,11 +322,122 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
     await adminApi('/intake', { method: 'POST', body: JSON.stringify(payload) });
     document.getElementById('intakeForm').reset();
     document.getElementById('intakeReview').checked = true;
+    clientIdHandmatig = false;
+    ikMelding('');
+    ikUpdate();
     await loadIntakes();
   } catch (err) {
     renderIntakeError(err.message);
   }
 });
+
+
+// ---- Intakeformulier: analyse, dynamische secties en checklist ----
+let clientIdHandmatig = false;
+
+function ikEl(id) { return document.getElementById(id); }
+
+function ikMelding(tekst) {
+  const el = ikEl('ikAnalyse');
+  if (!tekst) { el.classList.add('hidden'); el.textContent = ''; return; }
+  el.textContent = tekst;
+  el.classList.remove('hidden');
+}
+
+function ikSlug(tekst) {
+  return String(tekst || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+function ikToonSecties() {
+  document.querySelectorAll('[data-toon-bij]').forEach((blok) => {
+    const schakel = ikEl(blok.dataset.toonBij);
+    blok.classList.toggle('hidden', !(schakel && schakel.checked));
+  });
+}
+
+function ikCheckItems() {
+  const waarde = (id) => ikEl(id).value.trim();
+  const items = [
+    { tekst: 'Website', ok: !!waarde('intakeWebsite'), verplicht: true },
+    { tekst: 'Klantnaam', ok: !!waarde('intakeKlant'), verplicht: true },
+    { tekst: 'Client ID', ok: !!waarde('intakeClientId'), verplicht: true },
+    { tekst: 'Omschrijving van de klant', ok: !!waarde('intakeBusiness'), verplicht: false },
+    { tekst: 'Onderwerpsrichtingen', ok: !!waarde('intakeTopics'), verplicht: false }
+  ];
+  if (ikEl('intakeWordpress').checked) {
+    items.push({ tekst: 'WordPress URL', ok: !!waarde('intakeWordpressUrl'), verplicht: true });
+    items.push({ tekst: 'WordPress gebruikersnaam en application password', ok: !!waarde('intakeWpGebruikersnaam') && !!waarde('intakeWpAppPassword'), verplicht: true });
+  }
+  if (ikEl('intakePerformance').checked) {
+    items.push({ tekst: 'Search Console property', ok: !!waarde('intakeGsc'), verplicht: true });
+    items.push({ tekst: 'GA4 property ID', ok: !!waarde('intakeGa4'), verplicht: false });
+    items.push({ tekst: 'Lead event', ok: !!waarde('intakeLeadEvent'), verplicht: false });
+  }
+  return items;
+}
+
+function ikUpdate() {
+  ikToonSecties();
+  const items = ikCheckItems();
+  const klaar = items.filter((i) => i.ok).length;
+  const verplichtOpen = items.filter((i) => i.verplicht && !i.ok).length;
+  ikEl('ikVoortgang').textContent = verplichtOpen
+    ? `${verplichtOpen} verplicht nog open, ${klaar} van ${items.length} ingevuld`
+    : `Alles verplicht is ingevuld, ${klaar} van ${items.length} ingevuld`;
+  ikEl('ikBalk').style.width = `${Math.round((klaar / items.length) * 100)}%`;
+  ikEl('ikCheck').innerHTML = items.map((i) =>
+    `<li class="${i.ok ? 'ik-ok' : (i.verplicht ? 'ik-open' : 'ik-optioneel')}"><span class="ik-vink">${i.ok ? '✓' : ''}</span>${escapeHtmlAdmin(i.tekst)}${!i.ok && !i.verplicht ? ' <em>(handig)</em>' : ''}</li>`
+  ).join('');
+}
+
+function ikVulAlsLeeg(id, waarde) {
+  const el = ikEl(id);
+  if (waarde && !el.value.trim()) { el.value = waarde; return true; }
+  return false;
+}
+
+async function ikAnalyseer() {
+  const knop = ikEl('intakeAnalyseer');
+  const website = ikEl('intakeWebsite').value.trim();
+  if (!website) { ikMelding('Vul eerst de website in.'); return; }
+  knop.disabled = true;
+  knop.textContent = 'Bezig...';
+  ikMelding('');
+  try {
+    const r = await adminApi('/intake/analyseer', { method: 'POST', body: JSON.stringify({ website }) });
+    const ingevuld = [];
+    ikEl('intakeWebsite').value = r.website || website;
+    if (ikVulAlsLeeg('intakeKlant', r.naam)) ingevuld.push('klantnaam');
+    if (!clientIdHandmatig && ikVulAlsLeeg('intakeClientId', r.clientId)) ingevuld.push('Client ID');
+    if (ikVulAlsLeeg('intakeBusiness', r.beschrijving)) ingevuld.push('omschrijving');
+    if (r.wordpress) {
+      ikEl('intakeWordpress').checked = true;
+      ikVulAlsLeeg('intakeWordpressUrl', r.wordpressUrl);
+      ingevuld.push('WordPress');
+    }
+    if (ikEl('intakePerformance').checked) ikVulAlsLeeg('intakeGsc', r.searchConsoleUrl);
+    ikMelding(ingevuld.length
+      ? `Ingevuld: ${ingevuld.join(', ')}. Controleer even of dit klopt, het is afgeleid van de homepage.`
+      : 'De website is gelezen, maar er was niets nieuws om in te vullen.');
+  } catch (err) {
+    ikMelding(err.message);
+  } finally {
+    knop.disabled = false;
+    knop.textContent = 'Analyseer';
+    ikUpdate();
+  }
+}
+
+ikEl('intakeAnalyseer').addEventListener('click', ikAnalyseer);
+ikEl('intakeWebsite').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); ikAnalyseer(); } });
+ikEl('intakeClientId').addEventListener('input', () => { clientIdHandmatig = !!ikEl('intakeClientId').value.trim(); });
+ikEl('intakeKlant').addEventListener('input', () => {
+  if (!clientIdHandmatig) ikEl('intakeClientId').value = ikSlug(ikEl('intakeKlant').value);
+});
+ikEl('intakeForm').addEventListener('input', ikUpdate);
+ikEl('intakeForm').addEventListener('change', ikUpdate);
+ikUpdate();
 
 function renderIntakeList(intakes) {
   const listEl = document.getElementById('intakeList');
