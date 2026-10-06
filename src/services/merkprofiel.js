@@ -3,12 +3,14 @@
 // "klantprofiel_concepten" (gevuld door BA - Shared - Klantprofiel Concept en
 // samengevoegd met de eigen documenten van de klant). Reacties van de klant
 // (klopt, niet gebruiken, opmerking) staan in de n8n Data Table
-// "profiel_beoordelingen". Dit tabblad wijzigt de tekst zelf NIET: de blog
-// workflows lezen het Kennisdocument en blijven dus ongemoeid.
+// "profiel_beoordelingen". Alleen bij klanten met merkprofielNaarKennisdocument
+// aan schrijft elke reactie het Kennisdocument opnieuw; anders blijven de blog
+// workflows ongemoeid.
 //
 // Matching gebeurt op client_name, exact gelijk aan "naam" in clients.js.
 
 const crypto = require('crypto');
+const kennisdocument = require('./kennisdocument');
 
 const N8N_BASE_URL = (process.env.N8N_BASE_URL || 'https://n8n.advertisr.nl').replace(/\/+$/, '');
 const PROFIEL_TABLE_ID = process.env.N8N_KLANTPROFIEL_TABLE_ID || 'ZG3rObbabNWtoI28';
@@ -31,7 +33,10 @@ const KOPJES = [
   'Concurrenten'
 ];
 
-const TOEGESTANE_STATUSSEN = ['klopt', 'niet_gebruiken', 'opmerking', 'geen'];
+const TOEGESTANE_STATUSSEN = ['klopt', 'niet_gebruiken', 'opmerking', 'aangepast', 'geen'];
+
+// Sectie 9 bevat de vaste blogregels van Advertisr. Die kan de klant niet uitsluiten.
+const BESCHERMDE_SECTIE = 9;
 
 function getApiKey() {
   const key = process.env.N8N_API_KEY;
@@ -165,8 +170,17 @@ function bouwWeergave(secties, beoordelingen, meta) {
     if (bevestigd) aantalBevestigd += 1;
     const feiten = s.feiten.map((f) => {
       const b = beoordelingen[f.id];
-      if (f.open && !(b && b.status === 'klopt')) openVragen.push({ sectie: s.titel, tekst: f.tekst });
-      return { ...f, status: b ? b.status : 'geen', opmerking: b ? b.opmerking : '' };
+      const aangepast = Boolean(b && b.status === 'aangepast' && b.opmerking);
+      if (f.open && !(b && b.status === 'klopt') && !aangepast) openVragen.push({ sectie: s.titel, tekst: f.tekst });
+      return {
+        ...f,
+        origineel: aangepast ? f.tekst : '',
+        tekst: aangepast ? b.opmerking : f.tekst,
+        open: aangepast ? false : f.open,
+        beschermd: s.nr === BESCHERMDE_SECTIE,
+        status: b ? b.status : 'geen',
+        opmerking: b && b.status !== 'aangepast' ? b.opmerking : ''
+      };
     });
     return {
       nr: s.nr,
@@ -227,7 +241,45 @@ async function saveBeoordeling(clientNaam, { regelId: id, status, opmerking, reg
   return { datum: vandaag };
 }
 
+// Stelt de tekst van het Kennisdocument samen uit het profiel en de reacties
+// van de klant: uitgesloten feiten en onbeantwoorde open punten vallen weg,
+// aangepaste feiten krijgen de tekst van de klant.
+function bouwKennisdocument(secties, beoordelingen) {
+  const regels = [];
+  secties.forEach((s) => {
+    const uit = [];
+    let subkop = '';
+    s.feiten.forEach((f) => {
+      const b = beoordelingen[f.id];
+      const status = b ? b.status : 'geen';
+      if (status === 'niet_gebruiken' && s.nr !== BESCHERMDE_SECTIE) return;
+      const aangepast = status === 'aangepast' && b.opmerking;
+      if (f.open && !aangepast && status !== 'klopt') return;
+      if (f.subkop && f.subkop !== subkop) uit.push(f.subkop);
+      subkop = f.subkop;
+      const label = aangepast || status === 'klopt' ? ' (klant bevestigd)' : '';
+      uit.push((aangepast ? b.opmerking : f.tekst) + label);
+    });
+    regels.push(`${s.nr}. ${s.titel}`, ...uit, '');
+  });
+  return regels.join('\n').trim() + '\n';
+}
+
+// Schrijft het Kennisdocument opnieuw na een reactie van de klant. Alleen
+// aangeroepen voor klanten met merkprofielNaarKennisdocument aan in clients.js.
+async function syncKennisdocument(clientNaam) {
+  const rij = await getProfielRij(clientNaam);
+  if (!rij) throw new Error('Geen vastgesteld profiel gevonden.');
+  const secties = parseProfiel(rij.concept);
+  if (!secties) throw new Error('Het profiel heeft niet de vaste kopjes.');
+  const beoordelingen = await getBeoordelingen(clientNaam);
+  const tekst = bouwKennisdocument(secties, beoordelingen);
+  return kennisdocument.saveKennisdocument(clientNaam, tekst, 'Merkprofiel (bevestigd door klant)');
+}
+
 module.exports = {
+  bouwKennisdocument,
+  syncKennisdocument,
   KOPJES,
   parseProfiel,
   regelId,

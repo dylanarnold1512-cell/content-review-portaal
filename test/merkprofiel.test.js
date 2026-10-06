@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
-const { parseProfiel, regelId, splitsHerkomst, bouwWeergave, KOPJES } = require('../src/services/merkprofiel');
+const { parseProfiel, regelId, splitsHerkomst, bouwWeergave, bouwKennisdocument, KOPJES } = require('../src/services/merkprofiel');
 
 const tekst = fs.readFileSync(path.join(__dirname, 'fixtures', 'basecamp-profiel.txt'), 'utf8');
 
@@ -52,4 +52,30 @@ test('bouwWeergave telt bevestigde secties en verzamelt open vragen', () => {
   assert.strictEqual(w.secties[0].bevestigd, true);
   assert.strictEqual(w.secties[0].feiten[0].status, 'niet_gebruiken');
   assert.ok(w.openVragen.some((v) => /bevestigd/i.test(v.tekst)));
+});
+
+test('bouwKennisdocument laat uitgesloten feiten en open punten weg en past tekst aan', () => {
+  const secties = parseProfiel(tekst);
+  const uit = secties[1].feiten[0];
+  const aan = secties[1].feiten[1];
+  const open = secties[2].feiten.find((f) => f.open) || secties.flatMap((x) => x.feiten).find((f) => f.open);
+  const regel9 = secties[8].feiten[0];
+  const doc = bouwKennisdocument(secties, {
+    [uit.id]: { status: 'niet_gebruiken', opmerking: '' },
+    [aan.id]: { status: 'aangepast', opmerking: 'Nieuwe tekst van de klant.' },
+    [regel9.id]: { status: 'niet_gebruiken', opmerking: '' }
+  });
+  assert.ok(!doc.includes(uit.tekst));
+  assert.ok(doc.includes('Nieuwe tekst van de klant. (klant bevestigd)'));
+  assert.ok(!doc.includes(aan.tekst));
+  assert.ok(doc.includes(regel9.tekst), 'sectie 9 kan niet worden uitgesloten');
+  assert.ok(!doc.includes(open.tekst));
+  assert.ok(doc.startsWith('1. Over het bedrijf'));
+});
+
+test('aangepast open punt verdwijnt uit de open vragen', () => {
+  const secties = parseProfiel(tekst);
+  const open = secties.flatMap((x) => x.feiten).find((f) => f.open);
+  const w = bouwWeergave(secties, { [open.id]: { status: 'aangepast', opmerking: 'Het zijn acht ruimtes.' } }, { bijgewerkt: '', aantalPaginas: 0 });
+  assert.ok(!w.openVragen.some((v) => v.tekst === open.tekst));
 });

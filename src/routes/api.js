@@ -213,8 +213,8 @@ router.post('/:clientId/kennisdocument/extract', requireLogin, async (req, res) 
 
 // Merkprofiel: het klantprofiel als kaarten waarop de klant kan reageren (zie
 // src/services/merkprofiel.js). Staat per klant uit tot clients.js
-// merkprofiel: true is gezet. De reacties van de klant veranderen de tekst
-// van het Kennisdocument niet, dus de blogs blijven ongemoeid.
+// merkprofiel: true is gezet. Reacties van de klant schrijven het Kennisdocument
+// alleen opnieuw als ook merkprofielNaarKennisdocument: true is gezet.
 router.get('/:clientId/merkprofiel', requireLogin, async (req, res) => {
   try {
     const config = getClient(req.params.clientId);
@@ -232,7 +232,16 @@ router.post('/:clientId/merkprofiel/beoordeel', requireLogin, async (req, res) =
     if (!config.merkprofiel) return res.status(404).json({ error: 'Niet beschikbaar.' });
     const { regelId, status, opmerking, regelTekst } = req.body || {};
     const result = await merkprofielService.saveBeoordeling(config.naam, { regelId, status, opmerking, regelTekst });
-    res.json({ ok: true, datum: result.datum });
+    let kennisdocumentBijgewerkt = false;
+    if (config.merkprofielNaarKennisdocument) {
+      try {
+        await merkprofielService.syncKennisdocument(config.naam);
+        kennisdocumentBijgewerkt = true;
+      } catch (syncErr) {
+        console.error('Merkprofiel naar Kennisdocument mislukt:', syncErr.message);
+      }
+    }
+    res.json({ ok: true, datum: result.datum, kennisdocumentBijgewerkt });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

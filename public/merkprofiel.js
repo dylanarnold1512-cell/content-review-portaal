@@ -35,15 +35,20 @@
     const label = herkomstLabel(f.herkomst);
     const intern = f.intern ? '<span class="mp-bron mp-bron-intern">intern, niet in blogs</span>' : '';
     const open = f.open ? '<span class="mp-bron mp-bron-open">aan te vullen</span>' : '';
+    const aangepast = f.status === 'aangepast';
     const opmerking = f.opmerking ? `<div class="mp-opmerking">Jouw opmerking: ${esc(f.opmerking)}</div>` : '';
+    const was = aangepast && f.origineel ? `<div class="mp-opmerking">Eerder stond hier: ${esc(f.origineel)}</div>` : '';
     return `<li class="mp-feit${uitgesloten ? ' mp-uitgesloten' : ''}" data-id="${esc(f.id)}">
       <div class="mp-feit-tekst">${esc(f.tekst)}</div>
-      <div class="mp-feit-meta">${label}${intern}${open}${bevestigd ? '<span class="mp-bron mp-bron-ok">door jou bevestigd</span>' : ''}${uitgesloten ? '<span class="mp-bron mp-bron-uit">niet gebruiken</span>' : ''}</div>
-      ${opmerking}
+      <div class="mp-feit-meta">${label}${intern}${open}${bevestigd ? '<span class="mp-bron mp-bron-ok">door jou bevestigd</span>' : ''}${aangepast ? '<span class="mp-bron mp-bron-ok">door jou aangepast</span>' : ''}${uitgesloten ? '<span class="mp-bron mp-bron-uit">niet gebruiken</span>' : ''}</div>
+      ${was}${opmerking}
       <div class="mp-feit-acties">
-        <button type="button" class="mp-link" data-actie="uitsluiten">${uitgesloten ? 'Toch gebruiken' : 'Niet gebruiken'}</button>
+        ${f.beschermd ? '' : `<button type="button" class="mp-link" data-actie="uitsluiten">${uitgesloten ? 'Toch gebruiken' : 'Niet gebruiken'}</button>`}
+        ${f.beschermd ? '' : `<button type="button" class="mp-link" data-actie="aanpassen">${f.open ? 'Invullen' : 'Aanpassen'}</button>`}
         <button type="button" class="mp-link" data-actie="opmerking">Opmerking</button>
       </div>
+      <div class="mp-aanpas-form hidden"><textarea class="mp-aanpas-tekst" rows="3" placeholder="${f.open ? 'Vul hier in wat wel klopt.' : 'Schrijf hier de juiste tekst.'}">${f.open ? '' : esc(f.tekst)}</textarea>
+        <button type="button" class="btn-save-sm" data-actie="aanpassen-opslaan">Opslaan</button>${aangepast ? '<button type="button" class="mp-link" data-actie="aanpassen-terug">Terug naar origineel</button>' : ''}</div>
       <div class="mp-opm-form hidden"><textarea class="mp-opm-tekst" rows="2" placeholder="Wat klopt er niet, of wat mogen we weten?">${esc(f.opmerking)}</textarea>
         <button type="button" class="btn-save-sm" data-actie="opmerking-opslaan">Opslaan</button></div>
     </li>`;
@@ -126,6 +131,13 @@
       const f = vindFeit(feitEl.dataset.id);
       if (!f) return;
       if (actie === 'uitsluiten') return bewaar(f.id, f.status === 'niet_gebruiken' ? 'geen' : 'niet_gebruiken', f.opmerking, f.tekst);
+      if (actie === 'aanpassen') return feitEl.querySelector('.mp-aanpas-form').classList.toggle('hidden');
+      if (actie === 'aanpassen-opslaan') {
+        const tekst = feitEl.querySelector('.mp-aanpas-tekst').value.trim();
+        if (!tekst) return;
+        return bewaar(f.id, 'aangepast', tekst, f.origineel || f.tekst);
+      }
+      if (actie === 'aanpassen-terug') return bewaar(f.id, 'geen', '', f.origineel || f.tekst);
       if (actie === 'opmerking') return feitEl.querySelector('.mp-opm-form').classList.toggle('hidden');
       if (actie === 'opmerking-opslaan') {
         const tekst = feitEl.querySelector('.mp-opm-tekst').value.trim();

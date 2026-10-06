@@ -35,6 +35,7 @@ const clients = [
     // Merkprofiel-tabblad (klantprofiel als kaarten). Pas op true zetten zodra het
     // profiel is vastgesteld en het tabblad is nagelopen.
     merkprofiel: false,
+    merkprofielNaarKennisdocument: false,
     // Namen van de Notion-properties zoals ze in deze database heten.
     // Per klant configureerbaar, want niet elke database zal exact dezelfde
     // kolomnamen gebruiken.
