@@ -110,12 +110,17 @@ function switchTab(tab) {
   document.getElementById('blogsTab').classList.toggle('hidden', tab !== 'blogs');
   document.getElementById('prestatiesTab').classList.toggle('hidden', tab !== 'prestaties');
   document.getElementById('kennisdocumentTab').classList.toggle('hidden', tab !== 'kennisdocument');
+  const merkprofielTab = document.getElementById('merkprofielTab');
+  if (merkprofielTab) merkprofielTab.classList.toggle('hidden', tab !== 'merkprofiel');
   if (tab === 'prestaties') {
     loadPerformancePanel();
     renderPostPerformanceList();
   }
   if (tab === 'kennisdocument') {
     loadKennisdocument();
+  }
+  if (tab === 'merkprofiel' && window.loadMerkprofiel) {
+    window.loadMerkprofiel();
   }
 }
 
@@ -135,6 +140,7 @@ async function loadItems() {
   const prestatiesTabBtn = document.getElementById('prestatiesTabBtn');
   if (prestatiesTabBtn) prestatiesTabBtn.classList.toggle('hidden', !state.performanceEnabled);
   if (!state.performanceEnabled && state.activeTab === 'prestaties') switchTab('blogs');
+  if (window.checkMerkprofiel) window.checkMerkprofiel(state.clientId);
   if (!state.selectedId && state.items.length) {
     const deepLinked = deepLinkItemId && state.items.find((i) => i.id === deepLinkItemId);
     state.selectedId = deepLinked ? deepLinked.id : state.items[0].id;

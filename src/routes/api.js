@@ -3,6 +3,7 @@ const { getClient } = require('../config/clients');
 const notionService = require('../services/notion');
 const settingsService = require('../services/settings');
 const kennisdocumentService = require('../services/kennisdocument');
+const merkprofielService = require('../services/merkprofiel');
 const prestatiesService = require('../services/prestaties');
 const documentTekst = require('../services/documentTekst');
 const { checkPassword, requireLogin } = require('../middleware/auth');
@@ -205,6 +206,33 @@ router.post('/:clientId/kennisdocument/extract', requireLogin, async (req, res) 
     const buffer = Buffer.from(dataBase64, 'base64');
     const tekst = await documentTekst.extraheerTekst({ filename, contentType, buffer });
     res.json({ tekst });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Merkprofiel: het klantprofiel als kaarten waarop de klant kan reageren (zie
+// src/services/merkprofiel.js). Staat per klant uit tot clients.js
+// merkprofiel: true is gezet. De reacties van de klant veranderen de tekst
+// van het Kennisdocument niet, dus de blogs blijven ongemoeid.
+router.get('/:clientId/merkprofiel', requireLogin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    if (!config.merkprofiel) return res.json({ beschikbaar: false });
+    const result = await merkprofielService.getMerkprofiel(config.naam);
+    res.json({ ...result, klantNaam: config.naam });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/:clientId/merkprofiel/beoordeel', requireLogin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    if (!config.merkprofiel) return res.status(404).json({ error: 'Niet beschikbaar.' });
+    const { regelId, status, opmerking, regelTekst } = req.body || {};
+    const result = await merkprofielService.saveBeoordeling(config.naam, { regelId, status, opmerking, regelTekst });
+    res.json({ ok: true, datum: result.datum });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
