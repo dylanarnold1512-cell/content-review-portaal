@@ -96,6 +96,26 @@ router.post('/:clientId/idea-proposals/:pageId/reject', requireAdmin, async (req
 
 // Intake nieuwe klant — opslag in de "Klant Intake"-database, basis voor de
 // opzet (Notion-schema, n8n-workflows, portal-entry) die daarna gebouwd wordt.
+router.get('/profiel/status', requireAdmin, async (req, res) => {
+  try {
+    const klant = String(req.query.klant || '').trim();
+    if (!klant) return res.status(400).json({ error: 'Geef een klantnaam op.' });
+    res.json(await merkprofielService.getProfielStatus(klant));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/profiel/start', requireAdmin, async (req, res) => {
+  try {
+    const { klant, website, force } = req.body || {};
+    await merkprofielService.startProfiel(klant, website, { force: Boolean(force) });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(err.code === 'BEVESTIGING_NODIG' ? 409 : 400).json({ error: err.message, code: err.code || '' });
+  }
+});
+
 router.get('/intake', requireAdmin, async (req, res) => {
   try {
     const intakes = await intakeService.listIntakes();

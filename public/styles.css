@@ -604,3 +604,10 @@ body {
   .ik-zijbalk { position: static; order: -1; }
   .ik-grid { grid-template-columns: 1fr; }
 }
+
+/* Merkprofiel opbouwen */
+.mp-bouw { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px 18px; margin-bottom: 18px; }
+.mp-bouw label { display: block; font-size: 13px; font-weight: 600; margin: 8px 0 4px; }
+.mp-bouw select, .mp-bouw input[type=text] { width: 100%; box-sizing: border-box; }
+.mp-bouw-rij { align-items: center; margin-top: 12px; }
+.mp-bouw-status { font-size: 13px; color: #4b5563; }

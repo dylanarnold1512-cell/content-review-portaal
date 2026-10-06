@@ -51,6 +51,24 @@
         (zie README) — dan verschijnt hij hier vanzelf.
       </p>
 
+      <div class="admin-section-title">Merkprofiel opbouwen</div>
+      <div class="mp-bouw">
+        <p class="admin-footnote">
+          Leest de website van de klant en maakt een concept merkprofiel met de tien vaste kopjes. Dit duurt ongeveer 4 minuten. Het raakt het Kennisdocument niet.
+          Daarna zet je Merkprofiel aan voor de klant. De klantnaam moet precies gelijk zijn aan de naam in het portaal.
+        </p>
+        <div class="ik-grid">
+          <div><label for="mpKlant">Klant</label>
+            <select id="mpKlant"></select></div>
+          <div><label for="mpWebsite">Website</label>
+            <input type="text" id="mpWebsite" placeholder="bijv. www.bedrijf.nl" autocomplete="off"></div>
+        </div>
+        <div class="ik-rij mp-bouw-rij">
+          <button type="button" id="mpStart" class="btn btn-approve ik-knop">Opbouwen</button>
+          <span id="mpStatus" class="mp-bouw-status"></span>
+        </div>
+      </div>
+
       <div class="admin-section-title">Ideeën ter beoordeling</div>
       <div id="ideaProposals"></div>
     </div>
@@ -92,6 +110,8 @@
             </div>
             <label for="intakeBusiness">Omschrijving van de klant</label>
             <textarea id="intakeBusiness" placeholder="Wat doet de klant, voor wie, waarin onderscheiden ze zich?"></textarea>
+            <label class="ik-schakel"><input type="checkbox" id="intakeProfiel" checked><span class="ik-spoor"></span><span>Merkprofiel direct opbouwen vanaf de website</span></label>
+            <p class="ik-hint">Het concept staat na ongeveer 4 minuten klaar. De klant ziet het pas als jij Merkprofiel aanzet.</p>
           </section>
 
           <section class="ik-kaart">

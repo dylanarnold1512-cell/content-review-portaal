@@ -305,7 +305,94 @@ async function syncKennisdocument(clientNaam) {
   return { ...result, backup };
 }
 
+
+// ---- Profiel opbouwen vanuit /admin of de intake ----
+
+const PROFIEL_WEBHOOK = process.env.N8N_KLANTPROFIEL_WEBHOOK || '';
+const BEZIG_MAX_MINUTEN = 20;
+
+// Bepaalt uit alle rijen van een klant wat de stand is: nog niet gemaakt, bezig,
+// klaar (definitief concept), bevestigd, leeg of mislukt. Een run die langer dan
+// 20 minuten bezig staat geldt als mislukt (een normale run duurt ongeveer 4).
+function bepaalProfielStatus(rijen, nu = new Date()) {
+  const relevant = (rijen || []).filter((r) => ['bezig', 'mislukt', 'leeg', 'definitief concept', 'bevestigd'].includes(r.status));
+  if (!relevant.length) return { status: 'geen' };
+  relevant.sort((a, b) => Number(a.id) - Number(b.id));
+  const laatste = relevant[relevant.length - 1];
+  const heeftBevestigd = relevant.some((r) => r.status === 'bevestigd');
+  let status = laatste.status;
+  if (status === 'bezig') {
+    const sinds = new Date(laatste.createdAt || laatste.aangemaakt || 0).getTime();
+    if (!sinds || (nu.getTime() - sinds) / 60000 > BEZIG_MAX_MINUTEN) status = 'mislukt';
+  }
+  return { status, aangemaakt: laatste.aangemaakt || '', verslag: laatste.verslag || '', heeftBevestigd };
+}
+
+async function getProfielStatus(clientNaam) {
+  const filter = encodeURIComponent(JSON.stringify(filterEq({ client_name: clientNaam })));
+  const result = await n8nRows(PROFIEL_TABLE_ID, `/rows?limit=250&filter=${filter}`);
+  const stand = bepaalProfielStatus(result.data || []);
+  if (stand.status === 'definitief concept' || stand.status === 'bevestigd') {
+    const reacties = await getBeoordelingen(clientNaam);
+    stand.heeftReacties = Object.keys(reacties).length > 0;
+  }
+  return stand;
+}
+
+async function schrijfStatusRij(clientNaam, status, verslag) {
+  await n8nRows(PROFIEL_TABLE_ID, '/rows', {
+    method: 'POST',
+    body: JSON.stringify({
+      data: [{
+        client_name: clientNaam,
+        concept: '',
+        bron_paginas: '',
+        aangemaakt: new Date().toISOString(),
+        status,
+        verslag: verslag || '',
+        verschillen: ''
+      }],
+      returnType: 'count'
+    })
+  });
+}
+
+async function startProfiel(clientNaam, website, { force = false } = {}) {
+  const naam = String(clientNaam || '').trim();
+  const site = String(website || '').trim();
+  if (!naam) throw new Error('Vul de klantnaam in.');
+  if (!site) throw new Error('Vul de website van de klant in.');
+  if (!PROFIEL_WEBHOOK) throw new Error('N8N_KLANTPROFIEL_WEBHOOK is niet gezet, het profiel kan niet gestart worden.');
+  const stand = await getProfielStatus(naam);
+  if (stand.status === 'bezig') throw new Error('Het profiel wordt al opgebouwd. Wacht tot dit klaar is.');
+  if ((stand.heeftBevestigd || stand.heeftReacties) && !force) {
+    const err = new Error('De klant heeft dit profiel al bevestigd of er al op gereageerd. Opnieuw opbouwen maakt een nieuw concept. Bevestig dat om door te gaan.');
+    err.code = 'BEVESTIGING_NODIG';
+    throw err;
+  }
+  await schrijfStatusRij(naam, 'bezig', 'Profiel wordt opgebouwd vanaf ' + site);
+  let res;
+  try {
+    res = await fetch(PROFIEL_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ klant: naam, website: site })
+    });
+  } catch (err) {
+    await schrijfStatusRij(naam, 'mislukt', 'n8n was niet bereikbaar: ' + err.message);
+    throw new Error('n8n is niet bereikbaar. Probeer het later opnieuw.');
+  }
+  if (!res.ok) {
+    await schrijfStatusRij(naam, 'mislukt', 'n8n gaf status ' + res.status + '. Is de workflow gepubliceerd?');
+    throw new Error('n8n nam de opdracht niet aan (status ' + res.status + '). Staat de workflow Klantprofiel Concept gepubliceerd?');
+  }
+  return { ok: true };
+}
+
 module.exports = {
+  bepaalProfielStatus,
+  getProfielStatus,
+  startProfiel,
   bouwKennisdocument,
   syncKennisdocument,
   KOPJES,

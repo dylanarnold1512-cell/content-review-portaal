@@ -6,7 +6,11 @@ async function adminApi(path, options) {
     ...options
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || 'Er ging iets mis.');
+  if (!res.ok) {
+    const err = new Error(data.error || 'Er ging iets mis.');
+    err.code = data.code || '';
+    throw err;
+  }
   return data;
 }
 
@@ -267,6 +271,7 @@ async function loadSettings() {
     adminState.clients = data.clients;
     renderError('');
     renderTable();
+    mpVulKlanten();
   } catch (err) {
     renderError(err.message);
   }
@@ -320,6 +325,16 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
   };
   try {
     await adminApi('/intake', { method: 'POST', body: JSON.stringify(payload) });
+    let profielMelding = '';
+    if (ikEl('intakeProfiel').checked && payload.website) {
+      try {
+        await adminApi('/profiel/start', { method: 'POST', body: JSON.stringify({ klant: payload.klant, website: payload.website, force: false }) });
+        profielMelding = 'Intake opgeslagen. Het merkprofiel wordt opgebouwd (ongeveer 4 minuten).';
+      } catch (err) {
+        profielMelding = 'Intake opgeslagen, maar het merkprofiel kon niet starten: ' + err.message;
+      }
+    }
+    if (profielMelding) window.alert(profielMelding);
     document.getElementById('intakeForm').reset();
     document.getElementById('intakeReview').checked = true;
     clientIdHandmatig = false;
@@ -438,6 +453,65 @@ ikEl('intakeKlant').addEventListener('input', () => {
 ikEl('intakeForm').addEventListener('input', ikUpdate);
 ikEl('intakeForm').addEventListener('change', ikUpdate);
 ikUpdate();
+
+
+// ---- Merkprofiel opbouwen ----
+let mpTimer = null;
+
+const MP_STATUSTEKST = {
+  geen: 'Nog geen profiel gemaakt.',
+  bezig: 'Bezig met opbouwen, dit duurt ongeveer 4 minuten.',
+  'definitief concept': 'Klaar. Bekijk het profiel en zet Merkprofiel aan voor de klant.',
+  bevestigd: 'Bevestigd door de klant.',
+  leeg: 'De workflow gaf een leeg profiel. Controleer de website en probeer opnieuw.',
+  mislukt: 'Het opbouwen is niet gelukt. Probeer opnieuw.'
+};
+
+function mpVulKlanten() {
+  const sel = ikEl('mpKlant');
+  if (!sel || sel.options.length) return;
+  sel.innerHTML = adminState.clients.map((c) => `<option value="${escapeHtmlAdmin(c.naam)}">${escapeHtmlAdmin(c.naam)}</option>`).join('');
+  mpToonStatus();
+}
+
+async function mpToonStatus() {
+  const klant = ikEl('mpKlant').value;
+  if (!klant) return;
+  try {
+    const stand = await adminApi('/profiel/status?klant=' + encodeURIComponent(klant));
+    let tekst = MP_STATUSTEKST[stand.status] || '';
+    if (stand.aangemaakt && stand.status !== 'geen' && stand.status !== 'bezig') tekst += ' (' + String(stand.aangemaakt).slice(0, 10) + ')';
+    if (stand.status === 'mislukt' && stand.verslag) tekst += ' ' + stand.verslag;
+    ikEl('mpStatus').textContent = tekst;
+    ikEl('mpStart').disabled = stand.status === 'bezig';
+    ikEl('mpStart').textContent = stand.status === 'geen' ? 'Opbouwen' : 'Opnieuw opbouwen';
+    clearTimeout(mpTimer);
+    if (stand.status === 'bezig') mpTimer = setTimeout(mpToonStatus, 15000);
+  } catch (err) {
+    ikEl('mpStatus').textContent = err.message;
+  }
+}
+
+async function mpStart(force) {
+  const klant = ikEl('mpKlant').value;
+  const website = ikEl('mpWebsite').value.trim();
+  if (!website) { ikEl('mpStatus').textContent = 'Vul eerst de website in.'; return; }
+  ikEl('mpStart').disabled = true;
+  try {
+    await adminApi('/profiel/start', { method: 'POST', body: JSON.stringify({ klant, website, force }) });
+    await mpToonStatus();
+  } catch (err) {
+    if (err.code === 'BEVESTIGING_NODIG' && window.confirm(err.message)) {
+      await mpStart(true);
+      return;
+    }
+    ikEl('mpStatus').textContent = err.message;
+    ikEl('mpStart').disabled = false;
+  }
+}
+
+ikEl('mpStart').addEventListener('click', () => mpStart(false));
+ikEl('mpKlant').addEventListener('change', mpToonStatus);
 
 function renderIntakeList(intakes) {
   const listEl = document.getElementById('intakeList');
