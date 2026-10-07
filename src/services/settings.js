@@ -73,7 +73,8 @@ async function fetchAllFromNotion() {
         ideaEnrichmentEnabled: Boolean(props['Ideeën-verrijking ingeschakeld']?.checkbox),
         merkprofiel: Boolean(props['Merkprofiel ingeschakeld']?.checkbox),
         merkprofielNaarKennisdocument: Boolean(props['Merkprofiel naar Kennisdocument']?.checkbox),
-        klantstatus: normaliseerKlantstatus(props['Klantstatus']?.select?.name)
+        klantstatus: normaliseerKlantstatus(props['Klantstatus']?.select?.name),
+        klantstatusIngesteld: KLANTSTATUS_WAARDEN.includes(props['Klantstatus']?.select?.name)
       });
     }
     cursor = res.has_more ? res.next_cursor : undefined;
@@ -141,6 +142,8 @@ async function listAllSettings(clientsConfig) {
       merkprofiel: settings ? settings.merkprofiel : Boolean(c.merkprofiel),
       merkprofielNaarKennisdocument: settings ? settings.merkprofielNaarKennisdocument : Boolean(c.merkprofielNaarKennisdocument),
       klantstatus: settings ? settings.klantstatus : normaliseerKlantstatus(c.klantstatus),
+      // Leeg in Notion telt voor het portaal als actief, maar de n8n sync ziet dan geen status.
+      klantstatusIngesteld: settings ? settings.klantstatusIngesteld : false,
       inNotion: Boolean(settings)
     };
   });

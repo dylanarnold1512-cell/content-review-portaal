@@ -141,6 +141,7 @@ body {
 .admin-row-head .admin-row-setting { align-items: center; }
 .admin-layout.admin-layout-breed { max-width: 1000px; }
 .admin-status { font: inherit; font-size: 12.5px; padding: 5px 8px; border-radius: var(--radius-pill); border: 1px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; }
+.admin-status-leeg { background: #fff6dd; border-color: #e0a526; color: #8a5a00; font-weight: 600; }
 .admin-status-gepauzeerd { background: #fff6dd; border-color: #ecd07a; }
 .admin-status-beëindigd { background: #ffecec; border-color: #e8a5a5; }
 .admin-row:not(.admin-row-head) { transition: background 0.12s ease; }
