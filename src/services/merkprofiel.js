@@ -237,21 +237,73 @@ async function getUitgeslotenZoektermen(clientNaam) {
   }
 }
 
+// Termen die we in blogs niet gebruiken (verboden_termen) en vaste schrijfwijzen
+// (vaste_termen), beide puntkomma gescheiden in de Clients rij. De reden per term
+// staat in de tabel klant_termen. Die tabel is optioneel: alleen als
+// N8N_TERMEN_TABLE_ID (of TERMEN_TABLE_ID hieronder) gevuld is, wordt hij gelezen.
+const TERMEN_TABLE_ID = '';
+
+function termenTableId() {
+  return process.env.N8N_TERMEN_TABLE_ID || TERMEN_TABLE_ID || '';
+}
+
+function bouwKlantTermen(rij, redenRijen) {
+  const redenen = {};
+  (redenRijen || []).forEach((r) => {
+    if (!r || !r.term) return;
+    redenen[`${String(r.soort || '').toLowerCase()}|${String(r.term).trim().toLowerCase()}`] = String(r.reden || '').trim();
+  });
+  const maak = (tekst, soort) => parseMerktermen(tekst).map((term) => ({
+    term,
+    reden: redenen[`${soort}|${term.toLowerCase()}`] || ''
+  }));
+  return {
+    verboden: maak(rij && rij.verboden_termen, 'verboden'),
+    vast: maak(rij && rij.vaste_termen, 'vast')
+  };
+}
+
+async function getKlantTermen(clientNaam) {
+  const leeg = { verboden: [], vast: [] };
+  try {
+    const filter = encodeURIComponent(JSON.stringify(filterEq({ client_name: clientNaam })));
+    const result = await n8nRows(CLIENTS_TABLE_ID, `/rows?limit=1&filter=${filter}`);
+    const rij = (result.data || [])[0];
+    if (!rij) return leeg;
+    let redenRijen = [];
+    const tabel = termenTableId();
+    if (tabel) {
+      try {
+        const res = await n8nRows(tabel, `/rows?limit=250&filter=${filter}`);
+        redenRijen = res.data || [];
+      } catch (err) {
+        // Zonder redenen tonen we de termen gewoon zonder uitleg.
+      }
+    }
+    return bouwKlantTermen(rij, redenRijen);
+  } catch (err) {
+    return leeg;
+  }
+}
+
 async function getMerkprofiel(clientNaam) {
   const rij = await getProfielRij(clientNaam);
   if (!rij) return { beschikbaar: false };
   const secties = parseProfiel(rij.concept);
   if (!secties) return { beschikbaar: false };
-  const [beoordelingen, uitgeslotenZoektermen] = await Promise.all([
+  const [beoordelingen, uitgeslotenZoektermen, klantTermen] = await Promise.all([
     getBeoordelingen(clientNaam),
-    getUitgeslotenZoektermen(clientNaam)
+    getUitgeslotenZoektermen(clientNaam),
+    getKlantTermen(clientNaam)
   ]);
   return {
     ...bouwWeergave(secties, beoordelingen, {
       bijgewerkt: rij.aangemaakt || '',
       aantalPaginas: aantalPaginasUitBron(rij.bron_paginas)
     }),
-    uitgeslotenZoektermen
+    uitgeslotenZoektermen,
+    verbodenTermen: klantTermen.verboden,
+    vasteTermen: klantTermen.vast
   };
 }
 
@@ -437,5 +489,7 @@ module.exports = {
   bouwWeergave,
   getMerkprofiel,
   parseMerktermen,
+  bouwKlantTermen,
+  getKlantTermen,
   saveBeoordeling
 };

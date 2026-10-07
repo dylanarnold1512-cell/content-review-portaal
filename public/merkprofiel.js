@@ -137,6 +137,28 @@
     </div>`;
   }
 
+  function termenBlokHtml(klasse, kop, uitleg, lijst) {
+    if (!lijst || !lijst.length) return '';
+    const chips = lijst.map((t) => {
+      const reden = t.reden ? `<span class="mp-term-reden">${esc(t.reden)}</span>` : '';
+      return `<span class="mp-term"${t.reden ? ` title="${esc(t.reden)}"` : ''}>${esc(t.term)}${reden}</span>`;
+    }).join('');
+    return `<div class="mp-uitgesloten ${klasse}">
+      <h3>${kop}</h3>
+      <p class="mp-uitleg">${uitleg}</p>
+      <div class="mp-termen">${chips}</div>
+    </div>`;
+  }
+
+  function klantTermenHtml() {
+    return termenBlokHtml('mp-verboden', 'Termen die we in blogs niet gebruiken',
+      'Deze lijst is automatisch opgesteld uit jullie profiel. De QA controle waarschuwt als een van deze termen in een blog staat.',
+      profiel && profiel.verbodenTermen) +
+      termenBlokHtml('mp-vast', 'Vaste schrijfwijzen',
+        'Deze namen en termen schrijven we altijd zo.',
+        profiel && profiel.vasteTermen);
+  }
+
   function render() {
     const root = el('merkprofielInhoud');
     if (!root || !profiel) return;
@@ -174,7 +196,7 @@
       ${klaar}${openHtml}
       <div class="mp-tabs">${tabs}</div>
       <div class="mp-kaarten">${kaarten || '<p class="mp-uitleg">Niets in deze lijst.</p>'}</div>
-      ${uitgeslotenHtml()}`;
+      ${uitgeslotenHtml()}${klantTermenHtml()}`;
     root.querySelectorAll('.mp-feiten').forEach((u) => { if (!u.children.length) u.remove(); });
   }
 

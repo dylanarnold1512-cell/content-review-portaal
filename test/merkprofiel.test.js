@@ -86,3 +86,57 @@ test('parseMerktermen splitst op puntkomma, trimt en ontdubbelt', () => {
   assert.deepEqual(parseMerktermen(''), []);
   assert.deepEqual(parseMerktermen(null), []);
 });
+
+test('bouwKlantTermen leest beide kolommen en koppelt de reden als die er is', () => {
+  const { bouwKlantTermen } = require('../src/services/merkprofiel');
+  const r = bouwKlantTermen(
+    { verboden_termen: 'goedkoop; Gratis ;goedkoop', vaste_termen: 'Basecamp Utrecht' },
+    [{ soort: 'verboden', term: 'Goedkoop', reden: 'Past niet bij het merk' }, { soort: 'vast', term: 'basecamp utrecht', reden: ' Eigen schrijfwijze ' }]
+  );
+  assert.deepEqual(r.verboden, [{ term: 'goedkoop', reden: 'Past niet bij het merk' }, { term: 'Gratis', reden: '' }]);
+  assert.deepEqual(r.vast, [{ term: 'Basecamp Utrecht', reden: 'Eigen schrijfwijze' }]);
+});
+
+test('bouwKlantTermen geeft lege lijsten bij lege of ontbrekende kolommen', () => {
+  const { bouwKlantTermen } = require('../src/services/merkprofiel');
+  assert.deepEqual(bouwKlantTermen({ verboden_termen: '', vaste_termen: null }, []), { verboden: [], vast: [] });
+  assert.deepEqual(bouwKlantTermen({}, undefined), { verboden: [], vast: [] });
+  assert.deepEqual(bouwKlantTermen(null), { verboden: [], vast: [] });
+});
+
+test('getKlantTermen gebruikt de redentabel alleen als die is ingesteld en crasht niet bij een fout', async () => {
+  const { getKlantTermen } = require('../src/services/merkprofiel');
+  const oudeFetch = global.fetch;
+  const oudeKey = process.env.N8N_API_KEY;
+  const oudeTabel = process.env.N8N_TERMEN_TABLE_ID;
+  process.env.N8N_API_KEY = 'test';
+  const urls = [];
+  const antwoord = (data, ok = true) => ({ ok, status: ok ? 200 : 500, statusText: 'x', text: async () => JSON.stringify(data) });
+  try {
+    delete process.env.N8N_TERMEN_TABLE_ID;
+    global.fetch = async (url) => { urls.push(url); return antwoord({ data: [{ verboden_termen: 'goedkoop', vaste_termen: 'Kamer A' }] }); };
+    assert.deepEqual(await getKlantTermen('Klant'), { verboden: [{ term: 'goedkoop', reden: '' }], vast: [{ term: 'Kamer A', reden: '' }] });
+    assert.strictEqual(urls.length, 1);
+
+    process.env.N8N_TERMEN_TABLE_ID = 'TERMEN123';
+    urls.length = 0;
+    global.fetch = async (url) => {
+      urls.push(url);
+      if (url.includes('TERMEN123')) return antwoord({ data: [{ soort: 'verboden', term: 'goedkoop', reden: 'Klant wil dit niet' }] });
+      return antwoord({ data: [{ verboden_termen: 'goedkoop', vaste_termen: '' }] });
+    };
+    const metReden = await getKlantTermen('Klant');
+    assert.strictEqual(metReden.verboden[0].reden, 'Klant wil dit niet');
+    assert.ok(urls.some((u) => u.includes('TERMEN123') && u.includes('limit=250')));
+
+    global.fetch = async (url) => (url.includes('TERMEN123') ? antwoord({}, false) : antwoord({ data: [{ verboden_termen: 'goedkoop' }] }));
+    assert.deepEqual((await getKlantTermen('Klant')).verboden, [{ term: 'goedkoop', reden: '' }]);
+
+    global.fetch = async () => { throw new Error('netwerk'); };
+    assert.deepEqual(await getKlantTermen('Klant'), { verboden: [], vast: [] });
+  } finally {
+    global.fetch = oudeFetch;
+    if (oudeKey === undefined) delete process.env.N8N_API_KEY; else process.env.N8N_API_KEY = oudeKey;
+    if (oudeTabel === undefined) delete process.env.N8N_TERMEN_TABLE_ID; else process.env.N8N_TERMEN_TABLE_ID = oudeTabel;
+  }
+});

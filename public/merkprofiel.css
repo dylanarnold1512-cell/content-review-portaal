@@ -85,3 +85,5 @@ button.mp-kaart-kop:hover { background: var(--bg); }
 .mp-uitgesloten h3 { margin: 0 0 6px; font-size: 15px; }
 .mp-termen { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .mp-term { font-size: 12.5px; border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; background: var(--bg); }
+.mp-term-reden { display: block; font-size: 11px; color: var(--text-faint); line-height: 1.3; }
+.mp-verboden .mp-term, .mp-vast .mp-term { border-radius: 12px; }
