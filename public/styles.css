@@ -648,3 +648,7 @@ body {
 .pv-kans-lbl { font-weight: 600; }
 .pv-kans-noot { font-size: 12px; margin-bottom: 6px; }
 @media (max-width: 600px) { .pv-kans-rij { grid-template-columns: 1fr; gap: 0; } }
+
+.pv-ins-kans { grid-column: 1 / -1; }
+.pv-kans-lijst { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 12px; }
+.pv-kans-lijst .pv-kans { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin: 0; }

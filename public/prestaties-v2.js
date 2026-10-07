@@ -17,6 +17,7 @@ const pvDatum = (iso) => {
 };
 const PV_STAP = 10;
 const PV_INZICHT_ZICHTBAAR = 3;
+const PV_KANSEN_ZICHTBAAR = 4;
 
 const pvState = { periode: '28d', laden: false, sort: 'vertoningen', cluster: '', status: '', q: '', toon: PV_STAP, open: {}, insOpen: {}, data: null };
 
@@ -112,8 +113,8 @@ const PV_PRIO = { hoog: 'Hoge prioriteit', middel: 'Middel prioriteit', laag: 'L
 function pvKansen(lijst, kansPeriode) {
   if (!lijst.length) return '';
   const open = Boolean(pvState.insOpen.kansen);
-  const zichtbaar = open ? lijst : lijst.slice(0, PV_INZICHT_ZICHTBAAR);
-  const meer = lijst.length - PV_INZICHT_ZICHTBAAR;
+  const zichtbaar = open ? lijst : lijst.slice(0, PV_KANSEN_ZICHTBAAR);
+  const meer = lijst.length - PV_KANSEN_ZICHTBAAR;
   const uitgebreid = lijst.some((k) => k.signaal);
   const noot = uitgebreid && kansPeriode && kansPeriode.start && kansPeriode.eind
     ? `<div class="pv-muted pv-kans-noot">Kansen horen bij de laatste 28 dagen (${pvEsc(pvDatum(kansPeriode.start))} tot en met ${pvEsc(pvDatum(kansPeriode.eind))}), ook als je hierboven een andere periode kiest.</div>`
@@ -122,6 +123,7 @@ function pvKansen(lijst, kansPeriode) {
     <div class="pv-ins pv-ins-kans">
       <div class="pv-ins-kop">Kansen${lijst.length > 1 ? ` <span class="pv-ins-aantal">${lijst.length}</span>` : ''}</div>
       ${noot}
+      <div class="pv-kans-lijst">
       ${zichtbaar.map((k) => k.signaal ? `
         <div class="pv-ins-item pv-kans">
           <div class="pv-kans-tags">
@@ -138,6 +140,7 @@ function pvKansen(lijst, kansPeriode) {
           <div class="pv-ins-tekst">${pvEsc(k.tekst)}</div>
           ${k.actie ? `<div class="pv-ins-actie">Wat wij doen: ${pvEsc(k.actie)}</div>` : ''}
         </div>`).join('')}
+      </div>
       ${meer > 0 ? `<button type="button" class="pv-toggle" data-pv-ins="kansen">${open ? 'Toon minder' : `Toon alle ${lijst.length}`}</button>` : ''}
     </div>`;
 }
