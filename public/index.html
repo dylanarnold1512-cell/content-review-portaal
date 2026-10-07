@@ -43,6 +43,7 @@
     <button type="button" class="tab-btn active" data-tab="overzicht">Overzicht</button>
     <button type="button" class="tab-btn" data-tab="blogs">Blogs</button>
     <button type="button" class="tab-btn hidden" data-tab="prestaties" id="prestatiesTabBtn">Prestaties</button>
+    <button type="button" class="tab-btn hidden" data-tab="rapportages" id="rapportagesTabBtn">Rapportages</button>
     <button type="button" class="tab-btn" data-tab="kennisdocument">Kennisdocument</button>
     <button type="button" class="tab-btn hidden" data-tab="merkprofiel" id="merkprofielTabBtn">Merkprofiel</button>
   </div>
@@ -70,6 +71,13 @@
     <div id="performanceV2" class="pv2 hidden"></div>
     <div id="performancePanel" class="performance-panel hidden"></div>
     <div class="post-performance-list" id="postPerformanceList"></div>
+  </div>
+
+  <div id="rapportagesTab" class="tab-panel hidden">
+    <div class="pv2">
+      <div id="rapportenKop"></div>
+      <div id="rapportenInhoud"></div>
+    </div>
   </div>
 
   <div id="merkprofielTab" class="tab-panel hidden">
@@ -147,6 +155,7 @@
 
 <script src="/prestaties-v2.js"></script>
 <script src="/merkprofiel.js"></script>
+<script src="/rapportages.js"></script>
 <script src="/overzicht.js"></script>
 <script src="/app.js"></script>
 </body>

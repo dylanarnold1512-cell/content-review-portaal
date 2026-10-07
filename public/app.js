@@ -21,6 +21,8 @@ let pendingRange = null;
 // die specifieke blog, zodat een e-mail rechtstreeks naar het portaal kan
 // verwijzen in plaats van naar Notion.
 let deepLinkItemId = null;
+let deepLinkRapportMaand = null;
+let deepLinkRapportages = false;
 
 const badgeClass = (status) => 'badge-' + (status || '').toLowerCase().replace(/\s+/g, '-');
 
@@ -47,7 +49,13 @@ async function init() {
   // link naar één specifieke blog, bijvoorbeeld vanuit een e-mailmelding.
   const pathParts = location.pathname.split('/').filter(Boolean).map(decodeURIComponent);
   const slug = pathParts[0] || '';
-  if (pathParts[1]) deepLinkItemId = pathParts[1];
+  if (pathParts[1] === 'rapportages') {
+    // Link uit de maandrapport mail: /slug/rapportages/2026-09
+    deepLinkRapportages = true;
+    deepLinkRapportMaand = pathParts[2] || null;
+  } else if (pathParts[1]) {
+    deepLinkItemId = pathParts[1];
+  }
 
   const info = slug ? await api('/client-info?slug=' + encodeURIComponent(slug)).catch(() => null) : null;
   if (info && info.id) {
@@ -99,6 +107,10 @@ async function enterApp(clientId, clientMeta) {
   const komtUitDeepLink = Boolean(deepLinkItemId);
   switchTab(komtUitDeepLink ? 'blogs' : 'overzicht');
   await loadItems();
+  if (deepLinkRapportages && state.performanceEnabled) {
+    deepLinkRapportages = false;
+    switchTab('rapportages');
+  }
   if (window.renderOverzicht) window.renderOverzicht(state, badgeClass, openBlogUitOverzicht);
 }
 
@@ -130,6 +142,12 @@ function switchTab(tab) {
   document.getElementById('kennisdocumentTab').classList.toggle('hidden', tab !== 'kennisdocument');
   const merkprofielTab = document.getElementById('merkprofielTab');
   if (merkprofielTab) merkprofielTab.classList.toggle('hidden', tab !== 'merkprofiel');
+  const rapportagesTab = document.getElementById('rapportagesTab');
+  if (rapportagesTab) rapportagesTab.classList.toggle('hidden', tab !== 'rapportages');
+  if (tab === 'rapportages' && window.loadRapportages) {
+    window.loadRapportages(deepLinkRapportMaand);
+    deepLinkRapportMaand = null;
+  }
   if (tab === 'prestaties') {
     loadPerformancePanel();
     renderPostPerformanceList();
@@ -157,7 +175,9 @@ async function loadItems() {
   if (newIdeaBtn) newIdeaBtn.classList.toggle('hidden', !state.ideaEnrichmentEnabled);
   const prestatiesTabBtn = document.getElementById('prestatiesTabBtn');
   if (prestatiesTabBtn) prestatiesTabBtn.classList.toggle('hidden', !state.performanceEnabled);
-  if (!state.performanceEnabled && state.activeTab === 'prestaties') switchTab('blogs');
+  const rapportagesTabBtn = document.getElementById('rapportagesTabBtn');
+  if (rapportagesTabBtn) rapportagesTabBtn.classList.toggle('hidden', !state.performanceEnabled);
+  if (!state.performanceEnabled && (state.activeTab === 'prestaties' || state.activeTab === 'rapportages')) switchTab('blogs');
   if (window.checkMerkprofiel) window.checkMerkprofiel(state.clientId);
   if (!state.selectedId && state.items.length) {
     const deepLinked = deepLinkItemId && state.items.find((i) => i.id === deepLinkItemId);

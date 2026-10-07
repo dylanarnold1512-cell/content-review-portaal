@@ -652,3 +652,10 @@ body {
 .pv-ins-kans { grid-column: 1 / -1; }
 .pv-kans-lijst { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 12px; }
 .pv-kans-lijst .pv-kans { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin: 0; }
+
+.rp-kies { display: inline-flex; gap: 8px; align-items: center; font-size: 13px; margin-bottom: 12px; }
+.rp-kies select { border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 5px 10px; font-size: 13px; background: var(--panel); }
+.rp-lijst { margin: 6px 0 0 18px; padding: 0; font-size: 14px; }
+.rp-punten { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.rp-punt { border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+.rp-tabel td a { color: inherit; }

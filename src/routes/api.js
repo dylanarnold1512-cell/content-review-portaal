@@ -5,6 +5,7 @@ const settingsService = require('../services/settings');
 const kennisdocumentService = require('../services/kennisdocument');
 const merkprofielService = require('../services/merkprofiel');
 const prestatiesService = require('../services/prestaties');
+const rapportenService = require('../services/rapporten');
 const documentTekst = require('../services/documentTekst');
 const { checkPassword, requireLogin } = require('../middleware/auth');
 
@@ -108,6 +109,31 @@ router.get('/:clientId/performance-v2', requireLogin, async (req, res) => {
     const data = await prestatiesService.getPrestaties(config.naam, req.query.periode);
     if (!data) return res.status(404).json({ error: 'Er is nog geen prestatiedata.' });
     res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Maandrapporten (vaste snapshots). Alleen voor klanten met Prestaties aan.
+router.get('/:clientId/rapporten', requireLogin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    const settings = await settingsService.getClientSettings(req.params.clientId, config);
+    if (!settings.performanceEnabled) return res.json({ rapporten: [] });
+    res.json({ rapporten: await rapportenService.listRapporten(config.naam) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/:clientId/rapporten/:maand', requireLogin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    const settings = await settingsService.getClientSettings(req.params.clientId, config);
+    if (!settings.performanceEnabled) return res.status(404).json({ error: 'Rapportages staan nog niet aan voor deze klant.' });
+    const rapport = await rapportenService.getRapport(config.naam, req.params.maand);
+    if (!rapport) return res.status(404).json({ error: 'Dit rapport bestaat niet.' });
+    res.json(rapport);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
