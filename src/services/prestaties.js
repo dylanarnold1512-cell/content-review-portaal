@@ -85,7 +85,7 @@ async function getPrestatiesData(klantNaam, periodeKeuze) {
   const periode = kiesPeriode(periodeKeuze);
   const [overzichtAlle, blogsAlle, weken, indexatie, conversies, kansenRijen] = await Promise.all([
     n8nRows(TABLES.overzicht, perKlant(klantNaam), 20),
-    n8nRows(TABLES.blogs, perKlant(klantNaam), 1000),
+    n8nRows(TABLES.blogs, perKlant(klantNaam), 250),
     n8nRows(TABLES.weken, perKlant(klantNaam), 60),
     // Indexatie is een extra. Ontbreekt de tabel of de data, dan werkt de rest gewoon.
     n8nRows(TABLES.indexatie, perKlant(klantNaam), 250).catch(() => []),
