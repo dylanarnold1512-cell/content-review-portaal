@@ -79,3 +79,10 @@ test('aangepast open punt verdwijnt uit de open vragen', () => {
   const w = bouwWeergave(secties, { [open.id]: { status: 'aangepast', opmerking: 'Het zijn acht ruimtes.' } }, { bijgewerkt: '', aantalPaginas: 0 });
   assert.ok(!w.openVragen.some((v) => v.tekst === open.tekst));
 });
+
+test('parseMerktermen splitst op puntkomma, trimt en ontdubbelt', () => {
+  const { parseMerktermen } = require('../src/services/merkprofiel');
+  assert.deepEqual(parseMerktermen(' the base; Red Room ;;the base '), ['the base', 'Red Room']);
+  assert.deepEqual(parseMerktermen(''), []);
+  assert.deepEqual(parseMerktermen(null), []);
+});

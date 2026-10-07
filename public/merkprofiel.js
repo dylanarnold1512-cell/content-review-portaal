@@ -126,6 +126,17 @@
     return true;
   }
 
+  function uitgeslotenHtml() {
+    const lijst = (profiel && profiel.uitgeslotenZoektermen) || [];
+    const naam = esc((profiel && profiel.klantNaam) || '');
+    return `<div class="mp-uitgesloten">
+      <h3>Zoektermen die we niet als kans tonen</h3>
+      <p class="mp-uitleg">Mensen die zoeken op jullie eigen naam, ruimtes, producten of adres kennen jullie al. Daar schrijven we geen blog voor en we tonen het ook niet als kans in Prestaties. Automatisch uitgesloten: de naam ${naam} en de naam van jullie website.${lijst.length ? ' Daarnaast hebben we deze termen uitgesloten:' : ''}</p>
+      ${lijst.length ? `<div class="mp-termen">${lijst.map((t) => `<span class="mp-term">${esc(t)}</span>`).join('')}</div>` : '<p class="mp-uitleg">Er zijn nog geen extra termen toegevoegd.</p>'}
+      <p class="mp-uitleg">Mis je een term, of staat er iets tussen wat wel een blog verdient? Laat het ons weten via een opmerking of een bericht.</p>
+    </div>`;
+  }
+
   function render() {
     const root = el('merkprofielInhoud');
     if (!root || !profiel) return;
@@ -162,7 +173,8 @@
       </div>
       ${klaar}${openHtml}
       <div class="mp-tabs">${tabs}</div>
-      <div class="mp-kaarten">${kaarten || '<p class="mp-uitleg">Niets in deze lijst.</p>'}</div>`;
+      <div class="mp-kaarten">${kaarten || '<p class="mp-uitleg">Niets in deze lijst.</p>'}</div>
+      ${uitgeslotenHtml()}`;
     root.querySelectorAll('.mp-feiten').forEach((u) => { if (!u.children.length) u.remove(); });
   }
 

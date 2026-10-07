@@ -208,16 +208,51 @@ function aantalPaginasUitBron(bron) {
   return delen.length;
 }
 
+const CLIENTS_TABLE_ID = process.env.N8N_CLIENTS_TABLE_ID || '42vYfT6ktan72bpa';
+
+// Zoektermen die de blog automation niet als kans toont (merknamen, ruimtenamen,
+// adressen). Staan in Clients.merktermen, gescheiden door puntkomma.
+function parseMerktermen(tekst) {
+  const gezien = new Set();
+  return String(tekst || '')
+    .split(';')
+    .map((t) => t.trim())
+    .filter((t) => {
+      const sleutel = t.toLowerCase();
+      if (!t || gezien.has(sleutel)) return false;
+      gezien.add(sleutel);
+      return true;
+    });
+}
+
+async function getUitgeslotenZoektermen(clientNaam) {
+  try {
+    const filter = encodeURIComponent(JSON.stringify(filterEq({ client_name: clientNaam })));
+    const result = await n8nRows(CLIENTS_TABLE_ID, `/rows?limit=1&filter=${filter}`);
+    const rij = (result.data || [])[0];
+    return rij ? parseMerktermen(rij.merktermen) : [];
+  } catch (err) {
+    // Extra informatie: ontbreekt die, dan werkt het profiel gewoon.
+    return [];
+  }
+}
+
 async function getMerkprofiel(clientNaam) {
   const rij = await getProfielRij(clientNaam);
   if (!rij) return { beschikbaar: false };
   const secties = parseProfiel(rij.concept);
   if (!secties) return { beschikbaar: false };
-  const beoordelingen = await getBeoordelingen(clientNaam);
-  return bouwWeergave(secties, beoordelingen, {
-    bijgewerkt: rij.aangemaakt || '',
-    aantalPaginas: aantalPaginasUitBron(rij.bron_paginas)
-  });
+  const [beoordelingen, uitgeslotenZoektermen] = await Promise.all([
+    getBeoordelingen(clientNaam),
+    getUitgeslotenZoektermen(clientNaam)
+  ]);
+  return {
+    ...bouwWeergave(secties, beoordelingen, {
+      bijgewerkt: rij.aangemaakt || '',
+      aantalPaginas: aantalPaginasUitBron(rij.bron_paginas)
+    }),
+    uitgeslotenZoektermen
+  };
 }
 
 async function saveBeoordeling(clientNaam, { regelId: id, status, opmerking, regelTekst }) {
@@ -401,5 +436,6 @@ module.exports = {
   splitsHerkomst,
   bouwWeergave,
   getMerkprofiel,
+  parseMerktermen,
   saveBeoordeling
 };
