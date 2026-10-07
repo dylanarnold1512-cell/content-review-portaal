@@ -105,7 +105,7 @@ router.get('/:clientId/performance-v2', requireLogin, async (req, res) => {
     if (!config.performanceV2 && req.query.v2 !== '1') {
       return res.status(404).json({ error: 'De nieuwe weergave staat nog niet aan.' });
     }
-    const data = await prestatiesService.getPrestaties(config.naam);
+    const data = await prestatiesService.getPrestaties(config.naam, req.query.periode);
     if (!data) return res.status(404).json({ error: 'Er is nog geen prestatiedata.' });
     res.json(data);
   } catch (err) {

@@ -18,7 +18,7 @@ const pvDatum = (iso) => {
 const PV_STAP = 10;
 const PV_INZICHT_ZICHTBAAR = 3;
 
-const pvState = { sort: 'vertoningen', cluster: '', status: '', q: '', toon: PV_STAP, open: {}, insOpen: {}, data: null };
+const pvState = { periode: '28d', laden: false, sort: 'vertoningen', cluster: '', status: '', q: '', toon: PV_STAP, open: {}, insOpen: {}, data: null };
 
 function pvDelta(nu, vorig) {
   if (vorig === null || vorig === undefined) return '';
@@ -105,6 +105,71 @@ function pvInzicht(sleutel, kop, klasse, lijst, metActie) {
         </div>`).join('')}
       ${meer > 0 ? `<button type="button" class="pv-toggle" data-pv-ins="${pvEsc(sleutel)}">${open ? 'Toon minder' : `Toon alle ${lijst.length}`}</button>` : ''}
     </div>`;
+}
+
+const PV_PRIO = { hoog: 'Hoge prioriteit', middel: 'Middel prioriteit', laag: 'Lage prioriteit' };
+
+function pvKansen(lijst, kansPeriode) {
+  if (!lijst.length) return '';
+  const open = Boolean(pvState.insOpen.kansen);
+  const zichtbaar = open ? lijst : lijst.slice(0, PV_INZICHT_ZICHTBAAR);
+  const meer = lijst.length - PV_INZICHT_ZICHTBAAR;
+  const uitgebreid = lijst.some((k) => k.signaal);
+  const noot = uitgebreid && kansPeriode && kansPeriode.start && kansPeriode.eind
+    ? `<div class="pv-muted pv-kans-noot">Kansen horen bij de laatste 28 dagen (${pvEsc(pvDatum(kansPeriode.start))} tot en met ${pvEsc(pvDatum(kansPeriode.eind))}), ook als je hierboven een andere periode kiest.</div>`
+    : '';
+  return `
+    <div class="pv-ins pv-ins-kans">
+      <div class="pv-ins-kop">Kansen${lijst.length > 1 ? ` <span class="pv-ins-aantal">${lijst.length}</span>` : ''}</div>
+      ${noot}
+      ${zichtbaar.map((k) => k.signaal ? `
+        <div class="pv-ins-item pv-kans">
+          <div class="pv-kans-tags">
+            <span class="pv-tag">${pvEsc(k.soortLabel)}</span>
+            <span class="pv-tag pv-tag-${pvEsc(k.prioriteit)}">${pvEsc(PV_PRIO[k.prioriteit] || '')}</span>
+          </div>
+          <div class="pv-kans-rij"><span class="pv-kans-lbl">Signaal</span><span>${pvEsc(k.signaal)}</span></div>
+          <div class="pv-kans-rij"><span class="pv-kans-lbl">Waarom</span><span>${pvEsc(k.waarom)}</span></div>
+          <div class="pv-kans-rij"><span class="pv-kans-lbl">Actie</span><span>${pvEsc(k.actie)}</span></div>
+          <div class="pv-kans-rij pv-muted"><span class="pv-kans-lbl">Onderbouwing</span><span>${pvEsc(k.onderbouwing)}</span></div>
+        </div>` : `
+        <div class="pv-ins-item">
+          <div class="pv-ins-titel">${pvEsc(k.titel)}</div>
+          <div class="pv-ins-tekst">${pvEsc(k.tekst)}</div>
+          ${k.actie ? `<div class="pv-ins-actie">Wat wij doen: ${pvEsc(k.actie)}</div>` : ''}
+        </div>`).join('')}
+      ${meer > 0 ? `<button type="button" class="pv-toggle" data-pv-ins="kansen">${open ? 'Toon minder' : `Toon alle ${lijst.length}`}</button>` : ''}
+    </div>`;
+}
+
+function pvPeriodeKeuze(d) {
+  const opties = d.periodeOpties || [];
+  if (!opties.length) return '';
+  return `<div class="pv-periode" role="group" aria-label="Periode">
+    ${opties.map((o) => `<button type="button" class="pv-chip${d.periodeType === o.code ? ' pv-chip-aan' : ''}" data-pv-periode="${pvEsc(o.code)}"${pvState.laden ? ' disabled' : ''}>${pvEsc(o.label)}</button>`).join('')}
+  </div>`;
+}
+
+async function pvLaadPeriode(code) {
+  if (pvState.laden || code === pvState.periode) return;
+  const vorige = pvState.periode;
+  pvState.periode = code;
+  pvState.laden = true;
+  const el = document.getElementById('performanceV2');
+  if (el) el.classList.add('pv-laden');
+  try {
+    const v2Param = new URLSearchParams(location.search).get('prestaties') === 'nieuw' ? '&v2=1' : '';
+    const d = await api(`/${state.clientId}/performance-v2?periode=${encodeURIComponent(code)}${v2Param}`);
+    pvState.laden = false;
+    renderPrestatiesV2(d);
+  } catch (err) {
+    // Periode niet beschikbaar (sync heeft nog niet gedraaid): terug naar de vorige keuze.
+    pvState.laden = false;
+    pvState.periode = vorige;
+    if (el) el.classList.remove('pv-laden');
+    const melding = document.getElementById('pvPeriodeMelding');
+    if (melding) melding.textContent = 'Voor deze periode is nog geen data. Die komt na de volgende dagelijkse update.';
+  }
 }
 
 function pvBlogRegel(b, idx) {
@@ -214,10 +279,13 @@ function renderPrestatiesV2(d) {
   const el = document.getElementById('performanceV2');
   if (!el) return;
   pvState.data = d;
+  pvState.periode = d.periodeType || pvState.periode;
   pvState.toon = PV_STAP;
+  el.classList.remove('pv-laden');
   const t = d.totalen;
   const voortgang = `${t.blogsGepubliceerd} ${t.blogsGepubliceerd === 1 ? 'blog staat' : 'blogs staan'} live${t.blogsPipeline ? `, nog ${t.blogsPipeline} in de planning` : ''}.`;
   el.innerHTML = `
+    <div class="pv-periode-wrap">${pvPeriodeKeuze(d)}<div class="pv-muted" id="pvPeriodeMelding"></div></div>
     ${d.toelichting ? `<div class="pv-card pv-toelichting"><div class="pv-sectie-titel">Toelichting van Advertisr</div><p>${pvEsc(d.toelichting)}</p></div>` : ''}
     <div class="pv-card pv-samenvatting">
       <div class="pv-sectie-titel">Zo gaat het nu</div>
@@ -251,6 +319,8 @@ function renderPrestatiesV2(d) {
     document.getElementById('pvBlogList').innerHTML = pvLijstHtml();
   };
   el.onclick = (e) => {
+    const per = e.target.closest('[data-pv-periode]');
+    if (per) { pvLaadPeriode(per.getAttribute('data-pv-periode')); return; }
     const toggle = e.target.closest('[data-pv-toggle]');
     if (toggle) {
       const i = toggle.getAttribute('data-pv-toggle');
@@ -301,7 +371,7 @@ function pvTekenInzichten() {
     <div class="pv-card"><div class="pv-sectie-titel">Wat we zien en wat we doen</div>
       <div class="pv-ins-grid">
         ${pvInzicht('goed', 'Goed nieuws', 'goed', i.goed, false)}
-        ${pvInzicht('kansen', 'Kansen', 'kans', i.kansen, true)}
+        ${pvKansen(i.kansen, pvState.data.kansenPeriode)}
         ${pvInzicht('aandacht', 'Aandacht', 'aandacht', i.aandacht, true)}
       </div></div>`;
 }

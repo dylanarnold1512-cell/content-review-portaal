@@ -14,8 +14,30 @@ const TABLES = {
   weken: process.env.N8N_PRESTATIES_WEKEN_TABLE_ID || 'oAD7tfxMzT8hWsao',
   overzicht: process.env.N8N_PRESTATIES_OVERZICHT_TABLE_ID || 'caOsvqDNlG79IjTA',
   indexatie: process.env.N8N_PRESTATIES_INDEXATIE_TABLE_ID || 'OCXbGmfnEipDHU9b',
-  conversies: process.env.N8N_PRESTATIES_CONVERSIES_TABLE_ID || 'ZO8PIIwot7d0ODgX'
+  conversies: process.env.N8N_PRESTATIES_CONVERSIES_TABLE_ID || 'ZO8PIIwot7d0ODgX',
+  kansen: process.env.N8N_PRESTATIES_KANSEN_TABLE_ID || 'C0ASGyrj8nT1zXOS'
 };
+
+// Periodes die de sync opslaat (kolom periode_type). Rijen van voor de
+// periodekeuze hebben geen periode_type en tellen als 28 dagen.
+const PERIODES = {
+  '28d': { label: 'Laatste 28 dagen', korte: 'de afgelopen 28 dagen' },
+  '90d': { label: 'Laatste 3 maanden', korte: 'de afgelopen 3 maanden' },
+  maand: { label: 'Vorige kalendermaand', korte: 'de vorige kalendermaand' }
+};
+const STANDAARD_PERIODE = '28d';
+
+function kiesPeriode(waarde) {
+  return Object.prototype.hasOwnProperty.call(PERIODES, waarde) ? waarde : STANDAARD_PERIODE;
+}
+
+// Kiest de rijen van de gevraagde periode. Voor 28d vallen we terug op oude
+// rijen zonder periode_type, maar alleen als er geen echte 28d rijen zijn.
+function rijenVanPeriode(rijen, periode) {
+  const exact = rijen.filter((r) => r.periode_type === periode);
+  if (exact.length || periode !== STANDAARD_PERIODE) return exact;
+  return rijen.filter((r) => !r.periode_type);
+}
 
 // Drempels voor de vaste regels. Op een plek gezet zodat ze makkelijk te
 // tunen zijn zonder de logica te herschrijven.
@@ -59,17 +81,22 @@ function perKlant(klantNaam) {
 
 // Geeft null terug als de sync voor deze klant nog niet heeft gedraaid, zodat
 // het portaal dan gewoon de oude weergave kan tonen.
-async function getPrestatiesData(klantNaam) {
-  const [overzichtRijen, blogs, weken, indexatie, conversies] = await Promise.all([
-    n8nRows(TABLES.overzicht, perKlant(klantNaam), 1),
-    n8nRows(TABLES.blogs, perKlant(klantNaam), 250),
+async function getPrestatiesData(klantNaam, periodeKeuze) {
+  const periode = kiesPeriode(periodeKeuze);
+  const [overzichtAlle, blogsAlle, weken, indexatie, conversies, kansenRijen] = await Promise.all([
+    n8nRows(TABLES.overzicht, perKlant(klantNaam), 20),
+    n8nRows(TABLES.blogs, perKlant(klantNaam), 1000),
     n8nRows(TABLES.weken, perKlant(klantNaam), 60),
     // Indexatie is een extra. Ontbreekt de tabel of de data, dan werkt de rest gewoon.
     n8nRows(TABLES.indexatie, perKlant(klantNaam), 250).catch(() => []),
-    n8nRows(TABLES.conversies, perKlant(klantNaam), 250).catch(() => [])
+    n8nRows(TABLES.conversies, perKlant(klantNaam), 250).catch(() => []),
+    // Kansen zijn een extra. Ontbreekt de tabel of de data, dan gelden de oude regels.
+    n8nRows(TABLES.kansen, perKlant(klantNaam), 100).catch(() => [])
   ]);
+  const overzichtRijen = rijenVanPeriode(overzichtAlle, periode);
   if (!overzichtRijen.length) return null;
-  return { overzicht: overzichtRijen[0], blogs, weken, indexatie, conversies };
+  const blogs = rijenVanPeriode(blogsAlle, periode);
+  return { overzicht: overzichtRijen[0], blogs, weken, indexatie, conversies, kansenRijen, periode };
 }
 
 const num = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
@@ -112,7 +139,8 @@ function verschilTekst(nu, vorig, eenheid) {
   return `${nl(Math.abs(delta))} ${woord} dan de periode ervoor (${nl(vorig)})`;
 }
 
-function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies }, vandaagIso) {
+function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies, kansenRijen, periode: periodeKeuze }, vandaagIso) {
+  const periodeType = kiesPeriode(periodeKeuze);
   const vandaag = vandaagIso || new Date().toISOString().slice(0, 10);
   const o = overzicht || {};
   const periodeEind = o.periode_eind || vandaag;
@@ -227,14 +255,14 @@ function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies }, vand
     : null;
 
   // 3. Samenvatting in gewone taal
-  const periodeTekst = o.periode_start ? `${datumKort(o.periode_start)} tot en met ${datumKort(periodeEind)}` : 'de afgelopen 28 dagen';
+  const periodeTekst = o.periode_start ? `${datumKort(o.periode_start)} tot en met ${datumKort(periodeEind)}` : PERIODES[periodeType].korte;
   const samenvatting = [];
   if (vertoningen === 0) {
-    samenvatting.push(`In de afgelopen 28 dagen (${periodeTekst}) is nog geen enkele blog getoond in Google.`);
+    samenvatting.push(`In ${PERIODES[periodeType].korte} (${periodeTekst}) is nog geen enkele blog getoond in Google.`);
   } else {
     const verg = verschilTekst(vertoningen, vertoningenVorig);
     samenvatting.push(
-      `In de afgelopen 28 dagen (${periodeTekst}) stonden jullie blogs ${nl(vertoningen)} keer in de zoekresultaten van Google${verg ? `, ${verg}` : ''}.`
+      `In ${PERIODES[periodeType].korte} (${periodeTekst}) stonden jullie blogs ${nl(vertoningen)} keer in de zoekresultaten van Google${verg ? `, ${verg}` : ''}.`
     );
   }
   if (clicks === 0) {
@@ -266,12 +294,40 @@ function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies }, vand
     }
   }
   kansLijst.sort((a, b) => b.z.i - a.z.i);
-  for (const k of cap(kansLijst)) {
-    kansen.push({
-      titel: `"${k.z.q}" staat op positie ${nl1(k.z.p)}`,
-      tekst: `${nl(k.z.i)} vertoningen in de blog "${k.blog.titel}". Dit zoekwoord staat vlak achter pagina 1.`,
-      actie: 'Tekst en koppen van deze blog verder afstemmen op dit zoekwoord.'
-    });
+  const kansenUitTabel = (kansenRijen || []).filter((r) => r.soort === 'verbeteren' || r.soort === 'nieuw_onderwerp');
+  if (kansenUitTabel.length) {
+    // Uitlegbare kansen uit de sync: de teksten staan al klaar, hier alleen ordenen.
+    const rang = { hoog: 0, middel: 1, laag: 2 };
+    const soortRang = { verbeteren: 0, nieuw_onderwerp: 1 };
+    const gesorteerd = kansenUitTabel.slice().sort(
+      (a, b) =>
+        (soortRang[a.soort] - soortRang[b.soort]) ||
+        ((rang[a.prioriteit] ?? 3) - (rang[b.prioriteit] ?? 3)) ||
+        ((num(b.vertoningen) || 0) - (num(a.vertoningen) || 0))
+    );
+    for (const r of gesorteerd) {
+      kansen.push({
+        soort: r.soort,
+        soortLabel: r.soort === 'verbeteren' ? 'Bestaande blog verbeteren' : 'Nieuw onderwerp',
+        prioriteit: r.prioriteit || 'laag',
+        zoekwoord: r.zoekwoord || '',
+        blogTitel: r.blog_titel || '',
+        signaal: r.signaal || '',
+        waarom: r.waarom || '',
+        actie: r.actie || '',
+        onderbouwing: r.onderbouwing || '',
+        titel: r.signaal || '',
+        tekst: ''
+      });
+    }
+  } else {
+    for (const k of cap(kansLijst)) {
+      kansen.push({
+        titel: `"${k.z.q}" staat op positie ${nl1(k.z.p)}`,
+        tekst: `${nl(k.z.i)} vertoningen in de blog "${k.blog.titel}". Dit zoekwoord staat vlak achter pagina 1.`,
+        actie: 'Advertisr beoordeelt of deze blog kan worden aangevuld. Bestaande blogs worden niet automatisch aangepast.'
+      });
+    }
   }
 
   // Aandacht: oudere blogs zonder vertoningen
@@ -362,6 +418,9 @@ function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies }, vand
 
   return {
     periode: { start: o.periode_start || null, eind: periodeEind },
+    periodeType,
+    periodeOpties: Object.keys(PERIODES).map((k) => ({ code: k, label: PERIODES[k].label })),
+    kansenPeriode: kansenUitTabel.length ? { start: kansenUitTabel[0].periode_start || null, eind: kansenUitTabel[0].periode_eind || null } : null,
     laatstBijgewerkt: o.bijgewerkt || null,
     toelichting: (o.toelichting || '').trim(),
     samenvatting,
@@ -372,10 +431,10 @@ function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies }, vand
   };
 }
 
-async function getPrestaties(klantNaam) {
-  const data = await getPrestatiesData(klantNaam);
+async function getPrestaties(klantNaam, periode) {
+  const data = await getPrestatiesData(klantNaam, periode);
   if (!data) return null;
   return bouwPrestaties(data);
 }
 
-module.exports = { getPrestaties, bouwPrestaties, positieLabel, REGELS };
+module.exports = { getPrestaties, bouwPrestaties, positieLabel, REGELS, PERIODES, kiesPeriode, rijenVanPeriode };

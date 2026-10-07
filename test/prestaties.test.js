@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { bouwPrestaties, positieLabel } = require('../src/services/prestaties');
+const { bouwPrestaties, positieLabel, kiesPeriode, rijenVanPeriode } = require('../src/services/prestaties');
 
 const overzicht = {
   periode_start: '2026-09-01', periode_eind: '2026-09-28', bijgewerkt: '2026-09-29',
@@ -116,4 +116,40 @@ test('aandacht toont niet meer dan de bovengrens en blokkades staan bovenaan', (
   }, '2026-09-29');
   assert.ok(r.inzichten.aandacht.length <= 16);
   assert.match(r.inzichten.aandacht[0].titel, /Nieuw/);
+});
+
+test('periodekeuze: onbekende waarde wordt 28d en oude rijen tellen als 28d', () => {
+  assert.equal(kiesPeriode('90d'), '90d');
+  assert.equal(kiesPeriode('maand'), 'maand');
+  assert.equal(kiesPeriode('rommel'), '28d');
+  assert.equal(kiesPeriode(undefined), '28d');
+  const oud = [{ id: 1 }, { id: 2, periode_type: '' }];
+  assert.equal(rijenVanPeriode(oud, '28d').length, 2);
+  assert.equal(rijenVanPeriode(oud, '90d').length, 0);
+  const mix = [{ id: 1 }, { id: 2, periode_type: '28d' }, { id: 3, periode_type: '90d' }];
+  assert.deepEqual(rijenVanPeriode(mix, '28d').map((r) => r.id), [2]);
+  assert.deepEqual(rijenVanPeriode(mix, '90d').map((r) => r.id), [3]);
+});
+
+test('kansen uit de tabel krijgen signaal, waarom, actie en onderbouwing en gaan voor de oude regels', () => {
+  const kansenRijen = [
+    { soort: 'nieuw_onderwerp', prioriteit: 'hoog', zoekwoord: 'x', vertoningen: 300, signaal: 'S2', waarom: 'W2', actie: 'A2', onderbouwing: 'O2', periode_start: '2026-09-01', periode_eind: '2026-09-28' },
+    { soort: 'verbeteren', prioriteit: 'laag', zoekwoord: 'y', vertoningen: 40, blog_titel: 'B', signaal: 'S1', waarom: 'W1', actie: 'A1', onderbouwing: 'O1' }
+  ];
+  const r = bouwPrestaties({ overzicht, weken: [], blogs: [blog({ titel: 'K', zoekwoorden: JSON.stringify([{ q: 'oud', c: 0, i: 60, p: 12 }]) })], kansenRijen, periode: '90d' }, '2026-09-29');
+  assert.equal(r.inzichten.kansen.length, 2);
+  assert.equal(r.inzichten.kansen[0].soort, 'verbeteren');
+  assert.equal(r.inzichten.kansen[0].signaal, 'S1');
+  assert.equal(r.inzichten.kansen[1].onderbouwing, 'O2');
+  assert.equal(r.periodeType, '90d');
+  assert.match(r.samenvatting.join(' '), /3 maanden/);
+  assert.equal(r.kansenPeriode.eind, '2026-09-28');
+  assert.equal(r.periodeOpties.length, 3);
+});
+
+test('zonder kansen in de tabel blijven de oude regels gelden', () => {
+  const zw = JSON.stringify([{ q: 'kans', c: 0, i: 60, p: 12 }]);
+  const r = bouwPrestaties({ overzicht, weken: [], blogs: [blog({ titel: 'K', vertoningen: 65, zoekwoorden: zw })], kansenRijen: [] }, '2026-09-29');
+  assert.equal(r.inzichten.kansen.length, 1);
+  assert.equal(r.periodeType, '28d');
 });
