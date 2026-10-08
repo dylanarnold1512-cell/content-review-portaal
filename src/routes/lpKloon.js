@@ -120,10 +120,10 @@ router.post('/blokvoorbeeld', requireLpInternal, async (req, res) => {
 
 router.post('/maak', requireLpInternal, async (req, res) => {
   try {
-    const { klant, bron, titel, slug, metaTitel, metaBeschrijving, velden, zoekvervang, blokken, dryRun } = req.body || {};
+    const { klant, bron, titel, slug, metaTitel, metaBeschrijving, velden, zoekvervang, blokken, bijwerken, dryRun } = req.body || {};
     const client = getLpClient(klant);
     const seoPlugin = client.profile.seo && client.profile.seo.plugin;
-    const resultaat = await maakKloon({ bron, titel, slug, seoPlugin, metaTitel, metaBeschrijving, velden, zoekvervang, blokken: await bouwBlokken(klant, blokken), dryRun });
+    const resultaat = await maakKloon({ bron, titel, slug, seoPlugin, metaTitel, metaBeschrijving, velden, zoekvervang, blokken: await bouwBlokken(klant, blokken), bijwerken, dryRun });
     res.json(resultaat);
   } catch (err) {
     res.status(400).json({ error: err.message });

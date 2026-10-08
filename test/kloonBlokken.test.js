@@ -84,3 +84,9 @@ test('bouwKloonVerzoek: waar wordt bewaard en onbekende waarde wordt na', () => 
   const v = bouwKloonVerzoek({ bron: 1, titel: 'X', blokken: [{ na: 'c1', waar: 'begin', html: '<p>a</p>' }, { na: 'm1', waar: 'raar', html: '<p>b</p>' }] });
   assert.deepStrictEqual(v.blokken.map((b) => b.waar), ['begin', 'na']);
 });
+
+test('bouwKloonVerzoek: bijwerken wordt een geldig paginanummer', () => {
+  assert.strictEqual(bouwKloonVerzoek({ bron: 1, titel: 'X', bijwerken: '15297' }).bijwerken, 15297);
+  assert.strictEqual(bouwKloonVerzoek({ bron: 1, titel: 'X', bijwerken: '' }).bijwerken, undefined);
+  assert.throws(() => bouwKloonVerzoek({ bron: 1, titel: 'X', bijwerken: 'abc' }), /geldig paginanummer/);
+});

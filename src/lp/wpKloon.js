@@ -97,7 +97,7 @@ function schoneSlug(slug) {
 
 // Bouwt het verzoek voor de n8n webhook. Alleen velden met een echte wijziging worden meegestuurd.
 // status is altijd "draft", wat de aanroeper ook vraagt.
-function bouwKloonVerzoek({ bron, titel, slug, seoPlugin, metaTitel, metaBeschrijving, velden, zoekvervang, blokken, dryRun }) {
+function bouwKloonVerzoek({ bron, titel, slug, seoPlugin, metaTitel, metaBeschrijving, velden, zoekvervang, blokken, bijwerken, dryRun }) {
   const bronId = Number(bron);
   if (!Number.isInteger(bronId) || bronId <= 0) throw new Error('Bronpagina ontbreekt of is geen geldig paginanummer.');
   const naam = String(titel || '').trim();
@@ -142,6 +142,11 @@ function bouwKloonVerzoek({ bron, titel, slug, seoPlugin, metaTitel, metaBeschri
     dry_run: Boolean(dryRun)
   };
   if (opgeschoondeBlokken.length) verzoek.blokken = opgeschoondeBlokken;
+  if (bijwerken !== undefined && bijwerken !== null && bijwerken !== '') {
+    const doel = Number(bijwerken);
+    if (!Number.isInteger(doel) || doel <= 0) throw new Error('De kloon die bijgewerkt moet worden is geen geldig paginanummer.');
+    verzoek.bijwerken = doel;
+  }
   if (seoPlugin && (metaTitel || metaBeschrijving)) {
     verzoek.seo = { plugin: seoPlugin, titel: metaTitel || '', beschrijving: metaBeschrijving || '' };
   }
@@ -180,6 +185,7 @@ function normaliseerAntwoord(data) {
   return {
     dryRun: Boolean(d.dry_run),
     ok: Boolean(d.ok),
+    bijgewerkt: Boolean(d.bijgewerkt),
     id: d.id || null,
     url: d.url || '',
     bewerkUrl: d.bewerk_url || '',

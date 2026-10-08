@@ -90,12 +90,38 @@
     }
     try {
       const { klonen } = await lpApi(`/kloon/klonen?klant=${encodeURIComponent(klant)}`);
+      state.klonen = klonen;
+      vulDoelen();
       renderLijst(klonen);
     } catch (err) {
       houder.textContent = `Lijst niet beschikbaar: ${formatApiError(err)}`;
     }
   }
   $('lpKloonLijstBtn').addEventListener('click', laadLijst);
+
+  // Doel: een nieuwe kloon, of een bestaand concept bijwerken (nooit een live pagina).
+  function vulDoelen() {
+    const sel = $('lpKloonDoel');
+    if (!sel) return;
+    const vorige = sel.value;
+    sel.innerHTML = '';
+    sel.appendChild(el('option', { value: '', text: 'Een nieuwe kloon maken' }));
+    (state.klonen || []).filter((k) => k.status !== 'publish').forEach((k) => {
+      sel.appendChild(el('option', { value: String(k.id), text: `Bijwerken: ${k.titel} (nr. ${k.id}, ${k.statusNaam})` }));
+    });
+    if ([...sel.options].some((o) => o.value === vorige)) sel.value = vorige;
+    pasKnopAan();
+  }
+
+  function pasKnopAan() {
+    const sel = $('lpKloonDoel');
+    const knop = $('lpKloonMaakBtn');
+    if (!sel || !knop) return;
+    knop.textContent = sel.value ? 'Concept bijwerken in WordPress' : 'Concept aanmaken in WordPress';
+    const k = (state.klonen || []).find((x) => String(x.id) === sel.value);
+    if (k && !$('lpKloonTitel').value.trim()) $('lpKloonTitel').value = k.titel;
+  }
+  document.addEventListener('change', (e) => { if (e.target && e.target.id === 'lpKloonDoel') pasKnopAan(); });
 
   async function laadBronnen() {
     if (state.geladen) return;
@@ -324,12 +350,62 @@
       wrap.classList.toggle('gewijzigd', invoer.value !== veld.waarde);
     });
     wrap.appendChild(invoer);
+    if (veld.soort === 'tekst' && /<p[\s>]/i.test(String(veld.waarde || ''))) {
+      wrap.appendChild(bouwAlineaEditor(veld, invoer, wrap));
+    }
     if (veld.soort === 'tekst') {
       const vink = el('input', { type: 'checkbox', 'data-ai': veld.id });
       vink.checked = Boolean(veld.standaardAi);
       label.appendChild(el('span', { class: 'kloon-ai' }, [vink, ' AI mag dit herschrijven']));
     }
     return wrap;
+  }
+
+  // -- Alinea's weghalen met voorbeeld --
+  // Voor tekstvelden met alinea's (<p>): elke alinea apart zichtbaar met een vinkje "Weghalen", en een voorbeeld
+  // van het resultaat. Zo haal je bv. de regels met vinkjes weg voordat een blok uit het portaal ervoor komt.
+  function alineasVan(html) {
+    return String(html || '').split(/(?<=<\/p>)\s*/i).filter((x) => x.trim() !== '');
+  }
+
+  function leesbaar(html) {
+    const t = String(html).replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+    return t || '(lege regel)';
+  }
+
+  function bouwAlineaEditor(veld, invoer, wrap) {
+    const delen = alineasVan(veld.waarde);
+    const weg = new Set();
+    const huidigeStuk = String(huidigeWaarde(veld));
+    // Is de tekst al aangepast, dan markeren we alinea's die er niet meer in zitten als weggehaald.
+    delen.forEach((d, i) => { if (!huidigeStuk.includes(d.trim())) weg.add(i); });
+    const frame = el('iframe', { sandbox: '', style: 'width:100%;height:150px;border:1px solid #ddd;border-radius:8px;background:#fff;resize:vertical;margin-top:6px;' });
+    const toonVoorbeeld = () => {
+      frame.srcdoc = `<!doctype html><meta charset="utf-8"><body style="margin:0;padding:10px;font:14px sans-serif;">${invoer.value}`;
+    };
+    const lijst = el('div', { class: 'kloon-alineas', style: 'margin-top:6px;' });
+    const pasToe = () => {
+      const nieuw = delen.filter((_, i) => !weg.has(i)).join('\n');
+      invoer.value = nieuw;
+      if (nieuw === veld.waarde) state.wijzigingen.delete(veld.id);
+      else state.wijzigingen.set(veld.id, nieuw);
+      wrap.classList.toggle('gewijzigd', nieuw !== veld.waarde);
+      toonVoorbeeld();
+    };
+    delen.forEach((d, i) => {
+      const vink = el('input', { type: 'checkbox' });
+      vink.checked = weg.has(i);
+      vink.addEventListener('change', () => { if (vink.checked) weg.add(i); else weg.delete(i); pasToe(); });
+      lijst.appendChild(el('label', { style: 'display:flex;gap:8px;align-items:center;font-size:13px;margin:2px 0;' }, [vink, el('span', { text: `Weghalen: ${leesbaar(d)}` })]));
+    });
+    invoer.addEventListener('input', toonVoorbeeld);
+    const doos = el('details', { style: 'margin-top:6px;' }, [
+      el('summary', { text: "Alinea's weghalen en voorbeeld" }),
+      lijst,
+      frame
+    ]);
+    toonVoorbeeld();
+    return doos;
   }
 
   // -- AI voorstel --
@@ -456,6 +532,7 @@
       velden,
       zoekvervang,
       blokken: verzamelBlokken(),
+      bijwerken: $('lpKloonDoel').value || undefined,
       dryRun
     };
   }
@@ -468,7 +545,7 @@
       doos.appendChild(el('strong', { text: 'Controle gelukt, er is niets aangemaakt.' }));
       doos.appendChild(el('p', { text: `${r.wijzigingen} wijziging(en) zouden worden doorgevoerd.` }));
     } else {
-      doos.appendChild(el('strong', { text: `Concept aangemaakt (pagina nr. ${r.id}, status ${r.status}).` }));
+      doos.appendChild(el('strong', { text: `Concept ${r.bijgewerkt ? 'bijgewerkt' : 'aangemaakt'} (pagina nr. ${r.id}, status ${r.status}).` }));
       doos.appendChild(el('p', { text: `${r.wijzigingen} wijziging(en) doorgevoerd.` }));
       const links = el('p');
       [['Openen in de builder', r.builderUrl], ['Bewerken in WordPress', r.bewerkUrl], ['Voorbeeld', r.url]].forEach(([tekst, url]) => {
@@ -492,7 +569,7 @@
     toonFout('');
     const verzoek = verzamelVerzoek(dryRun);
     if (!verzoek.titel) return toonFout('Vul een titel in voor de nieuwe pagina.');
-    if (!dryRun && !window.confirm('Er wordt een nieuw concept aangemaakt op de site van de klant. Doorgaan?')) return;
+    if (!dryRun && !window.confirm(verzoek.bijwerken ? 'Het gekozen concept op de site van de klant wordt overschreven met deze inhoud. Doorgaan?' : 'Er wordt een nieuw concept aangemaakt op de site van de klant. Doorgaan?')) return;
     const btn = dryRun ? $('lpKloonControleBtn') : $('lpKloonMaakBtn');
     setBtnLoading(btn, true, dryRun ? 'Controleren...' : 'Aanmaken...');
     try {
