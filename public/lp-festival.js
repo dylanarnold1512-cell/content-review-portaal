@@ -29,7 +29,7 @@
   const origineel = (id) => (state.velden.find((v) => v.id === id) || {}).waarde;
   const wijzigingen = () => state.velden
     .filter((v) => state.huidig.has(v.id) && state.huidig.get(v.id) !== v.waarde)
-    .map((v) => ({ id: v.id, node: v.node, pad: v.pad, soort: v.soort, oud: v.waarde, nieuw: state.huidig.get(v.id) }));
+    .map((v) => ({ id: v.id, node: v.node, pad: v.pad, module: v.module, soort: v.soort, oud: v.waarde, nieuw: state.huidig.get(v.id) }));
 
   function bewaarStap() {
     state.historie.push(new Map(state.huidig));
@@ -41,7 +41,7 @@
     try {
       const r = await lpApi('/kloon/festival/voorbeeld', {
         method: 'POST',
-        body: JSON.stringify({ klant: state.klant, bronUrl: state.bronUrl, wijzigingen: wijzigingen().map((w) => ({ oud: w.oud, nieuw: w.nieuw, soort: w.soort })) })
+        body: JSON.stringify({ klant: state.klant, bronUrl: state.bronUrl, wijzigingen: wijzigingen().map((w) => ({ oud: w.oud, nieuw: w.nieuw, soort: w.soort, node: w.node, pad: w.pad, module: w.module })) })
       });
       frame.srcdoc = r.html;
       $('lpFestInfo').dataset.nietGevonden = String(r.nietGevonden || 0);
@@ -131,7 +131,7 @@
       }
       bewaarStap();
       r.voorstellen.forEach((v) => state.huidig.set(v.id, v.waarde));
-      laatsteWaarschuwingen = r.waarschuwingen || [];
+      laatsteWaarschuwingen = [`${r.voorstellen.length} tekst(en) aangepast.`, ...(r.waarschuwingen || [])];
       $('lpFestInstructie').value = '';
       bouwTekstenLijst();
       await ververVoorbeeld();

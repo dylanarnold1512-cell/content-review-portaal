@@ -94,3 +94,22 @@ test('bouwVoorbeeldHtml: rich text met HTML wordt als HTML ingezet', () => {
   });
   assert.match(r.html, /<strong>Nieuw<\/strong>/);
 });
+
+test('bouwVoorbeedHtml via module id: rich text en kop, ook als wpautop de tekst anders heeft gemaakt', () => {
+  const html = '<html><head></head><body>' +
+    '<div class="fl-module fl-module-heading fl-node-abc123" data-node="abc123"><div class="fl-module-content fl-node-content"><h2 class="fl-heading"><span class="fl-heading-text">Op zoek naar een hostel in Breda?</span></h2></div></div>' +
+    '<div class="fl-module fl-module-rich-text fl-node-def456"><div class="fl-module-content fl-node-content"><div class="fl-rich-text"><p style="text-align: center;">Oude tekst.</p>\n<p>&nbsp;</p>\n<p style="text-align: center;">✓ Vinkje</p></div></div></div>' +
+    '</body></html>';
+  const r = f.bouwVoorbeeldHtml({
+    html,
+    baseUrl: 'https://s.nl/',
+    wijzigingen: [
+      { node: 'abc123', pad: 'heading', module: 'heading', oud: 'Op zoek naar een hostel in Breda?', nieuw: 'Slapen bij Testival & meer', soort: 'tekst' },
+      { node: 'def456', pad: 'text', module: 'rich-text', oud: '<p style="text-align: center;">Oude tekst.</p>\n&nbsp;\n<p style="text-align: center;">✓ Vinkje</p>', nieuw: '<p>Nieuwe tekst zonder vinkjes</p>', soort: 'tekst' }
+    ]
+  });
+  assert.match(r.html, /<span class="fl-heading-text">Slapen bij Testival &amp; meer<\/span>/);
+  assert.match(r.html, /<div class="fl-rich-text"><p>Nieuwe tekst zonder vinkjes<\/p><\/div>/);
+  assert.doesNotMatch(r.html, /Vinkje/);
+  assert.strictEqual(r.nietGevonden, 0);
+});

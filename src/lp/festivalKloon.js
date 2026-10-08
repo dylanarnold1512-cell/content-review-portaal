@@ -215,12 +215,72 @@ function zetVoorbeeldOm(html, baseUrl) {
   return uit;
 }
 
-// wijzigingen: [{ oud, nieuw, soort }]. Geeft { html, nietGevonden: aantal }.
+// Beaver Builder zet om elke module een element met class "fl-node-<id>". Dat id is hetzelfde als de node in de
+// layoutdata, dus een tekst is zo terug te vinden zonder de tekst zelf te hoeven matchen (die matcht niet na wpautop).
+function vindElementBalans(html, startIdx) {
+  const open = /^<([a-zA-Z][a-zA-Z0-9]*)\b/.exec(html.slice(startIdx));
+  if (!open) return -1;
+  const tag = open[1].toLowerCase();
+  const re = new RegExp(`<(/?)${tag}\\b[^>]*?(/?)>`, 'gi');
+  re.lastIndex = startIdx;
+  let diepte = 0;
+  let m;
+  while ((m = re.exec(html))) {
+    if (m[1] === '/') {
+      diepte -= 1;
+      if (diepte === 0) return m.index + m[0].length;
+    } else if (m[2] !== '/') {
+      diepte += 1;
+    }
+  }
+  return -1;
+}
+
+function vindModule(html, node) {
+  const re = new RegExp(`<[a-zA-Z][a-zA-Z0-9]*\\b[^>]*\\bclass=["'][^"']*\\bfl-node-${regexEsc(String(node))}\\b[^"']*["'][^>]*>`, 'i');
+  const m = re.exec(html);
+  if (!m) return null;
+  const einde = vindElementBalans(html, m.index);
+  return einde < 0 ? null : { start: m.index, end: einde };
+}
+
+// Vervangt de binnenkant van het eerste element in html[start,end) dat bij het patroon past.
+function vervangBinnenkant(html, start, end, openPatroon, nieuweInhoud) {
+  const stuk = html.slice(start, end);
+  const m = openPatroon.exec(stuk);
+  if (!m) return null;
+  const abs = start + m.index;
+  const elEinde = vindElementBalans(html, abs);
+  if (elEinde < 0 || elEinde > end) return null;
+  const sluitIdx = html.lastIndexOf('</', elEinde - 1);
+  const binnenStart = abs + m[0].length;
+  if (sluitIdx < binnenStart) return null;
+  return html.slice(0, binnenStart) + nieuweInhoud + html.slice(sluitIdx);
+}
+
+// Probeert een wijziging via het module id in de pagina te zetten. Geeft de nieuwe html of null.
+function zetViaModule(html, w) {
+  if (!w.node) return null;
+  const mod = vindModule(html, w.node);
+  if (!mod) return null;
+  const metHtml = /<[a-z!/]/i.test(w.nieuw);
+  if (w.pad === 'text' && w.module === 'rich-text') {
+    return vervangBinnenkant(html, mod.start, mod.end, /<div\b[^>]*\bclass=["'][^"']*\bfl-rich-text\b[^"']*["'][^>]*>/i, w.nieuw);
+  }
+  if (w.pad === 'heading' && w.module === 'heading') {
+    return vervangBinnenkant(html, mod.start, mod.end, /<[a-zA-Z0-9]+\b[^>]*\bclass=["'][^"']*\bfl-heading-text\b[^"']*["'][^>]*>/i, metHtml ? w.nieuw : esc(w.nieuw));
+  }
+  return null;
+}
+
+// wijzigingen: [{ oud, nieuw, soort, node?, pad?, module? }]. Geeft { html, nietGevonden: aantal }.
 function bouwVoorbeeldHtml({ html, baseUrl, wijzigingen }) {
   let uit = String(html || '');
   let nietGevonden = 0;
   for (const w of Array.isArray(wijzigingen) ? wijzigingen : []) {
     if (!w || typeof w.oud !== 'string' || typeof w.nieuw !== 'string' || !w.oud.trim() || w.oud === w.nieuw) continue;
+    const viaModule = zetViaModule(uit, w);
+    if (viaModule !== null) { uit = viaModule; continue; }
     const metHtml = /<[a-z!/]/i.test(w.nieuw);
     const vervanging = metHtml ? w.nieuw : esc(w.nieuw);
     const oudPlat = /<[a-z!/]/i.test(w.oud) ? w.oud : esc(w.oud);
