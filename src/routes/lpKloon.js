@@ -6,6 +6,7 @@ const { clients: lpClients, getLpClient } = require('../lp/clients');
 const { haalVelden, haalKlonen, maakKloon, stelInhoudVoor } = require('../lp/wpKloon');
 const { gebruikteFeitIds } = require('../lp/feitenDefaults');
 const { requireLpInternal } = require('../middleware/auth');
+const festival = require('../lp/festivalKloon');
 const lpNotion = require('../lp/notion');
 const templates = require('../lp/templates');
 const { lijstSecties, renderSectieHtml } = require('../lp/kloonBlokken');
@@ -113,6 +114,80 @@ router.post('/blokvoorbeeld', requireLpInternal, async (req, res) => {
     getLpClient(klant);
     const [blok] = await bouwBlokken(klant, [{ pagina, sectie, deel, na: 'voorbeeld' }]);
     res.json({ html: blok.html, titel: blok.titel });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// ---- Festivalpagina: festivalgegevens ophalen, teksten schrijven, voorbeeld tonen, teksten bijstellen ----
+
+function bronPlaatsVan(client, bron) {
+  const b = ((client.profile && client.profile.kloonBronnen) || []).find((x) => Number(x.id) === Number(bron));
+  return b && b.plaats ? b.plaats : '';
+}
+
+function klantFeitenVoor(client) {
+  const standaardIds = new Set(gebruikteFeitIds(null, client.feiten));
+  return (client.feiten || []).filter((f) => standaardIds.has(f.id)).map((f) => ({ label: f.label, waarde: f.waarde }));
+}
+
+router.post('/festival/start', requireLpInternal, async (req, res) => {
+  try {
+    const { klant, bron, festivalNaam, festivalUrl, plaats, wensen } = req.body || {};
+    const client = getLpClient(klant);
+    const velden = await haalVelden({ bron });
+    const gevonden = await festival.haalFestivalFeiten({ naam: festivalNaam, plaats, url: festivalUrl, wensen });
+    const bronPlaats = bronPlaatsVan(client, bron);
+    const voorstel = await festival.maakFestivalVoorstel({
+      velden: velden.velden,
+      festival: gevonden.festival,
+      feiten: gevonden.feiten,
+      klantFeiten: klantFeitenVoor(client),
+      nietToegestaan: client.profile.nietToegestaan,
+      toonNotitie: client.profile.toonNotitie,
+      bronPlaats
+    });
+    const waarschuwingen = [...gevonden.waarschuwingen, ...voorstel.waarschuwingen];
+    // Teksten waarin de plaats van de bronpagina nog staat, na het schrijven
+    if (bronPlaats) {
+      const nieuw = new Map(voorstel.voorstellen.map((v) => [v.id, v.waarde]));
+      const over = velden.velden.filter((v) => v.soort === 'tekst' && String(nieuw.has(v.id) ? nieuw.get(v.id) : v.waarde).toLowerCase().includes(bronPlaats.toLowerCase()));
+      if (over.length) waarschuwingen.push(`${over.length} tekst(en) noemen nog "${bronPlaats}". Zeg in het vak hieronder wat daarmee moet gebeuren.`);
+    }
+    res.json({
+      bron: velden.bron,
+      bronUrl: velden.url,
+      bronTitel: velden.titel,
+      velden: velden.velden,
+      voorstellen: voorstel.voorstellen,
+      festival: gevonden.festival,
+      feiten: gevonden.feiten,
+      waarschuwingen
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/festival/aanpassen', requireLpInternal, async (req, res) => {
+  try {
+    const { klant, instructie, velden, feiten } = req.body || {};
+    const client = getLpClient(klant);
+    res.json(await festival.reviseerTeksten({ instructie, velden, feiten: [...klantFeitenVoor(client), ...(Array.isArray(feiten) ? feiten : [])], nietToegestaan: client.profile.nietToegestaan }));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/festival/voorbeeld', requireLpInternal, async (req, res) => {
+  try {
+    const { klant, bronUrl, wijzigingen } = req.body || {};
+    const client = getLpClient(klant);
+    const toegestaan = new URL((client.profile.bedrijf && client.profile.bedrijf.url) || 'https://invalid.invalid/').hostname.replace(/^www\./, '');
+    const doel = festival.veiligeUrl(bronUrl);
+    if (doel.hostname.replace(/^www\./, '') !== toegestaan) throw new Error('Het voorbeeld kan alleen de site van de klant laten zien.');
+    const html = await festival.haalPagina(doel.toString());
+    res.json(festival.bouwVoorbeeldHtml({ html, baseUrl: `${doel.origin}/`, wijzigingen }));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

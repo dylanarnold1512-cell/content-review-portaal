@@ -479,7 +479,8 @@
       <div id="lpKloonLijst" class="admin-footnote">Laden...</div>
       <button type="button" id="lpKloonLijstBtn" class="btn-plain" style="margin:8px 0 20px;">Lijst vernieuwen</button>
 
-      <div class="admin-section-title">Nieuwe kloon maken</div>
+      <div class="admin-section-title">Festivalpagina maken</div>
+      <p class="admin-footnote">Geef een festival op. Het portaal haalt de gegevens op, schrijft de teksten van de bronpagina opnieuw, en je ziet meteen de echte pagina. Pas daarna gaat er een concept naar WordPress.</p>
       <div class="lp-field-row">
         <label for="lpKloonKlant">Klant</label>
         <select id="lpKloonKlant"></select>
@@ -487,9 +488,61 @@
       <div class="lp-field-row">
         <label for="lpKloonBron">Bronpagina</label>
         <select id="lpKloonBron"></select>
-        <span class="lp-field-hint">De pagina die als voorbeeld dient. De opmaak wordt overgenomen.</span>
+        <span class="lp-field-hint">De pagina die als voorbeeld dient. De opmaak en foto's worden overgenomen.</span>
       </div>
-      <button type="button" id="lpKloonVeldenBtn" class="btn btn-approve">Velden ophalen</button>
+      <div class="lp-field-row">
+        <label for="lpFestNaam">Naam van het festival of evenement</label>
+        <input type="text" id="lpFestNaam" autocomplete="off" placeholder="bv. Testival Tilburg">
+      </div>
+      <div class="lp-field-row">
+        <label for="lpFestUrl">Link naar de website van het festival (optioneel)</label>
+        <input type="text" id="lpFestUrl" autocomplete="off" placeholder="https://...">
+        <span class="lp-field-hint">Het portaal leest hier datum, tijden en locatie uit. Lukt dat niet, dan zie je dat en vul je ze zelf in bij de wensen.</span>
+      </div>
+      <div class="lp-field-row">
+        <label for="lpFestPlaats">Plaats (optioneel)</label>
+        <input type="text" id="lpFestPlaats" autocomplete="off" placeholder="bv. Tilburg">
+      </div>
+      <div class="lp-field-row">
+        <label for="lpFestWensen">Extra wensen of gegevens (optioneel)</label>
+        <textarea id="lpFestWensen" class="lp-json-textarea" style="min-height:80px;" placeholder="bv. 12 t/m 14 oktober 2026, focus op festivalgangers die eerder willen inchecken"></textarea>
+      </div>
+      <button type="button" id="lpFestStartBtn" class="btn btn-approve">Maak voorbeeld</button>
+
+      <div id="lpFestWerk" class="hidden" style="margin-top:24px;">
+        <div class="lp-h1">Voorbeeld</div>
+        <p id="lpFestInfo" class="admin-footnote"></p>
+        <ul id="lpFestWaarschuwingen" class="admin-footnote"></ul>
+        <iframe id="lpFestFrame" sandbox="" style="width:100%;height:78vh;border:1px solid #ddd;border-radius:10px;background:#fff;"></iframe>
+
+        <div class="lp-h1" style="margin-top:20px;">Wat moet er anders?</div>
+        <div class="lp-field-row">
+          <textarea id="lpFestInstructie" class="lp-json-textarea" style="min-height:80px;" placeholder="bv. Haal de regels met vinkjes weg en zet de datum in de grote kop"></textarea>
+        </div>
+        <div class="modal-actions" style="justify-content:flex-start;gap:10px;">
+          <button type="button" id="lpFestPasAanBtn" class="btn btn-approve">Pas aan</button>
+          <button type="button" id="lpFestOngedaanBtn" class="btn-plain">Ongedaan maken</button>
+        </div>
+
+        <details style="margin-top:16px;">
+          <summary>Teksten zelf aanpassen</summary>
+          <p class="admin-footnote">Typ in een tekst en klik daarna op "Ververs voorbeeld".</p>
+          <div id="lpFestTeksten"></div>
+          <button type="button" id="lpFestVerversBtn" class="btn-plain">Ververs voorbeeld</button>
+        </details>
+
+        <div class="lp-h1" style="margin-top:24px;">Naar WordPress</div>
+        <div class="lp-field-row">
+          <label for="lpFestTitel">Titel van de pagina</label>
+          <input type="text" id="lpFestTitel" autocomplete="off">
+        </div>
+        <button type="button" id="lpFestMaakBtn" class="btn btn-approve">Zet als concept in WordPress</button>
+        <div id="lpFestResultaat" class="hidden" style="margin-top:12px;"></div>
+      </div>
+
+      <details style="margin-top:36px;">
+        <summary>Geavanceerd: alle velden zelf aanpassen</summary>
+      <button type="button" id="lpKloonVeldenBtn" class="btn btn-approve" style="margin-top:12px;">Velden ophalen</button>
 
       <div id="lpKloonEditor" class="hidden">
         <div class="lp-h1" style="margin-top:28px;">Nieuwe pagina</div>
@@ -546,6 +599,7 @@
         </div>
         <div id="lpKloonResultaat" class="hidden" style="margin-top:16px;"></div>
       </div>
+      </details>
     </div>
   </div>
 
@@ -985,5 +1039,6 @@
 
 <script src="/lp.js"></script>
 <script src="/lp-kloon.js"></script>
+<script src="/lp-festival.js"></script>
 </body>
 </html>

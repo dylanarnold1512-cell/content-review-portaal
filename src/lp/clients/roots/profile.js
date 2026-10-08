@@ -30,7 +30,7 @@ const profile = {
   },
   // Pagina's op de klantsite die de WordPress kloon als bron mag gebruiken (zie src/lp/wpKloon.js).
   // id is het WordPress paginanummer. Vereist het PHP fragment "LP Fabriek WP kloon" op de klantsite.
-  kloonBronnen: [{ id: 14894, naam: 'Hostel bij Breda (Marions voorbeeldpagina)' }],
+  kloonBronnen: [{ id: 14894, naam: 'Hostel bij Breda (Marions voorbeeldpagina)', plaats: 'Breda' }],
   // Verwijst naar de tokens in src/lp/tokens.js (clientTokens.roots).
   tokensId: 'roots',
   // Bronprincipe (besluit 8): geen aparte claimlijst, wel een korte lijst met
