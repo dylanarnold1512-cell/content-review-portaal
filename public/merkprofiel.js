@@ -6,6 +6,7 @@
 (function () {
   let profiel = null;
   let clientId = '';
+  let termenOpen = false;
   let filter = null; // 'todo' | 'bevestigd' | 'alles', wordt bij de eerste keer bepaald
   const open = new Set(); // nummers van uitgeklapte onderdelen
 
@@ -181,6 +182,19 @@
         profiel && profiel.vasteTermen);
   }
 
+  function termenSectieHtml() {
+    const aantal = (l) => (Array.isArray(l) ? l.length : 0);
+    const samenvatting = [
+      `${aantal(profiel && profiel.verbodenTermen)} verboden termen`,
+      `${aantal(profiel && profiel.vasteTermen)} vaste schrijfwijzen`,
+      `${aantal(profiel && profiel.uitgeslotenZoektermen)} uitgesloten zoektermen`
+    ].join(', ');
+    return `<details class="mp-termen-sectie"${termenOpen ? ' open' : ''}>
+      <summary><strong>Termen en schrijfregels</strong><span class="mp-termen-samenvatting">${esc(samenvatting)}</span></summary>
+      ${uitgeslotenHtml()}${klantTermenHtml()}
+    </details>`;
+  }
+
   async function wijzigVerbod(actie, term) {
     const fout = el('merkprofielFout');
     if (fout) fout.textContent = '';
@@ -229,7 +243,7 @@
       ${klaar}${openHtml}
       <div class="mp-tabs">${tabs}</div>
       <div class="mp-kaarten">${kaarten || '<p class="mp-uitleg">Niets in deze lijst.</p>'}</div>
-      ${uitgeslotenHtml()}${klantTermenHtml()}`;
+      ${termenSectieHtml()}`;
     root.querySelectorAll('.mp-feiten').forEach((u) => { if (!u.children.length) u.remove(); });
   }
 
@@ -256,6 +270,9 @@
     const root = el('merkprofielInhoud');
     if (!root || root.dataset.gebonden) return;
     root.dataset.gebonden = '1';
+    root.addEventListener('toggle', (e) => {
+      if (e.target && e.target.classList && e.target.classList.contains('mp-termen-sectie')) termenOpen = e.target.open;
+    }, true);
     root.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter' || !e.target.classList || !e.target.classList.contains('mp-verbod-input')) return;
       e.preventDefault();

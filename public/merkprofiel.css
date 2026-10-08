@@ -93,3 +93,8 @@ button.mp-kaart-kop:hover { background: var(--bg); }
 .mp-term-weg:hover { color: var(--text); }
 .mp-verbod-form { display: flex; gap: 8px; margin: 10px 0 4px; flex-wrap: wrap; }
 .mp-verbod-input { flex: 1; min-width: 160px; border: 1px solid var(--border); border-radius: 10px; padding: 7px 10px; font: inherit; font-size: 13px; background: var(--bg); color: inherit; }
+
+.mp-termen-sectie { margin-top: 24px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 0 16px 16px; }
+.mp-termen-sectie > summary { cursor: pointer; padding: 14px 0; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; font-size: 15px; }
+.mp-termen-samenvatting { font-size: 12.5px; color: var(--text-faint); }
+.mp-termen-sectie .mp-uitgesloten { margin-top: 12px; background: var(--bg); }
