@@ -42,6 +42,7 @@
     const frame = $('lpFestFrame');
     if (!frame || e.source !== frame.contentWindow) return;
     const d = e.data;
+    if (d && d.lpfFb && Array.isArray(d.lpfFb.nodes)) { openFbPaneel(d.lpfFb); return; }
     if (d && d.lpfBlok && typeof d.lpfBlok.node === 'string') { openBlokPaneel(d.lpfBlok.node, d.lpfBlok.waar === 'voor' ? 'voor' : 'na'); return; }
     if (!d || typeof d.lpf !== 'string' || typeof d.waarde !== 'string') return;
     if (!state.velden.some((v) => v.id === d.lpf)) return;
@@ -211,35 +212,66 @@
     }
   });
 
-  $('lpFestPasAanBtn').addEventListener('click', async () => {
+  // Voert een feedbackopdracht uit op de hele pagina of op een onderdeel (scope: { node, nodes, label }).
+  async function voerFeedbackUit(instructie, btn, scope) {
     toonFout('');
-    const instructie = $('lpFestInstructie').value.trim();
     if (!instructie) return toonFout('Typ eerst wat er anders moet.');
-    const btn = $('lpFestPasAanBtn');
     setBtnLoading(btn, true, 'De AI past aan...');
     try {
-      const velden = state.velden.filter((v) => v.soort === 'tekst' && (state.huidig.get(v.id) || '').trim())
+      const inScope = (v) => !scope || scope.nodes.includes(v.node);
+      const velden = state.velden.filter((v) => v.soort === 'tekst' && inScope(v) && (state.huidig.get(v.id) || '').trim())
         .map((v) => ({ id: v.id, node: v.node, groep: v.groep, label: v.label, huidig: state.huidig.get(v.id) }));
-      const r = await lpApi('/kloon/festival/aanpassen', { method: 'POST', body: JSON.stringify({ klant: state.klant, instructie, velden, feiten: state.feiten }) });
+      const body = { klant: state.klant, instructie, velden, feiten: state.feiten };
+      if (scope) {
+        body.scope = scope.label || 'dit onderdeel';
+        body.anker = { node: scope.nodes[scope.nodes.length - 1] || scope.node, groep: scope.label || 'onderdeel' };
+      }
+      const r = await lpApi('/kloon/festival/aanpassen', { method: 'POST', body: JSON.stringify(body) });
       const nieuweBlokken = r.blokken || [];
       if (!r.voorstellen.length && !nieuweBlokken.length) {
-        laatsteWaarschuwingen = ['De AI vond niets om te veranderen. Zeg het wat concreter, bijvoorbeeld welke tekst of kop je bedoelt.'];
+        laatsteWaarschuwingen = ['De AI vond niets om te veranderen. Zeg het wat concreter, bijvoorbeeld welke tekst of kop je bedoelt.', ...(r.waarschuwingen || [])];
         toonInfo(Number($('lpFestInfo').dataset.nietGevonden || 0));
-        return;
+        return false;
       }
       bewaarStap();
       r.voorstellen.forEach((v) => state.huidig.set(v.id, v.waarde));
       nieuweBlokken.forEach((b) => state.blokken.push({ html: b.html, na: b.na, waar: b.waar, label: b.titel, plekNaam: b.plekNaam || 'onderdeel', eigen: true }));
       toonBlokLijst();
       laatsteWaarschuwingen = [`${r.voorstellen.length} tekst(en) aangepast${nieuweBlokken.length ? ` en ${nieuweBlokken.length} blok(ken) toegevoegd` : ''}.`, ...(r.waarschuwingen || [])];
-      $('lpFestInstructie').value = '';
       bouwTekstenLijst();
       await ververVoorbeeld();
+      return true;
     } catch (err) {
       toonFout(formatApiError(err));
+      return false;
     } finally {
       setBtnLoading(btn, false);
     }
+  }
+
+  $('lpFestPasAanBtn').addEventListener('click', async () => {
+    const ok = await voerFeedbackUit($('lpFestInstructie').value.trim(), $('lpFestPasAanBtn'), null);
+    if (ok) $('lpFestInstructie').value = '';
+  });
+
+  // Feedback per onderdeel: wijs een onderdeel aan in het voorbeeld, typ wat anders moet.
+  function markeerInVoorbeeld(node) {
+    const f = $('lpFestFrame');
+    if (f && f.contentWindow) f.contentWindow.postMessage({ lpfMark: node || '' }, '*');
+  }
+  function openFbPaneel(fb) {
+    toonFout('');
+    state.fb = fb;
+    $('lpFestFbNaam').textContent = `${fb.rij ? 'sectie' : 'onderdeel'} "${fb.label || 'zonder tekst'}"`;
+    $('lpFestFbPaneel').classList.remove('hidden');
+    $('lpFestFbTekst').focus();
+    markeerInVoorbeeld(fb.node);
+  }
+  $('lpFestFbAnnuleerBtn').addEventListener('click', () => { $('lpFestFbPaneel').classList.add('hidden'); state.fb = null; markeerInVoorbeeld(''); });
+  $('lpFestFbOkBtn').addEventListener('click', async () => {
+    if (!state.fb) return;
+    const ok = await voerFeedbackUit($('lpFestFbTekst').value.trim(), $('lpFestFbOkBtn'), state.fb);
+    if (ok) { $('lpFestFbTekst').value = ''; setTimeout(() => markeerInVoorbeeld(state.fb && state.fb.node), 600); }
   });
 
   $('lpFestOngedaanBtn').addEventListener('click', async () => {

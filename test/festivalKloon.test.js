@@ -208,3 +208,15 @@ test('voorbeeldscript: geen regex met backslashes die in de template string kapo
   assert.match(script, /classList/);
   assert.doesNotMatch(script, /split\(\/s\+\/\)/);
 });
+
+test('reviseerTeksten met scope en anker: blok zonder veld komt bij het anker', async () => {
+  const stijl = { styles: '', open: '<div class="x">', inner: '<b>a</b>', close: '</div>' };
+  let prompt;
+  const r = await f.reviseerTeksten({
+    instructie: 'voeg blokken toe', velden: [], feiten: [], stijl, scope: 'Hero', anker: { node: 'abc123', groep: 'Hero' },
+    callAi: async ({ userPrompt }) => { prompt = userPrompt; return { velden: [], blokken: [{ plek: 'na', titel: 't', html: '<b>nieuw</b>' }] }; }
+  });
+  assert.match(prompt, /SCOPE/);
+  assert.equal(r.blokken.length, 1);
+  assert.equal(r.blokken[0].na, 'abc123');
+});

@@ -150,15 +150,17 @@ const REVISIE_SYSTEEM = [
 ].join('\n');
 
 // stijl: { styles, open, inner, close } uit zoekStijlvoorbeeld, of null. Geeft { voorstellen, blokken, waarschuwingen }.
-async function reviseerTeksten({ instructie, velden, feiten, nietToegestaan, stijl, callAi }) {
+async function reviseerTeksten({ instructie, velden, feiten, nietToegestaan, stijl, scope, anker, callAi }) {
   if (!String(instructie || '').trim()) throw new Error('Typ eerst wat er anders moet.');
   const lijst = (Array.isArray(velden) ? velden : []).filter((v) => v && v.id && typeof v.huidig === 'string' && v.huidig.trim());
-  if (!lijst.length) throw new Error('Geen teksten om aan te passen.');
+  const ankerOk = anker && anker.node ? { node: String(anker.node), groep: String(anker.groep || 'onderdeel') } : null;
+  if (!lijst.length && !ankerOk) throw new Error('Geen teksten om aan te passen.');
   const ai = callAi || require('./ai').callOpenAi;
   const antwoord = await ai({
     systemPrompt: REVISIE_SYSTEEM,
     userPrompt: JSON.stringify({
       instructie: String(instructie).trim(),
+      ...(scope ? { SCOPE: `De instructie geldt alleen voor dit onderdeel van de pagina: "${String(scope).slice(0, 100)}". Alle velden hieronder horen bij dat onderdeel. Nieuwe blokken komen direct boven of onder dit onderdeel; laat "veld" weg of kies een veld hieronder.` } : {}),
       nietToegestaan: nietToegestaan || [],
       FEITEN: (feiten || []).map((f) => ({ label: f.label, waarde: f.waarde })),
       VOORBEELD_BLOK: stijl ? stijl.inner : null,
@@ -183,7 +185,7 @@ async function reviseerTeksten({ instructie, velden, feiten, nietToegestaan, sti
   } else {
     const { schoonBlokHtml } = require('./kloonBlokken');
     for (const b of gevraagd) {
-      const veld = perId.get(b && b.veld);
+      const veld = perId.get(b && b.veld) || (ankerOk ? { node: ankerOk.node, groep: ankerOk.groep } : null);
       const inner = schoonBlokHtml(b && b.html).trim();
       if (!veld || !veld.node || !inner) { waarschuwingen.push('Een gevraagd blok kon niet op een plek worden gezet. Zeg bij welke tekst of kop het moet komen.'); continue; }
       blokken.push({
@@ -356,8 +358,8 @@ const BEWERK_SCRIPT = `<style>[data-lpf]{transition:outline .1s}[data-lpf]:hover
   bar.id='lpf-bar';
   bar.setAttribute('style','position:absolute;z-index:2147483647;display:none;gap:6px;flex-direction:column;font:12px/1.2 sans-serif');
   function knop(w,t){var b=document.createElement('button');b.type='button';b.textContent=t;b.setAttribute('data-w',w);b.setAttribute('style','background:#e0a800;color:#111;border:0;border-radius:6px;padding:5px 9px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3)');return b;}
-  bar.appendChild(knop('voor','+ blok boven'));
-  bar.appendChild(knop('na','+ blok onder'));
+  bar.appendChild(knop('mod','AI feedback op dit onderdeel'));
+  bar.appendChild(knop('rij','AI feedback op de hele sectie'));
   document.body.appendChild(bar);
   var huidig=null,verberg=null;
   function nodeVan(m){var c=m.classList;for(var i=0;i<c.length;i++){var k=c[i];if(k.indexOf('fl-node-')===0&&k!=='fl-node-content')return k.slice(8);}return null;}
@@ -373,11 +375,34 @@ const BEWERK_SCRIPT = `<style>[data-lpf]{transition:outline .1s}[data-lpf]:hover
   });
   document.addEventListener('mouseout',function(){clearTimeout(verberg);verberg=setTimeout(function(){bar.style.display='none';},700);});
   bar.addEventListener('mouseover',function(){clearTimeout(verberg);});
+  function modulesIn(el){
+    var lijst=[];
+    if(el.classList.contains('fl-module')){var n0=nodeVan(el);if(n0)lijst.push(n0);}
+    var ms=el.querySelectorAll('.fl-module');
+    for(var i=0;i<ms.length;i++){var n=nodeVan(ms[i]);if(n&&lijst.indexOf(n)<0)lijst.push(n);}
+    return lijst;
+  }
+  function labelVan(el){
+    var h=el.querySelector('h1,h2,h3,h4,h5,h6,.fl-heading-text');
+    var t=((h||el).textContent||'').replace(/ +/g,' ').trim();
+    return t.slice(0,70);
+  }
   bar.addEventListener('click',function(e){
     var w=e.target.getAttribute&&e.target.getAttribute('data-w');
     if(!w||!huidig)return;
     e.stopPropagation();
-    parent.postMessage({lpfBlok:{node:nodeVan(huidig),waar:w}},'*');
+    var el=w==='rij'?(huidig.closest('.fl-row')||huidig):huidig;
+    var nodes=modulesIn(el);
+    parent.postMessage({lpfFb:{node:nodeVan(el)||nodeVan(huidig),rij:w==='rij',nodes:nodes,label:labelVan(el)}},'*');
+  });
+  var gemarkeerd=null;
+  window.addEventListener('message',function(e){
+    var d=e.data;
+    if(!d||typeof d.lpfMark!=='string')return;
+    if(gemarkeerd){gemarkeerd.style.outline='';gemarkeerd=null;}
+    if(!d.lpfMark)return;
+    var m=document.querySelector('.fl-node-'+d.lpfMark);
+    if(m){m.style.outline='3px solid #e0a800';m.style.outlineOffset='-3px';gemarkeerd=m;m.scrollIntoView({block:'center'});}
   });
   document.addEventListener('keydown',function(e){
     var t=e.target.closest&&e.target.closest('[data-lpf]');

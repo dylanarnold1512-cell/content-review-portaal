@@ -516,6 +516,15 @@
         <ul id="lpFestWaarschuwingen" class="admin-footnote"></ul>
         <iframe id="lpFestFrame" sandbox="allow-scripts" style="width:100%;height:78vh;border:1px solid #ddd;border-radius:10px;background:#fff;"></iframe>
 
+        <div id="lpFestFbPaneel" class="hidden" style="margin-top:12px;border:2px solid #e0a800;border-radius:12px;padding:12px 14px;background:#fffaf0;">
+          <strong>Feedback voor: <span id="lpFestFbNaam"></span></strong>
+          <p class="admin-footnote" style="margin:4px 0 8px;">Het gele kader in het voorbeeld laat zien welk onderdeel het is. De AI past alleen dit onderdeel aan.</p>
+          <textarea id="lpFestFbTekst" class="lp-json-textarea" style="min-height:70px;" placeholder="bv. haal de vinkjes weg en zet er drie blokjes onder: datum, locatie en eerder inchecken"></textarea>
+          <div class="modal-actions" style="justify-content:flex-start;gap:10px;margin-top:8px;">
+            <button type="button" id="lpFestFbOkBtn" class="btn btn-approve">Verwerk feedback</button>
+            <button type="button" id="lpFestFbAnnuleerBtn" class="btn-plain">Sluiten</button>
+          </div>
+        </div>
         <div id="lpFestBlokPaneel" class="hidden" style="margin-top:12px;border:1px solid #e0a800;border-radius:12px;padding:12px 14px;background:#fffaf0;">
           <strong id="lpFestBlokTitel">Blok toevoegen</strong>
           <div class="kloon-zoekrij" style="margin-top:8px;">
