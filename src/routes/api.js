@@ -289,4 +289,20 @@ router.post('/:clientId/merkprofiel/beoordeel', requireLogin, async (req, res) =
   }
 });
 
+// Termen die we in blogs niet gebruiken: de klant (of Advertisr) voegt er een toe,
+// haalt er een weg of zet een weggehaalde automatische term terug. Schrijft naar
+// verboden_handmatig en verboden_uitgezonderd in de Clients rij.
+router.post('/:clientId/merkprofiel/verboden', requireLogin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    const settings = await settingsService.getClientSettings(req.params.clientId, config);
+    if (!settings.merkprofiel) return res.status(404).json({ error: 'Niet beschikbaar.' });
+    const { actie, term } = req.body || {};
+    const result = await merkprofielService.wijzigVerbodenTerm(config.naam, { actie, term });
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 module.exports = router;

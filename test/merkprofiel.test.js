@@ -140,3 +140,57 @@ test('getKlantTermen gebruikt de redentabel alleen als die is ingesteld en crash
     if (oudeTabel === undefined) delete process.env.N8N_TERMEN_TABLE_ID; else process.env.N8N_TERMEN_TABLE_ID = oudeTabel;
   }
 });
+
+test('bouwVerbodenEindlijst telt automatische en handmatige termen, zonder uitgezonderde', () => {
+  const { bouwVerbodenEindlijst, termSleutel } = require('../src/services/merkprofiel');
+  assert.strictEqual(termSleutel('  Groß-handel! '), 'grosshandel'.replace('grosshandel', 'gross handel'));
+  assert.deepEqual(
+    bouwVerbodenEindlijst(['neu', 'aktuell', 'Nummer 1'], ['Gratis', 'NEU'], ['aktuell']),
+    ['neu', 'Nummer 1', 'Gratis']
+  );
+  assert.deepEqual(bouwVerbodenEindlijst([], [], []), []);
+});
+
+test('wijzigVerbodenTerm voegt toe, zondert uit, zet terug en schrijft de eindlijst mee', async () => {
+  const { wijzigVerbodenTerm } = require('../src/services/merkprofiel');
+  const oudeFetch = global.fetch;
+  const oudeKey = process.env.N8N_API_KEY;
+  process.env.N8N_API_KEY = 'test';
+  let rij = { client_name: 'Klant', verboden_auto: 'neu; aktuell', verboden_handmatig: null, verboden_uitgezonderd: null, verboden_termen: 'neu; aktuell' };
+  const schrijfacties = [];
+  const antwoord = (data) => ({ ok: true, status: 200, statusText: 'ok', text: async () => JSON.stringify(data) });
+  global.fetch = async (url, opties = {}) => {
+    if (String(url).includes('/rows/upsert')) {
+      const body = JSON.parse(opties.body);
+      schrijfacties.push(body);
+      rij = { ...rij, ...body.data };
+      return antwoord({});
+    }
+    return antwoord({ data: [rij] });
+  };
+  try {
+    let r = await wijzigVerbodenTerm('Klant', { actie: 'voeg', term: ' Gratis ' });
+    assert.deepEqual(r.verboden, ['neu', 'aktuell', 'Gratis']);
+    assert.strictEqual(schrijfacties[0].data.verboden_handmatig, 'Gratis');
+
+    r = await wijzigVerbodenTerm('Klant', { actie: 'verwijder', term: 'aktuell' });
+    assert.deepEqual(r.verboden, ['neu', 'Gratis']);
+    assert.strictEqual(rij.verboden_uitgezonderd, 'aktuell');
+
+    r = await wijzigVerbodenTerm('Klant', { actie: 'voeg', term: 'Aktuell' });
+    assert.deepEqual(r.verboden, ['neu', 'aktuell', 'Gratis']);
+    assert.strictEqual(rij.verboden_uitgezonderd, '');
+    assert.strictEqual(rij.verboden_handmatig, 'Gratis');
+
+    r = await wijzigVerbodenTerm('Klant', { actie: 'verwijder', term: 'gratis' });
+    assert.deepEqual(r.verboden, ['neu', 'aktuell']);
+    assert.strictEqual(rij.verboden_handmatig, '');
+
+    await assert.rejects(() => wijzigVerbodenTerm('Klant', { actie: 'voeg', term: 'ab' }), /3 en 40/);
+    await assert.rejects(() => wijzigVerbodenTerm('Klant', { actie: 'voeg', term: 'a;b;c' }), /puntkomma/);
+    await assert.rejects(() => wijzigVerbodenTerm('Klant', { actie: 'raar', term: 'neu' }), /actie/);
+  } finally {
+    global.fetch = oudeFetch;
+    if (oudeKey === undefined) delete process.env.N8N_API_KEY; else process.env.N8N_API_KEY = oudeKey;
+  }
+});

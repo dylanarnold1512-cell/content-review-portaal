@@ -286,15 +286,108 @@ async function getKlantTermen(clientNaam) {
   }
 }
 
+// Sleutel voor het vergelijken van termen. Gelijk aan de berekening in de n8n
+// workflow BA - Shared - Termen Afleiden: kleine letters, zonder accenten, ß als ss,
+// streepjes en leestekens als spatie.
+function termSleutel(t) {
+  return String(t || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .split('ß').join('ss')
+    .replace(/[‐-―\-_]/g, ' ')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Eindlijst = automatische termen zonder de uitgezonderde, plus de handmatige.
+// Dezelfde regel als bouwEind in de n8n workflow, zodat de nachtelijke run niets
+// terugdraait.
+function bouwVerbodenEindlijst(auto, handmatig, uitgezonderd) {
+  const uit = new Set(uitgezonderd.map(termSleutel));
+  const gezien = new Set();
+  const eind = [];
+  auto.concat(handmatig).forEach((term) => {
+    const k = termSleutel(term);
+    if (!k || gezien.has(k) || uit.has(k)) return;
+    gezien.add(k);
+    eind.push(term);
+  });
+  return eind;
+}
+
+function schoneTerm(term) {
+  const t = String(term || '').replace(/\s+/g, ' ').trim();
+  if (t.length < 3 || t.length > 40) throw new Error('Een term moet tussen 3 en 40 tekens zijn.');
+  if (t.includes(';')) throw new Error('Gebruik geen puntkomma in een term.');
+  return t;
+}
+
+async function leesClientsRij(clientNaam) {
+  const filter = encodeURIComponent(JSON.stringify(filterEq({ client_name: clientNaam })));
+  const result = await n8nRows(CLIENTS_TABLE_ID, `/rows?limit=1&filter=${filter}`);
+  return (result.data || [])[0] || null;
+}
+
+async function getVerbodenBeheer(clientNaam) {
+  try {
+    const rij = await leesClientsRij(clientNaam);
+    return {
+      handmatig: parseMerktermen(rij && rij.verboden_handmatig),
+      uitgezonderd: parseMerktermen(rij && rij.verboden_uitgezonderd)
+    };
+  } catch (err) {
+    return { handmatig: [], uitgezonderd: [] };
+  }
+}
+
+// actie: voeg (term erbij, of een eerder verwijderde automatische term terugzetten),
+// verwijder (handmatige term weg, of automatische term uitzonderen).
+// Schrijft de eindlijst meteen mee, zodat de eerstvolgende blogrun hem gebruikt.
+async function wijzigVerbodenTerm(clientNaam, { actie, term }) {
+  if (actie !== 'voeg' && actie !== 'verwijder') throw new Error('Onbekende actie.');
+  const schoon = schoneTerm(term);
+  const sleutel = termSleutel(schoon);
+  if (!sleutel) throw new Error('Deze term is niet geldig.');
+  const rij = await leesClientsRij(clientNaam);
+  if (!rij) throw new Error('Klant niet gevonden.');
+  const auto = parseMerktermen(rij.verboden_auto);
+  let handmatig = parseMerktermen(rij.verboden_handmatig);
+  let uitgezonderd = parseMerktermen(rij.verboden_uitgezonderd);
+  const gelijk = (t) => termSleutel(t) === sleutel;
+  const inAuto = auto.some(gelijk);
+  if (actie === 'voeg') {
+    if (uitgezonderd.some(gelijk)) uitgezonderd = uitgezonderd.filter((t) => !gelijk(t));
+    else if (!inAuto && !handmatig.some(gelijk)) handmatig = handmatig.concat([schoon]);
+  } else if (handmatig.some(gelijk)) {
+    handmatig = handmatig.filter((t) => !gelijk(t));
+  } else if (inAuto && !uitgezonderd.some(gelijk)) {
+    uitgezonderd = uitgezonderd.concat([auto.find(gelijk)]);
+  }
+  const eind = bouwVerbodenEindlijst(auto, handmatig, uitgezonderd);
+  const data = {
+    verboden_handmatig: handmatig.join('; '),
+    verboden_uitgezonderd: uitgezonderd.join('; '),
+    verboden_termen: eind.join('; ')
+  };
+  await n8nRows(CLIENTS_TABLE_ID, '/rows/upsert', {
+    method: 'POST',
+    body: JSON.stringify({ filter: filterEq({ client_name: clientNaam }), data })
+  });
+  return { verboden: eind, handmatig, uitgezonderd };
+}
+
 async function getMerkprofiel(clientNaam) {
   const rij = await getProfielRij(clientNaam);
   if (!rij) return { beschikbaar: false };
   const secties = parseProfiel(rij.concept);
   if (!secties) return { beschikbaar: false };
-  const [beoordelingen, uitgeslotenZoektermen, klantTermen] = await Promise.all([
+  const [beoordelingen, uitgeslotenZoektermen, klantTermen, verbodenBeheer] = await Promise.all([
     getBeoordelingen(clientNaam),
     getUitgeslotenZoektermen(clientNaam),
-    getKlantTermen(clientNaam)
+    getKlantTermen(clientNaam),
+    getVerbodenBeheer(clientNaam)
   ]);
   return {
     ...bouwWeergave(secties, beoordelingen, {
@@ -303,7 +396,9 @@ async function getMerkprofiel(clientNaam) {
     }),
     uitgeslotenZoektermen,
     verbodenTermen: klantTermen.verboden,
-    vasteTermen: klantTermen.vast
+    vasteTermen: klantTermen.vast,
+    verbodenHandmatig: verbodenBeheer.handmatig,
+    verbodenUitgezonderd: verbodenBeheer.uitgezonderd
   };
 }
 
@@ -491,5 +586,8 @@ module.exports = {
   parseMerktermen,
   bouwKlantTermen,
   getKlantTermen,
+  termSleutel,
+  bouwVerbodenEindlijst,
+  wijzigVerbodenTerm,
   saveBeoordeling
 };

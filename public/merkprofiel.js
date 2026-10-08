@@ -150,13 +150,46 @@
     </div>`;
   }
 
+  function termKey(t) {
+    return String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split('\u00df').join('ss').replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  function verbodenBlokHtml() {
+    const lijst = (profiel && profiel.verbodenTermen) || [];
+    const handmatig = new Set(((profiel && profiel.verbodenHandmatig) || []).map(termKey));
+    const uitgezonderd = (profiel && profiel.verbodenUitgezonderd) || [];
+    const chips = lijst.map((t) => {
+      const reden = t.reden ? `<span class="mp-term-reden">${esc(t.reden)}</span>` : (handmatig.has(termKey(t.term)) ? '<span class="mp-term-reden">Zelf toegevoegd</span>' : '');
+      return `<span class="mp-term"${t.reden ? ` title="${esc(t.reden)}"` : ''}><span class="mp-term-tekst">${esc(t.term)}</span><button type="button" class="mp-term-weg" data-actie="verbod-weg" data-term="${esc(t.term)}" aria-label="Haal ${esc(t.term)} weg" title="Weghalen">&times;</button>${reden}</span>`;
+    }).join('');
+    const terug = uitgezonderd.length
+      ? `<p class="mp-uitleg">Weggehaald: ${uitgezonderd.map((t) => `<button type="button" class="mp-link" data-actie="verbod-terug" data-term="${esc(t)}">${esc(t)} terugzetten</button>`).join(' ')}</p>`
+      : '';
+    return `<div class="mp-uitgesloten mp-verboden">
+      <h3>Termen die we in blogs niet gebruiken</h3>
+      <p class="mp-uitleg">Deze lijst is automatisch opgesteld uit jullie profiel, en jullie passen hem zelf aan. Staat er een term bij die wel mag? Haal hem weg. Mis je een term? Voeg hem toe. Een nieuwe blog wordt automatisch gecontroleerd op deze termen en bij een treffer herschreven. Een wijziging werkt vanaf de eerstvolgende blog.</p>
+      ${chips ? `<div class="mp-termen">${chips}</div>` : '<p class="mp-uitleg">Er staan nog geen termen op de lijst.</p>'}
+      <div class="mp-verbod-form"><input type="text" class="mp-verbod-input" maxlength="40" placeholder="Term toevoegen" aria-label="Term toevoegen"><button type="button" class="btn-save-sm" data-actie="verbod-voeg">Toevoegen</button></div>
+      ${terug}
+    </div>`;
+  }
+
   function klantTermenHtml() {
-    return termenBlokHtml('mp-verboden', 'Termen die we in blogs niet gebruiken',
-      'Deze lijst is automatisch opgesteld uit jullie profiel. De QA controle waarschuwt als een van deze termen in een blog staat.',
-      profiel && profiel.verbodenTermen) +
+    return verbodenBlokHtml() +
       termenBlokHtml('mp-vast', 'Vaste schrijfwijzen',
         'Deze namen en termen schrijven we altijd zo.',
         profiel && profiel.vasteTermen);
+  }
+
+  async function wijzigVerbod(actie, term) {
+    const fout = el('merkprofielFout');
+    if (fout) fout.textContent = '';
+    try {
+      await apiMp(`/${clientId}/merkprofiel/verboden`, { method: 'POST', body: JSON.stringify({ actie, term }) });
+      await laad(true);
+    } catch (err) {
+      if (fout) fout.textContent = err.message;
+    }
   }
 
   function render() {
@@ -223,6 +256,12 @@
     const root = el('merkprofielInhoud');
     if (!root || root.dataset.gebonden) return;
     root.dataset.gebonden = '1';
+    root.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || !e.target.classList || !e.target.classList.contains('mp-verbod-input')) return;
+      e.preventDefault();
+      const term = e.target.value.trim();
+      if (term) wijzigVerbod('voeg', term);
+    });
     root.addEventListener('click', (e) => {
       const knop = e.target.closest('[data-actie]');
       if (!knop) return;
@@ -230,6 +269,13 @@
       const kaart = knop.closest('.mp-kaart');
       const feitEl = knop.closest('.mp-feit');
       if (actie === 'filter') { filter = knop.dataset.filter; return render(); }
+      if (actie === 'verbod-weg' || actie === 'verbod-terug') return wijzigVerbod(actie === 'verbod-weg' ? 'verwijder' : 'voeg', knop.dataset.term);
+      if (actie === 'verbod-voeg') {
+        const veld = root.querySelector('.mp-verbod-input');
+        const term = veld ? veld.value.trim() : '';
+        if (!term) return;
+        return wijzigVerbod('voeg', term);
+      }
       if (actie === 'toggle') {
         const nr = Number(kaart.dataset.sectie);
         if (open.has(nr)) open.delete(nr); else open.add(nr);

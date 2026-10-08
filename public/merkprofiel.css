@@ -87,3 +87,9 @@ button.mp-kaart-kop:hover { background: var(--bg); }
 .mp-term { font-size: 12.5px; border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; background: var(--bg); }
 .mp-term-reden { display: block; font-size: 11px; color: var(--text-faint); line-height: 1.3; }
 .mp-verboden .mp-term, .mp-vast .mp-term { border-radius: 12px; }
+
+.mp-verboden .mp-term { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.mp-term-weg { border: 0; background: transparent; color: var(--text-faint); cursor: pointer; font-size: 15px; line-height: 1; padding: 0 2px; }
+.mp-term-weg:hover { color: var(--text); }
+.mp-verbod-form { display: flex; gap: 8px; margin: 10px 0 4px; flex-wrap: wrap; }
+.mp-verbod-input { flex: 1; min-width: 160px; border: 1px solid var(--border); border-radius: 10px; padding: 7px 10px; font: inherit; font-size: 13px; background: var(--bg); color: inherit; }
