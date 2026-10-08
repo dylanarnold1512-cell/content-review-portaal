@@ -330,4 +330,62 @@
       btn.textContent = state.doelId ? 'Werk het concept bij' : 'Zet als concept in WordPress';
     }
   });
+
+  // -- Bronpagina omzetten naar een portaalsjabloon --
+  let sjabBlueprint = null;
+  $('lpSjabVoorstelBtn').addEventListener('click', async () => {
+    toonFout('');
+    const klant = $('lpKloonKlant').value;
+    const bron = $('lpKloonBron').value;
+    if (!klant || !bron) return toonFout('Kies eerst een klant en een bronpagina.');
+    const btn = $('lpSjabVoorstelBtn');
+    setBtnLoading(btn, true, 'Bezig met omzetten...');
+    try {
+      const r = await lpApi('/kloon/sjabloon/voorstel', { method: 'POST', body: JSON.stringify({ klant, bron }) });
+      sjabBlueprint = r.blueprint;
+      const st = r.statistiek;
+      $('lpSjabInfo').textContent = `${st.slots} invulvelden, ${st.secties} secties, ${st.fotos} foto's, ${st.links} links. Grootte ${Math.round(st.bytes / 1024)} KB.`;
+      const lijst = $('lpSjabWaarschuwingen');
+      lijst.innerHTML = '';
+      [...(r.fouten || []).map((t) => `Fout: ${t}`), ...(r.waarschuwingen || [])].forEach((t) => lijst.appendChild(el('li', { text: t })));
+      $('lpSjabNaam').value = 'Festivals (Breda opmaak)';
+      $('lpSjabId').value = 'festivals-breda';
+      const voorbeeld = sjabVoorbeeldHtml(r.blueprint);
+      $('lpSjabFrame').srcdoc = voorbeeld;
+      $('lpSjabOpslaanBtn').disabled = !!(r.fouten && r.fouten.length);
+      $('lpSjabKlaar').classList.add('hidden');
+      $('lpSjabResultaat').classList.remove('hidden');
+    } catch (err) {
+      toonFout(formatApiError(err));
+    } finally {
+      setBtnLoading(btn, false);
+    }
+  });
+
+  // Ruwe weergave met de voorbeeldtekst, zonder thema van de site (lettertypen en kleuren kunnen daardoor afwijken).
+  function sjabVoorbeeldHtml(bp) {
+    const data = bp.voorbeeldSlotData || {};
+    const html = String(bp.htmlTemplate || '').replace(/\{\{\s*([\w.]+)\s*\}\}/g, (m, k) => String(data[k] === undefined ? '' : data[k]).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'));
+    return `<!doctype html><meta charset="utf-8"><style>body{margin:0;font-family:sans-serif}${bp.cssTemplate || ''}</style>${html}`;
+  }
+
+  $('lpSjabOpslaanBtn').addEventListener('click', async () => {
+    toonFout('');
+    const klant = $('lpKloonKlant').value;
+    const naam = $('lpSjabNaam').value.trim();
+    const blueprintId = $('lpSjabId').value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-');
+    if (!sjabBlueprint || !naam || !blueprintId) return toonFout('Vul een naam en een BlueprintId in.');
+    const btn = $('lpSjabOpslaanBtn');
+    setBtnLoading(btn, true, 'Opslaan...');
+    try {
+      await lpApi('/templates', { method: 'POST', body: JSON.stringify({ klant, naam, blueprintId, status: 'Concept', blueprint: sjabBlueprint }) });
+      const k = $('lpSjabKlaar');
+      k.textContent = `Opgeslagen als Concept sjabloon "${naam}". Je vindt het bij Sjablonen. Zet het op Actief om er pagina's van te maken.`;
+      k.classList.remove('hidden');
+    } catch (err) {
+      toonFout(formatApiError(err));
+    } finally {
+      setBtnLoading(btn, false);
+    }
+  });
 })();

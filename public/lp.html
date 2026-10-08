@@ -479,6 +479,25 @@
       <div id="lpKloonLijst" class="admin-footnote">Laden...</div>
       <button type="button" id="lpKloonLijstBtn" class="btn-plain" style="margin:8px 0 20px;">Lijst vernieuwen</button>
 
+      <details style="margin:0 0 20px;">
+        <summary><strong>Bronpagina omzetten naar een portaalsjabloon (HTML)</strong></summary>
+        <p class="admin-footnote">Zet de gekozen bronpagina (de Beaver Builder pagina, zie "Bronpagina" hieronder) om naar een sjabloon met invulvelden. Alle teksten, foto's en links worden velden, de opmaak blijft die van de pagina. Daarna kun je er pagina's van maken met "Nieuwe pagina" en feedback geven zoals bij elk sjabloon. Het sjabloon wordt als Concept opgeslagen en staat dus niet live.</p>
+        <div class="modal-actions" style="justify-content:flex-start;gap:10px;">
+          <button type="button" id="lpSjabVoorstelBtn" class="btn btn-approve">Omzetten en bekijken</button>
+        </div>
+        <div id="lpSjabResultaat" class="hidden" style="margin-top:12px;">
+          <p id="lpSjabInfo" class="admin-footnote"></p>
+          <ul id="lpSjabWaarschuwingen" class="admin-footnote"></ul>
+          <div class="lp-field-row"><label for="lpSjabNaam">Naam van het sjabloon</label><input type="text" id="lpSjabNaam" autocomplete="off"></div>
+          <div class="lp-field-row"><label for="lpSjabId">BlueprintId (kort, kleine letters en streepjes)</label><input type="text" id="lpSjabId" autocomplete="off"></div>
+          <iframe id="lpSjabFrame" sandbox="" style="width:100%;height:60vh;border:1px solid #ddd;border-radius:10px;background:#fff;"></iframe>
+          <div class="modal-actions" style="justify-content:flex-start;gap:10px;margin-top:8px;">
+            <button type="button" id="lpSjabOpslaanBtn" class="btn btn-approve">Sla op als Concept sjabloon</button>
+          </div>
+          <p id="lpSjabKlaar" class="admin-footnote hidden"></p>
+        </div>
+      </details>
+
       <div class="admin-section-title">Festivalpagina maken</div>
       <p class="admin-footnote">Geef een festival op. Het portaal haalt de gegevens op, schrijft de teksten van de bronpagina opnieuw, en je ziet meteen de echte pagina. Pas daarna gaat er een concept naar WordPress.</p>
       <div class="lp-field-row">

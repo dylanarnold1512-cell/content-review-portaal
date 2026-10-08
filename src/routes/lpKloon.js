@@ -7,6 +7,8 @@ const { haalVelden, haalKlonen, maakKloon, stelInhoudVoor } = require('../lp/wpK
 const { gebruikteFeitIds } = require('../lp/feitenDefaults');
 const { requireLpInternal } = require('../middleware/auth');
 const festival = require('../lp/festivalKloon');
+const { bouwSjabloon, vindLayoutCssUrls } = require('../lp/bbSjabloon');
+const { validateTemplateStructure } = require('../lp/validator');
 const lpNotion = require('../lp/notion');
 const templates = require('../lp/templates');
 const { lijstSecties, renderSectieHtml, zoekStijlvoorbeeld, schoonBlokHtml } = require('../lp/kloonBlokken');
@@ -205,6 +207,37 @@ router.post('/festival/voorbeeld', requireLpInternal, async (req, res) => {
     const html = await festival.haalPagina(doel.toString());
     res.json(festival.bouwVoorbeeldHtml({ html, baseUrl: `${doel.origin}/`, wijzigingen, bewerkbaar,
       blokken: (Array.isArray(blokken) ? blokken : []).slice(0, 20).map((b) => ({ html: String((b && b.html) || '').slice(0, 200 * 1024), na: String((b && b.na) || ''), waar: b && b.waar === 'voor' ? 'voor' : 'na' })) }));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+
+// ---- Een bronpagina (Beaver Builder) omzetten naar een portaalsjabloon (voorstel, wordt nog niet opgeslagen) ----
+router.post('/sjabloon/voorstel', requireLpInternal, async (req, res) => {
+  try {
+    const { klant, bron, basisBlueprintId } = req.body || {};
+    const client = getLpClient(klant);
+    const velden = await haalVelden({ bron });
+    const toegestaan = new URL((client.profile.bedrijf && client.profile.bedrijf.url) || 'https://invalid.invalid/').hostname.replace(/^www\./, '');
+    const doel = festival.veiligeUrl(velden.url);
+    if (doel.hostname.replace(/^www\./, '') !== toegestaan) throw new Error('De bronpagina hoort niet bij de site van deze klant.');
+    const html = await festival.haalPagina(doel.toString());
+    const cssUrls = vindLayoutCssUrls(html, doel.toString()).slice(0, 4);
+    if (!cssUrls.length) throw new Error('De layout CSS van Beaver Builder is niet gevonden op de pagina.');
+    let css = '';
+    for (const u of cssUrls) {
+      const cu = festival.veiligeUrl(u);
+      if (cu.hostname.replace(/^www\./, '') !== toegestaan) continue;
+      css += `${await festival.haalPagina(cu.toString())}\n`;
+    }
+    let basis = null;
+    try { basis = await templates.getActiveTemplateByBlueprintId(klant, basisBlueprintId || 'festivals'); } catch { /* geen basis, dan eigen standaardwaarden */ }
+    if (basis) { delete basis.id; delete basis.naam; delete basis.clientId; }
+    const r = bouwSjabloon({ html, css, titel: velden.titel, basisBlueprint: basis });
+    const structuur = validateTemplateStructure(r.blueprint);
+    const grootte = JSON.stringify(r.blueprint).length;
+    res.json({ blueprint: r.blueprint, statistiek: { ...r.statistiek, bytes: grootte }, waarschuwingen: [...r.waarschuwingen, ...structuur.warnings], fouten: [...structuur.errors, ...(grootte > 190000 ? [`Het sjabloon is te groot om op te slaan (${Math.round(grootte / 1024)} KB, maximaal ongeveer 190 KB).`] : [])] });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
