@@ -113,3 +113,22 @@ test('bouwVoorbeedHtml via module id: rich text en kop, ook als wpautop de tekst
   assert.doesNotMatch(r.html, /Vinkje/);
   assert.strictEqual(r.nietGevonden, 0);
 });
+
+test('bouwVoorbeeldHtml: markeert kop en tekst als bewerkbaar en voegt het bewerkscript toe', () => {
+  const html = '<html><head></head><body>' +
+    '<div class="fl-module fl-node-abc123"><div class="fl-module-content"><h2 class="fl-heading"><span class="fl-heading-text">Kop</span></h2></div></div>' +
+    '<div class="fl-module fl-node-def456"><div class="fl-module-content"><div class="fl-rich-text"><p>Tekst</p></div></div></div>' +
+    '</body></html>';
+  const r = f.bouwVoorbeeldHtml({
+    html, baseUrl: 'https://s.nl/', wijzigingen: [],
+    bewerkbaar: [
+      { id: 'abc123|heading', node: 'abc123', pad: 'heading', module: 'heading' },
+      { id: 'def456|text', node: 'def456', pad: 'text', module: 'rich-text' },
+      { id: 'zzz|text', node: 'zzz', pad: 'text', module: 'rich-text' }
+    ]
+  });
+  assert.match(r.html, /<span class="fl-heading-text" data-lpf="abc123\|heading" data-lpf-soort="plat">Kop<\/span>/);
+  assert.match(r.html, /<div class="fl-rich-text" data-lpf="def456\|text" data-lpf-soort="html"><p>Tekst<\/p><\/div>/);
+  assert.match(r.html, /postMessage/);
+  assert.strictEqual(r.bewerkbaar, 2);
+});

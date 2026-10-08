@@ -273,8 +273,60 @@ function zetViaModule(html, w) {
   return null;
 }
 
+const RICH_OPEN = /<div\b[^>]*\bclass=["'][^"']*\bfl-rich-text\b[^"']*["'][^>]*>/i;
+const HEADING_OPEN = /<[a-zA-Z0-9]+\b[^>]*\bclass=["'][^"']*\bfl-heading-text\b[^"']*["'][^>]*>/i;
+
+// Zet data-lpf="<veld id>" op het element met de tekst van een module, zodat het voorbeeld die tekst kan laten bewerken.
+function markeerBewerkbaar(html, veld) {
+  if (!veld || !veld.node || !veld.id) return html;
+  const mod = vindModule(html, veld.node);
+  if (!mod) return html;
+  let patroon = null;
+  let soort = 'html';
+  if (veld.pad === 'text' && veld.module === 'rich-text') patroon = RICH_OPEN;
+  else if (veld.pad === 'heading' && veld.module === 'heading') { patroon = HEADING_OPEN; soort = 'plat'; }
+  if (!patroon) return html;
+  const stuk = html.slice(mod.start, mod.end);
+  const m = patroon.exec(stuk);
+  if (!m) return html;
+  const abs = mod.start + m.index;
+  const sluit = abs + m[0].length - 1; // positie van ">"
+  const attr = ` data-lpf="${String(veld.id).replace(/"/g, '&quot;')}" data-lpf-soort="${soort}"`;
+  return html.slice(0, sluit) + attr + html.slice(sluit);
+}
+
+// Script dat in het voorbeeld draait (de scripts van de site zelf zijn weggehaald): klik op een gemarkeerde tekst om hem
+// te bewerken, wijzigingen gaan als bericht naar het portaal.
+const BEWERK_SCRIPT = `<style>[data-lpf]{transition:outline .1s}[data-lpf]:hover{outline:2px dashed #e0a800;outline-offset:3px;cursor:text}[data-lpf][contenteditable="true"]{outline:2px solid #e0a800;outline-offset:3px}</style><script>
+(function(){
+  function stuur(t,start){
+    var plat=t.getAttribute('data-lpf-soort')==='plat';
+    parent.postMessage({lpf:t.getAttribute('data-lpf'),waarde:plat?t.textContent:t.innerHTML,start:!!start},'*');
+  }
+  document.addEventListener('click',function(e){
+    var a=e.target.closest&&e.target.closest('a');
+    var t=e.target.closest&&e.target.closest('[data-lpf]');
+    if(a)e.preventDefault();
+    if(!t)return;
+    if(t.getAttribute('contenteditable')!=='true'){
+      t.setAttribute('contenteditable','true');
+      t.focus();
+      stuur(t,true);
+    }
+  },true);
+  document.addEventListener('input',function(e){
+    var t=e.target.closest&&e.target.closest('[data-lpf]');
+    if(t)stuur(t,false);
+  });
+  document.addEventListener('keydown',function(e){
+    var t=e.target.closest&&e.target.closest('[data-lpf]');
+    if(t&&t.getAttribute('data-lpf-soort')==='plat'&&e.key==='Enter')e.preventDefault();
+  });
+})();
+</script>`;
+
 // wijzigingen: [{ oud, nieuw, soort, node?, pad?, module? }]. Geeft { html, nietGevonden: aantal }.
-function bouwVoorbeeldHtml({ html, baseUrl, wijzigingen }) {
+function bouwVoorbeeldHtml({ html, baseUrl, wijzigingen, bewerkbaar }) {
   let uit = String(html || '');
   let nietGevonden = 0;
   for (const w of Array.isArray(wijzigingen) ? wijzigingen : []) {
@@ -301,7 +353,17 @@ function bouwVoorbeeldHtml({ html, baseUrl, wijzigingen }) {
     }
     if (!gevonden) nietGevonden += 1;
   }
-  return { html: zetVoorbeeldOm(uit, baseUrl), nietGevonden };
+  let metMarkering = uit;
+  let bewerkbaarAantal = 0;
+  for (const v of Array.isArray(bewerkbaar) ? bewerkbaar : []) {
+    const na = markeerBewerkbaar(metMarkering, v);
+    if (na !== metMarkering) bewerkbaarAantal += 1;
+    metMarkering = na;
+  }
+  let omgezet = zetVoorbeeldOm(metMarkering, baseUrl);
+  if (bewerkbaarAantal) omgezet = omgezet.replace(/<\/body>/i, () => `${BEWERK_SCRIPT}</body>`);
+  if (bewerkbaarAantal && !/<\/body>/i.test(omgezet)) omgezet += BEWERK_SCRIPT;
+  return { html: omgezet, nietGevonden, bewerkbaar: bewerkbaarAantal };
 }
 
 module.exports = {

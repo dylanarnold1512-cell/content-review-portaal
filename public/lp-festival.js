@@ -36,12 +36,26 @@
     if (state.historie.length > 30) state.historie.shift();
   }
 
+  // Wijzigingen die in het voorbeeld zelf zijn getypt komen als bericht binnen.
+  let tekstenTimer = null;
+  window.addEventListener('message', (e) => {
+    const frame = $('lpFestFrame');
+    if (!frame || e.source !== frame.contentWindow) return;
+    const d = e.data;
+    if (!d || typeof d.lpf !== 'string' || typeof d.waarde !== 'string') return;
+    if (!state.velden.some((v) => v.id === d.lpf)) return;
+    if (d.start) bewaarStap();
+    state.huidig.set(d.lpf, d.waarde);
+    clearTimeout(tekstenTimer);
+    tekstenTimer = setTimeout(bouwTekstenLijst, 600);
+  });
+
   async function ververVoorbeeld() {
     const frame = $('lpFestFrame');
     try {
       const r = await lpApi('/kloon/festival/voorbeeld', {
         method: 'POST',
-        body: JSON.stringify({ klant: state.klant, bronUrl: state.bronUrl, wijzigingen: wijzigingen().map((w) => ({ oud: w.oud, nieuw: w.nieuw, soort: w.soort, node: w.node, pad: w.pad, module: w.module })) })
+        body: JSON.stringify({ klant: state.klant, bronUrl: state.bronUrl, bewerkbaar: state.velden.filter((v) => v.soort === 'tekst' && (v.module === 'heading' || v.module === 'rich-text')).map((v) => ({ id: v.id, node: v.node, pad: v.pad, module: v.module })), wijzigingen: wijzigingen().map((w) => ({ oud: w.oud, nieuw: w.nieuw, soort: w.soort, node: w.node, pad: w.pad, module: w.module })) })
       });
       frame.srcdoc = r.html;
       $('lpFestInfo').dataset.nietGevonden = String(r.nietGevonden || 0);
