@@ -6,6 +6,9 @@ const { clients: lpClients, getLpClient } = require('../lp/clients');
 const { haalVelden, haalKlonen, maakKloon, stelInhoudVoor } = require('../lp/wpKloon');
 const { gebruikteFeitIds } = require('../lp/feitenDefaults');
 const { requireLpInternal } = require('../middleware/auth');
+const lpNotion = require('../lp/notion');
+const templates = require('../lp/templates');
+const { lijstSecties, renderSectieHtml } = require('../lp/kloonBlokken');
 
 const router = express.Router();
 
@@ -60,12 +63,50 @@ router.post('/voorstel', requireLpInternal, async (req, res) => {
   }
 });
 
+// Portaalpagina's van een klant waaruit een sectie als blok in de kloon kan.
+router.get('/portaalpaginas', requireLpInternal, async (req, res) => {
+  try {
+    getLpClient(req.query.klant);
+    const pages = await lpNotion.listPages({ klant: req.query.klant });
+    res.json({ paginas: pages.map((p) => ({ id: p.id, titel: p.titel, status: p.status, blueprint: p.blueprint })) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Secties van het sjabloon van een portaalpagina (zonder hero).
+router.get('/secties', requireLpInternal, async (req, res) => {
+  try {
+    const page = await lpNotion.getPage(req.query.pagina);
+    if (page.klant !== req.query.klant) throw new Error('Deze pagina hoort niet bij deze klant.');
+    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    res.json({ secties: lijstSecties(blueprint, page.content && page.content.slotData) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Rendert de gekozen secties server side, zodat de browser nooit zelf HTML voor WordPress aanlevert.
+async function bouwBlokken(klant, blokken) {
+  const uit = [];
+  for (const b of Array.isArray(blokken) ? blokken : []) {
+    if (!b || !b.pagina) continue;
+    const page = await lpNotion.getPage(b.pagina);
+    if (page.klant !== klant) throw new Error('Een gekozen portaalpagina hoort niet bij deze klant.');
+    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const secties = lijstSecties(blueprint, page.content && page.content.slotData);
+    const label = (secties.find((s) => s.index === Number(b.sectie)) || {}).label || `onderdeel ${Number(b.sectie) + 1}`;
+    uit.push({ na: b.na, titel: `${page.titel}: ${label}`, html: renderSectieHtml({ blueprint, pagina: page, sectie: b.sectie }) });
+  }
+  return uit;
+}
+
 router.post('/maak', requireLpInternal, async (req, res) => {
   try {
-    const { klant, bron, titel, slug, metaTitel, metaBeschrijving, velden, zoekvervang, dryRun } = req.body || {};
+    const { klant, bron, titel, slug, metaTitel, metaBeschrijving, velden, zoekvervang, blokken, dryRun } = req.body || {};
     const client = getLpClient(klant);
     const seoPlugin = client.profile.seo && client.profile.seo.plugin;
-    const resultaat = await maakKloon({ bron, titel, slug, seoPlugin, metaTitel, metaBeschrijving, velden, zoekvervang, dryRun });
+    const resultaat = await maakKloon({ bron, titel, slug, seoPlugin, metaTitel, metaBeschrijving, velden, zoekvervang, blokken: await bouwBlokken(klant, blokken), dryRun });
     res.json(resultaat);
   } catch (err) {
     res.status(400).json({ error: err.message });

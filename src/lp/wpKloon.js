@@ -97,7 +97,7 @@ function schoneSlug(slug) {
 
 // Bouwt het verzoek voor de n8n webhook. Alleen velden met een echte wijziging worden meegestuurd.
 // status is altijd "draft", wat de aanroeper ook vraagt.
-function bouwKloonVerzoek({ bron, titel, slug, seoPlugin, metaTitel, metaBeschrijving, velden, zoekvervang, dryRun }) {
+function bouwKloonVerzoek({ bron, titel, slug, seoPlugin, metaTitel, metaBeschrijving, velden, zoekvervang, blokken, dryRun }) {
   const bronId = Number(bron);
   if (!Number.isInteger(bronId) || bronId <= 0) throw new Error('Bronpagina ontbreekt of is geen geldig paginanummer.');
   const naam = String(titel || '').trim();
@@ -118,6 +118,18 @@ function bouwKloonVerzoek({ bron, titel, slug, seoPlugin, metaTitel, metaBeschri
     .filter((z) => z && typeof z.zoek === 'string' && z.zoek.trim() !== '')
     .map((z) => ({ zoek: z.zoek, vervang: typeof z.vervang === 'string' ? z.vervang : '' }));
 
+  // Portaalsecties die als HTML module in de kloon komen: na = id van de module waarna het blok komt.
+  const opgeschoondeBlokken = [];
+  for (const b of Array.isArray(blokken) ? blokken : []) {
+    if (!b) continue;
+    const na = String(b.na || '').trim();
+    const html = typeof b.html === 'string' ? b.html.trim() : '';
+    if (!na) throw new Error('Bij een blok ontbreekt de plek (na welk onderdeel het komt).');
+    if (!html) throw new Error('Een blok heeft geen inhoud.');
+    if (Buffer.byteLength(html, 'utf8') > 200 * 1024) throw new Error('Een blok is te groot.');
+    opgeschoondeBlokken.push({ na, html, titel: String(b.titel || '').slice(0, 80) });
+  }
+
   const verzoek = {
     modus: 'kloon',
     bron: bronId,
@@ -128,6 +140,7 @@ function bouwKloonVerzoek({ bron, titel, slug, seoPlugin, metaTitel, metaBeschri
     zoekvervang: opgeschoondeZoek,
     dry_run: Boolean(dryRun)
   };
+  if (opgeschoondeBlokken.length) verzoek.blokken = opgeschoondeBlokken;
   if (seoPlugin && (metaTitel || metaBeschrijving)) {
     verzoek.seo = { plugin: seoPlugin, titel: metaTitel || '', beschrijving: metaBeschrijving || '' };
   }

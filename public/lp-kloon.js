@@ -139,6 +139,7 @@
       $('lpKloonTitel').value = '';
       $('lpKloonSlug').value = '';
       $('lpKloonZoekRijen').innerHTML = '';
+      $('lpKloonBlokRijen').innerHTML = '';
       voegZoekRijToe();
       renderVelden();
       $('lpKloonResultaat').classList.add('hidden');
@@ -158,6 +159,66 @@
     $('lpKloonZoekRijen').appendChild(rij);
   }
   $('lpKloonZoekAddBtn').addEventListener('click', voegZoekRijToe);
+
+  // -- Blokken uit het portaal --
+  async function portaalPaginas() {
+    if (state.portaalPaginas && state.portaalKlant === state.klant) return state.portaalPaginas;
+    const data = await lpApi(`/kloon/portaalpaginas?klant=${encodeURIComponent(state.klant)}`);
+    state.portaalPaginas = data.paginas;
+    state.portaalKlant = state.klant;
+    return data.paginas;
+  }
+
+  function plaatsOpties() {
+    const gezien = new Set();
+    const opties = [];
+    state.velden.forEach((v) => {
+      if (gezien.has(v.node)) return;
+      gezien.add(v.node);
+      opties.push({ node: v.node, label: v.groep });
+    });
+    return opties;
+  }
+
+  async function voegBlokRijToe() {
+    toonFout('');
+    try {
+      const paginas = await portaalPaginas();
+      if (!paginas.length) return toonFout('Deze klant heeft nog geen portaalpagina\'s.');
+      const pagSel = el('select', { 'data-rol': 'pagina' }, paginas.map((p) => el('option', { value: p.id, text: p.titel })));
+      const secSel = el('select', { 'data-rol': 'sectie' });
+      const naSel = el('select', { 'data-rol': 'na' }, plaatsOpties().map((o) => el('option', { value: o.node, text: `na: ${o.label}` })));
+      const laadSecties = async () => {
+        secSel.innerHTML = '';
+        try {
+          const { secties } = await lpApi(`/kloon/secties?klant=${encodeURIComponent(state.klant)}&pagina=${encodeURIComponent(pagSel.value)}`);
+          secties.forEach((s) => secSel.appendChild(el('option', { value: s.index, text: s.label })));
+          if (!secties.length) secSel.appendChild(el('option', { value: '', text: '(geen onderdelen)' }));
+        } catch (err) {
+          secSel.appendChild(el('option', { value: '', text: '(laden mislukt)' }));
+          toonFout(formatApiError(err));
+        }
+      };
+      pagSel.addEventListener('change', laadSecties);
+      const rij = el('div', { class: 'kloon-zoekrij' }, [
+        pagSel, secSel, naSel,
+        el('button', { type: 'button', class: 'btn-plain', text: 'Weghalen', onclick: () => rij.remove() })
+      ]);
+      $('lpKloonBlokRijen').appendChild(rij);
+      laadSecties();
+    } catch (err) {
+      toonFout(formatApiError(err));
+    }
+  }
+  $('lpKloonBlokAddBtn').addEventListener('click', voegBlokRijToe);
+
+  function verzamelBlokken() {
+    return [...document.querySelectorAll('#lpKloonBlokRijen > div')].map((rij) => ({
+      pagina: rij.querySelector('[data-rol="pagina"]').value,
+      sectie: rij.querySelector('[data-rol="sectie"]').value,
+      na: rij.querySelector('[data-rol="na"]').value
+    })).filter((b) => b.pagina && b.sectie !== '' && b.na);
+  }
 
   function huidigeWaarde(veld) {
     return state.wijzigingen.has(veld.id) ? state.wijzigingen.get(veld.id) : veld.waarde;
@@ -335,6 +396,7 @@
       metaBeschrijving: $('lpKloonMetaBeschrijving').value.trim(),
       velden,
       zoekvervang,
+      blokken: verzamelBlokken(),
       dryRun
     };
   }
