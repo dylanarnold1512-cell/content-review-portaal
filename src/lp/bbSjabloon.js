@@ -229,10 +229,15 @@ function bouwSjabloon({ html, css, titel, basisBlueprint, themaCss }) {
   loop(inhoud, null);
 
   // 4. Achtergrondafbeeldingen in de layout CSS worden slots op het element zelf
-  let layoutCss = String(css || '') + '\n' + extraCss.join('\n');
+  // Volgorde zoals op de originele pagina: de layout CSS van Beaver Builder staat daar VOOR de CSS van het thema en
+  // van de site, dus die wint. In een sjabloon staat de CSS juist na de themaCSS. Met @layer krijgt de layout CSS
+  // dezelfde (lage) voorrang als op de originele pagina. Stijlblokken die midden in de pagina stonden blijven gewoon
+  // staan (die wonnen ook al).
   const bgRe = /(\.fl-node-([a-z0-9]+)[^{}]*)\{([^{}]*?)background-image\s*:\s*url\(\s*['"]?(https?:[^'")]+)['"]?\s*\)\s*;?([^{}]*)\}/gi;
   let bgNr = 0;
-  layoutCss = layoutCss.replace(bgRe, (m, sel, node, voor, url, na) => {
+  const minimaliseer = (t) => t.replace(/@import[^;]*;/gi, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ').replace(/\s*([{};,>])\s*/g, '$1').trim();
+  function verwerk(tekst) {
+  tekst = tekst.replace(bgRe, (m, sel, node, voor, url, na) => {
     const wortelEl = vind(inhoud, (x) => klassen(x).includes(`fl-node-${node}`))[0];
     const rest = sel.trim().replace(/^\.fl-node-[a-z0-9]+/, '').replace(/[>\s]+$/, '').trim();
     const klasse = /\.([\w-]+)\s*$/.exec(rest);
@@ -251,22 +256,25 @@ function bouwSjabloon({ html, css, titel, basisBlueprint, themaCss }) {
     zetAttr(doel, 'style', `${bestaand}${bestaand && !bestaand.trim().endsWith(';') ? ';' : ''}background-image:url({{${sleutel}}});`);
     return `${sel}{${regels}}`;
   });
-  const overigeUrls = layoutCss.match(/url\(\s*['"]?https?:[^)]*\)/gi) || [];
-  if (overigeUrls.length) {
-    waarschuwingen.push(`${overigeUrls.length} externe url() verwijzing(en) in de CSS zijn eruit gehaald (lettertypen of afbeeldingen). Lettertypen komen van het thema van de site.`);
-    layoutCss = layoutCss.replace(/url\(\s*['"]?https?:[^)]*\)/gi, 'none');
+    const overigeUrls = tekst.match(/url\(\s*['"]?https?:[^)]*\)/gi) || [];
+    if (overigeUrls.length) {
+      waarschuwingen.push(`${overigeUrls.length} externe url() verwijzing(en) in de CSS zijn eruit gehaald (lettertypen of afbeeldingen). Lettertypen komen van het thema van de site.`);
+      tekst = tekst.replace(/url\(\s*['"]?https?:[^)]*\)/gi, 'none');
+    }
+    // De kop die H1 wordt: de opmaakregels van Beaver Builder voor die kop wijzen naar de oude tag (bv. h2.fl-heading).
+    if (h1Wijziging && h1Wijziging.node && h1Wijziging.van !== 'h1') {
+      const reNode = new RegExp(`(\\.fl-node-${h1Wijziging.node}\\b[^{}]*?)\\b${h1Wijziging.van}(?=[.\\s,{>:\\[])`, 'g');
+      tekst = tekst.replace(reNode, '$1h1');
+    }
+    return minimaliseer(tekst);
   }
-  // De kop die H1 wordt: de opmaakregels van Beaver Builder voor die kop wijzen naar de oude tag (bv. h2.fl-heading).
-  if (h1Wijziging && h1Wijziging.node && h1Wijziging.van !== 'h1') {
-    const reNode = new RegExp(`(\\.fl-node-${h1Wijziging.node}\\b[^{}]*?)\\b${h1Wijziging.van}(?=[.\\s,{>:\\[])`, 'g');
-    layoutCss = layoutCss.replace(reNode, '$1h1');
-  }
+  const lagen = verwerk(String(css || ''));
+  let ongelaagd = verwerk(extraCss.join('\n'));
   if (h1Wijziging && h1Wijziging.node && h1Wijziging.van !== 'h1' && themaCss) {
-    const extra = themaRegelsVoorTag(String(themaCss), h1Wijziging.van, `.fl-builder-content .fl-node-${h1Wijziging.node} h1.fl-heading`);
-    if (extra) layoutCss += `\n${extra}`;
+    const extra = themaRegelsVoorTag(String(themaCss), h1Wijziging.van, `.fl-node-${h1Wijziging.node} h1.fl-heading`);
+    if (extra) ongelaagd = `${minimaliseer(extra)}${ongelaagd}`;
   }
-  layoutCss = layoutCss.replace(/@import[^;]*;/gi, '')
-    .replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ').replace(/\s*([{};,>])\s*/g, '$1').trim();
+  const layoutCss = `${lagen ? `@layer lpbb{${lagen}}` : ''}${ongelaagd}`;
 
   const htmlTemplate = serialiseer({ type: 'el', name: '#root', attrs: [], children: [{ ...inhoud, name: 'div' }] });
 

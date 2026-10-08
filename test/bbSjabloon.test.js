@@ -58,3 +58,9 @@ test('themaRegelsVoorTag: neemt de regels voor een kale h2 over, ook in media qu
   const uit = themaRegelsVoorTag('h1,h2,h3{margin:0}h1{font-size:50px}h2{font-size:40px}@media (max-width:600px){h2{font-size:28px}h1{font-size:34px}}.x h2{color:red}', 'h2', '.k h1');
   assert.equal(uit, '.k h1{margin:0}.k h1{font-size:40px}@media (max-width:600px){.k h1{font-size:28px}}');
 });
+
+test('bbSjabloon: layout CSS komt in een @layer zodat het thema voorrang houdt, net als op de originele pagina', () => {
+  const bp = bouwSjabloon({ html: HTML, css: CSS, titel: 'Hostel' }).blueprint;
+  assert.match(bp.cssTemplate, /^@layer lpbb\{/);
+  assert.match(bp.cssTemplate, /\.fl-node-r1\{color:red\}/);
+});
