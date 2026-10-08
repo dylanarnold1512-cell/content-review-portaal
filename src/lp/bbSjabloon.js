@@ -102,7 +102,7 @@ function bevatBlok(n) {
 // ---- Omzetten ----
 const ANIMATIE_RE = /^fl-(animation|fade|slide|zoom|bounce|flip|rotate|lightspeed|roll|jack|pulse|rubber|shake|swing|tada|wobble|jello|heartbeat|flash|hinge)\b|^fl-(animation|fadeIn|fadeIn\w+|slideIn\w+)$|^(animated|wow|fl-animation)$/;
 
-function bouwSjabloon({ html, css, titel, basisBlueprint, themaCss }) {
+function bouwSjabloon({ html, css, titel, basisBlueprint, themaCss, siteCss }) {
   const waarschuwingen = [];
   const wortel = parseer(String(html || ''));
   const inhoud = vind(wortel, (n) => klassen(n).includes('fl-builder-content'))[0];
@@ -230,13 +230,15 @@ function bouwSjabloon({ html, css, titel, basisBlueprint, themaCss }) {
 
   // 4. Achtergrondafbeeldingen in de layout CSS worden slots op het element zelf
   // Volgorde zoals op de originele pagina: de layout CSS van Beaver Builder staat daar VOOR de CSS van het thema en
-  // van de site, dus die wint. In een sjabloon staat de CSS juist na de themaCSS. Met @layer krijgt de layout CSS
-  // dezelfde (lage) voorrang als op de originele pagina. Stijlblokken die midden in de pagina stonden blijven gewoon
-  // staan (die wonnen ook al).
+  // van de site (de eigen CSS van de site wint dus bij gelijke zwaarte), en stijlblokken die midden in de pagina stonden
+  // komen daarna. In een sjabloon staat alles in de pagina zelf, dus achter de CSS van het thema. Daarom komt de eigen CSS
+  // van de site hier nog een keer achter de layout CSS, zodat de volgorde weer klopt. Een @layer is geen oplossing:
+  // dat zet de zwaarte van selectors buiten werking.
   const bgRe = /(\.fl-node-([a-z0-9]+)[^{}]*)\{([^{}]*?)background-image\s*:\s*url\(\s*['"]?(https?:[^'")]+)['"]?\s*\)\s*;?([^{}]*)\}/gi;
   let bgNr = 0;
   const minimaliseer = (t) => t.replace(/@import[^;]*;/gi, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ').replace(/\s*([{};,>])\s*/g, '$1').trim();
   function verwerk(tekst) {
+    tekst = tekst.replace(/@font-face\s*\{[^{}]*\}/gi, '');
   tekst = tekst.replace(bgRe, (m, sel, node, voor, url, na) => {
     const wortelEl = vind(inhoud, (x) => klassen(x).includes(`fl-node-${node}`))[0];
     const rest = sel.trim().replace(/^\.fl-node-[a-z0-9]+/, '').replace(/[>\s]+$/, '').trim();
@@ -269,12 +271,15 @@ function bouwSjabloon({ html, css, titel, basisBlueprint, themaCss }) {
     return minimaliseer(tekst);
   }
   const lagen = verwerk(String(css || ''));
-  let ongelaagd = verwerk(extraCss.join('\n'));
+  const inlineCss = verwerk(extraCss.join('\n'));
+  let h1Extra = '';
   if (h1Wijziging && h1Wijziging.node && h1Wijziging.van !== 'h1' && themaCss) {
     const extra = themaRegelsVoorTag(String(themaCss), h1Wijziging.van, `.fl-node-${h1Wijziging.node} h1.fl-heading`);
-    if (extra) ongelaagd = `${minimaliseer(extra)}${ongelaagd}`;
+    if (extra) h1Extra = minimaliseer(extra);
   }
-  const layoutCss = `${lagen ? `@layer lpbb{${lagen}}` : ''}${ongelaagd}`;
+  // @font-face blijft weg: die staat al in de pagina zelf, een tweede definitie zou de eerste kunnen overschrijven.
+  const siteVolgorde = siteCss ? verwerk(String(siteCss).replace(/@font-face\s*\{[^{}]*\}/gi, '')) : '';
+  const layoutCss = `${lagen}${h1Extra}${siteVolgorde}${inlineCss}`;
 
   const htmlTemplate = serialiseer({ type: 'el', name: '#root', attrs: [], children: [{ ...inhoud, name: 'div' }] });
 
@@ -367,9 +372,10 @@ function vindThemaCssUrls(html, baseUrl) {
   return [...new Set(uit)];
 }
 
-function vindInlineThemaCss(html) {
+function vindInlineThemaCss(html, alleenSite) {
   const uit = [];
-  for (const m of String(html || '').matchAll(/<style\b[^>]*id=["'](?:wp-custom-css|global-styles-inline-css)["'][^>]*>([\s\S]*?)<\/style>/gi)) uit.push(m[1]);
+  const ids = alleenSite ? 'wp-custom-css' : 'wp-custom-css|global-styles-inline-css';
+  for (const m of String(html || '').matchAll(new RegExp(`<style\\b[^>]*id=["'](?:${ids})["'][^>]*>([\\s\\S]*?)<\\/style>`, 'gi'))) uit.push(m[1]);
   return uit.join('\n');
 }
 

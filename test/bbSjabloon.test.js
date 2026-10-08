@@ -59,8 +59,8 @@ test('themaRegelsVoorTag: neemt de regels voor een kale h2 over, ook in media qu
   assert.equal(uit, '.k h1{margin:0}.k h1{font-size:40px}@media (max-width:600px){.k h1{font-size:28px}}');
 });
 
-test('bbSjabloon: layout CSS komt in een @layer zodat het thema voorrang houdt, net als op de originele pagina', () => {
-  const bp = bouwSjabloon({ html: HTML, css: CSS, titel: 'Hostel' }).blueprint;
-  assert.match(bp.cssTemplate, /^@layer lpbb\{/);
-  assert.match(bp.cssTemplate, /\.fl-node-r1\{color:red\}/);
+test('bbSjabloon: de eigen CSS van de site komt na de layout CSS, zonder @font-face', () => {
+  const bp = bouwSjabloon({ html: HTML, css: CSS, titel: 'Hostel', siteCss: '@font-face{font-family:X;src:url(/a.woff)}.fl-node-r1{color:blue}' }).blueprint;
+  assert.doesNotMatch(bp.cssTemplate, /@layer|@font-face/);
+  assert.ok(bp.cssTemplate.indexOf('color:red') < bp.cssTemplate.indexOf('color:blue'));
 });

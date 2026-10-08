@@ -243,7 +243,7 @@ router.post('/sjabloon/voorstel', requireLpInternal, async (req, res) => {
     let basis = null;
     try { basis = await templates.getActiveTemplateByBlueprintId(klant, basisBlueprintId || 'festivals'); } catch { /* geen basis, dan eigen standaardwaarden */ }
     if (basis) { delete basis.id; delete basis.naam; delete basis.clientId; }
-    const r = bouwSjabloon({ html, css, titel: velden.titel, basisBlueprint: basis, themaCss });
+    const r = bouwSjabloon({ html, css, titel: velden.titel, basisBlueprint: basis, themaCss, siteCss: vindInlineThemaCss(html, true) });
     const structuur = validateTemplateStructure(r.blueprint);
     const grootte = JSON.stringify(r.blueprint).length;
     res.json({ blueprint: r.blueprint, statistiek: { ...r.statistiek, bytes: grootte }, waarschuwingen: [...r.waarschuwingen, ...structuur.warnings], fouten: [...structuur.errors, ...(grootte > 190000 ? [`Het sjabloon is te groot om op te slaan (${Math.round(grootte / 1024)} KB, maximaal ongeveer 190 KB).`] : [])] });
