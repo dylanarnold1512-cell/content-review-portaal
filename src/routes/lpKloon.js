@@ -7,7 +7,7 @@ const { haalVelden, haalKlonen, maakKloon, stelInhoudVoor } = require('../lp/wpK
 const { gebruikteFeitIds } = require('../lp/feitenDefaults');
 const { requireLpInternal } = require('../middleware/auth');
 const festival = require('../lp/festivalKloon');
-const { bouwSjabloon, vindLayoutCssUrls } = require('../lp/bbSjabloon');
+const { bouwSjabloon, vindLayoutCssUrls, vindThemaCssUrls, vindInlineThemaCss } = require('../lp/bbSjabloon');
 const { validateTemplateStructure } = require('../lp/validator');
 const lpNotion = require('../lp/notion');
 const templates = require('../lp/templates');
@@ -231,10 +231,19 @@ router.post('/sjabloon/voorstel', requireLpInternal, async (req, res) => {
       if (cu.hostname.replace(/^www\./, '') !== toegestaan) continue;
       css += `${await festival.haalPagina(cu.toString())}\n`;
     }
+    // Themaregels (bv. de opmaak van h2), in de volgorde waarin de browser ze toepast
+    let themaCss = '';
+    for (const u of vindThemaCssUrls(html, doel.toString()).slice(0, 4)) {
+      try {
+        const cu = festival.veiligeUrl(u);
+        if (cu.hostname.replace(/^www\./, '') === toegestaan) themaCss += `${await festival.haalPagina(cu.toString())}\n`;
+      } catch { /* een thema stylesheet dat niet laadt is niet erg */ }
+    }
+    themaCss += vindInlineThemaCss(html);
     let basis = null;
     try { basis = await templates.getActiveTemplateByBlueprintId(klant, basisBlueprintId || 'festivals'); } catch { /* geen basis, dan eigen standaardwaarden */ }
     if (basis) { delete basis.id; delete basis.naam; delete basis.clientId; }
-    const r = bouwSjabloon({ html, css, titel: velden.titel, basisBlueprint: basis });
+    const r = bouwSjabloon({ html, css, titel: velden.titel, basisBlueprint: basis, themaCss });
     const structuur = validateTemplateStructure(r.blueprint);
     const grootte = JSON.stringify(r.blueprint).length;
     res.json({ blueprint: r.blueprint, statistiek: { ...r.statistiek, bytes: grootte }, waarschuwingen: [...r.waarschuwingen, ...structuur.warnings], fouten: [...structuur.errors, ...(grootte > 190000 ? [`Het sjabloon is te groot om op te slaan (${Math.round(grootte / 1024)} KB, maximaal ongeveer 190 KB).`] : [])] });

@@ -52,3 +52,9 @@ test('bbSjabloon: opmaakregels van de kop die H1 wordt volgen de nieuwe tag', ()
   assert.match(bp.cssTemplate, /\.fl-node-h1x h1\.fl-heading \.fl-heading-text\{font-size:30px\}/);
   assert.match(bp.cssTemplate, /\.fl-node-zz h2\.fl-heading\{color:red\}/);
 });
+
+test('themaRegelsVoorTag: neemt de regels voor een kale h2 over, ook in media queries', () => {
+  const { themaRegelsVoorTag } = require('../src/lp/bbSjabloon');
+  const uit = themaRegelsVoorTag('h1,h2,h3{margin:0}h1{font-size:50px}h2{font-size:40px}@media (max-width:600px){h2{font-size:28px}h1{font-size:34px}}.x h2{color:red}', 'h2', '.k h1');
+  assert.equal(uit, '.k h1{margin:0}.k h1{font-size:40px}@media (max-width:600px){.k h1{font-size:28px}}');
+});

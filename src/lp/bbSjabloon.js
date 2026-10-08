@@ -102,7 +102,7 @@ function bevatBlok(n) {
 // ---- Omzetten ----
 const ANIMATIE_RE = /^fl-(animation|fade|slide|zoom|bounce|flip|rotate|lightspeed|roll|jack|pulse|rubber|shake|swing|tada|wobble|jello|heartbeat|flash|hinge)\b|^fl-(animation|fadeIn|fadeIn\w+|slideIn\w+)$|^(animated|wow|fl-animation)$/;
 
-function bouwSjabloon({ html, css, titel, basisBlueprint }) {
+function bouwSjabloon({ html, css, titel, basisBlueprint, themaCss }) {
   const waarschuwingen = [];
   const wortel = parseer(String(html || ''));
   const inhoud = vind(wortel, (n) => klassen(n).includes('fl-builder-content'))[0];
@@ -261,6 +261,10 @@ function bouwSjabloon({ html, css, titel, basisBlueprint }) {
     const reNode = new RegExp(`(\\.fl-node-${h1Wijziging.node}\\b[^{}]*?)\\b${h1Wijziging.van}(?=[.\\s,{>:\\[])`, 'g');
     layoutCss = layoutCss.replace(reNode, '$1h1');
   }
+  if (h1Wijziging && h1Wijziging.node && h1Wijziging.van !== 'h1' && themaCss) {
+    const extra = themaRegelsVoorTag(String(themaCss), h1Wijziging.van, `.fl-builder-content .fl-node-${h1Wijziging.node} h1.fl-heading`);
+    if (extra) layoutCss += `\n${extra}`;
+  }
   layoutCss = layoutCss.replace(/@import[^;]*;/gi, '')
     .replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ').replace(/\s*([{};,>])\s*/g, '$1').trim();
 
@@ -309,4 +313,56 @@ function vindLayoutCssUrls(html, baseUrl) {
   return [...new Set(uit)];
 }
 
-module.exports = { bouwSjabloon, vindLayoutCssUrls, parseer, serialiseer, decodeer };
+
+// Het thema stijlt koppen via de tag (h2 is bv. 40px). Wordt een h2 een h1 (de H1 eis van het portaal), dan zou de kop
+// de opmaak van h1 krijgen. Daarom worden de themaregels voor een kale h2 nogmaals uitgegeven voor deze ene kop.
+function themaRegelsVoorTag(css, tag, nieuweSelector) {
+  const tekst = String(css).replace(/\/\*[\s\S]*?\*\//g, '');
+  function loop(i, eind) {
+    let uit = '';
+    while (i < eind) {
+      const open = tekst.indexOf('{', i);
+      if (open === -1 || open >= eind) break;
+      const sel = tekst.slice(i, open).trim();
+      let diepte = 1;
+      let j = open + 1;
+      while (j < tekst.length && diepte > 0) {
+        if (tekst[j] === '{') diepte += 1;
+        else if (tekst[j] === '}') diepte -= 1;
+        j += 1;
+      }
+      const body = tekst.slice(open + 1, j - 1);
+      if (/^@media/i.test(sel)) {
+        const binnen = loop(open + 1, j - 1);
+        if (binnen) uit += `${sel}{${binnen}}`;
+      } else if (!sel.startsWith('@')) {
+        if (sel.split(',').some((x) => x.trim().toLowerCase() === tag)) uit += `${nieuweSelector}{${body.trim()}}`;
+      }
+      i = j;
+    }
+    return uit;
+  }
+  return loop(0, tekst.length);
+}
+
+// Stylesheets van het thema (en de eigen CSS van de site) in de HTML van de pagina.
+function vindThemaCssUrls(html, baseUrl) {
+  const uit = [];
+  for (const m of String(html || '').matchAll(/<link\b[^>]*>/gi)) {
+    const href = /href=["']([^"']+)["']/i.exec(m[0]);
+    if (!href) continue;
+    const h = decodeer(href[1]);
+    if (/\/wp-content\/(themes\/[^/]+\/css\/bootstrap(?:\.min)?\.css|uploads\/bb-theme\/skin-[\w-]+\.css|themes\/[^/]+\/style\.css)/i.test(h)) {
+      try { uit.push(new URL(h, baseUrl).toString()); } catch { /* sla over */ }
+    }
+  }
+  return [...new Set(uit)];
+}
+
+function vindInlineThemaCss(html) {
+  const uit = [];
+  for (const m of String(html || '').matchAll(/<style\b[^>]*id=["'](?:wp-custom-css|global-styles-inline-css)["'][^>]*>([\s\S]*?)<\/style>/gi)) uit.push(m[1]);
+  return uit.join('\n');
+}
+
+module.exports = { themaRegelsVoorTag, vindThemaCssUrls, vindInlineThemaCss, bouwSjabloon, vindLayoutCssUrls, parseer, serialiseer, decodeer };
