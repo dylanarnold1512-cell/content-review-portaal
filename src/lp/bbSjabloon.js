@@ -152,6 +152,8 @@ function bouwSjabloon({ html, css, titel, basisBlueprint }) {
     data[key] = waarde;
   };
   let h1Gedaan = false;
+  let h1Wijziging = null;
+  let kopNode = null;
   let ctaGedaan = false;
   let fotoNr = 0;
   let linkNr = 0;
@@ -163,6 +165,7 @@ function bouwSjabloon({ html, css, titel, basisBlueprint }) {
     let label;
     if (!h1Gedaan && soortNaam === 'Kop') {
       h1Gedaan = true;
+      h1Wijziging = { van: (kopEl || el).name, node: kopNode };
       (kopEl || el).name = 'h1';
       key = 'heroTitle';
       label = 'Hoofdkop (H1)';
@@ -180,6 +183,7 @@ function bouwSjabloon({ html, css, titel, basisBlueprint }) {
   function loop(n, kopEl) {
     if (n.type !== 'el') return;
     if (/^h[1-6]$/.test(n.name)) kopEl = n;
+    if (klassen(n).includes('fl-module')) kopNode = (klassen(n).find((c) => /^fl-node-[a-z0-9]+$/.test(c)) || '').replace('fl-node-', '') || null;
     if (n.name === 'section' && rijen.includes(n)) {
       sectieNr += 1;
       const kop = vind(n, (x) => /^h[1-6]$/.test(x.name))[0];
@@ -251,6 +255,11 @@ function bouwSjabloon({ html, css, titel, basisBlueprint }) {
   if (overigeUrls.length) {
     waarschuwingen.push(`${overigeUrls.length} externe url() verwijzing(en) in de CSS zijn eruit gehaald (lettertypen of afbeeldingen). Lettertypen komen van het thema van de site.`);
     layoutCss = layoutCss.replace(/url\(\s*['"]?https?:[^)]*\)/gi, 'none');
+  }
+  // De kop die H1 wordt: de opmaakregels van Beaver Builder voor die kop wijzen naar de oude tag (bv. h2.fl-heading).
+  if (h1Wijziging && h1Wijziging.node && h1Wijziging.van !== 'h1') {
+    const reNode = new RegExp(`(\\.fl-node-${h1Wijziging.node}\\b[^{}]*?)\\b${h1Wijziging.van}(?=[.\\s,{>:\\[])`, 'g');
+    layoutCss = layoutCss.replace(reNode, '$1h1');
   }
   layoutCss = layoutCss.replace(/@import[^;]*;/gi, '')
     .replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ').replace(/\s*([{};,>])\s*/g, '$1').trim();

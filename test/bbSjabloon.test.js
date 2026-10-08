@@ -44,3 +44,11 @@ test('vindLayoutCssUrls vindt de layout stylesheet', () => {
   const u = vindLayoutCssUrls('<link rel="stylesheet" href="/wp-content/uploads/bb-plugin/cache/14894-layout.css?ver=1" media="all"><link href="/x.css">', 'https://www.hostelroots.nl/hostel-breda/');
   assert.deepEqual(u, ['https://www.hostelroots.nl/wp-content/uploads/bb-plugin/cache/14894-layout.css?ver=1']);
 });
+
+test('bbSjabloon: opmaakregels van de kop die H1 wordt volgen de nieuwe tag', () => {
+  const html = '<div class="fl-builder-content"><div class="fl-row fl-node-r1"><div class="fl-module fl-module-heading fl-node-h1x"><div class="fl-module-content"><h2 class="fl-heading"><span class="fl-heading-text">Kop</span></h2></div></div></div></div>';
+  const css = '.fl-node-h1x h2.fl-heading a,.fl-node-h1x h2.fl-heading .fl-heading-text{font-size:30px}.fl-node-zz h2.fl-heading{color:red}';
+  const bp = bouwSjabloon({ html, css }).blueprint;
+  assert.match(bp.cssTemplate, /\.fl-node-h1x h1\.fl-heading \.fl-heading-text\{font-size:30px\}/);
+  assert.match(bp.cssTemplate, /\.fl-node-zz h2\.fl-heading\{color:red\}/);
+});
