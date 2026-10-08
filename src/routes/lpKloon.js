@@ -189,8 +189,7 @@ router.post('/festival/aanpassen', requireLpInternal, async (req, res) => {
   try {
     const { klant, instructie, velden, feiten, scope, anker } = req.body || {};
     const client = getLpClient(klant);
-    const stijl = await stijlVoorKlant(klant);
-    res.json(await festival.reviseerTeksten({ instructie, velden, feiten: [...klantFeitenVoor(client), ...(Array.isArray(feiten) ? feiten : [])], nietToegestaan: client.profile.nietToegestaan, stijl, scope, anker }));
+    res.json(await festival.reviseerTeksten({ instructie, velden, feiten: [...klantFeitenVoor(client), ...(Array.isArray(feiten) ? feiten : [])], nietToegestaan: client.profile.nietToegestaan, scope, anker }));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

@@ -5,6 +5,7 @@
 // wat anders moet, en zet pas daarna een concept in WordPress (src/lp/wpKloon.js).
 
 const { stelInhoudVoor, controleerHtmlStructuur } = require('./wpKloon');
+const { ICON_LIBRARY, ICON_NAMES } = require('./slotEngine');
 
 const MAX_BYTES = 1500000;
 const TIMEOUT_MS = 12000;
@@ -136,17 +137,45 @@ async function maakFestivalVoorstel({ velden, festival, feiten, klantFeiten, nie
   return res;
 }
 
+
+// Blokken die de AI mag vragen. De opmaak komt van ons (inline stijlen, geen eigen CSS van de AI of van een ander
+// sjabloon), zodat een blok in elke kolom van een Beaver Builder pagina netjes past.
+function renderBlok(b) {
+  if (!b || typeof b !== 'object') return '';
+  const t = (x, max) => esc(String(x === undefined || x === null ? '' : x).replace(/\s+/g, ' ').trim().slice(0, max));
+  if (b.type === 'tekst') {
+    const kop = t(b.kop, 120);
+    const tekst = t(b.tekst, 600);
+    if (!kop && !tekst) return '';
+    return `<div class="lpf-blok">${kop ? `<p style="margin:0 0 6px;font-weight:700;font-size:1.1em;line-height:1.2">${kop}</p>` : ''}${tekst ? `<p style="margin:0;line-height:1.5">${tekst}</p>` : ''}</div>`;
+  }
+  if (b.type === 'infostrook') {
+    const items = (Array.isArray(b.items) ? b.items : []).filter((i) => i && String(i.titel || '').trim()).slice(0, 6);
+    if (!items.length) return '';
+    const lijn = '2px solid currentColor';
+    const cellen = items.map((i) => {
+      const naam = String(i.icoon || '').trim();
+      const icoon = naam && ICON_LIBRARY[naam]
+        ? `<span style="flex:0 0 28px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:1px solid currentColor;border-radius:50%;box-sizing:border-box">${ICON_LIBRARY[naam].replace(/width="22" height="22"/, 'width="16" height="16"')}</span>`
+        : '';
+      const toel = t(i.tekst, 140);
+      return `<div style="display:flex;gap:10px;align-items:flex-start;min-width:0;padding:14px 13px;border-right:${lijn};border-bottom:${lijn};box-sizing:border-box">${icoon}<div style="min-width:0"><strong style="display:block;font-size:.86em;line-height:1.1;text-transform:uppercase;letter-spacing:.01em">${t(i.titel, 60)}</strong>${toel ? `<span style="display:block;margin-top:4px;font-size:.8em;line-height:1.3">${toel}</span>` : ''}</div></div>`;
+    }).join('');
+    return `<div class="lpf-blok" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));max-width:620px;margin:24px 0;border-top:${lijn};border-left:${lijn};color:inherit">${cellen}</div>`;
+  }
+  return '';
+}
+
 const REVISIE_SYSTEEM = [
   'Je past de pagina van een opdrachtgever aan volgens een instructie. De pagina is voor een festival (zie FEITEN).',
   'Regels:',
   '1. Voer de instructie letterlijk uit. Vraagt de instructie om iets weg te halen, haal het dan weg (bv. hele alinea\'s of regels). Vraagt ze om iets toe te voegen aan een bestaande tekst, voeg het toe.',
   '2. Aangepaste teksten geef je terug in "velden". Geef alleen velden terug die door de instructie veranderen. Behoud de HTML opmaak van een veld (tags, style attributen). Een tekst zonder HTML blijft tekst zonder HTML.',
-  '3. Vraagt de instructie om nieuwe blokken, kaarten, blokjes of een nieuw onderdeel toe te voegen op een plek, geef dan in "blokken" voor elk nieuw blok: {"plek":"voor" of "na","veld":"<id van een bestaand veld in het onderdeel waarboven of waaronder het blok komt>","titel":"korte naam","html":"..."}. Kies als veld de tekst of kop die het dichtst bij de gevraagde plek staat. Maak een nieuw blok alleen als erom wordt gevraagd.',
-  '4. De html van een blok is ALLEEN de binnenkant. Gebruik exact dezelfde HTML structuur en class namen als VOORBEELD_BLOK; alleen de teksten en het aantal items mogen anders zijn. Geen style tags, geen eigen CSS, geen scripts, geen links die niet in FEITEN staan.',
-  '5. Is er geen VOORBEELD_BLOK, maak dan geen blokken en laat "blokken" leeg.',
+  '3. Vraagt de instructie om nieuwe blokken, blokjes, kaartjes of een nieuw onderdeel toe te voegen op een plek, geef dan in "blokken" voor elk nieuw blok: {"plek":"voor" of "na","veld":"<id van een bestaand veld in het onderdeel waarboven of waaronder het blok komt, mag je weglaten>","titel":"korte naam","type":"infostrook","items":[{"titel":"korte kop","tekst":"optionele toelichting","icoon":"naam"}]}. Een infostrook is een rij kleine blokjes met een kader (bv. datum, plek, aankomst). Wil iemand alleen een losse tekst toevoegen, gebruik dan {"type":"tekst","kop":"...","tekst":"..."}. Andere soorten blokken kunnen niet; leg dat dan uit in "opmerking". Maak een blok alleen als erom wordt gevraagd.',
+  '4. Kies "icoon" uit deze lijst: ICONEN (laat leeg als niets past). Een titel is kort (max 5 woorden), een toelichting hooguit 1 korte zin en mag leeg blijven.',
   '6. Verzin geen feiten. Gebruik alleen wat in FEITEN, in de instructie of in de huidige tekst staat. Staat een gevraagde inhoud van een blok er niet in, gebruik dan precies wat de instructie noemt.',
   '7. Schrijf in het Nederlands, in eenvoudige woorden en korte zinnen.',
-  'Antwoord uitsluitend met JSON: {"velden":[{"id":"...","waarde":"..."}],"blokken":[{"plek":"na","veld":"...","titel":"...","html":"..."}]}. Gebruik precies de id\'s die je krijgt.'
+  'Antwoord uitsluitend met JSON: {"velden":[{"id":"...","waarde":"..."}],"blokken":[...],"opmerking":""}. Gebruik precies de id\'s die je krijgt.'
 ].join('\n');
 
 // stijl: { styles, open, inner, close } uit zoekStijlvoorbeeld, of null. Geeft { voorstellen, blokken, waarschuwingen }.
@@ -163,7 +192,7 @@ async function reviseerTeksten({ instructie, velden, feiten, nietToegestaan, sti
       ...(scope ? { SCOPE: `De instructie geldt alleen voor dit onderdeel van de pagina: "${String(scope).slice(0, 100)}". Alle velden hieronder horen bij dat onderdeel. Nieuwe blokken komen direct boven of onder dit onderdeel; laat "veld" weg of kies een veld hieronder.` } : {}),
       nietToegestaan: nietToegestaan || [],
       FEITEN: (feiten || []).map((f) => ({ label: f.label, waarde: f.waarde })),
-      VOORBEELD_BLOK: stijl ? stijl.inner : null,
+      ICONEN: ICON_NAMES,
       velden: lijst.map((v) => ({ id: v.id, label: `${v.groep}, ${v.label}`, huidig: v.huidig }))
     }, null, 2)
   });
@@ -180,23 +209,13 @@ async function reviseerTeksten({ instructie, velden, feiten, nietToegestaan, sti
   }
   const blokken = [];
   const gevraagd = Array.isArray(antwoord && antwoord.blokken) ? antwoord.blokken : [];
-  if (gevraagd.length && !stijl) {
-    waarschuwingen.push('Er is geen bestaand blok in het portaal gevonden om de stijl van over te nemen, dus er zijn geen blokken gemaakt.');
-  } else {
-    const { schoonBlokHtml } = require('./kloonBlokken');
-    for (const b of gevraagd) {
-      const veld = perId.get(b && b.veld) || (ankerOk ? { node: ankerOk.node, groep: ankerOk.groep } : null);
-      const inner = schoonBlokHtml(b && b.html).trim();
-      if (!veld || !veld.node || !inner) { waarschuwingen.push('Een gevraagd blok kon niet op een plek worden gezet. Zeg bij welke tekst of kop het moet komen.'); continue; }
-      blokken.push({
-        na: String(veld.node),
-        waar: b.plek === 'voor' ? 'voor' : 'na',
-        titel: String(b.titel || 'Nieuw blok').slice(0, 80),
-        plekNaam: veld.groep,
-        html: `${stijl.styles}\n${stijl.open}\n${inner}\n${stijl.close}`
-      });
-    }
+  for (const b of gevraagd) {
+    const veld = perId.get(b && b.veld) || (ankerOk ? { node: ankerOk.node, groep: ankerOk.groep } : null);
+    const html = renderBlok(b);
+    if (!veld || !veld.node || !html) { waarschuwingen.push('Een gevraagd blok kon niet op een plek worden gezet. Zeg bij welke tekst of kop het moet komen.'); continue; }
+    blokken.push({ na: String(veld.node), waar: b.plek === 'voor' ? 'voor' : 'na', titel: String((b && b.titel) || 'Nieuw blok').slice(0, 80), plekNaam: veld.groep, html });
   }
+  if (antwoord && typeof antwoord.opmerking === 'string' && antwoord.opmerking.trim()) waarschuwingen.push(antwoord.opmerking.trim().slice(0, 300));
   return { voorstellen, blokken, waarschuwingen };
 }
 

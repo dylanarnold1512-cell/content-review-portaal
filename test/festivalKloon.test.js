@@ -179,28 +179,6 @@ test('zoekStijlvoorbeeld: vindt een blokonderdeel in een portaalpagina en splits
   assert.match(st.bron, /lpt-hero-travel-list/);
 });
 
-test('reviseerTeksten: nieuwe blokken krijgen stijl en wrapper van het voorbeeld en een plek via het veld', async () => {
-  const stijl = { styles: '<style>.x{}</style>', open: '<div class="lp-root-t lpt">', inner: '<div class="b">voorbeeld</div>', close: '</div>' };
-  const callAi = async () => ({ velden: [], blokken: [{ plek: 'na', veld: 'n1|text', titel: 'Blokjes', html: '<div class="b" onclick="x()">Datum<script>1</script></div>' }, { plek: 'na', veld: 'onbekend', html: '<p>x</p>' }] });
-  const r = await f.reviseerTeksten({
-    instructie: 'voeg onder de tekst 3 blokjes toe',
-    velden: [{ id: 'n1|text', node: 'n1', groep: 'Tekst 1', label: 'Tekst', huidig: '<p>Hoi</p>' }],
-    stijl, callAi
-  });
-  assert.strictEqual(r.blokken.length, 1);
-  assert.strictEqual(r.blokken[0].na, 'n1');
-  assert.strictEqual(r.blokken[0].waar, 'na');
-  assert.match(r.blokken[0].html, /^<style>\.x\{\}<\/style>\n<div class="lp-root-t lpt">\n<div class="b">Datum<\/div>\n<\/div>$/);
-  assert.strictEqual(r.waarschuwingen.length, 1);
-});
-
-test('reviseerTeksten: zonder stijlvoorbeeld geen blokken maar een waarschuwing', async () => {
-  const callAi = async () => ({ velden: [], blokken: [{ plek: 'na', veld: 'n1|text', html: '<p>x</p>' }] });
-  const r = await f.reviseerTeksten({ instructie: 'voeg een blok toe', velden: [{ id: 'n1|text', node: 'n1', groep: 'T', label: 'T', huidig: 'a' }], stijl: null, callAi });
-  assert.strictEqual(r.blokken.length, 0);
-  assert.match(r.waarschuwingen[0], /geen bestaand blok/);
-});
-
 test('voorbeeldscript: geen regex met backslashes die in de template string kapot gaan', () => {
   const r = f.bouwVoorbeeldHtml({ html: '<html><body><p>x</p></body></html>', baseUrl: 'https://s.nl/', wijzigingen: [] });
   const script = /<script>([\s\S]*)<\/script>/.exec(r.html)[1];
@@ -209,14 +187,27 @@ test('voorbeeldscript: geen regex met backslashes die in de template string kapo
   assert.doesNotMatch(script, /split\(\/s\+\/\)/);
 });
 
-test('reviseerTeksten met scope en anker: blok zonder veld komt bij het anker', async () => {
-  const stijl = { styles: '', open: '<div class="x">', inner: '<b>a</b>', close: '</div>' };
-  let prompt;
+
+test('reviseerTeksten: infostrook wordt een blok met inline stijl en een plek via het veld', async () => {
   const r = await f.reviseerTeksten({
-    instructie: 'voeg blokken toe', velden: [], feiten: [], stijl, scope: 'Hero', anker: { node: 'abc123', groep: 'Hero' },
-    callAi: async ({ userPrompt }) => { prompt = userPrompt; return { velden: [], blokken: [{ plek: 'na', titel: 't', html: '<b>nieuw</b>' }] }; }
+    instructie: 'voeg blokjes toe', feiten: [],
+    velden: [{ id: 'v1', node: 'n1', groep: 'Hero', label: 'tekst', huidig: '<p>Hallo</p>' }],
+    callAi: async () => ({ velden: [], blokken: [{ plek: 'na', veld: 'v1', titel: 'Info', type: 'infostrook', items: [{ titel: '12 t/m 14 oktober', tekst: '', icoon: 'clock' }, { titel: 'Bij Tilburg Centraal', icoon: 'map-pin' }, { titel: '<b>x</b>' }] }] })
   });
-  assert.match(prompt, /SCOPE/);
+  assert.equal(r.blokken.length, 1);
+  assert.equal(r.blokken[0].na, 'n1');
+  assert.match(r.blokken[0].html, /grid-template-columns/);
+  assert.match(r.blokken[0].html, /<svg/);
+  assert.doesNotMatch(r.blokken[0].html, /<b>x/);
+  assert.doesNotMatch(r.blokken[0].html, /<style/);
+});
+
+test('reviseerTeksten met anker: blok zonder veld komt bij het anker, onbekend type geeft waarschuwing', async () => {
+  const r = await f.reviseerTeksten({
+    instructie: 'x', velden: [], feiten: [], scope: 'Hero', anker: { node: 'abc123', groep: 'Hero' },
+    callAi: async () => ({ velden: [], blokken: [{ plek: 'na', titel: 't', type: 'tekst', kop: 'Kop', tekst: 'Tekst' }, { type: 'carrousel' }], opmerking: 'Een carrousel kan niet.' })
+  });
   assert.equal(r.blokken.length, 1);
   assert.equal(r.blokken[0].na, 'abc123');
+  assert.ok(r.waarschuwingen.some((w) => /carrousel/.test(w)));
 });
