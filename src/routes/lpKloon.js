@@ -95,8 +95,11 @@ async function bouwBlokken(klant, blokken) {
     if (page.klant !== klant) throw new Error('Een gekozen portaalpagina hoort niet bij deze klant.');
     const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
     const secties = lijstSecties(blueprint, page.content && page.content.slotData);
-    const label = (secties.find((s) => s.index === Number(b.sectie)) || {}).label || `onderdeel ${Number(b.sectie) + 1}`;
-    uit.push({ na: b.na, titel: `${page.titel}: ${label}`, html: renderSectieHtml({ blueprint, pagina: page, sectie: b.sectie }) });
+    const sec = secties.find((s) => s.index === Number(b.sectie)) || {};
+    const heeftDeel = b.deel !== undefined && b.deel !== null && b.deel !== '';
+    const deelLabel = heeftDeel ? ((sec.delen || []).find((d) => d.index === Number(b.deel)) || {}).label : '';
+    const label = `${sec.label || `onderdeel ${Number(b.sectie) + 1}`}${deelLabel ? ` > ${deelLabel.trim()}` : ''}`;
+    uit.push({ na: b.na, titel: `${page.titel}: ${label}`, html: renderSectieHtml({ blueprint, pagina: page, sectie: b.sectie, deel: heeftDeel ? b.deel : undefined }) });
   }
   return uit;
 }

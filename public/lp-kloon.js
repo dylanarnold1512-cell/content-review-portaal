@@ -187,13 +187,24 @@
       if (!paginas.length) return toonFout('Deze klant heeft nog geen portaalpagina\'s.');
       const pagSel = el('select', { 'data-rol': 'pagina' }, paginas.map((p) => el('option', { value: p.id, text: p.titel })));
       const secSel = el('select', { 'data-rol': 'sectie' });
+      const deelSel = el('select', { 'data-rol': 'deel' });
+      let huidigeSecties = [];
+      const vulDelen = () => {
+        deelSel.innerHTML = '';
+        const sec = huidigeSecties.find((x) => String(x.index) === secSel.value);
+        deelSel.appendChild(el('option', { value: '', text: 'Hele onderdeel' }));
+        ((sec && sec.delen) || []).forEach((d) => deelSel.appendChild(el('option', { value: d.index, text: `Alleen: ${d.label}` })));
+      };
+      secSel.addEventListener('change', vulDelen);
       const naSel = el('select', { 'data-rol': 'na' }, plaatsOpties().map((o) => el('option', { value: o.node, text: `na: ${o.label}` })));
       const laadSecties = async () => {
         secSel.innerHTML = '';
         try {
           const { secties } = await lpApi(`/kloon/secties?klant=${encodeURIComponent(state.klant)}&pagina=${encodeURIComponent(pagSel.value)}`);
+          huidigeSecties = secties;
           secties.forEach((s) => secSel.appendChild(el('option', { value: s.index, text: s.label })));
           if (!secties.length) secSel.appendChild(el('option', { value: '', text: '(geen onderdelen)' }));
+          vulDelen();
         } catch (err) {
           secSel.appendChild(el('option', { value: '', text: '(laden mislukt)' }));
           toonFout(formatApiError(err));
@@ -201,7 +212,7 @@
       };
       pagSel.addEventListener('change', laadSecties);
       const rij = el('div', { class: 'kloon-zoekrij' }, [
-        pagSel, secSel, naSel,
+        pagSel, secSel, deelSel, naSel,
         el('button', { type: 'button', class: 'btn-plain', text: 'Weghalen', onclick: () => rij.remove() })
       ]);
       $('lpKloonBlokRijen').appendChild(rij);
@@ -216,6 +227,7 @@
     return [...document.querySelectorAll('#lpKloonBlokRijen > div')].map((rij) => ({
       pagina: rij.querySelector('[data-rol="pagina"]').value,
       sectie: rij.querySelector('[data-rol="sectie"]').value,
+      deel: rij.querySelector('[data-rol="deel"]').value,
       na: rij.querySelector('[data-rol="na"]').value
     })).filter((b) => b.pagina && b.sectie !== '' && b.na);
   }
