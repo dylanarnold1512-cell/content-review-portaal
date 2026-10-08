@@ -200,3 +200,11 @@ test('reviseerTeksten: zonder stijlvoorbeeld geen blokken maar een waarschuwing'
   assert.strictEqual(r.blokken.length, 0);
   assert.match(r.waarschuwingen[0], /geen bestaand blok/);
 });
+
+test('voorbeeldscript: geen regex met backslashes die in de template string kapot gaan', () => {
+  const r = f.bouwVoorbeeldHtml({ html: '<html><body><p>x</p></body></html>', baseUrl: 'https://s.nl/', wijzigingen: [] });
+  const script = /<script>([\s\S]*)<\/script>/.exec(r.html)[1];
+  assert.doesNotThrow(() => new Function(script));
+  assert.match(script, /classList/);
+  assert.doesNotMatch(script, /split\(\/s\+\/\)/);
+});

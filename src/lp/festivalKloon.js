@@ -360,7 +360,7 @@ const BEWERK_SCRIPT = `<style>[data-lpf]{transition:outline .1s}[data-lpf]:hover
   bar.appendChild(knop('na','+ blok onder'));
   document.body.appendChild(bar);
   var huidig=null,verberg=null;
-  function nodeVan(m){var c=(m.getAttribute('class')||'').split(/\s+/);for(var i=0;i<c.length;i++){var r=/^fl-node-(.+)$/.exec(c[i]);if(r&&r[1]!=='content')return r[1];}return null;}
+  function nodeVan(m){var c=m.classList;for(var i=0;i<c.length;i++){var k=c[i];if(k.indexOf('fl-node-')===0&&k!=='fl-node-content')return k.slice(8);}return null;}
   document.addEventListener('mouseover',function(e){
     var m=e.target.closest&&e.target.closest('.fl-module');
     if(!m||m.getAttribute('data-lpf-blok')||!nodeVan(m))return;
