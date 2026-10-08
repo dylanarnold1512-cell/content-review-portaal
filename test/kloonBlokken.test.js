@@ -34,7 +34,7 @@ test('renderSectieHtml: onbekend onderdeel en formulier geven een duidelijke fou
 
 test('bouwKloonVerzoek: blokken worden opgeschoond en meegestuurd', () => {
   const v = bouwKloonVerzoek({ bron: 1, titel: 'X', blokken: [{ na: ' a1 ', html: ' <p>hoi</p> ', titel: 'T' }] });
-  assert.deepStrictEqual(v.blokken, [{ na: 'a1', html: '<p>hoi</p>', titel: 'T' }]);
+  assert.deepStrictEqual(v.blokken, [{ na: 'a1', waar: 'na', html: '<p>hoi</p>', titel: 'T' }]);
   assert.strictEqual(bouwKloonVerzoek({ bron: 1, titel: 'X' }).blokken, undefined);
 });
 
@@ -78,4 +78,9 @@ test('renderSectieHtml: onbekend deel geeft een duidelijke fout', () => {
 test('route /blokvoorbeeld bestaat', () => {
   const r = require('../src/routes/lpKloon');
   assert.ok(r.stack.some((l) => l.route && l.route.path === '/blokvoorbeeld'));
+});
+
+test('bouwKloonVerzoek: waar wordt bewaard en onbekende waarde wordt na', () => {
+  const v = bouwKloonVerzoek({ bron: 1, titel: 'X', blokken: [{ na: 'c1', waar: 'begin', html: '<p>a</p>' }, { na: 'm1', waar: 'raar', html: '<p>b</p>' }] });
+  assert.deepStrictEqual(v.blokken.map((b) => b.waar), ['begin', 'na']);
 });

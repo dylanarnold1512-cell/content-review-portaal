@@ -127,7 +127,8 @@ function bouwKloonVerzoek({ bron, titel, slug, seoPlugin, metaTitel, metaBeschri
     if (!na) throw new Error('Bij een blok ontbreekt de plek (na welk onderdeel het komt).');
     if (!html) throw new Error('Een blok heeft geen inhoud.');
     if (Buffer.byteLength(html, 'utf8') > 200 * 1024) throw new Error('Een blok is te groot.');
-    opgeschoondeBlokken.push({ na, html, titel: String(b.titel || '').slice(0, 80) });
+    const waar = ['na', 'voor', 'begin', 'eind'].includes(b.waar) ? b.waar : 'na';
+    opgeschoondeBlokken.push({ na, waar, html, titel: String(b.titel || '').slice(0, 80) });
   }
 
   const verzoek = {
@@ -202,6 +203,7 @@ async function haalVelden({ bron }, opties) {
     slug: data.slug || '',
     url: data.url || '',
     modules: data.modules || {},
+    structuur: Array.isArray(data.structuur) ? data.structuur.map((x) => ({ node: String(x.node), soort: String(x.soort), label: String(x.label || ''), diepte: Number(x.diepte) || 0 })) : [],
     velden: labelVelden(data.velden)
   };
 }

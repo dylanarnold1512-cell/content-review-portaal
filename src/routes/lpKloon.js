@@ -99,7 +99,9 @@ async function bouwBlokken(klant, blokken) {
     const heeftDeel = b.deel !== undefined && b.deel !== null && b.deel !== '';
     const deelLabel = heeftDeel ? ((sec.delen || []).find((d) => d.index === Number(b.deel)) || {}).label : '';
     const label = `${sec.label || `onderdeel ${Number(b.sectie) + 1}`}${deelLabel ? ` > ${deelLabel.trim()}` : ''}`;
-    uit.push({ na: b.na, titel: `${page.titel}: ${label}`, html: renderSectieHtml({ blueprint, pagina: page, sectie: b.sectie, deel: heeftDeel ? b.deel : undefined }) });
+    // plek heeft de vorm "voor:<id>", "na:<id>", "begin:<id>" of "eind:<id>"; een kale b.na blijft "na".
+    const [plekWaar, plekNode] = String(b.plek || '').includes(':') ? String(b.plek).split(/:(.*)/s) : ['na', b.na];
+    uit.push({ na: plekNode, waar: plekWaar, titel: `${page.titel}: ${label}`, html: renderSectieHtml({ blueprint, pagina: page, sectie: b.sectie, deel: heeftDeel ? b.deel : undefined }) });
   }
   return uit;
 }

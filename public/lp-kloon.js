@@ -134,6 +134,7 @@
       state.klant = klant;
       state.bron = data.bron;
       state.velden = data.velden;
+      state.structuur = data.structuur || [];
       state.wijzigingen = new Map();
       state.fotos = new Map();
       $('lpKloonTitel').value = '';
@@ -169,13 +170,32 @@
     return data.paginas;
   }
 
+  // Opties voor de plek van een blok: [{ waarde: 'voor:<id>', label }]. Met de structuur van de bronpagina
+  // (rij, kolom, module) kan een blok voor of na een onderdeel, of bovenaan of onderaan een kolom. Zonder
+  // structuur (oud PHP fragment) vallen we terug op "na" een onderdeel met velden.
   function plaatsOpties() {
+    if (state.structuur && state.structuur.length) {
+      const opties = [];
+      state.structuur.forEach((x) => {
+        const inspring = '\u00a0\u00a0\u00a0'.repeat(x.diepte);
+        if (x.soort === 'rij') {
+          opties.push({ groep: x.label, waarde: null, label: `${inspring}${x.label}` });
+        } else if (x.soort === 'kolom') {
+          opties.push({ waarde: `begin:${x.node}`, label: `${inspring}${x.label}: bovenaan in de kolom` });
+          opties.push({ waarde: `eind:${x.node}`, label: `${inspring}${x.label}: onderaan in de kolom` });
+        } else {
+          opties.push({ waarde: `voor:${x.node}`, label: `${inspring}voor ${x.label}` });
+          opties.push({ waarde: `na:${x.node}`, label: `${inspring}na ${x.label}` });
+        }
+      });
+      return opties;
+    }
     const gezien = new Set();
     const opties = [];
     state.velden.forEach((v) => {
       if (gezien.has(v.node)) return;
       gezien.add(v.node);
-      opties.push({ node: v.node, label: v.groep });
+      opties.push({ waarde: `na:${v.node}`, label: `na: ${v.groep}` });
     });
     return opties;
   }
@@ -196,7 +216,7 @@
         ((sec && sec.delen) || []).forEach((d) => deelSel.appendChild(el('option', { value: d.index, text: `Alleen: ${d.label}` })));
       };
       secSel.addEventListener('change', vulDelen);
-      const naSel = el('select', { 'data-rol': 'na' }, plaatsOpties().map((o) => el('option', { value: o.node, text: `na: ${o.label}` })));
+      const naSel = el('select', { 'data-rol': 'na' }, plaatsOpties().map((o) => (o.waarde ? el('option', { value: o.waarde, text: o.label }) : el('option', { value: '', text: o.label, disabled: 'disabled' }))));
       const laadSecties = async () => {
         secSel.innerHTML = '';
         try {
@@ -255,8 +275,8 @@
       pagina: rij.querySelector('[data-rol="pagina"]').value,
       sectie: rij.querySelector('[data-rol="sectie"]').value,
       deel: rij.querySelector('[data-rol="deel"]').value,
-      na: rij.querySelector('[data-rol="na"]').value
-    })).filter((b) => b.pagina && b.sectie !== '' && b.na);
+      plek: rij.querySelector('[data-rol="na"]').value
+    })).filter((b) => b.pagina && b.sectie !== '' && b.plek);
   }
 
   function huidigeWaarde(veld) {
