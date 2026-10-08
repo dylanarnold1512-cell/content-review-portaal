@@ -107,4 +107,47 @@ function renderSectieHtml({ blueprint, pagina, sectie, deel }) {
   return uit;
 }
 
-module.exports = { vindDelen, lijstSecties, renderSectieHtml, MAX_BLOK_BYTES };
+// ---- Stijlvoorbeeld voor door de AI gemaakte blokken ----
+// Een eigen blok (bv. "voeg hier drie blokjes toe met ...") moet er hetzelfde uitzien als de portaalblokken van de klant.
+// We zoeken daarvoor een bestaand blokonderdeel in een portaalpagina (lijstje, kaarten, blokjes) en splitsen de
+// gerenderde HTML in stijl (de style tags), een wrapper en de binnenkant. De AI schrijft alleen een nieuwe binnenkant
+// met dezelfde class namen; stijl en wrapper zetten wij er zelf omheen.
+const STIJL_RE = /(travel|blokje|blok|kaart|card|polaroid|list)/i;
+
+function splitsRender(html) {
+  const m = /^([\s\S]*?)(<div class="lp-root-[^"]*">)\s*([\s\S]*?)\s*<\/div>\s*$/.exec(String(html || '').trim());
+  if (!m) return null;
+  return { styles: m[1].trim(), open: m[2], inner: m[3], close: '</div>' };
+}
+
+async function zoekStijlvoorbeeld({ klant, lpNotion, templates, max = 8 }) {
+  const paginas = (await lpNotion.listPages({ klant })).slice(0, max);
+  for (const p of paginas) {
+    try {
+      const page = await lpNotion.getPage(p.id);
+      const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+      const secties = lijstSecties(blueprint, page.content && page.content.slotData);
+      for (const sec of secties) {
+        const deel = (sec.delen || []).find((d) => STIJL_RE.test(d.label.trim().split(':')[0]) && !/(^|[-_])(wrap|wrapper|container|inner|tekst|text|copy|content)([-_]|$)/i.test(d.label.trim().split(':')[0]));
+        if (!deel) continue;
+        const html = renderSectieHtml({ blueprint, pagina: page, sectie: sec.index, deel: deel.index });
+        const delen = splitsRender(html);
+        if (delen && delen.inner.length < 12000) return { ...delen, bron: `${page.titel}: ${deel.label.trim()}` };
+      }
+    } catch (err) {
+      // deze pagina heeft geen bruikbaar sjabloon, volgende proberen
+    }
+  }
+  return null;
+}
+
+// Haalt scripts, iframes en event handlers uit HTML die van de AI of de browser komt.
+function schoonBlokHtml(html) {
+  return String(html || '')
+    .replace(/<script\b[\s\S]*?<\/script\s*>/gi, '')
+    .replace(/<iframe\b[\s\S]*?<\/iframe\s*>/gi, '')
+    .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/javascript:/gi, '');
+}
+
+module.exports = { splitsRender, zoekStijlvoorbeeld, schoonBlokHtml, vindDelen, lijstSecties, renderSectieHtml, MAX_BLOK_BYTES };

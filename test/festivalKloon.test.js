@@ -146,3 +146,57 @@ test('bouwVoorbeeldHtml: zet een blok voor of na een module', () => {
   assert.strictEqual(r.blokkenNietGevonden, 1);
   assert.match(r.html, /lpf-bar/);
 });
+
+const kb = require('../src/lp/kloonBlokken');
+
+test('splitsRender: stijl, wrapper en binnenkant uit elkaar', () => {
+  const r = kb.splitsRender('<style>.a{}</style>\n<style>.b{}</style>\n<div class="lp-root-test lpt">\n<div class="blokje">1</div>\n</div>');
+  assert.match(r.styles, /\.a\{\}[\s\S]*\.b\{\}/);
+  assert.strictEqual(r.open, '<div class="lp-root-test lpt">');
+  assert.strictEqual(r.inner, '<div class="blokje">1</div>');
+  assert.strictEqual(r.close, '</div>');
+});
+
+test('schoonBlokHtml: haalt scripts, iframes en event handlers weg', () => {
+  const s = kb.schoonBlokHtml('<div onclick="x()" class="a">hi<script>evil()</script><iframe src="x"></iframe><a href="javascript:x()">l</a></div>');
+  assert.doesNotMatch(s, /script|iframe|onclick|javascript:/i);
+  assert.match(s, /class="a"/);
+});
+
+test('zoekStijlvoorbeeld: vindt een blokonderdeel in een portaalpagina en splitst de render', async () => {
+  const blueprint = {
+    templateFormat: 'slots',
+    htmlTemplate: '<section class="hero"><div class="lpt-hero-copy"><h1>{{kop}}</h1></div><div class="lpt-hero-travel-list">{{#each items}}<div class="lpt-hero-travel-item"><b>{{titel}}</b></div>{{/each}}</div></section>',
+    cssTemplate: '.lpt-hero-travel-item{background:#9cf}'
+  };
+  const page = { id: 'p1', klant: 'roots', slug: 't', titel: 'Testival', blueprint: 'bp', content: { slotData: { kop: 'K', items: [{ titel: 'Datum' }] } } };
+  const lpNotion = { listPages: async () => [{ id: 'p1' }], getPage: async () => page };
+  const templates = { getActiveTemplateByBlueprintId: async () => blueprint };
+  const st = await kb.zoekStijlvoorbeeld({ klant: 'roots', lpNotion, templates });
+  assert.ok(st);
+  assert.match(st.inner, /lpt-hero-travel-item/);
+  assert.match(st.styles, /lpt-hero-travel-item\{background:#9cf\}/);
+  assert.match(st.bron, /lpt-hero-travel-list/);
+});
+
+test('reviseerTeksten: nieuwe blokken krijgen stijl en wrapper van het voorbeeld en een plek via het veld', async () => {
+  const stijl = { styles: '<style>.x{}</style>', open: '<div class="lp-root-t lpt">', inner: '<div class="b">voorbeeld</div>', close: '</div>' };
+  const callAi = async () => ({ velden: [], blokken: [{ plek: 'na', veld: 'n1|text', titel: 'Blokjes', html: '<div class="b" onclick="x()">Datum<script>1</script></div>' }, { plek: 'na', veld: 'onbekend', html: '<p>x</p>' }] });
+  const r = await f.reviseerTeksten({
+    instructie: 'voeg onder de tekst 3 blokjes toe',
+    velden: [{ id: 'n1|text', node: 'n1', groep: 'Tekst 1', label: 'Tekst', huidig: '<p>Hoi</p>' }],
+    stijl, callAi
+  });
+  assert.strictEqual(r.blokken.length, 1);
+  assert.strictEqual(r.blokken[0].na, 'n1');
+  assert.strictEqual(r.blokken[0].waar, 'na');
+  assert.match(r.blokken[0].html, /^<style>\.x\{\}<\/style>\n<div class="lp-root-t lpt">\n<div class="b">Datum<\/div>\n<\/div>$/);
+  assert.strictEqual(r.waarschuwingen.length, 1);
+});
+
+test('reviseerTeksten: zonder stijlvoorbeeld geen blokken maar een waarschuwing', async () => {
+  const callAi = async () => ({ velden: [], blokken: [{ plek: 'na', veld: 'n1|text', html: '<p>x</p>' }] });
+  const r = await f.reviseerTeksten({ instructie: 'voeg een blok toe', velden: [{ id: 'n1|text', node: 'n1', groep: 'T', label: 'T', huidig: 'a' }], stijl: null, callAi });
+  assert.strictEqual(r.blokken.length, 0);
+  assert.match(r.waarschuwingen[0], /geen bestaand blok/);
+});

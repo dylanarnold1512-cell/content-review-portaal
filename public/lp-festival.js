@@ -219,16 +219,19 @@
     setBtnLoading(btn, true, 'De AI past aan...');
     try {
       const velden = state.velden.filter((v) => v.soort === 'tekst' && (state.huidig.get(v.id) || '').trim())
-        .map((v) => ({ id: v.id, groep: v.groep, label: v.label, huidig: state.huidig.get(v.id) }));
+        .map((v) => ({ id: v.id, node: v.node, groep: v.groep, label: v.label, huidig: state.huidig.get(v.id) }));
       const r = await lpApi('/kloon/festival/aanpassen', { method: 'POST', body: JSON.stringify({ klant: state.klant, instructie, velden, feiten: state.feiten }) });
-      if (!r.voorstellen.length) {
+      const nieuweBlokken = r.blokken || [];
+      if (!r.voorstellen.length && !nieuweBlokken.length) {
         laatsteWaarschuwingen = ['De AI vond niets om te veranderen. Zeg het wat concreter, bijvoorbeeld welke tekst of kop je bedoelt.'];
         toonInfo(Number($('lpFestInfo').dataset.nietGevonden || 0));
         return;
       }
       bewaarStap();
       r.voorstellen.forEach((v) => state.huidig.set(v.id, v.waarde));
-      laatsteWaarschuwingen = [`${r.voorstellen.length} tekst(en) aangepast.`, ...(r.waarschuwingen || [])];
+      nieuweBlokken.forEach((b) => state.blokken.push({ html: b.html, na: b.na, waar: b.waar, label: b.titel, plekNaam: b.plekNaam || 'onderdeel', eigen: true }));
+      toonBlokLijst();
+      laatsteWaarschuwingen = [`${r.voorstellen.length} tekst(en) aangepast${nieuweBlokken.length ? ` en ${nieuweBlokken.length} blok(ken) toegevoegd` : ''}.`, ...(r.waarschuwingen || [])];
       $('lpFestInstructie').value = '';
       bouwTekstenLijst();
       await ververVoorbeeld();
@@ -265,7 +268,7 @@
       const velden = wijzigingen().map((w) => ({ node: w.node, pad: w.pad, waarde: w.nieuw }));
       const r = await lpApi('/kloon/maak', {
         method: 'POST',
-        body: JSON.stringify({ klant: state.klant, bron: state.bron, titel, velden, zoekvervang: [], blokken: state.blokken.map((b) => ({ pagina: b.pagina, sectie: b.sectie, deel: b.deel, plek: `${b.waar}:${b.na}` })), bijwerken: state.doelId || undefined, dryRun: false })
+        body: JSON.stringify({ klant: state.klant, bron: state.bron, titel, velden, zoekvervang: [], blokken: state.blokken.map((b) => (b.eigen ? { html: b.html, titel: b.label, plek: `${b.waar}:${b.na}` } : { pagina: b.pagina, sectie: b.sectie, deel: b.deel, plek: `${b.waar}:${b.na}` })), bijwerken: state.doelId || undefined, dryRun: false })
       });
       state.doelId = r.id;
       const houder = $('lpFestResultaat');

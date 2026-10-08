@@ -9,7 +9,7 @@ const { requireLpInternal } = require('../middleware/auth');
 const festival = require('../lp/festivalKloon');
 const lpNotion = require('../lp/notion');
 const templates = require('../lp/templates');
-const { lijstSecties, renderSectieHtml } = require('../lp/kloonBlokken');
+const { lijstSecties, renderSectieHtml, zoekStijlvoorbeeld, schoonBlokHtml } = require('../lp/kloonBlokken');
 
 const router = express.Router();
 
@@ -91,6 +91,12 @@ router.get('/secties', requireLpInternal, async (req, res) => {
 async function bouwBlokken(klant, blokken) {
   const uit = [];
   for (const b of Array.isArray(blokken) ? blokken : []) {
+    if (b && !b.pagina && typeof b.html === 'string' && b.html.trim()) {
+      // Door de AI gemaakt blok (zie festival/aanpassen): geen portaalpagina, wel gezuiverde HTML.
+      const [w, n] = String(b.plek || '').includes(':') ? String(b.plek).split(/:(.*)/s) : ['na', b.na];
+      uit.push({ na: n, waar: w, titel: String(b.titel || 'Nieuw blok').slice(0, 80), html: schoonBlokHtml(b.html) });
+      continue;
+    }
     if (!b || !b.pagina) continue;
     const page = await lpNotion.getPage(b.pagina);
     if (page.klant !== klant) throw new Error('Een gekozen portaalpagina hoort niet bij deze klant.');
@@ -169,11 +175,22 @@ router.post('/festival/start', requireLpInternal, async (req, res) => {
   }
 });
 
+// Het stijlvoorbeeld voor door de AI gemaakte blokken, kort onthouden zodat niet elke opdracht Notion bevraagt.
+const stijlCache = new Map();
+async function stijlVoorKlant(klant) {
+  const hit = stijlCache.get(klant);
+  if (hit && Date.now() - hit.tijd < 10 * 60 * 1000) return hit.stijl;
+  const stijl = await zoekStijlvoorbeeld({ klant, lpNotion, templates });
+  stijlCache.set(klant, { tijd: Date.now(), stijl });
+  return stijl;
+}
+
 router.post('/festival/aanpassen', requireLpInternal, async (req, res) => {
   try {
     const { klant, instructie, velden, feiten } = req.body || {};
     const client = getLpClient(klant);
-    res.json(await festival.reviseerTeksten({ instructie, velden, feiten: [...klantFeitenVoor(client), ...(Array.isArray(feiten) ? feiten : [])], nietToegestaan: client.profile.nietToegestaan }));
+    const stijl = await stijlVoorKlant(klant);
+    res.json(await festival.reviseerTeksten({ instructie, velden, feiten: [...klantFeitenVoor(client), ...(Array.isArray(feiten) ? feiten : [])], nietToegestaan: client.profile.nietToegestaan, stijl }));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

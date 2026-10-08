@@ -137,17 +137,20 @@ async function maakFestivalVoorstel({ velden, festival, feiten, klantFeiten, nie
 }
 
 const REVISIE_SYSTEEM = [
-  'Je past teksten van een pagina aan volgens een instructie van de opdrachtgever. De pagina is voor een festival (zie FEITEN).',
+  'Je past de pagina van een opdrachtgever aan volgens een instructie. De pagina is voor een festival (zie FEITEN).',
   'Regels:',
-  '1. Voer de instructie letterlijk uit. Vraagt de instructie om iets weg te halen, haal het dan weg (bv. hele alinea\'s of regels). Vraagt ze om iets toe te voegen, voeg het toe.',
-  '2. Geef alleen velden terug die door de instructie veranderen. Wat niet geraakt wordt, laat je weg.',
-  '3. Behoud verder de HTML opmaak van een veld (tags, style attributen). Een tekst zonder HTML blijft tekst zonder HTML.',
-  '4. Verzin geen feiten. Gebruik alleen wat in FEITEN of in de huidige tekst staat.',
-  '5. Schrijf in het Nederlands, in eenvoudige woorden en korte zinnen.',
-  'Antwoord uitsluitend met JSON: {"velden":[{"id":"...","waarde":"..."}]}. Gebruik precies de id\'s die je krijgt.'
+  '1. Voer de instructie letterlijk uit. Vraagt de instructie om iets weg te halen, haal het dan weg (bv. hele alinea\'s of regels). Vraagt ze om iets toe te voegen aan een bestaande tekst, voeg het toe.',
+  '2. Aangepaste teksten geef je terug in "velden". Geef alleen velden terug die door de instructie veranderen. Behoud de HTML opmaak van een veld (tags, style attributen). Een tekst zonder HTML blijft tekst zonder HTML.',
+  '3. Vraagt de instructie om nieuwe blokken, kaarten, blokjes of een nieuw onderdeel toe te voegen op een plek, geef dan in "blokken" voor elk nieuw blok: {"plek":"voor" of "na","veld":"<id van een bestaand veld in het onderdeel waarboven of waaronder het blok komt>","titel":"korte naam","html":"..."}. Kies als veld de tekst of kop die het dichtst bij de gevraagde plek staat. Maak een nieuw blok alleen als erom wordt gevraagd.',
+  '4. De html van een blok is ALLEEN de binnenkant. Gebruik exact dezelfde HTML structuur en class namen als VOORBEELD_BLOK; alleen de teksten en het aantal items mogen anders zijn. Geen style tags, geen eigen CSS, geen scripts, geen links die niet in FEITEN staan.',
+  '5. Is er geen VOORBEELD_BLOK, maak dan geen blokken en laat "blokken" leeg.',
+  '6. Verzin geen feiten. Gebruik alleen wat in FEITEN, in de instructie of in de huidige tekst staat. Staat een gevraagde inhoud van een blok er niet in, gebruik dan precies wat de instructie noemt.',
+  '7. Schrijf in het Nederlands, in eenvoudige woorden en korte zinnen.',
+  'Antwoord uitsluitend met JSON: {"velden":[{"id":"...","waarde":"..."}],"blokken":[{"plek":"na","veld":"...","titel":"...","html":"..."}]}. Gebruik precies de id\'s die je krijgt.'
 ].join('\n');
 
-async function reviseerTeksten({ instructie, velden, feiten, nietToegestaan, callAi }) {
+// stijl: { styles, open, inner, close } uit zoekStijlvoorbeeld, of null. Geeft { voorstellen, blokken, waarschuwingen }.
+async function reviseerTeksten({ instructie, velden, feiten, nietToegestaan, stijl, callAi }) {
   if (!String(instructie || '').trim()) throw new Error('Typ eerst wat er anders moet.');
   const lijst = (Array.isArray(velden) ? velden : []).filter((v) => v && v.id && typeof v.huidig === 'string' && v.huidig.trim());
   if (!lijst.length) throw new Error('Geen teksten om aan te passen.');
@@ -158,6 +161,7 @@ async function reviseerTeksten({ instructie, velden, feiten, nietToegestaan, cal
       instructie: String(instructie).trim(),
       nietToegestaan: nietToegestaan || [],
       FEITEN: (feiten || []).map((f) => ({ label: f.label, waarde: f.waarde })),
+      VOORBEELD_BLOK: stijl ? stijl.inner : null,
       velden: lijst.map((v) => ({ id: v.id, label: `${v.groep}, ${v.label}`, huidig: v.huidig }))
     }, null, 2)
   });
@@ -172,7 +176,26 @@ async function reviseerTeksten({ instructie, velden, feiten, nietToegestaan, cal
       waarschuwingen.push(`${bron.groep}, ${bron.label}: de opmaak is anders dan het origineel. Controleer in het voorbeeld.`);
     }
   }
-  return { voorstellen, waarschuwingen };
+  const blokken = [];
+  const gevraagd = Array.isArray(antwoord && antwoord.blokken) ? antwoord.blokken : [];
+  if (gevraagd.length && !stijl) {
+    waarschuwingen.push('Er is geen bestaand blok in het portaal gevonden om de stijl van over te nemen, dus er zijn geen blokken gemaakt.');
+  } else {
+    const { schoonBlokHtml } = require('./kloonBlokken');
+    for (const b of gevraagd) {
+      const veld = perId.get(b && b.veld);
+      const inner = schoonBlokHtml(b && b.html).trim();
+      if (!veld || !veld.node || !inner) { waarschuwingen.push('Een gevraagd blok kon niet op een plek worden gezet. Zeg bij welke tekst of kop het moet komen.'); continue; }
+      blokken.push({
+        na: String(veld.node),
+        waar: b.plek === 'voor' ? 'voor' : 'na',
+        titel: String(b.titel || 'Nieuw blok').slice(0, 80),
+        plekNaam: veld.groep,
+        html: `${stijl.styles}\n${stijl.open}\n${inner}\n${stijl.close}`
+      });
+    }
+  }
+  return { voorstellen, blokken, waarschuwingen };
 }
 
 // ---- Voorbeeld: de echte bronpagina met de nieuwe teksten erin ----
