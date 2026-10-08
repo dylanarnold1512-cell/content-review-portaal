@@ -3,7 +3,7 @@
 // en bronpagina uit het kloonscherm.
 (function () {
   const $ = (id) => document.getElementById(id);
-  const state = { klant: null, bron: null, bronUrl: '', velden: [], huidig: new Map(), historie: [], feiten: [], doelId: null };
+  const state = { blokken: [], blokDoel: null, portaalPaginas: null, klant: null, bron: null, bronUrl: '', velden: [], huidig: new Map(), historie: [], feiten: [], doelId: null };
 
   function el(tag, opties = {}, kinderen = []) {
     const n = document.createElement(tag);
@@ -42,6 +42,7 @@
     const frame = $('lpFestFrame');
     if (!frame || e.source !== frame.contentWindow) return;
     const d = e.data;
+    if (d && d.lpfBlok && typeof d.lpfBlok.node === 'string') { openBlokPaneel(d.lpfBlok.node, d.lpfBlok.waar === 'voor' ? 'voor' : 'na'); return; }
     if (!d || typeof d.lpf !== 'string' || typeof d.waarde !== 'string') return;
     if (!state.velden.some((v) => v.id === d.lpf)) return;
     if (d.start) bewaarStap();
@@ -50,29 +51,109 @@
     tekstenTimer = setTimeout(bouwTekstenLijst, 600);
   });
 
+  // -- Blokken uit het portaal in het voorbeeld zetten --
+  async function openBlokPaneel(node, waar) {
+    toonFout('');
+    state.blokDoel = { node, waar };
+    const veld = state.velden.find((v) => v.node === node);
+    $('lpFestBlokTitel').textContent = `Blok ${waar === 'voor' ? 'boven' : 'onder'} ${veld ? veld.groep : 'dit onderdeel'}`;
+    $('lpFestBlokPaneel').classList.remove('hidden');
+    try {
+      if (!state.portaalPaginas) state.portaalPaginas = (await lpApi(`/kloon/portaalpaginas?klant=${encodeURIComponent(state.klant)}`)).paginas;
+      const pag = $('lpFestBlokPagina');
+      if (!state.portaalPaginas.length) { pag.innerHTML = ''; return toonFout('Deze klant heeft nog geen portaalpagina\'s met een sjabloon om een blok uit te halen.'); }
+      if (!pag.options.length) {
+        state.portaalPaginas.forEach((p) => pag.appendChild(el('option', { value: p.id, text: p.titel })));
+        pag.addEventListener('change', laadBlokSecties);
+        $('lpFestBlokSectie').addEventListener('change', vulBlokDelen);
+        await laadBlokSecties();
+      }
+      $('lpFestBlokPaneel').scrollIntoView({ block: 'nearest' });
+    } catch (err) {
+      toonFout(formatApiError(err));
+    }
+  }
+
+  let blokSecties = [];
+  async function laadBlokSecties() {
+    const sec = $('lpFestBlokSectie');
+    sec.innerHTML = '';
+    try {
+      const r = await lpApi(`/kloon/secties?klant=${encodeURIComponent(state.klant)}&pagina=${encodeURIComponent($('lpFestBlokPagina').value)}`);
+      blokSecties = r.secties;
+      blokSecties.forEach((s) => sec.appendChild(el('option', { value: s.index, text: s.label })));
+    } catch (err) {
+      blokSecties = [];
+      toonFout(formatApiError(err));
+    }
+    vulBlokDelen();
+  }
+
+  function vulBlokDelen() {
+    const deel = $('lpFestBlokDeel');
+    deel.innerHTML = '';
+    const sec = blokSecties.find((x) => String(x.index) === $('lpFestBlokSectie').value);
+    deel.appendChild(el('option', { value: '', text: 'Hele onderdeel' }));
+    ((sec && sec.delen) || []).forEach((d) => deel.appendChild(el('option', { value: d.index, text: `Alleen: ${d.label}` })));
+  }
+
+  function toonBlokLijst() {
+    const houder = $('lpFestBlokLijst');
+    houder.innerHTML = '';
+    state.blokken.forEach((b, i) => {
+      houder.appendChild(el('div', { style: 'display:flex;gap:10px;align-items:center;font-size:13px;margin:3px 0;' }, [
+        el('span', { text: `Blok ${i + 1}: ${b.label} (${b.waar === 'voor' ? 'boven' : 'onder'} ${b.plekNaam})` }),
+        el('button', { type: 'button', class: 'btn-plain', text: 'Weghalen', onclick: async () => { state.blokken.splice(i, 1); toonBlokLijst(); await ververVoorbeeld(); } })
+      ]));
+    });
+  }
+
+  $('lpFestBlokAnnuleerBtn').addEventListener('click', () => $('lpFestBlokPaneel').classList.add('hidden'));
+  $('lpFestBlokOkBtn').addEventListener('click', async () => {
+    toonFout('');
+    if (!state.blokDoel) return;
+    const body = { klant: state.klant, pagina: $('lpFestBlokPagina').value, sectie: $('lpFestBlokSectie').value, deel: $('lpFestBlokDeel').value };
+    if (!body.pagina || body.sectie === '') return toonFout('Kies eerst een onderdeel.');
+    const btn = $('lpFestBlokOkBtn');
+    setBtnLoading(btn, true, 'Bezig...');
+    try {
+      const r = await lpApi('/kloon/blokvoorbeeld', { method: 'POST', body: JSON.stringify(body) });
+      const veld = state.velden.find((v) => v.node === state.blokDoel.node);
+      state.blokken.push({ ...body, html: r.html, label: String(r.titel || 'blok').replace(/^[^:]*:\s*/, ''), na: state.blokDoel.node, waar: state.blokDoel.waar, plekNaam: veld ? veld.groep : 'onderdeel' });
+      $('lpFestBlokPaneel').classList.add('hidden');
+      toonBlokLijst();
+      await ververVoorbeeld();
+    } catch (err) {
+      toonFout(formatApiError(err));
+    } finally {
+      setBtnLoading(btn, false);
+    }
+  });
+
   async function ververVoorbeeld() {
     const frame = $('lpFestFrame');
     try {
       const r = await lpApi('/kloon/festival/voorbeeld', {
         method: 'POST',
-        body: JSON.stringify({ klant: state.klant, bronUrl: state.bronUrl, bewerkbaar: state.velden.filter((v) => v.soort === 'tekst' && (v.module === 'heading' || v.module === 'rich-text')).map((v) => ({ id: v.id, node: v.node, pad: v.pad, module: v.module })), wijzigingen: wijzigingen().map((w) => ({ oud: w.oud, nieuw: w.nieuw, soort: w.soort, node: w.node, pad: w.pad, module: w.module })) })
+        body: JSON.stringify({ klant: state.klant, bronUrl: state.bronUrl, blokken: state.blokken.map((b) => ({ html: b.html, na: b.na, waar: b.waar })), bewerkbaar: state.velden.filter((v) => v.soort === 'tekst' && (v.module === 'heading' || v.module === 'rich-text')).map((v) => ({ id: v.id, node: v.node, pad: v.pad, module: v.module })), wijzigingen: wijzigingen().map((w) => ({ oud: w.oud, nieuw: w.nieuw, soort: w.soort, node: w.node, pad: w.pad, module: w.module })) })
       });
       frame.srcdoc = r.html;
       $('lpFestInfo').dataset.nietGevonden = String(r.nietGevonden || 0);
-      toonInfo(r.nietGevonden || 0);
+      toonInfo(r.nietGevonden || 0, r.blokkenNietGevonden || 0);
     } catch (err) {
       toonFout(formatApiError(err));
     }
   }
 
   let laatsteWaarschuwingen = [];
-  function toonInfo(nietGevonden) {
+  function toonInfo(nietGevonden, blokkenNietGevonden) {
     const f = state.festival || {};
     const delen = [f.naam, f.plaats, f.datum, f.tijden, f.locatie].filter(Boolean);
     $('lpFestInfo').textContent = `Gegevens gebruikt: ${delen.join(', ') || 'alleen wat je zelf invulde'}.`;
     const lijst = $('lpFestWaarschuwingen');
     lijst.innerHTML = '';
     laatsteWaarschuwingen.forEach((w) => lijst.appendChild(el('li', { text: w })));
+    if (blokkenNietGevonden) lijst.appendChild(el('li', { text: `${blokkenNietGevonden} blok(ken) konden niet in het voorbeeld worden gezet. Kies een ander onderdeel als plek.` }));
     if (nietGevonden) lijst.appendChild(el('li', { text: `${nietGevonden} aangepaste tekst(en) zijn niet in het voorbeeld te tonen (de site schrijft ze net anders). Ze gaan wel gewoon mee naar het concept.` }));
   }
 
@@ -112,6 +193,8 @@
       r.voorstellen.forEach((v) => state.huidig.set(v.id, v.waarde));
       state.historie = [];
       state.doelId = null;
+      state.blokken = [];
+      toonBlokLijst();
       laatsteWaarschuwingen = r.waarschuwingen || [];
       $('lpFestTitel').value = `Overnachten bij ${r.festival.naam}`;
       $('lpFestMaakBtn').textContent = 'Zet als concept in WordPress';
@@ -182,7 +265,7 @@
       const velden = wijzigingen().map((w) => ({ node: w.node, pad: w.pad, waarde: w.nieuw }));
       const r = await lpApi('/kloon/maak', {
         method: 'POST',
-        body: JSON.stringify({ klant: state.klant, bron: state.bron, titel, velden, zoekvervang: [], bijwerken: state.doelId || undefined, dryRun: false })
+        body: JSON.stringify({ klant: state.klant, bron: state.bron, titel, velden, zoekvervang: [], blokken: state.blokken.map((b) => ({ pagina: b.pagina, sectie: b.sectie, deel: b.deel, plek: `${b.waar}:${b.na}` })), bijwerken: state.doelId || undefined, dryRun: false })
       });
       state.doelId = r.id;
       const houder = $('lpFestResultaat');

@@ -82,7 +82,7 @@ test('bouwVoorbeeldHtml: haalt scripts weg en telt teksten die niet gevonden zij
     baseUrl: 'https://s.nl/',
     wijzigingen: [{ oud: 'Bestaat niet', nieuw: 'X', soort: 'tekst' }]
   });
-  assert.doesNotMatch(r.html, /<script/);
+  assert.doesNotMatch(r.html, /x\(\)/);
   assert.strictEqual(r.nietGevonden, 1);
 });
 
@@ -131,4 +131,18 @@ test('bouwVoorbeeldHtml: markeert kop en tekst als bewerkbaar en voegt het bewer
   assert.match(r.html, /<div class="fl-rich-text" data-lpf="def456\|text" data-lpf-soort="html"><p>Tekst<\/p><\/div>/);
   assert.match(r.html, /postMessage/);
   assert.strictEqual(r.bewerkbaar, 2);
+});
+
+test('bouwVoorbeeldHtml: zet een blok voor of na een module', () => {
+  const html = '<html><head></head><body><div class="fl-module fl-node-aaa"><div class="fl-module-content"><p>A</p></div></div><div class="fl-module fl-node-bbb"><div class="fl-module-content"><p>B</p></div></div></body></html>';
+  const r = f.bouwVoorbeeldHtml({ html, baseUrl: 'https://s.nl/', wijzigingen: [], blokken: [
+    { na: 'aaa', waar: 'na', html: '<div class="blokje">1</div>' },
+    { na: 'bbb', waar: 'voor', html: '<div class="blokje">2</div>' },
+    { na: 'nietbestaand', waar: 'na', html: '<div>3</div>' }
+  ] });
+  const volgorde = [...r.html.matchAll(/<p>A<\/p>|<p>B<\/p>|blokje">(\d)/g)].map((m) => m[1] || m[0]);
+  assert.deepStrictEqual(volgorde, ['<p>A</p>', '1', '2', '<p>B</p>']);
+  assert.match(r.html, /fl-module-html lpf-blok/);
+  assert.strictEqual(r.blokkenNietGevonden, 1);
+  assert.match(r.html, /lpf-bar/);
 });

@@ -181,13 +181,14 @@ router.post('/festival/aanpassen', requireLpInternal, async (req, res) => {
 
 router.post('/festival/voorbeeld', requireLpInternal, async (req, res) => {
   try {
-    const { klant, bronUrl, wijzigingen, bewerkbaar } = req.body || {};
+    const { klant, bronUrl, wijzigingen, bewerkbaar, blokken } = req.body || {};
     const client = getLpClient(klant);
     const toegestaan = new URL((client.profile.bedrijf && client.profile.bedrijf.url) || 'https://invalid.invalid/').hostname.replace(/^www\./, '');
     const doel = festival.veiligeUrl(bronUrl);
     if (doel.hostname.replace(/^www\./, '') !== toegestaan) throw new Error('Het voorbeeld kan alleen de site van de klant laten zien.');
     const html = await festival.haalPagina(doel.toString());
-    res.json(festival.bouwVoorbeeldHtml({ html, baseUrl: `${doel.origin}/`, wijzigingen, bewerkbaar }));
+    res.json(festival.bouwVoorbeeldHtml({ html, baseUrl: `${doel.origin}/`, wijzigingen, bewerkbaar,
+      blokken: (Array.isArray(blokken) ? blokken : []).slice(0, 20).map((b) => ({ html: String((b && b.html) || '').slice(0, 200 * 1024), na: String((b && b.na) || ''), waar: b && b.waar === 'voor' ? 'voor' : 'na' })) }));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

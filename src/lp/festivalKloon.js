@@ -273,6 +273,17 @@ function zetViaModule(html, w) {
   return null;
 }
 
+// Zet een blok (HTML uit het portaal) voor of na een module in de pagina, in dezelfde vorm als een HTML module van
+// Beaver Builder, zodat het voorbeeld lijkt op wat het concept straks krijgt.
+function voegBlokIn(html, blok) {
+  if (!blok || typeof blok.html !== 'string' || !blok.html.trim() || !blok.na) return { html, ok: false };
+  const mod = vindModule(html, blok.na);
+  if (!mod) return { html, ok: false };
+  const omhulsel = `<div class="fl-module fl-module-html lpf-blok" data-lpf-blok="1"><div class="fl-module-content fl-node-content"><div class="fl-html">${blok.html}</div></div></div>`;
+  const plek = blok.waar === 'voor' ? mod.start : mod.end;
+  return { html: html.slice(0, plek) + omhulsel + html.slice(plek), ok: true };
+}
+
 const RICH_OPEN = /<div\b[^>]*\bclass=["'][^"']*\bfl-rich-text\b[^"']*["'][^>]*>/i;
 const HEADING_OPEN = /<[a-zA-Z0-9]+\b[^>]*\bclass=["'][^"']*\bfl-heading-text\b[^"']*["'][^>]*>/i;
 
@@ -318,6 +329,33 @@ const BEWERK_SCRIPT = `<style>[data-lpf]{transition:outline .1s}[data-lpf]:hover
     var t=e.target.closest&&e.target.closest('[data-lpf]');
     if(t)stuur(t,false);
   });
+  var bar=document.createElement('div');
+  bar.id='lpf-bar';
+  bar.setAttribute('style','position:absolute;z-index:2147483647;display:none;gap:6px;flex-direction:column;font:12px/1.2 sans-serif');
+  function knop(w,t){var b=document.createElement('button');b.type='button';b.textContent=t;b.setAttribute('data-w',w);b.setAttribute('style','background:#e0a800;color:#111;border:0;border-radius:6px;padding:5px 9px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3)');return b;}
+  bar.appendChild(knop('voor','+ blok boven'));
+  bar.appendChild(knop('na','+ blok onder'));
+  document.body.appendChild(bar);
+  var huidig=null,verberg=null;
+  function nodeVan(m){var c=(m.getAttribute('class')||'').split(/\s+/);for(var i=0;i<c.length;i++){var r=/^fl-node-(.+)$/.exec(c[i]);if(r&&r[1]!=='content')return r[1];}return null;}
+  document.addEventListener('mouseover',function(e){
+    var m=e.target.closest&&e.target.closest('.fl-module');
+    if(!m||m.getAttribute('data-lpf-blok')||!nodeVan(m))return;
+    clearTimeout(verberg);
+    huidig=m;
+    var r=m.getBoundingClientRect();
+    bar.style.display='flex';
+    bar.style.left=(window.pageXOffset+r.left+8)+'px';
+    bar.style.top=(window.pageYOffset+r.top+8)+'px';
+  });
+  document.addEventListener('mouseout',function(){clearTimeout(verberg);verberg=setTimeout(function(){bar.style.display='none';},700);});
+  bar.addEventListener('mouseover',function(){clearTimeout(verberg);});
+  bar.addEventListener('click',function(e){
+    var w=e.target.getAttribute&&e.target.getAttribute('data-w');
+    if(!w||!huidig)return;
+    e.stopPropagation();
+    parent.postMessage({lpfBlok:{node:nodeVan(huidig),waar:w}},'*');
+  });
   document.addEventListener('keydown',function(e){
     var t=e.target.closest&&e.target.closest('[data-lpf]');
     if(t&&t.getAttribute('data-lpf-soort')==='plat'&&e.key==='Enter')e.preventDefault();
@@ -326,7 +364,7 @@ const BEWERK_SCRIPT = `<style>[data-lpf]{transition:outline .1s}[data-lpf]:hover
 </script>`;
 
 // wijzigingen: [{ oud, nieuw, soort, node?, pad?, module? }]. Geeft { html, nietGevonden: aantal }.
-function bouwVoorbeeldHtml({ html, baseUrl, wijzigingen, bewerkbaar }) {
+function bouwVoorbeeldHtml({ html, baseUrl, wijzigingen, bewerkbaar, blokken }) {
   let uit = String(html || '');
   let nietGevonden = 0;
   for (const w of Array.isArray(wijzigingen) ? wijzigingen : []) {
@@ -353,6 +391,12 @@ function bouwVoorbeeldHtml({ html, baseUrl, wijzigingen, bewerkbaar }) {
     }
     if (!gevonden) nietGevonden += 1;
   }
+  let blokkenNietGevonden = 0;
+  for (const b of Array.isArray(blokken) ? blokken : []) {
+    const r = voegBlokIn(uit, b);
+    uit = r.html;
+    if (!r.ok) blokkenNietGevonden += 1;
+  }
   let metMarkering = uit;
   let bewerkbaarAantal = 0;
   for (const v of Array.isArray(bewerkbaar) ? bewerkbaar : []) {
@@ -361,9 +405,8 @@ function bouwVoorbeeldHtml({ html, baseUrl, wijzigingen, bewerkbaar }) {
     metMarkering = na;
   }
   let omgezet = zetVoorbeeldOm(metMarkering, baseUrl);
-  if (bewerkbaarAantal) omgezet = omgezet.replace(/<\/body>/i, () => `${BEWERK_SCRIPT}</body>`);
-  if (bewerkbaarAantal && !/<\/body>/i.test(omgezet)) omgezet += BEWERK_SCRIPT;
-  return { html: omgezet, nietGevonden, bewerkbaar: bewerkbaarAantal };
+  omgezet = /<\/body>/i.test(omgezet) ? omgezet.replace(/<\/body>/i, () => `${BEWERK_SCRIPT}</body>`) : omgezet + BEWERK_SCRIPT;
+  return { html: omgezet, nietGevonden, blokkenNietGevonden, bewerkbaar: bewerkbaarAantal };
 }
 
 module.exports = {
