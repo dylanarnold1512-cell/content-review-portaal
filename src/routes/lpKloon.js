@@ -104,6 +104,18 @@ async function bouwBlokken(klant, blokken) {
   return uit;
 }
 
+// Voorbeeld van een gekozen blok, zonder iets naar WordPress te sturen.
+router.post('/blokvoorbeeld', requireLpInternal, async (req, res) => {
+  try {
+    const { klant, pagina, sectie, deel } = req.body || {};
+    getLpClient(klant);
+    const [blok] = await bouwBlokken(klant, [{ pagina, sectie, deel, na: 'voorbeeld' }]);
+    res.json({ html: blok.html, titel: blok.titel });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 router.post('/maak', requireLpInternal, async (req, res) => {
   try {
     const { klant, bron, titel, slug, metaTitel, metaBeschrijving, velden, zoekvervang, blokken, dryRun } = req.body || {};

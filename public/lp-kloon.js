@@ -211,9 +211,12 @@
         }
       };
       pagSel.addEventListener('change', laadSecties);
-      const rij = el('div', { class: 'kloon-zoekrij' }, [
+      const voorbeeldHouder = el('div', { class: 'hidden', 'data-rol': 'voorbeeld', style: 'flex-basis:100%;margin-top:8px;' });
+      const rij = el('div', { class: 'kloon-zoekrij', style: 'flex-wrap:wrap;' }, [
         pagSel, secSel, deelSel, naSel,
-        el('button', { type: 'button', class: 'btn-plain', text: 'Weghalen', onclick: () => rij.remove() })
+        el('button', { type: 'button', class: 'btn-plain', text: 'Voorbeeld', onclick: (e) => toonBlokVoorbeeld(e.currentTarget, rij, voorbeeldHouder) }),
+        el('button', { type: 'button', class: 'btn-plain', text: 'Weghalen', onclick: () => rij.remove() }),
+        voorbeeldHouder
       ]);
       $('lpKloonBlokRijen').appendChild(rij);
       laadSecties();
@@ -222,6 +225,30 @@
     }
   }
   $('lpKloonBlokAddBtn').addEventListener('click', voegBlokRijToe);
+
+  async function toonBlokVoorbeeld(knop, rij, houder) {
+    toonFout('');
+    setBtnLoading(knop, true, 'Laden...');
+    try {
+      const body = {
+        klant: state.klant,
+        pagina: rij.querySelector('[data-rol="pagina"]').value,
+        sectie: rij.querySelector('[data-rol="sectie"]').value,
+        deel: rij.querySelector('[data-rol="deel"]').value
+      };
+      const { html } = await lpApi('/kloon/blokvoorbeeld', { method: 'POST', body: JSON.stringify(body) });
+      houder.innerHTML = '';
+      const frame = el('iframe', { sandbox: '', style: 'width:100%;height:420px;border:1px solid #ddd;border-radius:8px;background:#fff;resize:vertical;' });
+      frame.srcdoc = `<!doctype html><meta charset="utf-8"><body style="margin:0;padding:16px;">${html}`;
+      houder.appendChild(frame);
+      houder.appendChild(el('p', { class: 'admin-footnote', text: 'Zo komt het blok uit het sjabloon. Het thema van de site zit hier niet in, dat zie je pas op het concept.' }));
+      houder.classList.remove('hidden');
+    } catch (err) {
+      toonFout(formatApiError(err));
+    } finally {
+      setBtnLoading(knop, false);
+    }
+  }
 
   function verzamelBlokken() {
     return [...document.querySelectorAll('#lpKloonBlokRijen > div')].map((rij) => ({

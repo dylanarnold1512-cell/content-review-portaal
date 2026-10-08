@@ -74,3 +74,8 @@ test('renderSectieHtml: met deel komt alleen dat stuk mee, de hero kop niet', ()
 test('renderSectieHtml: onbekend deel geeft een duidelijke fout', () => {
   assert.throws(() => renderSectieHtml({ blueprint: heroBp, pagina: heroPagina, sectie: 0, deel: 99 }), /bestaat niet/);
 });
+
+test('route /blokvoorbeeld bestaat', () => {
+  const r = require('../src/routes/lpKloon');
+  assert.ok(r.stack.some((l) => l.route && l.route.path === '/blokvoorbeeld'));
+});
