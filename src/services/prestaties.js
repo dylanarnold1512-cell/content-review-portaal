@@ -131,6 +131,28 @@ function parseZoekwoorden(tekst) {
   }
 }
 
+// De hoofdtaal van de blogs is bij alle huidige klanten Nederlands.
+const TAAL_NAMEN = { hoofd: 'Nederlands', nl: 'Nederlands', en: 'Engels', fr: 'Frans', es: 'Spaans', de: 'Duits', pl: 'Pools', cs: 'Tsjechisch', it: 'Italiaans', pt: 'Portugees', da: 'Deens', sv: 'Zweeds', no: 'Noors', fi: 'Fins', ro: 'Roemeens', hu: 'Hongaars', sk: 'Slowaaks' };
+function taalNaam(code) {
+  const c = String(code || '').toLowerCase();
+  return TAAL_NAMEN[c] || TAAL_NAMEN[c.split('-')[0]] || c.toUpperCase();
+}
+function parseTalen(tekst) {
+  try {
+    const lijst = JSON.parse(tekst || '[]');
+    if (!Array.isArray(lijst) || lijst.length < 2) return [];
+    return lijst.map((t) => ({
+      code: String(t.taal || '').toLowerCase(),
+      taal: taalNaam(t.taal),
+      vertoningen: Number(t.i) || 0,
+      clicks: Number(t.c) || 0,
+      paginaweergaven: t.gv === null || t.gv === undefined ? null : Number(t.gv) || 0
+    }));
+  } catch (err) {
+    return [];
+  }
+}
+
 function verschilTekst(nu, vorig, eenheid) {
   if (vorig === null || vorig === undefined) return null;
   const delta = nu - vorig;
@@ -202,6 +224,7 @@ function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies, kansen
       clicks,
       clicksVorig: num(b.clicks_vorig) || 0,
       paginaweergaven: num(b.paginaweergaven),
+      talen: parseTalen(b.talen),
       zoekwoorden: parseZoekwoorden(b.zoekwoorden)
         .slice(0, 5)
         .map((z) => ({ q: z.q, c: z.c || 0, i: z.i || 0, p: z.p, label: positieLabel(z.p) }))
@@ -239,6 +262,12 @@ function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies, kansen
     hkPositieVerbetering: hkVergNu !== null && hkVergVorig !== null ? hkVergVorig - hkVergNu : null,
     blogsGepubliceerd: num(o.blogs_gepubliceerd) || 0,
     blogsPipeline: num(o.blogs_pipeline) || 0,
+    talen: (() => {
+      const kaart = new Map();
+      blogRijen.forEach((b) => (b.talen || []).forEach((t) => { if (!kaart.has(t.code)) kaart.set(t.code, t.taal); }));
+      if (kaart.size < 2) return [];
+      return [...kaart.entries()].map(([code, label]) => ({ code, label })).sort((a, c) => (a.code === 'hoofd' ? -1 : c.code === 'hoofd' ? 1 : a.label.localeCompare(c.label, 'nl')));
+    })(),
     blogsGemeten: blogRijen.length,
     blogsGetoond: blogRijen.filter((b) => b.vertoningen > 0).length
   };

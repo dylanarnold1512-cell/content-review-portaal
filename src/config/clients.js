@@ -80,7 +80,8 @@ const clients = [
       rejected: 'Afgewezen',
       published: 'Gepubliceerd',
       idea: 'Idee',
-      planned: 'Gepland'
+      planned: 'Gepland',
+      generating: 'In generatie'
     }
   },
   {
@@ -120,7 +121,8 @@ const clients = [
       rejected: 'Afgewezen',
       published: 'Gepubliceerd',
       idea: 'Idee',
-      planned: 'Gepland'
+      planned: 'Gepland',
+      generating: 'In generatie'
     }
   },
   {
@@ -158,7 +160,8 @@ const clients = [
       rejected: 'Afgewezen',
       published: 'Gepubliceerd',
       idea: 'Idee',
-      planned: 'Gepland'
+      planned: 'Gepland',
+      generating: 'In generatie'
     }
   }
 ];

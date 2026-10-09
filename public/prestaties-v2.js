@@ -19,7 +19,7 @@ const PV_STAP = 10;
 const PV_INZICHT_ZICHTBAAR = 3;
 const PV_KANSEN_ZICHTBAAR = 4;
 
-const pvState = { periode: '28d', laden: false, sort: 'vertoningen', cluster: '', status: '', q: '', toon: PV_STAP, open: {}, insOpen: {}, data: null };
+const pvState = { periode: '28d', laden: false, sort: 'vertoningen', cluster: '', status: '', q: '', taal: '', toon: PV_STAP, open: {}, insOpen: {}, data: null };
 
 function pvDelta(nu, vorig) {
   if (vorig === null || vorig === undefined) return '';
@@ -28,6 +28,28 @@ function pvDelta(nu, vorig) {
   const cls = d > 0 ? 'pv-up' : 'pv-down';
   const teken = d > 0 ? 'meer' : 'minder';
   return `<span class="pv-delta ${cls}">${pvNl(Math.abs(d))} ${teken} dan de periode ervoor</span>`;
+}
+
+// Taalfilter: cijfers per taal komen uit b.talen. Zonder vertalingen (b.talen leeg) geldt de blog zelf als hoofdtaal.
+function pvTaalCijfers(b) {
+  if (!pvState.taal) return null;
+  const e = (b.talen || []).find((x) => x.code === pvState.taal);
+  if (e) return e;
+  if (pvState.taal === 'hoofd' && !(b.talen && b.talen.length)) return { vertoningen: b.vertoningen, clicks: b.clicks, paginaweergaven: b.paginaweergaven };
+  return null;
+}
+
+function pvTotalenVoorTaal(t) {
+  if (!pvState.taal) return t;
+  const rijen = pvState.data.blogs.map(pvTaalCijfers).filter(Boolean);
+  const heeftGa = rijen.some((r) => r.paginaweergaven !== null && r.paginaweergaven !== undefined);
+  return {
+    vertoningen: rijen.reduce((s, r) => s + (r.vertoningen || 0), 0),
+    clicks: rijen.reduce((s, r) => s + (r.clicks || 0), 0),
+    paginaweergaven: heeftGa ? rijen.reduce((s, r) => s + (r.paginaweergaven || 0), 0) : null,
+    verbergHk: true,
+    conversies: null
+  };
 }
 
 function pvTiles(t) {
@@ -43,6 +65,7 @@ function pvTiles(t) {
     { l: 'Bezoekers vanuit Google', v: pvNl(t.clicks), d: pvDelta(t.clicks, t.clicksVorig), h: 'Hoe vaak iemand doorklikte naar een blog.' },
     { l: 'Positie hoofdzoekwoorden', v: pvEsc(t.hkPositieLabel || 'Nog geen meting'), d: hkDelta, h: 'Waar de blogs gemiddeld staan voor het zoekwoord waar ze voor geschreven zijn.' }
   ];
+  if (t.verbergHk) tiles.pop();
   if (t.paginaweergaven !== null && t.paginaweergaven !== undefined) {
     tiles.push({ l: 'Paginaweergaven', v: pvNl(t.paginaweergaven), d: '', h: 'Hoe vaak de blogpagina\'s zijn bekeken.' });
   }
@@ -175,7 +198,10 @@ async function pvLaadPeriode(code) {
   }
 }
 
-function pvBlogRegel(b, idx) {
+function pvBlogRegel(b0, idx) {
+  const tc = pvTaalCijfers(b0);
+  const b = tc ? Object.assign({}, b0, { vertoningen: tc.vertoningen || 0, clicks: tc.clicks || 0, paginaweergaven: tc.paginaweergaven === undefined ? null : tc.paginaweergaven, talen: [] }) : b0;
+  const toonNl = !pvState.taal || pvState.taal === 'hoofd';
   const open = Boolean(pvState.open[idx]);
   const dagen = b.leeftijdDagen === null ? '' : b.leeftijdDagen === 0 ? 'vandaag live' : `${b.leeftijdDagen} ${b.leeftijdDagen === 1 ? 'dag' : 'dagen'} live`;
   const g = b.gedrag;
@@ -193,16 +219,21 @@ function pvBlogRegel(b, idx) {
     ? `<table class="pv-kw"><thead><tr><th>Zoekwoord</th><th>Getoond</th><th>Clicks</th><th>Positie</th></tr></thead><tbody>${b.zoekwoorden.map((z) => `
         <tr><td>${pvEsc(z.q)}</td><td>${pvNl(z.i)}</td><td>${pvNl(z.c)}</td><td>${pvEsc(z.label || '')}</td></tr>`).join('')}</tbody></table>`
     : '<div class="pv-muted">Nog geen zoekwoorden gemeten.</div>';
+  const talen = !pvState.taal && b.talen && b.talen.length
+    ? `<div class="pv-kw-wrap"><div class="pv-muted">Per taal (de cijfers hierboven tellen alle talen mee)</div><table class="pv-kw"><thead><tr><th>Taal</th><th>Getoond</th><th>Clicks</th><th>Paginaweergaven</th></tr></thead><tbody>${b.talen.map((t) => `
+        <tr><td>${pvEsc(t.taal)}</td><td>${pvNl(t.vertoningen)}</td><td>${pvNl(t.clicks)}</td><td>${t.paginaweergaven === null ? '' : pvNl(t.paginaweergaven)}</td></tr>`).join('')}</tbody></table></div>`
+    : '';
   const pijl = b.hkPositie !== null && b.hkPositieVorig !== null
     ? (b.hkPositieVorig - b.hkPositie >= 0.5 ? ' <span class="pv-up">omhoog</span>' : b.hkPositie - b.hkPositieVorig >= 0.5 ? ' <span class="pv-down">omlaag</span>' : '')
     : '';
   const detail = open ? `
     <div class="pv-detail">
-      ${b.hoofdwoord ? `<div class="pv-hw"><span class="pv-muted">Hoofdzoekwoord:</span> ${pvEsc(b.hoofdwoord)}. ${pvEsc(b.hoofdwoordTekst || '')}${pijl}</div>` : ''}
+      ${b.hoofdwoord && toonNl ? `<div class="pv-hw"><span class="pv-muted">Hoofdzoekwoord:</span> ${pvEsc(b.hoofdwoord)}. ${pvEsc(b.hoofdwoordTekst || '')}${pijl}</div>` : ''}
       ${b.indexatie && b.indexatie.tekst ? `<div class="pv-hw"><span class="pv-muted">In Google:</span> ${pvEsc(b.indexatie.tekst)}</div>` : ''}
       ${gedragRegels.length ? `<div class="pv-hw"><span class="pv-muted">Op de website:</span> ${gedragRegels.map(pvEsc).join('. ')}.</div>` : ''}
       ${b.paginaweergaven !== null && b.paginaweergaven !== undefined ? `<div class="pv-hw"><span class="pv-muted">Paginaweergaven:</span> ${pvNl(b.paginaweergaven)}</div>` : ''}
-      <div class="pv-kw-wrap">${kw}</div>
+      ${talen}
+      ${toonNl ? `<div class="pv-kw-wrap">${kw}</div>` : '<div class="pv-muted">Zoekwoorden meten we alleen in de hoofdtaal.</div>'}
       ${b.url ? `<div class="pv-hw"><a href="${pvEsc(b.url)}" target="_blank" rel="noopener">Bekijk de blog</a></div>` : ''}
     </div>` : '';
   return `
@@ -231,10 +262,12 @@ const PV_STATUSSEN = [
 function pvGefilterd() {
   const d = pvState.data;
   let lijst = d.blogs.map((b, i) => ({ b, i }));
+  if (pvState.taal) lijst = lijst.filter((x) => pvTaalCijfers(x.b));
   if (pvState.status) lijst = lijst.filter((x) => x.b.status.code === pvState.status);
   if (pvState.cluster) lijst = lijst.filter((x) => x.b.cluster === pvState.cluster);
   const q = pvState.q.trim().toLowerCase();
   if (q) lijst = lijst.filter((x) => (x.b.titel + ' ' + x.b.hoofdwoord + ' ' + x.b.cluster).toLowerCase().indexOf(q) !== -1);
+  if (pvState.taal && pvState.sort === 'vertoningen') lijst.sort((a, c) => ((pvTaalCijfers(c.b) || {}).vertoningen || 0) - ((pvTaalCijfers(a.b) || {}).vertoningen || 0));
   if (pvState.sort === 'nieuwste') lijst.sort((a, c) => (c.b.publicatiedatum || '').localeCompare(a.b.publicatiedatum || ''));
   else if (pvState.sort === 'aandacht') {
     const rang = { nietgetoond: 0, getoond: 1, nieuw: 2, clicks: 3 };
@@ -295,9 +328,10 @@ function renderPrestatiesV2(d) {
       <p>${d.samenvatting.map(pvEsc).join(' ')}</p>
       ${d.periode && d.periode.eind ? `<p class="pv-muted"><em>Google geeft de cijfers van de laatste 2 tot 3 dagen pas later door. Daarom lopen deze cijfers tot en met ${pvEsc(pvDatum(d.periode.eind))}${d.laatstBijgewerkt ? `. Bijgewerkt op ${pvEsc(pvDatum(d.laatstBijgewerkt))}` : ''}.</em></p>` : ''}
     </div>
-    <div class="pv-tiles">${pvTiles(t)}</div>
+    <div id="pvTaalRij"></div>
+    <div class="pv-tiles" id="pvTiles">${pvTiles(t)}</div>
     <div class="pv-voortgang">${pvEsc(voortgang)}</div>
-    ${d.weken.length ? `<div class="pv-card"><div class="pv-sectie-titel">De laatste weken</div>
+    ${d.weken.length ? `<div class="pv-card" id="pvWekenKaart"><div class="pv-sectie-titel">De laatste weken</div>
       <div class="pv-charts">${pvBars(d.weken, 'vertoningen', 'pv-bar-a', 'Keer getoond per week')}${pvBars(d.weken, 'clicks', 'pv-bar-b', 'Bezoekers vanuit Google per week')}</div>
       <div class="pv-muted pv-legenda">Een stip onder een week betekent dat er in die week een nieuwe blog live ging. De lichte staaf is de week die nog loopt.</div></div>` : ''}
     <div id="pvInzichten"></div>
@@ -315,6 +349,7 @@ function renderPrestatiesV2(d) {
   pvTekenInzichten();
   document.getElementById('pvBlogControls').innerHTML = pvControlsHtml();
   document.getElementById('pvBlogList').innerHTML = pvLijstHtml();
+  pvTekenTaalRij();
   el.classList.remove('hidden');
 
   const herteken = () => {
@@ -324,6 +359,15 @@ function renderPrestatiesV2(d) {
   el.onclick = (e) => {
     const per = e.target.closest('[data-pv-periode]');
     if (per) { pvLaadPeriode(per.getAttribute('data-pv-periode')); return; }
+    const taalKnop = e.target.closest('[data-pv-taal]');
+    if (taalKnop) {
+      pvState.taal = taalKnop.getAttribute('data-pv-taal');
+      pvState.toon = PV_STAP;
+      pvState.open = {};
+      pvTekenTaalRij();
+      herteken();
+      return;
+    }
     const toggle = e.target.closest('[data-pv-toggle]');
     if (toggle) {
       const i = toggle.getAttribute('data-pv-toggle');
@@ -363,6 +407,23 @@ function renderPrestatiesV2(d) {
     pvState.toon = PV_STAP;
     document.getElementById('pvBlogList').innerHTML = pvLijstHtml();
   };
+}
+
+function pvTekenTaalRij() {
+  const d = pvState.data;
+  const talen = (d.totalen && d.totalen.talen) || [];
+  if (talen.length < 2) pvState.taal = '';
+  const rij = document.getElementById('pvTaalRij');
+  if (rij) {
+    rij.innerHTML = talen.length < 2 ? '' : `<div class="pv-periode" role="group" aria-label="Taal">
+      <button type="button" class="pv-chip${pvState.taal === '' ? ' pv-chip-aan' : ''}" data-pv-taal="">Alle talen</button>
+      ${talen.map((x) => `<button type="button" class="pv-chip${pvState.taal === x.code ? ' pv-chip-aan' : ''}" data-pv-taal="${pvEsc(x.code)}">${pvEsc(x.label)}</button>`).join('')}
+    </div>${pvState.taal ? '<div class="pv-muted">Je ziet alleen de cijfers van deze taal. Vergelijking met de periode ervoor en de weekgrafiek zijn er alleen voor alle talen samen.</div>' : ''}`;
+  }
+  const tegels = document.getElementById('pvTiles');
+  if (tegels) tegels.innerHTML = pvTiles(pvTotalenVoorTaal(d.totalen));
+  const weken = document.getElementById('pvWekenKaart');
+  if (weken) weken.style.display = pvState.taal ? 'none' : '';
 }
 
 function pvTekenInzichten() {

@@ -30,7 +30,7 @@
 
     // Planning: geplande blogs, ideeën en goedgekeurde blogs die nog niet live zijn, op datum.
     // Blogs die op review wachten staan al in hun eigen blok erboven.
-    const komend = lijst.filter((i) => [statusValues.planned, statusValues.idea, statusValues.approved].includes(i.status));
+    const komend = lijst.filter((i) => [statusValues.planned, statusValues.generating, statusValues.idea, statusValues.approved].filter(Boolean).includes(i.status));
     const metDatum = komend
       .map((i) => ({ item: i, datum: leesDatum(i.publicatiedatum) }))
       .filter((x) => x.datum && dagStart(x.datum) >= vandaag)
