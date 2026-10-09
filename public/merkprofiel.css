@@ -98,3 +98,14 @@ button.mp-kaart-kop:hover { background: var(--bg); }
 .mp-termen-sectie > summary { cursor: pointer; padding: 14px 0; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; font-size: 15px; }
 .mp-termen-samenvatting { font-size: 12.5px; color: var(--text-faint); }
 .mp-termen-sectie .mp-uitgesloten { margin-top: 12px; background: var(--bg); }
+
+.mp-kort { background: var(--surface, #fff); border: 1px solid var(--border, #e5e7eb); border-radius: 14px; padding: 20px 22px; margin: 0 0 18px 0; }
+.mp-kort h3 { margin: 0; font-size: 17px; color: var(--text); }
+.mp-kort-kop { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.mp-kort .mp-uitleg { margin: 6px 0 14px 0; }
+.mp-kort-regel { display: grid; grid-template-columns: 190px 1fr; gap: 12px; padding: 9px 0; border-top: 1px solid var(--border, #eef0f3); font-size: 14px; line-height: 1.55; }
+.mp-kort-label { color: var(--text-muted); font-weight: 600; }
+.mp-kort-waarde { color: var(--text); }
+.mp-kort-acties { display: flex; gap: 14px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+.mp-kort-tekst { width: 100%; box-sizing: border-box; font: inherit; font-size: 14px; line-height: 1.55; padding: 10px; border: 1px solid var(--border, #d9dde3); border-radius: 8px; }
+@media (max-width: 640px) { .mp-kort-regel { grid-template-columns: 1fr; gap: 2px; } }

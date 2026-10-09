@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
-const { parseProfiel, regelId, splitsHerkomst, bouwWeergave, bouwKennisdocument, KOPJES } = require('../src/services/merkprofiel');
+const { parseProfiel, regelId, splitsHerkomst, parseSamenvatting, bouwSamenvatting, bouwWeergave, bouwKennisdocument, KOPJES } = require('../src/services/merkprofiel');
 
 const tekst = fs.readFileSync(path.join(__dirname, 'fixtures', 'basecamp-profiel.txt'), 'utf8');
 
@@ -193,4 +193,38 @@ test('wijzigVerbodenTerm voegt toe, zondert uit, zet terug en schrijft de eindli
     global.fetch = oudeFetch;
     if (oudeKey === undefined) delete process.env.N8N_API_KEY; else process.env.N8N_API_KEY = oudeKey;
   }
+});
+
+const KORT = 'Wie jullie zijn: Een vergaderlocatie in Utrecht.\nVoor wie jullie er zijn: Zakelijke teams.\nWat jullie onderscheidt: Eigen terras.\nZo klinken jullie: Zakelijk, met u.\nWaar we niet over schrijven: Gratis annuleren.';
+
+test('splitsHerkomst herkent het kennisdocument als bron', () => {
+  const r = splitsHerkomst('Gratis verzending vanaf 250 euro. (kennisdocument, website: /verzending)');
+  assert.strictEqual(r.herkomst.kennisdocument, true);
+  assert.strictEqual(r.herkomst.website, true);
+  assert.deepStrictEqual(r.herkomst.paginas, ['/verzending']);
+  assert.strictEqual(r.tekst, 'Gratis verzending vanaf 250 euro.');
+});
+
+test('parseSamenvatting leest vijf regels en weigert een onvolledig blok', () => {
+  const r = parseSamenvatting(KORT);
+  assert.strictEqual(r.length, 5);
+  assert.strictEqual(r[3].tekst, 'Zakelijk, met u.');
+  assert.strictEqual(parseSamenvatting('Wie jullie zijn: iets'), null);
+  assert.strictEqual(parseSamenvatting(''), null);
+});
+
+test('bouwSamenvatting toont aanpassing van de klant en de stand', () => {
+  assert.strictEqual(bouwSamenvatting('', {}), null);
+  const nieuw = bouwSamenvatting(KORT, {});
+  assert.strictEqual(nieuw.bevestigd, false);
+  const klopt = bouwSamenvatting(KORT, { samenvatting: { status: 'klopt', opmerking: '', datum: '2026-10-09' } });
+  assert.strictEqual(klopt.bevestigd, true);
+  assert.strictEqual(klopt.aangepast, false);
+  const eigen = KORT.replace('Eigen terras.', 'Eigen tuin.');
+  const aangepast = bouwSamenvatting(KORT, { samenvatting: { status: 'aangepast', opmerking: eigen, datum: '2026-10-09' } });
+  assert.strictEqual(aangepast.aangepast, true);
+  assert.strictEqual(aangepast.regels[2].tekst, 'Eigen tuin.');
+  const kapot = bouwSamenvatting(KORT, { samenvatting: { status: 'aangepast', opmerking: 'kapot', datum: '' } });
+  assert.strictEqual(kapot.aangepast, false);
+  assert.strictEqual(kapot.regels[2].tekst, 'Eigen terras.');
 });

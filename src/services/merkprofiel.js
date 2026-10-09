@@ -80,8 +80,8 @@ function regelId(tekst) {
 
 // Haalt de herkomst achter een feit weg, bijvoorbeeld "(PDF, website: /contact)".
 function splitsHerkomst(regel) {
-  const m = regel.match(/^(.*?)\s*\(([^()]*(?:PDF|website)[^()]*)\)\s*$/);
-  if (!m) return { tekst: regel.trim(), herkomst: { pdf: false, website: false, paginas: [] } };
+  const m = regel.match(/^(.*?)\s*\(([^()]*(?:PDF|website|kennisdocument)[^()]*)\)\s*$/);
+  if (!m) return { tekst: regel.trim(), herkomst: { pdf: false, website: false, kennisdocument: false, paginas: [] } };
   const bron = m[2];
   const paginas = [];
   const re = /website:\s*(\/[^\s,)]*)/g;
@@ -94,7 +94,7 @@ function splitsHerkomst(regel) {
   });
   return {
     tekst: m[1].trim(),
-    herkomst: { pdf: /PDF/.test(bron), website: /website/.test(bron), paginas }
+    herkomst: { pdf: /PDF/.test(bron), website: /website/.test(bron), kennisdocument: /kennisdocument/.test(bron), paginas }
   };
 }
 
@@ -158,6 +158,38 @@ async function getBeoordelingen(clientNaam) {
     kaart[r.regel_id] = { status: r.status, opmerking: r.opmerking || '', datum: r.datum || '' };
   });
   return kaart;
+}
+
+const SAMENVATTING_LABELS = ['Wie jullie zijn', 'Voor wie jullie er zijn', 'Wat jullie onderscheidt', 'Zo klinken jullie', 'Waar we niet over schrijven'];
+const SAMENVATTING_ID = 'samenvatting';
+
+// Zet de vijf regels van "In het kort" om in label en tekst. Geeft null terug
+// als een van de vijf labels ontbreekt, dan toont het tabblad het blok niet.
+function parseSamenvatting(tekst) {
+  const regels = String(tekst || '').split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+  const uit = [];
+  for (const label of SAMENVATTING_LABELS) {
+    const r = regels.find((x) => x.toLowerCase().indexOf(label.toLowerCase() + ':') === 0);
+    if (!r) return null;
+    uit.push({ label, tekst: r.slice(label.length + 1).trim() });
+  }
+  return uit;
+}
+
+// Combineert het blok met de reactie van de klant. Een aanpassing is dezelfde
+// vijf regels met de tekst van de klant.
+function bouwSamenvatting(rauw, beoordelingen) {
+  const origineel = parseSamenvatting(rauw);
+  if (!origineel) return null;
+  const b = beoordelingen[SAMENVATTING_ID];
+  const aangepast = b && b.status === 'aangepast' ? parseSamenvatting(b.opmerking) : null;
+  return {
+    regels: aangepast || origineel,
+    aangepast: Boolean(aangepast),
+    bevestigd: Boolean(b && (b.status === 'klopt' || aangepast)),
+    bevestigdOp: b ? b.datum : '',
+    origineelTekst: origineel.map((r) => `${r.label}: ${r.tekst}`).join('\n')
+  };
 }
 
 // Combineert de secties met de reacties van de klant en rekent de voortgang uit.
@@ -394,6 +426,7 @@ async function getMerkprofiel(clientNaam) {
       bijgewerkt: rij.aangemaakt || '',
       aantalPaginas: aantalPaginasUitBron(rij.bron_paginas)
     }),
+    samenvatting: bouwSamenvatting(rij.samenvatting, beoordelingen),
     uitgeslotenZoektermen,
     verbodenTermen: klantTermen.verboden,
     vasteTermen: klantTermen.vast,
@@ -414,7 +447,7 @@ async function saveBeoordeling(clientNaam, { regelId: id, status, opmerking, reg
         client_name: clientNaam,
         regel_id: id,
         status,
-        opmerking: String(opmerking || '').slice(0, 1000),
+        opmerking: String(opmerking || '').slice(0, id === SAMENVATTING_ID ? 2000 : 1000),
         regel_tekst: String(regelTekst || '').slice(0, 500),
         datum: vandaag
       }
@@ -581,6 +614,8 @@ module.exports = {
   parseProfiel,
   regelId,
   splitsHerkomst,
+  parseSamenvatting,
+  bouwSamenvatting,
   bouwWeergave,
   getMerkprofiel,
   parseMerktermen,

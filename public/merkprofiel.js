@@ -28,10 +28,43 @@
   }
 
   function herkomstLabel(h) {
+    if (h.kennisdocument && h.website) return '<span class="mp-bron mp-bron-beide">eigen document en website</span>';
+    if (h.kennisdocument) return '<span class="mp-bron mp-bron-pdf">eigen document</span>';
     if (h.pdf && h.website) return '<span class="mp-bron mp-bron-beide">eigen document en website</span>';
     if (h.pdf) return '<span class="mp-bron mp-bron-pdf">eigen document</span>';
     if (h.website) return '<span class="mp-bron mp-bron-web">gevonden op je website</span>';
     return '';
+  }
+
+  // Het blok bovenaan: het merk in vijf regels, met bevestigen of aanpassen.
+  let kortBewerken = false;
+  function samenvattingHtml() {
+    const sv = profiel.samenvatting;
+    if (!sv) return '';
+    if (kortBewerken) {
+      const tekst = sv.regels.map((r) => `${r.label}: ${r.tekst}`).join('\n');
+      return `<div class="mp-kort" id="mpKort">
+        <h3>In het kort</h3>
+        <p class="mp-uitleg">Pas de tekst aan en laat de vijf kopjes staan. Zo schrijven wij voortaan over jullie.</p>
+        <textarea class="mp-kort-tekst" rows="10">${esc(tekst)}</textarea>
+        <div class="mp-kort-acties"><button type="button" class="btn-save-sm" data-actie="kort-opslaan">Opslaan</button>
+        <button type="button" class="mp-link" data-actie="kort-annuleer">Annuleren</button>
+        ${sv.aangepast ? '<button type="button" class="mp-link" data-actie="kort-terug">Terug naar ons voorstel</button>' : ''}</div>
+      </div>`;
+    }
+    const regels = sv.regels.map((r) => `<div class="mp-kort-regel"><div class="mp-kort-label">${esc(r.label)}</div><div class="mp-kort-waarde">${esc(r.tekst)}</div></div>`).join('');
+    const stand = sv.bevestigd
+      ? `<span class="mp-bron mp-bron-ok">${sv.aangepast ? 'door jou aangepast' : 'door jou bevestigd'}</span>`
+      : '<span class="mp-bron mp-bron-open">graag even bevestigen</span>';
+    const knoppen = sv.bevestigd && !sv.aangepast
+      ? '<button type="button" class="mp-link" data-actie="kort-aanpassen">Aanpassen</button><button type="button" class="mp-link" data-actie="kort-terugzetten">Bevestiging intrekken</button>'
+      : `${sv.bevestigd ? '' : '<button type="button" class="btn-save-sm" data-actie="kort-klopt">Dit klopt</button>'}<button type="button" class="mp-link" data-actie="kort-aanpassen">Aanpassen</button>`;
+    return `<div class="mp-kort" id="mpKort">
+      <div class="mp-kort-kop"><h3>In het kort</h3>${stand}</div>
+      <p class="mp-uitleg">Dit is het beeld dat wij van jullie merk hebben. Onze blogs zijn hierop gebaseerd.</p>
+      ${regels}
+      <div class="mp-kort-acties">${knoppen}</div>
+    </div>`;
   }
 
   // Wat er in een onderdeel nog aandacht nodig heeft.
@@ -240,7 +273,7 @@
         <div class="mp-voortgang"><div class="mp-voortgang-tekst">${t.bevestigd} van ${totaal} onderdelen bevestigd</div>
           <div class="mp-balk"><div class="mp-balk-vulling" style="width:${procent}%"></div></div></div>
       </div>
-      ${klaar}${openHtml}
+      ${samenvattingHtml()}${klaar}${openHtml}
       <div class="mp-tabs">${tabs}</div>
       <div class="mp-kaarten">${kaarten || '<p class="mp-uitleg">Niets in deze lijst.</p>'}</div>
       ${termenSectieHtml()}`;
@@ -310,6 +343,24 @@
           if (form) { form.classList.remove('hidden'); const ta = form.querySelector('textarea'); if (ta) ta.focus({ preventScroll: true }); }
         }
         return;
+      }
+      if (actie === 'kort-klopt') return bewaar('samenvatting', 'klopt', '', 'In het kort');
+      if (actie === 'kort-terugzetten' || actie === 'kort-terug') { kortBewerken = false; return bewaar('samenvatting', 'geen', '', 'In het kort'); }
+      if (actie === 'kort-aanpassen') { kortBewerken = true; return render(); }
+      if (actie === 'kort-annuleer') { kortBewerken = false; return render(); }
+      if (actie === 'kort-opslaan') {
+        const ta = el('merkprofielInhoud').querySelector('.mp-kort-tekst');
+        const tekst = ta ? ta.value.trim() : '';
+        if (!tekst) return;
+        const fout = el('merkprofielFout');
+        const labels = ['Wie jullie zijn', 'Voor wie jullie er zijn', 'Wat jullie onderscheidt', 'Zo klinken jullie', 'Waar we niet over schrijven'];
+        const regels = tekst.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+        if (!labels.every((l) => regels.some((r) => r.toLowerCase().indexOf(l.toLowerCase() + ':') === 0))) {
+          if (fout) fout.textContent = 'Laat de vijf kopjes met een dubbele punt staan.';
+          return;
+        }
+        kortBewerken = false;
+        return bewaar('samenvatting', 'aangepast', regels.join('\n'), 'In het kort');
       }
       if (actie === 'sectie-klopt') return bewaar(`sectie-${kaart.dataset.sectie}`, 'klopt', '', '');
       if (actie === 'sectie-terug') return bewaar(`sectie-${kaart.dataset.sectie}`, 'geen', '', '');
