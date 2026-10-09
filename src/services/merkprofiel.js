@@ -37,6 +37,12 @@ const TOEGESTANE_STATUSSEN = ['klopt', 'niet_gebruiken', 'opmerking', 'aangepast
 
 // Sectie 9 bevat de vaste blogregels van Advertisr. Die kan de klant niet uitsluiten.
 const BESCHERMDE_SECTIE = 9;
+const CONCURRENTEN_SECTIE = 10;
+
+// Regels waarin het profiel meldt dat website en kennisdocument elkaar tegenspreken.
+function isTegenstrijdigheid(tekst) {
+  return /^website\s+(wijkt af|spreekt zichzelf tegen)/i.test(String(tekst || '').trim());
+}
 
 function getApiKey() {
   const key = process.env.N8N_API_KEY;
@@ -462,9 +468,13 @@ async function saveBeoordeling(clientNaam, { regelId: id, status, opmerking, reg
 function bouwKennisdocument(secties, beoordelingen) {
   const regels = [];
   secties.forEach((s) => {
+    // Alleen voor Advertisr en de klant: concurrenten (staan in Clients) komen niet bij de schrijver.
+    if (s.nr === CONCURRENTEN_SECTIE) return;
     const uit = [];
     let subkop = '';
     s.feiten.forEach((f) => {
+      // Prijzen mogen nooit in blogs, en meldingen over tegenstrijdigheden zijn voor Advertisr.
+      if (f.intern || isTegenstrijdigheid(f.tekst)) return;
       const b = beoordelingen[f.id];
       const status = b ? b.status : 'geen';
       if (status === 'niet_gebruiken' && s.nr !== BESCHERMDE_SECTIE) return;

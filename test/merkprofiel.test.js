@@ -239,3 +239,28 @@ test('parseProfiel behandelt een korte regel met herkomst kennisdocument als fei
   assert.strictEqual(feit.herkomst.kennisdocument, true);
   assert.strictEqual(feit.intern, true);
 });
+
+test('bouwKennisdocument laat concurrenten, prijslijst en tegenstrijdigheidsmeldingen weg', () => {
+  const profiel = [
+    '1. Over het bedrijf', 'Het bedrijf verhuurt zalen. (website: /)',
+    '2. Doelgroep', 'Voor teams. (website: /)',
+    '3. Diensten en aanbod', 'Zaalverhuur. (website: /)',
+    '4. Werkgebied en bereikbaarheid', 'Utrecht. (website: /)',
+    '5. Schrijfstijl en termen', 'Gebruik je. (website: /)',
+    "6. USP's", 'Eigen keuken. (website: /)',
+    '7. Vakkennis', 'Catering. (website: /)',
+    '8. Geverifieerde feiten en voorwaarden', 'Annuleren kan schriftelijk. (website: /)', 'Prijzen (alleen intern, niet in blogs)', 'Zaal: prijs per dag 295,00. (PDF)',
+    '9. Niet beweren en verboden onderwerpen', 'Niet beweren dat parkeren gratis is. (website: /)', 'Website wijkt af van het kennisdocument over de Tipi. (website: /)',
+    '10. Concurrenten', 'https://concurrent.nl/ (website: /)'
+  ].join('\n');
+  const secties = parseProfiel(profiel);
+  assert.ok(secties, 'profiel moet parseren');
+  const doc = bouwKennisdocument(secties, {});
+  assert.ok(doc.includes('Annuleren kan schriftelijk.'));
+  assert.ok(doc.includes('Niet beweren dat parkeren gratis is.'));
+  assert.ok(!doc.includes('295,00'), 'prijzen horen niet in de blogversie');
+  assert.ok(!doc.includes('Prijzen (alleen intern'), 'kop van de prijslijst ook niet');
+  assert.ok(!doc.includes('concurrent.nl'), 'concurrenten horen niet in de blogversie');
+  assert.ok(!doc.includes('10. Concurrenten'));
+  assert.ok(!doc.includes('Website wijkt af'), 'tegenstrijdigheidsmeldingen horen niet in de blogversie');
+});
