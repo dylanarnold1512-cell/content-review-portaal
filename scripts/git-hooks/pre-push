@@ -4,6 +4,13 @@
 # dit moet precies dit soort bugs (een nieuwe feature die per ongeluk bestaand gedrag stukmaakt,
 # zoals het FAQ-uitklappen of het "Volledig scherm"-bewerken) automatisch opvangen, zonder dat
 # iemand het handmatig moet dubbelchecken vóór het live gaat.
+# Terminal op een Mac heeft npm niet altijd in het pad (Homebrew of nvm): zoek op de gebruikelijke plekken.
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+for d in "$HOME"/.nvm/versions/node/*/bin; do [ -d "$d" ] && PATH="$d:$PATH"; done
+if ! command -v npm >/dev/null 2>&1; then
+  echo "lp-fabriek: npm niet gevonden, tests overgeslagen (draai 'npm test' zelf als je zeker wilt zijn)." >&2
+  exit 0
+fi
 echo "lp-fabriek: tests draaien voor push..."
 npm test
 STATUS=$?
