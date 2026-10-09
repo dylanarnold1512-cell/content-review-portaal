@@ -228,3 +228,14 @@ test('bouwSamenvatting toont aanpassing van de klant en de stand', () => {
   assert.strictEqual(kapot.aangepast, false);
   assert.strictEqual(kapot.regels[2].tekst, 'Eigen terras.');
 });
+
+test('parseProfiel behandelt een korte regel met herkomst kennisdocument als feit en niet als subkop', () => {
+  const kopjes = KOPJES.map((k, i) => `${i + 1}. ${k}`);
+  kopjes[7] += '\nPrijzen (alleen intern)\nMinimale bestelwaarde 75 euro (kennisdocument)';
+  const secties = parseProfiel(kopjes.join('\n'));
+  assert.ok(secties);
+  const feit = secties[7].feiten.find((f) => f.tekst.indexOf('Minimale bestelwaarde') === 0);
+  assert.ok(feit);
+  assert.strictEqual(feit.herkomst.kennisdocument, true);
+  assert.strictEqual(feit.intern, true);
+});

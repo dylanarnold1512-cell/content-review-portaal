@@ -124,7 +124,7 @@ function parseProfiel(tekst) {
     if (!huidig) continue;
     if (/^Log:/i.test(regel)) continue;
     const { tekst: schoon, herkomst } = splitsHerkomst(regel);
-    const heeftHerkomst = herkomst.pdf || herkomst.website;
+    const heeftHerkomst = herkomst.pdf || herkomst.website || herkomst.kennisdocument;
     if (!heeftHerkomst && schoon.length < 70 && !/[.!?:]$/.test(schoon) && !isOpenPunt(schoon)) {
       subkop = schoon;
       continue;
