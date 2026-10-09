@@ -161,7 +161,17 @@ function verschilTekst(nu, vorig, eenheid) {
   return `${nl(Math.abs(delta))} ${woord} dan de periode ervoor (${nl(vorig)})`;
 }
 
-function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies, kansenRijen, periode: periodeKeuze }, vandaagIso) {
+// Woorden voor conversies per klant. Standaard: aanvraag en boeking (Basecamp).
+const CONVERSIE_WOORDEN = {
+  trockenblumengrosshandel: { boeking: ['aankoop', 'aankopen'], boekLabel: 'aankoop' },
+  ppexport: { lead: ['aanvraag', 'aanvragen'] }
+};
+function conversieWoorden(klantNaam) {
+  const w = CONVERSIE_WOORDEN[String(klantNaam || '').trim().toLowerCase()] || {};
+  return { lead: w.lead || ['aanvraag', 'aanvragen'], boeking: w.boeking || ['boeking', 'boekingen'], boekLabel: w.boekLabel || 'boeken' };
+}
+
+function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies, kansenRijen, periode: periodeKeuze, klantNaam }, vandaagIso) {
   const periodeType = kiesPeriode(periodeKeuze);
   const vandaag = vandaagIso || new Date().toISOString().slice(0, 10);
   const o = overzicht || {};
@@ -279,7 +289,11 @@ function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies, kansen
         leads: somG('leads'),
         boekingen: somG('boekingen'),
         omzet: somG('omzet'),
-        doorkliks: somG('doorkliksContact') + somG('doorkliksBoeken')
+        doorkliks: somG('doorkliksContact') + somG('doorkliksBoeken'),
+        heeftLeads: blogRijen.some((b) => b.gedrag && b.gedrag.leads !== null),
+        heeftBoekingen: blogRijen.some((b) => b.gedrag && b.gedrag.boekingen !== null),
+        heeftDoorklik: blogRijen.some((b) => b.gedrag && (b.gedrag.doorkliksContact !== null || b.gedrag.doorkliksBoeken !== null)),
+        woorden: conversieWoorden(klantNaam)
       }
     : null;
 
@@ -463,7 +477,7 @@ function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies, kansen
 async function getPrestaties(klantNaam, periode) {
   const data = await getPrestatiesData(klantNaam, periode);
   if (!data) return null;
-  return bouwPrestaties(data);
+  return bouwPrestaties({ ...data, klantNaam });
 }
 
 module.exports = { getPrestaties, bouwPrestaties, positieLabel, REGELS, PERIODES, kiesPeriode, rijenVanPeriode };

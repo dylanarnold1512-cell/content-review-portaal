@@ -101,7 +101,12 @@ test('gedrag en totalen uit GA4 komen bij de blog, en zonder data blijft het lee
     ]
   }, '2026-09-29');
   assert.equal(r.blogs.find((b) => b.titel === 'A').gedrag.leads, 1);
-  assert.deepEqual(r.totalen.conversies, { sessiesGoogle: 5, leads: 1, boekingen: 1, omzet: 250.5, doorkliks: 3 });
+  const { woorden, ...cv } = r.totalen.conversies;
+  assert.deepEqual(cv, { sessiesGoogle: 5, leads: 1, boekingen: 1, omzet: 250.5, doorkliks: 3, heeftLeads: true, heeftBoekingen: true, heeftDoorklik: true });
+  assert.equal(woorden.boeking[0], 'boeking');
+  const tbg = bouwPrestaties({ overzicht, weken: [], blogs: [blog({ blog_pad: '/news/a' })], conversies: [{ blog_pad: '/news/a', sessies_google: 1, boekingen: 0 }], klantNaam: 'Trockenblumengrosshandel' }, '2026-09-29');
+  assert.equal(tbg.totalen.conversies.woorden.boekLabel, 'aankoop');
+  assert.equal(tbg.totalen.conversies.heeftLeads, false);
   const leeg = bouwPrestaties({ overzicht, weken: [], blogs: [blog({ blog_pad: '/news/a' })] }, '2026-09-29');
   assert.equal(leeg.totalen.conversies, null);
 });

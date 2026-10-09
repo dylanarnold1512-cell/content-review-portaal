@@ -71,14 +71,20 @@ function pvTiles(t) {
   }
   if (t.conversies) {
     const c = t.conversies;
+    const w = c.woorden || { lead: ['aanvraag', 'aanvragen'], boeking: ['boeking', 'boekingen'], boekLabel: 'boeken' };
     const delen = [];
-    if (c.leads) delen.push(`${pvNl(c.leads)} ${c.leads === 1 ? 'aanvraag' : 'aanvragen'}`);
-    if (c.boekingen) delen.push(`${pvNl(c.boekingen)} ${c.boekingen === 1 ? 'boeking' : 'boekingen'}${c.omzet ? ` (${pvEsc(Number(c.omzet).toLocaleString('nl-NL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }))})` : ''}`);
+    if (c.leads) delen.push(`${pvNl(c.leads)} ${c.leads === 1 ? w.lead[0] : w.lead[1]}`);
+    if (c.boekingen) delen.push(`${pvNl(c.boekingen)} ${c.boekingen === 1 ? w.boeking[0] : w.boeking[1]}${c.omzet ? ` (${pvEsc(Number(c.omzet).toLocaleString('nl-NL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }))})` : ''}`);
+    const doelen = [];
+    if (c.heeftLeads || c.heeftDoorklik) doelen.push('contact');
+    if (c.heeftBoekingen || c.heeftDoorklik) doelen.push(w.boekLabel);
+    const kort = doelen.length ? doelen : ['contact'];
+    const nogGeen = [c.heeftLeads || !c.heeftBoekingen ? w.lead[0] : null, c.heeftBoekingen ? w.boeking[0] : null].filter(Boolean).join(' of ');
     tiles.push({
-      l: 'Van blog naar contact of boeken',
-      v: pvNl(c.doorkliks),
-      d: delen.length ? `<span class="pv-delta pv-up">${delen.join(', ')} in bezoeken die op een blog begonnen</span>` : '<span class="pv-delta pv-flat">nog geen aanvraag of boeking vanuit een blog begonnen bezoek</span>',
-      h: 'Hoe vaak iemand vanaf een blog doorklikte naar de pagina voor contact, offerte of boeken.'
+      l: `Van blog naar ${kort.join(' of ')}`,
+      v: pvNl(c.heeftDoorklik ? c.doorkliks : (c.leads || 0) + (c.boekingen || 0)),
+      d: delen.length ? `<span class="pv-delta pv-up">${delen.join(', ')} in bezoeken die op een blog begonnen</span>` : `<span class="pv-delta pv-flat">nog geen ${nogGeen} vanuit een blog begonnen bezoek</span>`,
+      h: c.heeftDoorklik ? 'Hoe vaak iemand vanaf een blog doorklikte naar de pagina voor contact, offerte of boeken.' : 'Hoeveel bezoeken die op een blog begonnen, uitliepen op een aanvraag of aankoop.'
     });
   }
   return tiles.map((x) => `
