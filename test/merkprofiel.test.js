@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
-const { parseProfiel, regelId, splitsHerkomst, parseSamenvatting, bouwSamenvatting, bouwWeergave, bouwKennisdocument, KOPJES } = require('../src/services/merkprofiel');
+const { parseProfiel, regelId, splitsHerkomst, parseSamenvatting, bouwSamenvatting, bouwWeergave, bouwKennisdocument, leesTegenstrijdigheid, KOPJES } = require('../src/services/merkprofiel');
 
 const tekst = fs.readFileSync(path.join(__dirname, 'fixtures', 'basecamp-profiel.txt'), 'utf8');
 
@@ -240,7 +240,7 @@ test('parseProfiel behandelt een korte regel met herkomst kennisdocument als fei
   assert.strictEqual(feit.intern, true);
 });
 
-test('bouwKennisdocument laat concurrenten, prijslijst en tegenstrijdigheidsmeldingen weg', () => {
+test('bouwKennisdocument laat concurrenten en prijslijst weg en markeert een tegenstrijdigheid als niet noemen', () => {
   const profiel = [
     '1. Over het bedrijf', 'Het bedrijf verhuurt zalen. (website: /)',
     '2. Doelgroep', 'Voor teams. (website: /)',
@@ -262,5 +262,70 @@ test('bouwKennisdocument laat concurrenten, prijslijst en tegenstrijdigheidsmeld
   assert.ok(!doc.includes('Prijzen (alleen intern'), 'kop van de prijslijst ook niet');
   assert.ok(!doc.includes('concurrent.nl'), 'concurrenten horen niet in de blogversie');
   assert.ok(!doc.includes('10. Concurrenten'));
-  assert.ok(!doc.includes('Website wijkt af'), 'tegenstrijdigheidsmeldingen horen niet in de blogversie');
+  assert.ok(/Onzeker, nog geen keuze gemaakt, niet noemen in blogs: Website wijkt af/.test(doc), 'zonder keuze blijft de melding staan als waarschuwing');
+});
+
+const TIPI = 'Website wijkt af van het kennisdocument over de Tipi/Cabin. De website noemt maximaal 8 personen, terwijl het kennisdocument een bezetting van 1 tot 7 personen noemt.';
+function profielMetTegenstrijdigheid(melding) {
+  return [
+    '1. Over het bedrijf', 'Het bedrijf verhuurt zalen. (website: /)',
+    '2. Doelgroep', 'Voor teams. (website: /)',
+    '3. Diensten en aanbod', 'Zaalverhuur. (website: /)',
+    '4. Werkgebied en bereikbaarheid', 'Utrecht. (website: /)',
+    '5. Schrijfstijl en termen', 'Gebruik je. (website: /)',
+    "6. USP's", 'Eigen keuken. (website: /)',
+    '7. Vakkennis', 'Catering. (website: /)',
+    '8. Geverifieerde feiten en voorwaarden', 'De Tipi/Cabin heeft een bezetting van 1 tot 7 personen. (PDF)', melding + ' (website: /tipi)',
+    '9. Niet beweren en verboden onderwerpen', 'Niet beweren dat parkeren gratis is. (website: /)',
+    '10. Concurrenten', 'https://concurrent.nl/ (website: /)'
+  ].join('\n');
+}
+
+test('leesTegenstrijdigheid haalt onderwerp en beide kanten uit de melding', () => {
+  const r = leesTegenstrijdigheid(TIPI);
+  assert.strictEqual(r.onderwerp, 'de Tipi/Cabin');
+  assert.strictEqual(r.website, 'maximaal 8 personen');
+  assert.strictEqual(r.document, 'een bezetting van 1 tot 7 personen');
+  assert.strictEqual(r.opties.length, 2);
+  assert.strictEqual(r.opties[0].tekst, 'De Tipi/Cabin: maximaal 8 personen (volgens de website).');
+  assert.deepStrictEqual(leesTegenstrijdigheid('Website spreekt zichzelf tegen over de prijs.').opties, []);
+});
+
+test('bouwWeergave toont een open tegenstrijdigheid met keuzes en telt hem als open', () => {
+  const secties = parseProfiel(profielMetTegenstrijdigheid(TIPI));
+  assert.ok(secties);
+  const w = bouwWeergave(secties, {}, { bijgewerkt: '', aantalPaginas: 0 });
+  assert.strictEqual(w.tegenstrijdigheden.length, 1);
+  assert.strictEqual(w.aantalOpenTegenstrijdigheden, 1);
+  const t = w.tegenstrijdigheden[0];
+  assert.strictEqual(t.besluit, '');
+  assert.strictEqual(t.opties.length, 2);
+  const feit = w.secties[7].feiten.find((f) => f.tegenstrijdig);
+  assert.ok(feit, 'de melding is als tegenstrijdig gemarkeerd');
+});
+
+test('een gekozen kant komt in het Kennisdocument en de melding is niet meer open', () => {
+  const secties = parseProfiel(profielMetTegenstrijdigheid(TIPI));
+  const id = secties[7].feiten.find((f) => f.tekst.startsWith('Website wijkt af')).id;
+  const keuze = leesTegenstrijdigheid(TIPI).opties[0].tekst;
+  const beoordelingen = { [id]: { status: 'aangepast', opmerking: keuze, datum: '2026-10-10' } };
+  const w = bouwWeergave(secties, beoordelingen, { bijgewerkt: '', aantalPaginas: 0 });
+  assert.strictEqual(w.aantalOpenTegenstrijdigheden, 0);
+  assert.strictEqual(w.tegenstrijdigheden[0].besluit, 'gekozen');
+  assert.strictEqual(w.tegenstrijdigheden[0].keuzeTekst, keuze);
+  const doc = bouwKennisdocument(secties, beoordelingen);
+  assert.ok(doc.includes('Vastgesteld door de klant, gaat voor op andere vermeldingen: De Tipi/Cabin: maximaal 8 personen (volgens de website).'));
+  assert.ok(!doc.includes('Onzeker'), 'er is geen onzeker punt meer');
+  assert.ok(!doc.includes('Website wijkt af'));
+});
+
+test('niet noemen laat een waarschuwing in het Kennisdocument staan en telt als besloten', () => {
+  const secties = parseProfiel(profielMetTegenstrijdigheid(TIPI));
+  const id = secties[7].feiten.find((f) => f.tekst.startsWith('Website wijkt af')).id;
+  const beoordelingen = { [id]: { status: 'niet_gebruiken', opmerking: '', datum: '2026-10-10' } };
+  const w = bouwWeergave(secties, beoordelingen, { bijgewerkt: '', aantalPaginas: 0 });
+  assert.strictEqual(w.aantalOpenTegenstrijdigheden, 0);
+  assert.strictEqual(w.tegenstrijdigheden[0].besluit, 'niet_noemen');
+  const doc = bouwKennisdocument(secties, beoordelingen);
+  assert.ok(/Onzeker, de klant koos om dit niet te noemen in blogs: Website wijkt af/.test(doc));
 });

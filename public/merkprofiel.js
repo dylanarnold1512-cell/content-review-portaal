@@ -9,6 +9,8 @@
   let termenOpen = false;
   let filter = null; // 'todo' | 'bevestigd' | 'alles', wordt bij de eerste keer bepaald
   const open = new Set(); // nummers van uitgeklapte onderdelen
+  const keuzeOpen = new Set(); // id's van tegenstrijdigheden waarvan de keuzes getoond worden
+  let keuzeMelding = '';
 
   const el = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -121,7 +123,7 @@
     const isOpen = open.has(s.nr);
     let huidigeSubkop = null;
     let lijst = '<ul class="mp-feiten">';
-    s.feiten.forEach((f) => {
+    s.feiten.filter((f) => !f.tegenstrijdig).forEach((f) => {
       if (f.subkop && f.subkop !== huidigeSubkop) {
         lijst += `</ul><div class="mp-subkop">${esc(f.subkop)}</div><ul class="mp-feiten">`;
       }
@@ -145,6 +147,37 @@
         <div class="mp-sectie-voet">${klopt}</div>
       </div>
     </section>`;
+  }
+
+  // Melding bovenaan: website en eigen document spreken elkaar tegen. De klant kiest
+  // wat leidend is. Zolang er geen keuze is, noemen onze blogs dit punt niet.
+  function tegenstrijdigHtml() {
+    const lijst = profiel.tegenstrijdigheden || [];
+    if (!lijst.length) return '';
+    const open = lijst.filter((t) => !t.besluit);
+    const klaar = lijst.filter((t) => t.besluit);
+    const kaartHtml = (t) => {
+      const toon = !t.besluit || keuzeOpen.has(t.id);
+      const stand = t.besluit === 'gekozen'
+        ? `<div class="mp-opmerking">Jullie keuze: ${esc(t.keuzeTekst)}</div>`
+        : (t.besluit === 'niet_noemen' ? '<div class="mp-opmerking">Jullie keuze: dit punt niet noemen in blogs.</div>' : '');
+      const opties = (t.opties || []).map((o) => `<button type="button" class="btn-save-sm" data-actie="keuze" data-id="${esc(t.id)}" data-sleutel="${esc(o.sleutel)}">${esc(o.label)}: ${esc(o.waarde)}</button>`).join(' ');
+      const vorm = toon ? `<div class="mp-feit-acties">${opties}
+          <button type="button" class="mp-link" data-actie="keuze-niet" data-id="${esc(t.id)}">Liever niet noemen in blogs</button>
+          <button type="button" class="mp-link" data-actie="keuze-eigen" data-id="${esc(t.id)}">Zelf invullen</button></div>
+        <div class="mp-aanpas-form hidden" data-eigen="${esc(t.id)}"><textarea class="mp-aanpas-tekst" rows="2" placeholder="Schrijf hier wat wel klopt."></textarea>
+          <button type="button" class="btn-save-sm" data-actie="keuze-eigen-opslaan" data-id="${esc(t.id)}">Opslaan</button></div>`
+        : `<div class="mp-feit-acties"><button type="button" class="mp-link" data-actie="keuze-wijzig" data-id="${esc(t.id)}">Keuze wijzigen</button></div>`;
+      const verschil = t.onderwerp
+        ? `<strong>${esc(t.onderwerp.charAt(0).toUpperCase() + t.onderwerp.slice(1))}:</strong> de website noemt ${esc(t.website)}, jullie eigen document noemt ${esc(t.document)}.`
+        : esc(t.tekst);
+      return `<li class="mp-feit${t.besluit ? '' : ' mp-feit-open'}" data-tegenstrijd="${esc(t.id)}"><div class="mp-feit-tekst">${verschil}</div>${stand}${vorm}</li>`;
+    };
+    const kop = open.length
+      ? `<h3>Kies wat klopt (${open.length})</h3><p class="mp-uitleg">Op deze punten spreken de website en jullie eigen document elkaar tegen. Kies wat leidend is. Zodra je kiest, nemen wij dat direct over in de informatie voor jullie blogs. Tot die tijd noemen we deze punten niet.</p>`
+      : '<h3>Gekozen bij tegenstrijdigheden</h3><p class="mp-uitleg">Voor deze punten hebben jullie gekozen wat leidend is.</p>';
+    const meld = keuzeMelding ? `<p class="mp-uitleg"><strong>${esc(keuzeMelding)}</strong></p>` : '';
+    return `<div class="mp-open mp-tegenstrijd">${kop}${meld}<ul class="mp-feiten">${open.concat(klaar).map(kaartHtml).join('')}</ul></div>`;
   }
 
   function tellingen() {
@@ -261,7 +294,7 @@
       ['alles', `Alles (${totaal})`]
     ].map(([k, l]) => `<button type="button" class="mp-tab${filter === k ? ' mp-tab-actief' : ''}" data-actie="filter" data-filter="${k}">${l}</button>`).join('');
     const kaarten = profiel.secties.filter(zichtbaar).map(sectieHtml).join('');
-    const klaar = todo === 0
+    const klaar = todo === 0 && !(profiel.aantalOpenTegenstrijdigheden > 0)
       ? '<div class="mp-klaar"><strong>Alles is bevestigd.</strong> Bedankt. Wij schrijven jullie blogs op basis van dit profiel. Wil je later nog iets wijzigen, dan kan dat hier altijd.</div>'
       : '';
     root.innerHTML = `
@@ -273,7 +306,7 @@
         <div class="mp-voortgang"><div class="mp-voortgang-tekst">${t.bevestigd} van ${totaal} onderdelen bevestigd</div>
           <div class="mp-balk"><div class="mp-balk-vulling" style="width:${procent}%"></div></div></div>
       </div>
-      ${samenvattingHtml()}${klaar}${openHtml}
+      ${samenvattingHtml()}${klaar}${tegenstrijdigHtml()}${openHtml}
       <div class="mp-tabs">${tabs}</div>
       <div class="mp-kaarten">${kaarten || '<p class="mp-uitleg">Niets in deze lijst.</p>'}</div>
       ${termenSectieHtml()}`;
@@ -285,6 +318,21 @@
     if (fout) fout.textContent = '';
     try {
       await apiMp(`/${clientId}/merkprofiel/beoordeel`, { method: 'POST', body: JSON.stringify({ regelId, status, opmerking, regelTekst }) });
+      await laad(true);
+    } catch (err) {
+      if (fout) fout.textContent = err.message;
+    }
+  }
+
+  async function bewaarKeuze(regelId, status, opmerking, regelTekst) {
+    const fout = el('merkprofielFout');
+    if (fout) fout.textContent = '';
+    try {
+      const antwoord = await apiMp(`/${clientId}/merkprofiel/beoordeel`, { method: 'POST', body: JSON.stringify({ regelId, status, opmerking, regelTekst }) });
+      keuzeOpen.delete(regelId);
+      keuzeMelding = antwoord.kennisdocumentBijgewerkt
+        ? 'Opgeslagen. De informatie voor jullie blogs is direct bijgewerkt.'
+        : 'Opgeslagen. De informatie voor jullie blogs wordt aangepast zodra Advertisr de koppeling met de blogs aanzet.';
       await laad(true);
     } catch (err) {
       if (fout) fout.textContent = err.message;
@@ -364,6 +412,26 @@
       }
       if (actie === 'sectie-klopt') return bewaar(`sectie-${kaart.dataset.sectie}`, 'klopt', '', '');
       if (actie === 'sectie-terug') return bewaar(`sectie-${kaart.dataset.sectie}`, 'geen', '', '');
+      if (actie.indexOf('keuze') === 0) {
+        const id = knop.dataset.id;
+        const t = (profiel.tegenstrijdigheden || []).find((x) => x.id === id);
+        if (!t) return;
+        if (actie === 'keuze-wijzig') { keuzeOpen.add(id); keuzeMelding = ''; return render(); }
+        if (actie === 'keuze-eigen') { const form = root.querySelector(`[data-eigen="${id}"]`); if (form) form.classList.toggle('hidden'); return; }
+        if (actie === 'keuze-niet') return bewaarKeuze(id, 'niet_gebruiken', '', t.tekst);
+        if (actie === 'keuze-eigen-opslaan') {
+          const ta = root.querySelector(`[data-eigen="${id}"] textarea`);
+          const tekst = ta ? ta.value.trim() : '';
+          if (!tekst) return;
+          return bewaarKeuze(id, 'aangepast', tekst, t.tekst);
+        }
+        if (actie === 'keuze') {
+          const o = (t.opties || []).find((x) => x.sleutel === knop.dataset.sleutel);
+          if (!o) return;
+          return bewaarKeuze(id, 'aangepast', o.tekst, t.tekst);
+        }
+        return;
+      }
       if (!feitEl) return;
       const f = vindFeit(feitEl.dataset.id);
       if (!f) return;

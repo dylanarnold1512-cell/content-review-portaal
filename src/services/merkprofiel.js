@@ -44,6 +44,44 @@ function isTegenstrijdigheid(tekst) {
   return /^website\s+(wijkt af|spreekt zichzelf tegen)/i.test(String(tekst || '').trim());
 }
 
+// Haalt onderwerp en de twee kanten uit een melding als "Website wijkt af van het
+// kennisdocument over de Tipi/Cabin. De website noemt maximaal 8 personen, terwijl
+// het kennisdocument een bezetting van 1 tot 7 personen noemt." Past de melding
+// niet in dat patroon, dan krijgt de klant alleen "eigen antwoord" en "niet noemen".
+function leesTegenstrijdigheid(tekst) {
+  const t = String(tekst || '').trim();
+  const m = t.match(/^website\s+wijkt af van het kennisdocument over\s+(.+?)\.\s+de website noemt\s+(.+?),?\s+terwijl het kennisdocument\s+(.+?)\s+noemt\.?$/i);
+  if (!m) return { onderwerp: '', website: '', document: '', opties: [] };
+  const hoofd = (x) => x.charAt(0).toUpperCase() + x.slice(1);
+  const onderwerp = m[1].trim();
+  const website = m[2].trim();
+  const document = m[3].trim();
+  return {
+    onderwerp,
+    website,
+    document,
+    opties: [
+      { sleutel: 'website', label: 'De website klopt', waarde: website, tekst: `${hoofd(onderwerp)}: ${website} (volgens de website).` },
+      { sleutel: 'document', label: 'Het eigen document klopt', waarde: document, tekst: `${hoofd(onderwerp)}: ${document} (volgens het eigen document).` }
+    ]
+  };
+}
+
+// Regel in het Kennisdocument voor een tegenstrijdigheid. Heeft de klant gekozen,
+// dan staat daar de gekozen tekst, anders een waarschuwing dat het niet genoemd
+// mag worden. De woorden "wijkt af" blijven in de waarschuwing staan, want de
+// workflow Bestaande blogs verbeteren herkent daar onzekere feiten aan.
+function tegenstrijdigheidRegel(feitTekst, beoordeling) {
+  const status = beoordeling ? beoordeling.status : 'geen';
+  if (status === 'aangepast' && beoordeling.opmerking) {
+    return `Vastgesteld door de klant, gaat voor op andere vermeldingen: ${beoordeling.opmerking}`;
+  }
+  if (status === 'niet_gebruiken') {
+    return `Onzeker, de klant koos om dit niet te noemen in blogs: ${feitTekst}`;
+  }
+  return `Onzeker, nog geen keuze gemaakt, niet noemen in blogs: ${feitTekst}`;
+}
+
 function getApiKey() {
   const key = process.env.N8N_API_KEY;
   if (!key) throw new Error('N8N_API_KEY is niet gezet, het Merkprofiel-tabblad kan niet bij n8n.');
@@ -202,6 +240,7 @@ function bouwSamenvatting(rauw, beoordelingen) {
 function bouwWeergave(secties, beoordelingen, meta) {
   let aantalBevestigd = 0;
   const openVragen = [];
+  const tegenstrijdigheden = [];
   const uit = secties.map((s) => {
     const sectieBeoordeling = beoordelingen[`sectie-${s.nr}`];
     const bevestigd = Boolean(sectieBeoordeling && sectieBeoordeling.status === 'klopt');
@@ -209,6 +248,18 @@ function bouwWeergave(secties, beoordelingen, meta) {
     const feiten = s.feiten.map((f) => {
       const b = beoordelingen[f.id];
       const aangepast = Boolean(b && b.status === 'aangepast' && b.opmerking);
+      if (isTegenstrijdigheid(f.tekst)) {
+        const besluit = aangepast ? 'gekozen' : (b && b.status === 'niet_gebruiken' ? 'niet_noemen' : '');
+        tegenstrijdigheden.push({
+          id: f.id,
+          sectie: s.titel,
+          tekst: f.tekst,
+          besluit,
+          keuzeTekst: aangepast ? b.opmerking : '',
+          ...leesTegenstrijdigheid(f.tekst)
+        });
+        return { ...f, tegenstrijdig: true, status: b ? b.status : 'geen', origineel: '', opmerking: '', beschermd: true };
+      }
       if (f.open && !(b && b.status === 'klopt') && !aangepast) openVragen.push({ sectie: s.titel, tekst: f.tekst });
       return {
         ...f,
@@ -235,7 +286,9 @@ function bouwWeergave(secties, beoordelingen, meta) {
     aantalSecties: secties.length,
     aantalBevestigd,
     secties: uit,
-    openVragen
+    openVragen,
+    tegenstrijdigheden,
+    aantalOpenTegenstrijdigheden: tegenstrijdigheden.filter((t) => !t.besluit).length
   };
 }
 
@@ -331,9 +384,9 @@ function termSleutel(t) {
   return String(t || '')
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .split('ß').join('ss')
-    .replace(/[‐-―\-_]/g, ' ')
+    .replace(/[\u0300-\u036f]/g, '')
+    .split('\u00df').join('ss')
+    .replace(/[\u2010-\u2015\-_]/g, ' ')
     .replace(/[^\p{L}\p{N}\s]/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -473,9 +526,17 @@ function bouwKennisdocument(secties, beoordelingen) {
     const uit = [];
     let subkop = '';
     s.feiten.forEach((f) => {
-      // Prijzen mogen nooit in blogs, en meldingen over tegenstrijdigheden zijn voor Advertisr.
-      if (f.intern || isTegenstrijdigheid(f.tekst)) return;
+      // Prijzen mogen nooit in blogs.
+      if (f.intern) return;
       const b = beoordelingen[f.id];
+      // Website en kennisdocument spreken elkaar tegen: de keuze van de klant gaat voor,
+      // zonder keuze komt er een waarschuwing dat dit niet genoemd mag worden.
+      if (isTegenstrijdigheid(f.tekst)) {
+        if (f.subkop && f.subkop !== subkop) uit.push(f.subkop);
+        subkop = f.subkop;
+        uit.push(tegenstrijdigheidRegel(f.tekst, b));
+        return;
+      }
       const status = b ? b.status : 'geen';
       if (status === 'niet_gebruiken' && s.nr !== BESCHERMDE_SECTIE) return;
       const aangepast = status === 'aangepast' && b.opmerking;
@@ -620,6 +681,8 @@ module.exports = {
   startProfiel,
   bouwKennisdocument,
   syncKennisdocument,
+  isTegenstrijdigheid,
+  leesTegenstrijdigheid,
   KOPJES,
   parseProfiel,
   regelId,
