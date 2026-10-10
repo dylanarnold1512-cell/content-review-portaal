@@ -11,6 +11,7 @@
   const open = new Set(); // nummers van uitgeklapte onderdelen
   const keuzeOpen = new Set(); // id's van tegenstrijdigheden waarvan de keuzes getoond worden
   let keuzeMelding = '';
+  let keuzeBlokOpen = true;
 
   const el = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -154,30 +155,38 @@
   function tegenstrijdigHtml() {
     const lijst = profiel.tegenstrijdigheden || [];
     if (!lijst.length) return '';
-    const open = lijst.filter((t) => !t.besluit);
-    const klaar = lijst.filter((t) => t.besluit);
+    const open = lijst.filter((t) => !t.besluit || keuzeOpen.has(t.id));
+    const klaar = lijst.filter((t) => t.besluit && !keuzeOpen.has(t.id));
+    const aantalOpen = lijst.filter((t) => !t.besluit).length;
     const kaartHtml = (t) => {
-      const toon = !t.besluit || keuzeOpen.has(t.id);
+      const advies = t.advies || {};
       const stand = t.besluit === 'gekozen'
         ? `<div class="mp-opmerking">Jullie keuze: ${esc(t.keuzeTekst)}</div>`
         : (t.besluit === 'niet_noemen' ? '<div class="mp-opmerking">Jullie keuze: dit punt niet noemen in blogs.</div>' : '');
-      const opties = (t.opties || []).map((o) => `<button type="button" class="btn-save-sm" data-actie="keuze" data-id="${esc(t.id)}" data-sleutel="${esc(o.sleutel)}">${esc(o.label)}: ${esc(o.waarde)}</button>`).join(' ');
-      const vorm = toon ? `<div class="mp-feit-acties">${opties}
-          <button type="button" class="mp-link" data-actie="keuze-niet" data-id="${esc(t.id)}">Liever niet noemen in blogs</button>
+      const opties = (t.opties || []).map((o) => `<button type="button" class="btn-save-sm" data-actie="keuze" data-id="${esc(t.id)}" data-sleutel="${esc(o.sleutel)}">${esc(o.label)}: ${esc(o.waarde)}${advies.sleutel === o.sleutel ? ' (ons advies)' : ''}</button>`).join(' ');
+      const adviesRegel = advies.reden ? `<div class="mp-opmerking">Ons advies: ${esc(advies.reden)}</div>` : '';
+      const vorm = `<div class="mp-feit-acties">${opties}
+          <button type="button" class="mp-link" data-actie="keuze-niet" data-id="${esc(t.id)}">Liever niet noemen in blogs${advies.sleutel === 'niet' ? ' (ons advies)' : ''}</button>
           <button type="button" class="mp-link" data-actie="keuze-eigen" data-id="${esc(t.id)}">Zelf invullen</button></div>
         <div class="mp-aanpas-form hidden" data-eigen="${esc(t.id)}"><textarea class="mp-aanpas-tekst" rows="2" placeholder="Schrijf hier wat wel klopt."></textarea>
-          <button type="button" class="btn-save-sm" data-actie="keuze-eigen-opslaan" data-id="${esc(t.id)}">Opslaan</button></div>`
-        : `<div class="mp-feit-acties"><button type="button" class="mp-link" data-actie="keuze-wijzig" data-id="${esc(t.id)}">Keuze wijzigen</button></div>`;
+          <button type="button" class="btn-save-sm" data-actie="keuze-eigen-opslaan" data-id="${esc(t.id)}">Opslaan</button></div>`;
       const verschil = t.onderwerp
         ? `<strong>${esc(t.onderwerp.charAt(0).toUpperCase() + t.onderwerp.slice(1))}:</strong> de website noemt ${esc(t.website)}, jullie eigen document noemt ${esc(t.document)}.`
         : esc(t.tekst);
-      return `<li class="mp-feit${t.besluit ? '' : ' mp-feit-open'}" data-tegenstrijd="${esc(t.id)}"><div class="mp-feit-tekst">${verschil}</div>${stand}${vorm}</li>`;
+      return `<li class="mp-feit mp-feit-open" data-tegenstrijd="${esc(t.id)}"><div class="mp-feit-tekst">${verschil}</div>${stand}${adviesRegel}${vorm}</li>`;
     };
-    const kop = open.length
-      ? `<h3>Kies wat klopt (${open.length})</h3><p class="mp-uitleg">Op deze punten spreken de website en jullie eigen document elkaar tegen. Kies wat leidend is. Zodra je kiest, nemen wij dat direct over in de informatie voor jullie blogs. Tot die tijd noemen we deze punten niet.</p>`
-      : '<h3>Gekozen bij tegenstrijdigheden</h3><p class="mp-uitleg">Voor deze punten hebben jullie gekozen wat leidend is.</p>';
+    const klaarHtml = klaar.length
+      ? `<details class="mp-termen-sectie"><summary>Gemaakte keuzes (${klaar.length})</summary><ul class="mp-feiten">${klaar.map((t) => {
+          const tekst = t.besluit === 'gekozen' ? esc(t.keuzeTekst) : `${esc(t.onderwerp || t.tekst)}: niet noemen in blogs`;
+          return `<li class="mp-feit"><div class="mp-feit-tekst">${tekst}</div><div class="mp-feit-acties"><button type="button" class="mp-link" data-actie="keuze-wijzig" data-id="${esc(t.id)}">Keuze wijzigen</button></div></li>`;
+        }).join('')}</ul></details>`
+      : '';
+    const uitleg = aantalOpen
+      ? '<p class="mp-uitleg">Op deze punten spreken de website en jullie eigen document elkaar tegen. Kies wat leidend is. Zodra je kiest, nemen wij dat direct over in de informatie voor jullie blogs en verdwijnt het punt hier. Tot die tijd noemen we deze punten niet.</p>'
+      : '<p class="mp-uitleg">Alle punten hebben een keuze. Bedankt.</p>';
     const meld = keuzeMelding ? `<p class="mp-uitleg"><strong>${esc(keuzeMelding)}</strong></p>` : '';
-    return `<div class="mp-open mp-tegenstrijd">${kop}${meld}<ul class="mp-feiten">${open.concat(klaar).map(kaartHtml).join('')}</ul></div>`;
+    const lijstHtml = open.length ? `<ul class="mp-feiten">${open.map(kaartHtml).join('')}</ul>` : '';
+    return `<details class="mp-open mp-tegenstrijd" data-keuzeblok${keuzeBlokOpen ? ' open' : ''}><summary><strong>Kies wat klopt${aantalOpen ? ` (${aantalOpen})` : ''}</strong></summary>${uitleg}${meld}${lijstHtml}${klaarHtml}</details>`;
   }
 
   function tellingen() {
@@ -352,6 +361,7 @@
     if (!root || root.dataset.gebonden) return;
     root.dataset.gebonden = '1';
     root.addEventListener('toggle', (e) => {
+      if (e.target && e.target.hasAttribute && e.target.hasAttribute('data-keuzeblok')) keuzeBlokOpen = e.target.open;
       if (e.target && e.target.classList && e.target.classList.contains('mp-termen-sectie')) termenOpen = e.target.open;
     }, true);
     root.addEventListener('keydown', (e) => {

@@ -51,15 +51,21 @@ function isTegenstrijdigheid(tekst) {
 function leesTegenstrijdigheid(tekst) {
   const t = String(tekst || '').trim();
   const m = t.match(/^website\s+wijkt af van het kennisdocument over\s+(.+?)\.\s+de website noemt\s+(.+?),?\s+terwijl het kennisdocument\s+(.+?)\s+noemt\.?$/i);
-  if (!m) return { onderwerp: '', website: '', document: '', opties: [] };
+  if (!m) return { onderwerp: '', website: '', document: '', opties: [], advies: { sleutel: 'niet', reden: 'We weten niet zeker wat klopt. Vul zelf in wat wel klopt, of kies niet noemen.' } };
   const hoofd = (x) => x.charAt(0).toUpperCase() + x.slice(1);
   const onderwerp = m[1].trim();
   const website = m[2].trim();
   const document = m[3].trim();
+  // Ons advies: prijzen noemen we nooit, anders gaat de website voor omdat dat is wat bezoekers nu zien.
+  const prijs = /€|\beuro\b|\bbtw\b|\bprijs|\btarief/i.test(t);
+  const advies = prijs
+    ? { sleutel: 'niet', reden: 'Het gaat om een prijs. Prijzen noemen we niet in blogs, dus kies liever niet noemen.' }
+    : { sleutel: 'website', reden: 'De website is wat bezoekers nu zien en wordt meestal het eerst bijgewerkt. Controleer even of dit nog klopt.' };
   return {
     onderwerp,
     website,
     document,
+    advies,
     opties: [
       { sleutel: 'website', label: 'De website klopt', waarde: website, tekst: `${hoofd(onderwerp)}: ${website} (volgens de website).` },
       { sleutel: 'document', label: 'Het eigen document klopt', waarde: document, tekst: `${hoofd(onderwerp)}: ${document} (volgens het eigen document).` }

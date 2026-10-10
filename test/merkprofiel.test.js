@@ -289,6 +289,9 @@ test('leesTegenstrijdigheid haalt onderwerp en beide kanten uit de melding', () 
   assert.strictEqual(r.opties.length, 2);
   assert.strictEqual(r.opties[0].tekst, 'De Tipi/Cabin: maximaal 8 personen (volgens de website).');
   assert.deepStrictEqual(leesTegenstrijdigheid('Website spreekt zichzelf tegen over de prijs.').opties, []);
+  assert.strictEqual(r.advies.sleutel, 'website');
+  const prijs = leesTegenstrijdigheid('Website wijkt af van het kennisdocument over de dagkaart. De website noemt 25 euro, terwijl het kennisdocument 20 euro noemt.');
+  assert.strictEqual(prijs.advies.sleutel, 'niet');
 });
 
 test('bouwWeergave toont een open tegenstrijdigheid met keuzes en telt hem als open', () => {
