@@ -143,7 +143,8 @@ function bouwEigenUrls(rijen, weekStart) {
 }
 
 // Alles wat de klant te zien krijgt. Bewust zonder merken van anderen, bronnen van anderen en kosten.
-function bouwOverzicht(ruweRijen) {
+function bouwOverzicht(ruweRijen, opties = {}) {
+  const clusterSoort = opties.clusterSoort === 'markt' ? 'markt' : 'onderwerp';
   const rijen = uniekeRijen(ruweRijen);
   const weken = bouwWeken(rijen);
   const volledig = weken.filter((w) => w.compleet);
@@ -154,6 +155,7 @@ function bouwOverzicht(ruweRijen) {
   if (!laatste) {
     return {
       status: 'leeg',
+      clusterSoort,
       melding: nieuwste
         ? 'De eerste meting was nog niet volledig. Zodra er een volledige week is, zie je hier de resultaten.'
         : 'De eerste meting volgt. Zodra die klaar is, zie je hier de resultaten.',
@@ -198,6 +200,7 @@ function bouwOverzicht(ruweRijen) {
   const nieuwsteOnvolledig = nieuwste && !nieuwste.compleet && nieuwste.weekStart > laatste.weekStart;
   return {
     status: 'ok',
+    clusterSoort,
     laatsteWeek: { start: laatste.weekStart, label: weekLabel(laatste.weekStart) },
     aantalWeken: volledig.length,
     melding: nieuwsteOnvolledig ? `De meting van de ${weekLabel(nieuwste.weekStart)} was niet volledig en telt daarom niet mee.` : '',
@@ -295,8 +298,8 @@ async function getAiVragen(klantNaam) {
   return { status: 'ok', week, vragen: bouwVragen(prompts, metingen, week.start) };
 }
 
-async function getAiZichtbaarheid(klantNaam) {
-  return bouwOverzicht(await n8nRows(klantNaam));
+async function getAiZichtbaarheid(klantNaam, opties = {}) {
+  return bouwOverzicht(await n8nRows(klantNaam), opties);
 }
 
 async function getAiIntern(klantNaam) {

@@ -259,7 +259,7 @@ router.get('/:clientId/ai-zichtbaarheid', requireLogin, async (req, res) => {
     const config = getClient(req.params.clientId);
     const settings = await settingsService.getClientSettings(req.params.clientId, config);
     if (!settings.aiZichtbaarheid) return res.json({ beschikbaar: false });
-    const result = await aiZichtbaarheidService.getAiZichtbaarheid(config.naam);
+    const result = await aiZichtbaarheidService.getAiZichtbaarheid(config.naam, { clusterSoort: config.aiClusterSoort });
     res.json({ beschikbaar: true, klantNaam: config.naam, ...result });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -271,7 +271,7 @@ router.get('/:clientId/ai-zichtbaarheid/vragen', requireLogin, async (req, res) 
     const config = getClient(req.params.clientId);
     const settings = await settingsService.getClientSettings(req.params.clientId, config);
     if (!settings.aiZichtbaarheid) return res.json({ beschikbaar: false });
-    res.json({ beschikbaar: true, ...(await aiZichtbaarheidService.getAiVragen(config.naam)) });
+    res.json({ beschikbaar: true, clusterSoort: config.aiClusterSoort === 'markt' ? 'markt' : 'onderwerp', ...(await aiZichtbaarheidService.getAiVragen(config.naam)) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

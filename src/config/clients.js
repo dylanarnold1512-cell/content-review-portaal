@@ -89,6 +89,8 @@ const clients = [
   {
     id: 'ppe',
     naam: 'PPExport',
+    // De clusters in de AI meting zijn hier talen (markten), geen onderwerpen.
+    aiClusterSoort: 'markt',
     notionTokenEnv: 'NOTION_TOKEN_PPE',
     performanceV2: true,
     databaseId: 'e85219a5-27a4-44f8-8651-4ef6b957658e', // "PPE Commercial Content Database"

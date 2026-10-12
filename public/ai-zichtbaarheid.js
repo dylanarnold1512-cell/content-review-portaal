@@ -42,12 +42,13 @@
     return `${Math.round((c.genoemd / c.antwoorden) * 100)}% <span class="ai-klein">(${c.genoemd} van ${c.antwoorden})</span>`;
   }
 
-  function clusterTabel(clusters) {
+  function clusterTabel(clusters, markt) {
     if (!clusters.length) return '';
+    const woord = markt ? 'Markt' : 'Onderwerp';
     const rijen = clusters.map((c) => `<tr><td>${esc(c.naam)}</td><td>${procent(c.platformen.chatgpt)}</td><td>${procent(c.platformen.gemini)}</td></tr>`).join('');
-    return `<div class="ai-blok"><h3>Per onderwerp</h3>
-      <p class="ai-uitleg">Bij welke onderwerpen noemt de AI jullie merk het vaakst.</p>
-      <div class="ai-tabel-wrap"><table class="ai-tabel"><thead><tr><th>Onderwerp</th><th>ChatGPT</th><th>Gemini</th></tr></thead><tbody>${rijen}</tbody></table></div></div>`;
+    return `<div class="ai-blok"><h3>${markt ? 'Per markt' : 'Per onderwerp'}</h3>
+      <p class="ai-uitleg">${markt ? 'In welke markten (talen) noemt de AI jullie merk het vaakst.' : 'Bij welke onderwerpen noemt de AI jullie merk het vaakst.'}</p>
+      <div class="ai-tabel-wrap"><table class="ai-tabel"><thead><tr><th>${woord}</th><th>ChatGPT</th><th>Gemini</th></tr></thead><tbody>${rijen}</tbody></table></div></div>`;
   }
 
   function trendBlok(trend) {
@@ -86,18 +87,19 @@
   }
 
   function vragenBlok(data, alles) {
+    const markt = data.clusterSoort === 'markt';
     const lijst = data.vragen || [];
     if (!lijst.length) return '';
     const getoond = alles ? lijst : lijst.slice(0, 15);
     const rijen = getoond.map((v) => {
       const gevonden = v.chatgpt.genoemd + v.gemini.genoemd > 0;
-      return `<tr class="${gevonden ? '' : 'ai-rij-zwak'}"><td>${esc(v.vraag)}</td><td class="ai-kol">${stip(v.chatgpt)}</td><td class="ai-kol">${stip(v.gemini)}</td><td class="ai-kol-bron">${bronCel(v)}</td></tr>`;
+      return `<tr class="${gevonden ? '' : 'ai-rij-zwak'}"><td>${esc(v.vraag)}</td>${markt ? `<td class="ai-kol">${esc(v.onderwerp)}</td>` : ''}<td class="ai-kol">${stip(v.chatgpt)}</td><td class="ai-kol">${stip(v.gemini)}</td><td class="ai-kol-bron">${bronCel(v)}</td></tr>`;
     }).join('');
     const gevonden = lijst.filter((v) => v.chatgpt.genoemd + v.gemini.genoemd > 0).length;
     const meer = !alles && lijst.length > 15 ? `<button type="button" class="mp-link" id="aiVragenAlle">Toon alle ${lijst.length} vragen</button>` : '';
     return `<h3>Per vraag</h3>
       <p class="ai-uitleg">Bij ${gevonden} van de ${lijst.length} vragen werd jullie merk genoemd in de ${esc(data.week.label)}. Een groene stip betekent dat het merk in het antwoord stond.</p>
-      <div class="ai-tabel-wrap"><table class="ai-tabel"><thead><tr><th>Vraag</th><th class="ai-kol">ChatGPT</th><th class="ai-kol">Gemini</th><th class="ai-kol-bron">Website als bron</th></tr></thead><tbody>${rijen}</tbody></table></div>${meer}`;
+      <div class="ai-tabel-wrap"><table class="ai-tabel"><thead><tr><th>Vraag</th>${markt ? '<th class="ai-kol">Markt</th>' : ''}<th class="ai-kol">ChatGPT</th><th class="ai-kol">Gemini</th><th class="ai-kol-bron">Website als bron</th></tr></thead><tbody>${rijen}</tbody></table></div>${meer}`;
   }
 
   async function laadVragen() {
@@ -131,10 +133,11 @@
         <p class="ai-stand">Laatste volledige meting: ${esc(data.laatsteWeek.label)}</p>
         ${data.melding ? `<p class="ai-let-op">${esc(data.melding)}</p>` : ''}
       </div>
+      ${data.clusterSoort === 'markt' ? '<p class="ai-uitleg">De cijfers hieronder zijn het totaal over alle markten. Per markt staat het hieronder.</p>' : ''}
       <div class="ai-kaarten">${data.platformen.map(kaart).join('')}</div>
       ${data.aantalWeken < 3 ? '<p class="ai-uitleg">Het verloop per week verschijnt zodra er drie volledige weken zijn gemeten. Zo voorkomen we dat toeval als winst of verlies wordt gezien.</p>' : ''}
       ${trendBlok(data.trend)}
-      ${clusterTabel(data.clusters)}
+      ${clusterTabel(data.clusters, data.clusterSoort === 'markt')}
       <div class="ai-blok" id="aiVragenBlok"><p class="ai-uitleg">Vragen laden...</p></div>
       ${urlBlok(data.eigenUrls)}
       <p class="ai-voet">Het gaat om vragen die wij zelf hebben opgesteld. AI antwoorden verschillen van keer tot keer, dus het gaat om het grote beeld.</p>`;
