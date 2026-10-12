@@ -34,3 +34,8 @@
 .ai-stip-ja { background: #2fb457; }
 .ai-rij-zwak td:first-child { color: var(--text-muted); }
 #aiVragenBlok h3 { margin: 0 0 4px; }
+.ai-tabel td { vertical-align: middle; }
+.ai-cel { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.ai-cel .ai-stip { flex: 0 0 10px; }
+.ai-kol { width: 96px; white-space: nowrap; }
+.ai-kol-bron { width: 150px; }

@@ -72,10 +72,10 @@
   }
 
   function stip(p) {
-    if (!p || !p.metingen) return '<span class="ai-stip ai-stip-leeg" title="Geen meting"></span>';
+    if (!p || !p.metingen) return '<span class="ai-cel"><span class="ai-stip ai-stip-leeg" title="Geen meting"></span></span>';
     const goed = p.genoemd > 0;
     const tekst = p.metingen > 1 ? `${p.genoemd} van ${p.metingen}` : (goed ? 'ja' : 'nee');
-    return `<span class="ai-stip${goed ? ' ai-stip-ja' : ''}"></span> <span class="ai-klein">${esc(tekst)}</span>`;
+    return `<span class="ai-cel"><span class="ai-stip${goed ? ' ai-stip-ja' : ''}"></span><span class="ai-klein">${esc(tekst)}</span></span>`;
   }
 
   function bronCel(v) {
@@ -91,13 +91,13 @@
     const getoond = alles ? lijst : lijst.slice(0, 15);
     const rijen = getoond.map((v) => {
       const gevonden = v.chatgpt.genoemd + v.gemini.genoemd > 0;
-      return `<tr class="${gevonden ? '' : 'ai-rij-zwak'}"><td>${esc(v.vraag)}</td><td>${stip(v.chatgpt)}</td><td>${stip(v.gemini)}</td><td>${bronCel(v)}</td></tr>`;
+      return `<tr class="${gevonden ? '' : 'ai-rij-zwak'}"><td>${esc(v.vraag)}</td><td class="ai-kol">${stip(v.chatgpt)}</td><td class="ai-kol">${stip(v.gemini)}</td><td class="ai-kol-bron">${bronCel(v)}</td></tr>`;
     }).join('');
     const gevonden = lijst.filter((v) => v.chatgpt.genoemd + v.gemini.genoemd > 0).length;
     const meer = !alles && lijst.length > 15 ? `<button type="button" class="mp-link" id="aiVragenAlle">Toon alle ${lijst.length} vragen</button>` : '';
     return `<h3>Per vraag</h3>
       <p class="ai-uitleg">Bij ${gevonden} van de ${lijst.length} vragen werd jullie merk genoemd in de ${esc(data.week.label)}. Een groene stip betekent dat het merk in het antwoord stond.</p>
-      <div class="ai-tabel-wrap"><table class="ai-tabel"><thead><tr><th>Vraag</th><th>ChatGPT</th><th>Gemini</th><th>Website als bron</th></tr></thead><tbody>${rijen}</tbody></table></div>${meer}`;
+      <div class="ai-tabel-wrap"><table class="ai-tabel"><thead><tr><th>Vraag</th><th class="ai-kol">ChatGPT</th><th class="ai-kol">Gemini</th><th class="ai-kol-bron">Website als bron</th></tr></thead><tbody>${rijen}</tbody></table></div>${meer}`;
   }
 
   async function laadVragen() {
