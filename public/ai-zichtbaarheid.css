@@ -1,0 +1,32 @@
+.ai-panel { max-width: 860px; margin: 0 auto; padding: 8px 0 40px; }
+.ai-intro h2 { margin: 0 0 8px; }
+.ai-intro p { color: var(--text-muted); line-height: 1.55; margin: 0 0 8px; }
+.ai-stand { font-weight: 600; color: var(--text) !important; }
+.ai-let-op { background: #fff6dd; border: 1px solid #ecd07a; border-radius: 10px; padding: 8px 12px; color: #8a5a00 !important; }
+.ai-kaarten { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin: 16px 0 24px; }
+.ai-kaart { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-card); padding: 20px; }
+.ai-kaart-kop { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--text-muted); }
+.ai-groot { font-size: 44px; font-weight: 800; color: var(--text); line-height: 1.15; margin: 6px 0 8px; }
+.ai-onder { font-size: 13.5px; color: var(--text-muted); margin-bottom: 4px; }
+.ai-verschil { font-size: 13px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); color: var(--text-muted); }
+.ai-omhoog { color: #138a4a; font-weight: 600; }
+.ai-omlaag { color: #c0392b; font-weight: 600; }
+.ai-blok { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-card); padding: 20px; margin-bottom: 16px; }
+.ai-blok h3 { margin: 0 0 4px; }
+.ai-uitleg { font-size: 13.5px; color: var(--text-muted); margin: 0 0 12px; line-height: 1.5; }
+.ai-tabel-wrap { overflow-x: auto; }
+.ai-tabel { width: 100%; border-collapse: collapse; font-size: 14px; }
+.ai-tabel th { text-align: left; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.02em; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+.ai-tabel td { padding: 10px; border-bottom: 1px solid var(--border); }
+.ai-tabel tr:last-child td { border-bottom: none; }
+.ai-klein, .ai-nvt { font-size: 12.5px; color: var(--text-faint); }
+.ai-trend-week { padding: 10px 0; border-bottom: 1px solid var(--border); }
+.ai-trend-week:last-child { border-bottom: none; }
+.ai-trend-label { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+.ai-balk-rij { display: grid; grid-template-columns: 70px 1fr 44px; align-items: center; gap: 8px; font-size: 12.5px; margin-bottom: 4px; }
+.ai-balk { height: 10px; background: var(--gray-soft); border-radius: var(--radius-pill); overflow: hidden; display: block; }
+.ai-balk-vul { display: block; height: 100%; background: var(--purple); border-radius: var(--radius-pill); }
+.ai-balk-waarde { text-align: right; color: var(--text-muted); }
+.ai-lijst { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.8; word-break: break-all; }
+.ai-leeg { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; color: var(--text-muted); }
+.ai-voet { font-size: 12.5px; color: var(--text-faint); margin-top: 20px; }

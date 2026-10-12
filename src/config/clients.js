@@ -36,6 +36,8 @@ const clients = [
     // profiel is vastgesteld en het tabblad is nagelopen.
     merkprofiel: false,
     merkprofielNaarKennisdocument: false,
+    // AI zichtbaarheid-tabblad (data uit de n8n AI Meting). Live aan/uit via /admin.
+    aiZichtbaarheid: false,
     // Namen van de Notion-properties zoals ze in deze database heten.
     // Per klant configureerbaar, want niet elke database zal exact dezelfde
     // kolomnamen gebruiken.

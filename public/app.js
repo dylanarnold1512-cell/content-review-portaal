@@ -142,6 +142,9 @@ function switchTab(tab) {
   document.getElementById('kennisdocumentTab').classList.toggle('hidden', tab !== 'kennisdocument');
   const merkprofielTab = document.getElementById('merkprofielTab');
   if (merkprofielTab) merkprofielTab.classList.toggle('hidden', tab !== 'merkprofiel');
+  const aiTab = document.getElementById('aiZichtbaarheidTab');
+  if (aiTab) aiTab.classList.toggle('hidden', tab !== 'aiZichtbaarheid');
+  if (tab === 'aiZichtbaarheid' && window.loadAiZichtbaarheid) window.loadAiZichtbaarheid();
   const rapportagesTab = document.getElementById('rapportagesTab');
   if (rapportagesTab) rapportagesTab.classList.toggle('hidden', tab !== 'rapportages');
   if (tab === 'rapportages' && window.loadRapportages) {
@@ -179,6 +182,7 @@ async function loadItems() {
   if (rapportagesTabBtn) rapportagesTabBtn.classList.toggle('hidden', !state.performanceEnabled);
   if (!state.performanceEnabled && (state.activeTab === 'prestaties' || state.activeTab === 'rapportages')) switchTab('blogs');
   if (window.checkMerkprofiel) window.checkMerkprofiel(state.clientId);
+  if (window.checkAiZichtbaarheid) window.checkAiZichtbaarheid(state.clientId);
   if (!state.selectedId && state.items.length) {
     const deepLinked = deepLinkItemId && state.items.find((i) => i.id === deepLinkItemId);
     state.selectedId = deepLinked ? deepLinked.id : state.items[0].id;

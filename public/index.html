@@ -7,6 +7,7 @@
 <link rel="icon" href="https://advertisr.nl/wp-content/uploads/2025/03/Logo_Advertisr_new_2025.svg">
 <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/merkprofiel.css">
+  <link rel="stylesheet" href="/ai-zichtbaarheid.css">
 </head>
 <body>
 
@@ -46,6 +47,7 @@
     <button type="button" class="tab-btn hidden" data-tab="rapportages" id="rapportagesTabBtn">Rapportages</button>
     <button type="button" class="tab-btn" data-tab="kennisdocument">Kennisdocument</button>
     <button type="button" class="tab-btn hidden" data-tab="merkprofiel" id="merkprofielTabBtn">Merkprofiel</button>
+    <button type="button" class="tab-btn hidden" data-tab="aiZichtbaarheid" id="aiZichtbaarheidTabBtn">AI zichtbaarheid</button>
   </div>
 
   <div id="overzichtTab" class="tab-panel"></div>
@@ -78,6 +80,10 @@
       <div id="rapportenKop"></div>
       <div id="rapportenInhoud"></div>
     </div>
+  </div>
+
+  <div id="aiZichtbaarheidTab" class="tab-panel hidden">
+    <div class="ai-panel" id="aiZichtbaarheidInhoud"></div>
   </div>
 
   <div id="merkprofielTab" class="tab-panel hidden">
@@ -155,6 +161,7 @@
 
 <script src="/prestaties-v2.js"></script>
 <script src="/merkprofiel.js"></script>
+<script src="/ai-zichtbaarheid.js"></script>
 <script src="/rapportages.js"></script>
 <script src="/overzicht.js"></script>
 <script src="/app.js"></script>

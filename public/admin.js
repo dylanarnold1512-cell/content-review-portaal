@@ -90,7 +90,8 @@ const HEADER_TIPS = [
   { label: 'Prestaties', tip: 'Toont het tabblad Prestaties (Search Console en GA4). Zet aan zodra er ongeveer een maand data is, anders ziet de klant vooral nullen. Kan alleen als de prestatiekoppeling is ingesteld.' },
   { label: 'Ideeën', tip: 'De klant krijgt de knop Idee aandragen. Ideeën worden automatisch aangevuld en komen eerst bij jou ter goedkeuring.' },
   { label: 'Merkprofiel', tip: 'Toont het tabblad Merkprofiel. De klant ziet hoe wij het bedrijf hebben vastgesteld en kan feiten bevestigen, aanpassen of uitsluiten. Het tabblad verschijnt alleen als er een vastgesteld profiel is.' },
-  { label: 'Naar blogs', tip: 'Reacties van de klant op het merkprofiel schrijven het Kennisdocument opnieuw, waar de blogs op schrijven. Let op: dit overschrijft het huidige Kennisdocument. Zet dit pas aan bij de overstap naar het profiel.' }
+  { label: 'Naar blogs', tip: 'Reacties van de klant op het merkprofiel schrijven het Kennisdocument opnieuw, waar de blogs op schrijven. Let op: dit overschrijft het huidige Kennisdocument. Zet dit pas aan bij de overstap naar het profiel.' },
+  { label: 'AI', tip: 'Toont het tabblad AI zichtbaarheid. De klant ziet hoe vaak ChatGPT en Gemini het eigen merk noemen. Concurrenten en bronnen van anderen blijven alleen hier zichtbaar. Zet aan zodra er minstens twee volledige weken meting zijn.' }
 ];
 
 function renderTable() {
@@ -133,6 +134,10 @@ function renderTable() {
     <div class="admin-row-setting">
       <span class="admin-row-label">Naar blogs</span>
       ${toggleSwitch('mpk-' + c.id, c.id, 'merkprofielNaarKennisdocument', c.merkprofielNaarKennisdocument, false)}
+    </div>
+    <div class="admin-row-setting">
+      <span class="admin-row-label">AI</span>
+      ${toggleSwitch('ai-' + c.id, c.id, 'aiZichtbaarheid', c.aiZichtbaarheid, false)}
     </div>
   </div>
   `).join('');

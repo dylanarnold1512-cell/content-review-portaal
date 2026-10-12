@@ -1,0 +1,119 @@
+// AI zichtbaarheid-tabblad: hoe vaak ChatGPT en Gemini het merk van de klant
+// noemen. Toont alleen het eigen merk. Data en regels staan in
+// src/services/aiZichtbaarheid.js, hier wordt alleen getekend.
+(function () {
+  let clientId = '';
+  const el = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  async function apiAi(pad) {
+    const res = await fetch('/api' + pad, { headers: { 'Content-Type': 'application/json' } });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Er ging iets mis.');
+    return data;
+  }
+
+  function verschilTekst(v) {
+    if (!v || v.soort === 'geen') return '';
+    if (v.soort === 'schommeling') return 'Ongeveer gelijk aan de vorige meting';
+    if (v.soort === 'meer') return `${v.aantal} keer vaker genoemd dan verwacht op basis van de vorige meting`;
+    return `${v.aantal} keer minder genoemd dan verwacht op basis van de vorige meting`;
+  }
+
+  function verschilKlasse(v) {
+    if (v && v.soort === 'meer') return 'ai-verschil ai-omhoog';
+    if (v && v.soort === 'minder') return 'ai-verschil ai-omlaag';
+    return 'ai-verschil';
+  }
+
+  function kaart(p) {
+    const vt = verschilTekst(p.verschil);
+    return `<div class="ai-kaart">
+      <div class="ai-kaart-kop">${esc(p.label)}</div>
+      <div class="ai-groot">${p.percentage}%</div>
+      <div class="ai-onder">${p.genoemd} van de ${p.antwoorden} antwoorden noemt jullie merk</div>
+      <div class="ai-onder">${p.geciteerd} keer is jullie website als bron gebruikt</div>
+      ${vt ? `<div class="${verschilKlasse(p.verschil)}">${esc(vt)}</div>` : ''}
+    </div>`;
+  }
+
+  function procent(c) {
+    if (!c || !c.antwoorden) return '<span class="ai-nvt">geen data</span>';
+    return `${Math.round((c.genoemd / c.antwoorden) * 100)}% <span class="ai-klein">(${c.genoemd} van ${c.antwoorden})</span>`;
+  }
+
+  function clusterTabel(clusters) {
+    if (!clusters.length) return '';
+    const rijen = clusters.map((c) => `<tr><td>${esc(c.naam)}</td><td>${procent(c.platformen.chatgpt)}</td><td>${procent(c.platformen.gemini)}</td></tr>`).join('');
+    return `<div class="ai-blok"><h3>Per onderwerp</h3>
+      <p class="ai-uitleg">Bij welke onderwerpen noemt de AI jullie merk het vaakst.</p>
+      <div class="ai-tabel-wrap"><table class="ai-tabel"><thead><tr><th>Onderwerp</th><th>ChatGPT</th><th>Gemini</th></tr></thead><tbody>${rijen}</tbody></table></div></div>`;
+  }
+
+  function trendBlok(trend) {
+    if (!trend.length) return '';
+    const rijen = trend.map((w) => {
+      const balk = (p) => {
+        const d = w.platformen[p];
+        const pct = d.antwoorden ? Math.round((d.genoemd / d.antwoorden) * 100) : 0;
+        return `<div class="ai-balk-rij"><span class="ai-balk-naam">${p === 'chatgpt' ? 'ChatGPT' : 'Gemini'}</span><span class="ai-balk"><span class="ai-balk-vul" style="width:${pct}%"></span></span><span class="ai-balk-waarde">${pct}%</span></div>`;
+      };
+      return `<div class="ai-trend-week"><div class="ai-trend-label">${esc(w.label)}</div>${balk('chatgpt')}${balk('gemini')}</div>`;
+    }).join('');
+    return `<div class="ai-blok"><h3>Verloop per week</h3>
+      <p class="ai-uitleg">Het percentage antwoorden waarin jullie merk genoemd wordt. Kleine schommelingen zeggen weinig, kijk vooral naar de richting over meerdere weken.</p>${rijen}</div>`;
+  }
+
+  function urlBlok(urls) {
+    if (!urls.length) return '';
+    const lijst = urls.map((u) => `<li><a href="${esc(u.url)}" target="_blank" rel="noopener noreferrer">${esc(u.url.replace(/^https?:\/\//, ''))}</a> <span class="ai-klein">${u.aantal} keer</span></li>`).join('');
+    return `<div class="ai-blok"><h3>Pagina's die de AI gebruikt</h3>
+      <p class="ai-uitleg">Deze pagina's van jullie website zijn als bron aangehaald in de antwoorden.</p><ul class="ai-lijst">${lijst}</ul></div>`;
+  }
+
+  function teken(data) {
+    const inhoud = el('aiZichtbaarheidInhoud');
+    if (!inhoud) return;
+    if (data.status !== 'ok') {
+      inhoud.innerHTML = `<div class="ai-leeg">${esc(data.melding || 'Er zijn nog geen resultaten.')}</div>`;
+      return;
+    }
+    inhoud.innerHTML = `
+      <div class="ai-intro">
+        <h2>AI zichtbaarheid</h2>
+        <p>Steeds meer mensen stellen hun vraag aan ChatGPT of Gemini in plaats van aan Google. Wij stellen elke week dezelfde vragen aan beide en tellen hoe vaak jullie merk in het antwoord voorkomt.</p>
+        <p class="ai-stand">Laatste volledige meting: ${esc(data.laatsteWeek.label)}</p>
+        ${data.melding ? `<p class="ai-let-op">${esc(data.melding)}</p>` : ''}
+      </div>
+      <div class="ai-kaarten">${data.platformen.map(kaart).join('')}</div>
+      ${data.aantalWeken < 3 ? '<p class="ai-uitleg">Het verloop per week verschijnt zodra er drie volledige weken zijn gemeten. Zo voorkomen we dat toeval als winst of verlies wordt gezien.</p>' : ''}
+      ${trendBlok(data.trend)}
+      ${clusterTabel(data.clusters)}
+      ${urlBlok(data.eigenUrls)}
+      <p class="ai-voet">Het gaat om vragen die wij zelf hebben opgesteld. AI antwoorden verschillen van keer tot keer, dus het gaat om het grote beeld.</p>`;
+  }
+
+  async function laad() {
+    const inhoud = el('aiZichtbaarheidInhoud');
+    if (inhoud) inhoud.innerHTML = '<div class="ai-leeg">Laden...</div>';
+    try {
+      teken(await apiAi(`/${clientId}/ai-zichtbaarheid`));
+    } catch (err) {
+      if (inhoud) inhoud.innerHTML = `<div class="ai-leeg">${esc(err.message)}</div>`;
+    }
+  }
+
+  async function controleer(id) {
+    clientId = id;
+    const knop = el('aiZichtbaarheidTabBtn');
+    try {
+      const data = await apiAi(`/${clientId}/ai-zichtbaarheid`);
+      if (knop) knop.classList.toggle('hidden', !data.beschikbaar);
+    } catch (err) {
+      if (knop) knop.classList.add('hidden');
+    }
+  }
+
+  window.checkAiZichtbaarheid = controleer;
+  window.loadAiZichtbaarheid = laad;
+})();

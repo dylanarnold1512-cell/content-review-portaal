@@ -5,6 +5,7 @@ const intakeAnalyse = require('../services/intakeAnalyse');
 const settingsService = require('../services/settings');
 const notionService = require('../services/notion');
 const intakeService = require('../services/intake');
+const aiZichtbaarheidService = require('../services/aiZichtbaarheid');
 const { checkAdminPassword, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
@@ -50,7 +51,7 @@ router.post('/settings/:clientId', requireAdmin, async (req, res) => {
       await settingsService.updateClientSetting(req.params.clientId, field, value);
       return res.json({ ok: true, melding: '' });
     }
-    if (!['reviewEnabled', 'performanceEnabled', 'ideaEnrichmentEnabled', 'merkprofiel', 'merkprofielNaarKennisdocument'].includes(field)) {
+    if (!['reviewEnabled', 'performanceEnabled', 'ideaEnrichmentEnabled', 'merkprofiel', 'merkprofielNaarKennisdocument', 'aiZichtbaarheid'].includes(field)) {
       return res.status(400).json({ error: `Onbekend instellingveld: ${field}` });
     }
     let melding = '';
@@ -96,6 +97,16 @@ router.post('/:clientId/idea-proposals/:pageId/reject', requireAdmin, async (req
   try {
     await notionService.decideIdeaProposal(req.params.clientId, req.params.pageId, 'reject');
     res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Intern overzicht van de AI meting: merken en bronnen die de AI noemt en wat de meting kostte.
+router.get('/ai-zichtbaarheid/:clientId', requireAdmin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    res.json({ klantNaam: config.naam, ...(await aiZichtbaarheidService.getAiIntern(config.naam)) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

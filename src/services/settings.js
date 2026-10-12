@@ -18,7 +18,8 @@ const PROPERTY_BY_FIELD = {
   performanceEnabled: 'Prestaties ingeschakeld',
   ideaEnrichmentEnabled: 'Ideeën-verrijking ingeschakeld',
   merkprofiel: 'Merkprofiel ingeschakeld',
-  merkprofielNaarKennisdocument: 'Merkprofiel naar Kennisdocument'
+  merkprofielNaarKennisdocument: 'Merkprofiel naar Kennisdocument',
+  aiZichtbaarheid: 'AI zichtbaarheid ingeschakeld'
 };
 
 const KLANTSTATUS_WAARDEN = ['actief', 'gepauzeerd', 'beëindigd'];
@@ -73,6 +74,7 @@ async function fetchAllFromNotion() {
         ideaEnrichmentEnabled: Boolean(props['Ideeën-verrijking ingeschakeld']?.checkbox),
         merkprofiel: Boolean(props['Merkprofiel ingeschakeld']?.checkbox),
         merkprofielNaarKennisdocument: Boolean(props['Merkprofiel naar Kennisdocument']?.checkbox),
+        aiZichtbaarheid: Boolean(props['AI zichtbaarheid ingeschakeld']?.checkbox),
         klantstatus: normaliseerKlantstatus(props['Klantstatus']?.select?.name),
         klantstatusIngesteld: KLANTSTATUS_WAARDEN.includes(props['Klantstatus']?.select?.name)
       });
@@ -109,6 +111,7 @@ async function getClientSettings(clientId, fallback = {}) {
         ideaEnrichmentEnabled: settings.ideaEnrichmentEnabled,
         merkprofiel: settings.merkprofiel,
         merkprofielNaarKennisdocument: settings.merkprofielNaarKennisdocument,
+        aiZichtbaarheid: settings.aiZichtbaarheid,
         klantstatus: settings.klantstatus
       };
     }
@@ -121,6 +124,7 @@ async function getClientSettings(clientId, fallback = {}) {
     ideaEnrichmentEnabled: Boolean(fallback.ideaEnrichmentEnabled),
     merkprofiel: Boolean(fallback.merkprofiel),
     merkprofielNaarKennisdocument: Boolean(fallback.merkprofielNaarKennisdocument),
+    aiZichtbaarheid: Boolean(fallback.aiZichtbaarheid),
     klantstatus: normaliseerKlantstatus(fallback.klantstatus)
   };
 }
@@ -141,6 +145,7 @@ async function listAllSettings(clientsConfig) {
       heeftMerkprofiel: true,
       merkprofiel: settings ? settings.merkprofiel : Boolean(c.merkprofiel),
       merkprofielNaarKennisdocument: settings ? settings.merkprofielNaarKennisdocument : Boolean(c.merkprofielNaarKennisdocument),
+      aiZichtbaarheid: settings ? settings.aiZichtbaarheid : Boolean(c.aiZichtbaarheid),
       klantstatus: settings ? settings.klantstatus : normaliseerKlantstatus(c.klantstatus),
       // Leeg in Notion telt voor het portaal als actief, maar de n8n sync ziet dan geen status.
       klantstatusIngesteld: settings ? settings.klantstatusIngesteld : false,

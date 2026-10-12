@@ -6,6 +6,7 @@ const kennisdocumentService = require('../services/kennisdocument');
 const merkprofielService = require('../services/merkprofiel');
 const prestatiesService = require('../services/prestaties');
 const rapportenService = require('../services/rapporten');
+const aiZichtbaarheidService = require('../services/aiZichtbaarheid');
 const documentTekst = require('../services/documentTekst');
 const { checkPassword, requireLogin } = require('../middleware/auth');
 
@@ -247,6 +248,21 @@ router.post('/:clientId/kennisdocument/extract', requireLogin, async (req, res) 
     res.json({ tekst });
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+// AI zichtbaarheid: hoe vaak ChatGPT en Gemini het merk van de klant noemen.
+// Alleen het eigen merk, nooit concurrenten of bronnen van anderen (die staan
+// alleen in /admin). Uit tot de schakelaar in /admin aan staat.
+router.get('/:clientId/ai-zichtbaarheid', requireLogin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    const settings = await settingsService.getClientSettings(req.params.clientId, config);
+    if (!settings.aiZichtbaarheid) return res.json({ beschikbaar: false });
+    const result = await aiZichtbaarheidService.getAiZichtbaarheid(config.naam);
+    res.json({ beschikbaar: true, klantNaam: config.naam, ...result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
