@@ -266,6 +266,17 @@ router.get('/:clientId/ai-zichtbaarheid', requireLogin, async (req, res) => {
   }
 });
 
+router.get('/:clientId/ai-zichtbaarheid/vragen', requireLogin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    const settings = await settingsService.getClientSettings(req.params.clientId, config);
+    if (!settings.aiZichtbaarheid) return res.json({ beschikbaar: false });
+    res.json({ beschikbaar: true, ...(await aiZichtbaarheidService.getAiVragen(config.naam)) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Merkprofiel: het klantprofiel als kaarten waarop de klant kan reageren (zie
 // src/services/merkprofiel.js). Staat per klant uit tot de schakelaar
 // in /admin (of clients.js als vangnet) merkprofiel aan staat. Reacties van de

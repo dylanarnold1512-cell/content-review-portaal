@@ -71,6 +71,52 @@
       <p class="ai-uitleg">Deze pagina's van jullie website zijn als bron aangehaald in de antwoorden.</p><ul class="ai-lijst">${lijst}</ul></div>`;
   }
 
+  function stip(p) {
+    if (!p || !p.metingen) return '<span class="ai-stip ai-stip-leeg" title="Geen meting"></span>';
+    const goed = p.genoemd > 0;
+    const tekst = p.metingen > 1 ? `${p.genoemd} van ${p.metingen}` : (goed ? 'ja' : 'nee');
+    return `<span class="ai-stip${goed ? ' ai-stip-ja' : ''}"></span> <span class="ai-klein">${esc(tekst)}</span>`;
+  }
+
+  function bronCel(v) {
+    const n = (v.chatgpt.geciteerd || 0) + (v.gemini.geciteerd || 0);
+    if (!n) return '<span class="ai-nvt">geen</span>';
+    const url = v.urls[0];
+    return url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 48))}</a>` : `${n} keer`;
+  }
+
+  function vragenBlok(data, alles) {
+    const lijst = data.vragen || [];
+    if (!lijst.length) return '';
+    const getoond = alles ? lijst : lijst.slice(0, 15);
+    const rijen = getoond.map((v) => {
+      const gevonden = v.chatgpt.genoemd + v.gemini.genoemd > 0;
+      return `<tr class="${gevonden ? '' : 'ai-rij-zwak'}"><td>${esc(v.vraag)}</td><td>${stip(v.chatgpt)}</td><td>${stip(v.gemini)}</td><td>${bronCel(v)}</td></tr>`;
+    }).join('');
+    const gevonden = lijst.filter((v) => v.chatgpt.genoemd + v.gemini.genoemd > 0).length;
+    const meer = !alles && lijst.length > 15 ? `<button type="button" class="mp-link" id="aiVragenAlle">Toon alle ${lijst.length} vragen</button>` : '';
+    return `<h3>Per vraag</h3>
+      <p class="ai-uitleg">Bij ${gevonden} van de ${lijst.length} vragen werd jullie merk genoemd in de ${esc(data.week.label)}. Een groene stip betekent dat het merk in het antwoord stond.</p>
+      <div class="ai-tabel-wrap"><table class="ai-tabel"><thead><tr><th>Vraag</th><th>ChatGPT</th><th>Gemini</th><th>Website als bron</th></tr></thead><tbody>${rijen}</tbody></table></div>${meer}`;
+  }
+
+  async function laadVragen() {
+    const blok = el('aiVragenBlok');
+    if (!blok) return;
+    try {
+      const data = await apiAi(`/${clientId}/ai-zichtbaarheid/vragen`);
+      if (data.status !== 'ok') { blok.remove(); return; }
+      const teken2 = (alles) => {
+        blok.innerHTML = vragenBlok(data, alles);
+        const knop = el('aiVragenAlle');
+        if (knop) knop.addEventListener('click', () => teken2(true));
+      };
+      teken2(false);
+    } catch (err) {
+      blok.remove();
+    }
+  }
+
   function teken(data) {
     const inhoud = el('aiZichtbaarheidInhoud');
     if (!inhoud) return;
@@ -89,8 +135,10 @@
       ${data.aantalWeken < 3 ? '<p class="ai-uitleg">Het verloop per week verschijnt zodra er drie volledige weken zijn gemeten. Zo voorkomen we dat toeval als winst of verlies wordt gezien.</p>' : ''}
       ${trendBlok(data.trend)}
       ${clusterTabel(data.clusters)}
+      <div class="ai-blok" id="aiVragenBlok"><p class="ai-uitleg">Vragen laden...</p></div>
       ${urlBlok(data.eigenUrls)}
       <p class="ai-voet">Het gaat om vragen die wij zelf hebben opgesteld. AI antwoorden verschillen van keer tot keer, dus het gaat om het grote beeld.</p>`;
+    laadVragen();
   }
 
   async function laad() {

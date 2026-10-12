@@ -12,6 +12,9 @@
 const N8N_BASE_URL = (process.env.N8N_BASE_URL || 'https://n8n.advertisr.nl').replace(/\/+$/, '');
 const TABLE_ID = process.env.N8N_AI_SAMENVATTING_TABLE_ID || 'PO71b1z9NwtgTFoO';
 
+const PROMPTS_TABLE_ID = process.env.N8N_AI_PROMPTS_TABLE_ID || 'fOe0eUDOQ7FNaL1r';
+const METINGEN_TABLE_ID = process.env.N8N_AI_METINGEN_TABLE_ID || 'IRsXYL5ndnD6Yy7m';
+
 const PLATFORMEN = ['chatgpt', 'gemini'];
 const PLATFORM_LABEL = { chatgpt: 'ChatGPT', gemini: 'Gemini' };
 // Een week telt alleen mee als hooguit 10 procent van de aanroepen mislukte.
@@ -29,12 +32,12 @@ function getApiKey() {
   return key;
 }
 
-async function n8nRows(klantNaam) {
-  const filter = encodeURIComponent(JSON.stringify({ type: 'and', filters: [{ columnName: 'klant', condition: 'eq', value: klantNaam }] }));
+async function n8nTabel(tabelId, filters) {
+  const filter = encodeURIComponent(JSON.stringify({ type: 'and', filters }));
   const alle = [];
   let cursor = '';
   for (let pagina = 0; pagina < 20; pagina += 1) {
-    const url = `${N8N_BASE_URL}/api/v1/data-tables/${TABLE_ID}/rows?limit=250&filter=${filter}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
+    const url = `${N8N_BASE_URL}/api/v1/data-tables/${tabelId}/rows?limit=250&filter=${filter}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
     const res = await fetch(url, { headers: { 'X-N8N-API-KEY': getApiKey(), 'Content-Type': 'application/json' } });
     const raw = await res.text();
     let data = {};
@@ -49,6 +52,10 @@ async function n8nRows(klantNaam) {
     cursor = data.nextCursor;
   }
   return alle;
+}
+
+async function n8nRows(klantNaam) {
+  return n8nTabel(TABLE_ID, [{ columnName: 'klant', condition: 'eq', value: klantNaam }]);
 }
 
 function num(v) {
@@ -224,6 +231,70 @@ function bouwIntern(ruweRijen) {
   return { status: 'ok', week: { start: week.weekStart, label: weekLabel(week.weekStart), compleet: week.compleet }, platformen };
 }
 
+function maandagVan(datum) {
+  const d = new Date(String(datum || '').slice(0, 10) + 'T12:00:00Z');
+  if (Number.isNaN(d.getTime())) return '';
+  const dag = (d.getUTCDay() + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - dag);
+  return d.toISOString().slice(0, 10);
+}
+
+function parseUrls(tekst) {
+  return parseLijst(tekst).map((u) => schoneUrl(typeof u === 'string' ? u : u && (u.url || u.naam))).filter(Boolean);
+}
+
+// Per vraag: werd het merk genoemd, en werd de eigen website als bron gebruikt.
+// Alleen het eigen merk. De antwoordtekst zelf blijft weg, want daarin staan concurrenten.
+function bouwVragen(prompts, metingen, weekStart) {
+  const perVraag = new Map();
+  for (const m of metingen) {
+    if (maandagVan(m.datum) !== weekStart || !PLATFORMEN.includes(m.platform)) continue;
+    if (m.fout) continue;
+    const rec = perVraag.get(m.prompt_id) || { chatgpt: { n: 0, genoemd: 0, geciteerd: 0 }, gemini: { n: 0, genoemd: 0, geciteerd: 0 }, urls: new Set() };
+    const p = rec[m.platform];
+    p.n += 1;
+    if (m.genoemd === true || m.genoemd === 'true') p.genoemd += 1;
+    if (m.geciteerd === true || m.geciteerd === 'true') {
+      p.geciteerd += 1;
+      for (const u of parseUrls(m.geciteerde_urls)) rec.urls.add(u);
+    }
+    perVraag.set(m.prompt_id, rec);
+  }
+  const rijen = [];
+  for (const pr of prompts) {
+    if (pr.actief === false) continue;
+    const rec = perVraag.get(pr.prompt_id);
+    if (!rec) continue;
+    rijen.push({
+      id: pr.prompt_id,
+      vraag: pr.prompt,
+      onderwerp: pr.cluster || '',
+      chatgpt: { metingen: rec.chatgpt.n, genoemd: rec.chatgpt.genoemd, geciteerd: rec.chatgpt.geciteerd },
+      gemini: { metingen: rec.gemini.n, genoemd: rec.gemini.genoemd, geciteerd: rec.gemini.geciteerd },
+      urls: [...rec.urls].slice(0, 3)
+    });
+  }
+  // Eerst de vragen waarop het merk gevonden werd, dan de rest.
+  const score = (r) => r.chatgpt.genoemd + r.gemini.genoemd;
+  rijen.sort((a, b) => score(b) - score(a) || String(a.id).localeCompare(String(b.id), 'nl', { numeric: true }));
+  return rijen;
+}
+
+async function getAiVragen(klantNaam) {
+  const overzicht = bouwOverzicht(await n8nRows(klantNaam));
+  if (overzicht.status !== 'ok') return { status: 'leeg', vragen: [] };
+  const week = overzicht.laatsteWeek;
+  const klantFilter = { columnName: 'klant', condition: 'eq', value: klantNaam };
+  const prompts = await n8nTabel(PROMPTS_TABLE_ID, [klantFilter]);
+  let metingen;
+  try {
+    metingen = await n8nTabel(METINGEN_TABLE_ID, [klantFilter, { columnName: 'datum', condition: 'gte', value: week.start }]);
+  } catch (err) {
+    metingen = await n8nTabel(METINGEN_TABLE_ID, [klantFilter]);
+  }
+  return { status: 'ok', week, vragen: bouwVragen(prompts, metingen, week.start) };
+}
+
 async function getAiZichtbaarheid(klantNaam) {
   return bouwOverzicht(await n8nRows(klantNaam));
 }
@@ -232,4 +303,4 @@ async function getAiIntern(klantNaam) {
   return bouwIntern(await n8nRows(klantNaam));
 }
 
-module.exports = { getAiZichtbaarheid, getAiIntern, bouwOverzicht, bouwIntern, weekLabel };
+module.exports = { getAiZichtbaarheid, getAiIntern, getAiVragen, bouwOverzicht, bouwIntern, bouwVragen, weekLabel };
