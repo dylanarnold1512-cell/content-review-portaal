@@ -112,6 +112,13 @@
     </li>`;
   }
 
+  function fragment(s) {
+    const f = (s.feiten || []).find((x) => x && x.tekst && x.status !== 'niet_gebruiken');
+    if (!f) return '';
+    const t = String(f.tekst).replace(/\s+/g, ' ').trim();
+    return t.length > 110 ? t.slice(0, 107).trimEnd() + '...' : t;
+  }
+
   function samenvatting(s, stand) {
     const delen = [s.feiten.length === 1 ? '1 gegeven' : `${s.feiten.length} gegevens`];
     if (stand.aangepast) delen.push(`${stand.aangepast} aangepast`);
@@ -139,7 +146,7 @@
     return `<section class="mp-kaart mp-kaart-${stand.soort}${isOpen ? ' mp-uitgeklapt' : ''}" data-sectie="${s.nr}">
       <button type="button" class="mp-kaart-kop" data-actie="toggle" aria-expanded="${isOpen}">
         <span class="mp-nr">${s.nr}</span>
-        <span class="mp-kop-tekst"><span class="mp-kop-titel">${esc(s.titel)}</span><span class="mp-kop-sub">${esc(samenvatting(s, stand))}</span></span>
+        <span class="mp-kop-tekst"><span class="mp-kop-titel">${esc(s.titel)}</span><span class="mp-kop-sub">${esc(fragment(s))}</span><span class="mp-kop-meta">${esc(samenvatting(s, stand))}</span></span>
         ${chipHtml(stand)}
         <span class="mp-pijl" aria-hidden="true"></span>
       </button>
@@ -176,17 +183,21 @@
       return `<li class="mp-feit mp-feit-open" data-tegenstrijd="${esc(t.id)}"><div class="mp-feit-tekst">${verschil}</div>${stand}${adviesRegel}${vorm}</li>`;
     };
     const klaarHtml = klaar.length
-      ? `<details class="mp-termen-sectie"><summary>Gemaakte keuzes (${klaar.length})</summary><ul class="mp-feiten">${klaar.map((t) => {
+      ? `<ul class="mp-feiten mp-keuze-klaar">${klaar.map((t) => {
           const tekst = t.besluit === 'gekozen' ? esc(t.keuzeTekst) : `${esc(t.onderwerp || t.tekst)}: niet noemen in blogs`;
           return `<li class="mp-feit"><div class="mp-feit-tekst">${tekst}</div><div class="mp-feit-acties"><button type="button" class="mp-link" data-actie="keuze-wijzig" data-id="${esc(t.id)}">Keuze wijzigen</button></div></li>`;
-        }).join('')}</ul></details>`
+        }).join('')}</ul>`
       : '';
     const uitleg = aantalOpen
-      ? '<p class="mp-uitleg">Op deze punten spreken de website en jullie eigen document elkaar tegen. Kies wat leidend is. Zodra je kiest, nemen wij dat direct over in de informatie voor jullie blogs en verdwijnt het punt hier. Tot die tijd noemen we deze punten niet.</p>'
-      : '<p class="mp-uitleg">Alle punten hebben een keuze. Bedankt.</p>';
+      ? '<p class="mp-uitleg">Op deze punten spreken de website en jullie eigen document elkaar tegen. Kies wat leidend is. Zodra je kiest, nemen wij dat direct over in de informatie voor jullie blogs. Tot die tijd noemen we deze punten niet.</p>'
+      : '<p class="mp-uitleg">Op deze punten sprak de website jullie eigen document tegen. Jullie hebben overal een keuze gemaakt. Wil je er een wijzigen, dan kan dat hier.</p>';
     const meld = keuzeMelding ? `<p class="mp-uitleg"><strong>${esc(keuzeMelding)}</strong></p>` : '';
     const lijstHtml = open.length ? `<ul class="mp-feiten">${open.map(kaartHtml).join('')}</ul>` : '';
-    return `<details class="mp-open mp-tegenstrijd" data-keuzeblok${keuzeBlokOpen ? ' open' : ''}><summary><strong>Kies wat klopt${aantalOpen ? ` (${aantalOpen})` : ''}</strong></summary>${uitleg}${meld}${lijstHtml}${klaarHtml}</details>`;
+    const titel = aantalOpen
+      ? `${aantalOpen === 1 ? '1 punt waar jullie een keuze over moeten maken' : `${aantalOpen} punten waar jullie een keuze over moeten maken`}`
+      : 'Keuzes bij tegenstrijdige informatie';
+    const sub = aantalOpen ? 'Website en eigen document zeggen iets anders' : `${klaar.length} ${klaar.length === 1 ? 'keuze' : 'keuzes'} gemaakt`;
+    return `<details class="mp-acc mp-keuzeblok${aantalOpen ? ' mp-acc-let-op' : ''}" data-keuzeblok${keuzeBlokOpen && aantalOpen ? ' open' : ''}><summary class="mp-acc-kop"><span class="mp-acc-icoon" aria-hidden="true">${aantalOpen ? '!' : '\u2713'}</span><span class="mp-kop-tekst"><span class="mp-kop-titel">${esc(titel)}</span><span class="mp-kop-sub">${esc(sub)}</span></span><span class="mp-acc-actie">${aantalOpen ? 'Keuzes maken' : 'Bekijken'}</span><span class="mp-pijl" aria-hidden="true"></span></summary><div class="mp-acc-body">${uitleg}${meld}${lijstHtml}${klaarHtml}</div></details>`;
   }
 
   function tellingen() {
@@ -264,10 +275,10 @@
       `${aantal(profiel && profiel.vasteTermen)} vaste schrijfwijzen`,
       `${aantal(profiel && profiel.uitgeslotenZoektermen)} uitgesloten zoekwoorden`
     ].join(', ');
-    return `<details class="mp-termen-sectie"${termenOpen ? ' open' : ''}>
-      <summary><strong>Termen en schrijfregels</strong><span class="mp-termen-samenvatting">${esc(samenvatting)}</span></summary>
+    return `<details class="mp-acc mp-termen-sectie"${termenOpen ? ' open' : ''}>
+      <summary class="mp-acc-kop"><span class="mp-acc-icoon" aria-hidden="true">Aa</span><span class="mp-kop-tekst"><span class="mp-kop-titel">Termen en schrijfregels</span><span class="mp-kop-sub">${esc(samenvatting)}</span></span><span class="mp-acc-actie">Bekijken en aanpassen</span><span class="mp-pijl" aria-hidden="true"></span></summary><div class="mp-acc-body">
       ${uitgeslotenHtml()}${klantTermenHtml()}
-    </details>`;
+    </div></details>`;
   }
 
   async function wijzigVerbod(actie, term) {
@@ -279,6 +290,26 @@
     } catch (err) {
       if (fout) fout.textContent = err.message;
     }
+  }
+
+  function kerncijfersHtml(t, totaal) {
+    const U = window.PortaalUI;
+    if (!U || !U.kerncijfer) return '';
+    let gegevens = 0;
+    let aangepast = 0;
+    let weg = 0;
+    profiel.secties.forEach((s) => s.feiten.forEach((f) => {
+      gegevens += 1;
+      if (f.status === 'aangepast') aangepast += 1;
+      if (f.status === 'niet_gebruiken') weg += 1;
+    }));
+    const kaarten = [
+      { label: 'Onderdelen bevestigd', icoon: 'vinkje', waarde: `${t.bevestigd} van ${totaal}`, vergelijking: t.bevestigd === totaal ? 'Alles is bevestigd' : 'Open een onderdeel om te controleren' },
+      { label: 'Gegevens over jullie', icoon: 'blad', waarde: String(gegevens), vergelijking: 'Hier schrijven wij blogs op' },
+      { label: 'Door jullie aangepast', icoon: 'mensen', waarde: String(aangepast), vergelijking: 'Jullie eigen aanvullingen' },
+      { label: 'Weggelaten', icoon: 'oog', waarde: String(weg), vergelijking: 'Noemen wij niet in blogs' }
+    ];
+    return `<section class="p-kerncijfers">${kaarten.map((k) => U.kerncijfer(k)).join('')}</section>`;
   }
 
   function render() {
@@ -316,6 +347,7 @@
       <div class="p-ov-kop"><div><h1>Merkprofiel</h1><p>Zo zien wij ${naam}. Hier baseren we jullie blogs op.</p></div></div>
       <section class="p-kaart p-ov-status" data-toon="${klaarZin ? 'goed' : 'let-op'}"><div class="p-ov-status-hoofd"><div class="p-ov-status-regel"><span class="p-ov-puls"></span>${esc(zin)}</div><p>${toelichting}</p></div>
         <div class="p-ov-status-volgend"><div class="p-ov-volgend"><span class="p-ov-lbl">Bevestigd</span><span class="p-ov-val">${t.bevestigd} van ${totaal}</span><div class="mp-balk"><div class="mp-balk-vulling" style="width:${procent}%"></div></div></div></div></section>
+      ${kerncijfersHtml(t, totaal)}
       ${samenvattingHtml()}${tegenstrijdigHtml()}${klaarZin ? '' : openHtml}
       ${filterHtml}
       <div class="mp-kaarten">${kaarten || '<p class="mp-uitleg">Niets in deze lijst.</p>'}</div>
