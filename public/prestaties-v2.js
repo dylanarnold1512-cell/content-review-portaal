@@ -19,7 +19,7 @@ const PV_STAP = 10;
 const PV_INZICHT_ZICHTBAAR = 3;
 const PV_KANSEN_ZICHTBAAR = 4;
 
-const pvState = { insTab: '', periode: '28d', laden: false, sort: 'vertoningen', cluster: '', status: '', q: '', taal: '', toon: PV_STAP, open: {}, insOpen: {}, data: null };
+const pvState = { zwSort: 'vertoningen', zwAlle: false, insTab: '', periode: '28d', laden: false, sort: 'vertoningen', cluster: '', status: '', q: '', taal: '', toon: PV_STAP, open: {}, insOpen: {}, data: null };
 
 function pvDelta(nu, vorig) {
   if (vorig === null || vorig === undefined) return '';
@@ -320,6 +320,7 @@ function renderPrestatiesV2(d) {
       <div class="p-ov-stapel">
         ${d.weken.length ? `<section class="p-kaart" id="pvWekenKaart"><div class="p-kaart-kop"><div class="p-kaart-titel-blok"><h2 class="p-kaart-titel">De laatste weken</h2><div class="p-kaart-uitleg">Een stip onder een week betekent dat er die week een nieuwe blog live ging. De lichte staaf is de week die nog loopt.</div></div></div>
           <div class="p-kaart-inhoud"><div class="pv-charts">${pvBars(d.weken, 'vertoningen', 'pv-bar-a', 'Keer getoond per week')}${pvBars(d.weken, 'clicks', 'pv-bar-b', 'Bezoekers vanuit Google per week')}</div></div></section>` : ''}
+        <section class="p-kaart" id="pvZwKaart"></section>
         <section class="p-kaart"><div class="p-kaart-kop"><div class="p-kaart-titel-blok"><h2 class="p-kaart-titel">Per blog</h2></div></div><div class="p-kaart-inhoud"><div id="pvBlogControls"></div><div id="pvBlogList"></div></div></section>
       </div>
       <div class="p-ov-stapel">
@@ -334,6 +335,7 @@ function renderPrestatiesV2(d) {
     </div>
   </div>`;
   pvTekenInzichten();
+  pvTekenZoekwoorden();
   pvTekenEffecten();
   document.getElementById('pvBlogControls').innerHTML = pvControlsHtml();
   document.getElementById('pvBlogList').innerHTML = pvLijstHtml();
@@ -375,6 +377,9 @@ function renderPrestatiesV2(d) {
       herteken();
       return;
     }
+    const zwSort = e.target.closest('[data-pv-zwsort]');
+    if (zwSort) { pvState.zwSort = zwSort.getAttribute('data-pv-zwsort'); pvTekenZoekwoorden(); return; }
+    if (e.target.closest('[data-zw-meer]')) { pvState.zwAlle = !pvState.zwAlle; pvTekenZoekwoorden(); return; }
     const insTab = e.target.closest('[data-pv-instab]');
     if (insTab) { pvState.insTab = insTab.getAttribute('data-pv-instab'); pvTekenInzichten(); return; }
     const ins = e.target.closest('[data-pv-ins]');
@@ -447,6 +452,18 @@ function pvKansenPerBlog(lijst) {
     </div>`).join('');
   const meer = groepen.length - PV_KANSEN_ZICHTBAAR;
   return html + (meer > 0 ? `<button type="button" class="pv-toggle" data-pv-ins="kansen">${open ? 'Toon minder' : `Toon alle ${groepen.length} blogs`}</button>` : '') + `<div class="pv-muted pv-kans-noot">${pvEsc(PV_ZIN_KANSEN)}</div>`;
+}
+
+function pvTekenZoekwoorden() {
+  const box = document.getElementById('pvZwKaart');
+  if (!box || !pvState.data || !window.Zoekwoorden) return;
+  const lijst = window.Zoekwoorden.samenvoegen(pvState.data.blogs, pvState.zwSort);
+  if (!lijst.length) { box.style.display = 'none'; return; }
+  box.style.display = '';
+  const keuzes = [['vertoningen', 'Meest getoond'], ['bezoekers', 'Meeste bezoekers']];
+  box.innerHTML = `<div class="p-kaart-kop"><div class="p-kaart-titel-blok"><h2 class="p-kaart-titel">Zoekwoorden</h2><div class="p-kaart-uitleg">Waar mensen op zochten toen ze jullie blogs in Google zagen. Een lage positie is beter, pagina 1 is positie 1 tot en met 10.</div></div>
+    <div class="pv-periode" role="group" aria-label="Sorteer zoekwoorden">${keuzes.map((k) => `<button type="button" class="pv-chip${pvState.zwSort === k[0] ? ' pv-chip-aan' : ''}" data-pv-zwsort="${k[0]}">${k[1]}</button>`).join('')}</div></div>
+    <div class="p-kaart-inhoud">${window.Zoekwoorden.html(lijst, { aantal: 8, alle: pvState.zwAlle })}</div>`;
 }
 
 function pvTekenInzichten() {
