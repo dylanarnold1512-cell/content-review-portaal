@@ -51,7 +51,7 @@
       <div class="ai-tabel-wrap"><table class="ai-tabel"><thead><tr><th>${woord}</th><th>ChatGPT</th><th>Gemini</th></tr></thead><tbody>${rijen}</tbody></table></div></div>`;
   }
 
-  function trendBlok(trend) {
+  function trendBlok(trend, reeks, laatsteControle) {
     if (!trend.length) return '';
     const rijen = trend.map((w) => {
       const balk = (p) => {
@@ -59,10 +59,36 @@
         const pct = d.antwoorden ? Math.round((d.genoemd / d.antwoorden) * 100) : 0;
         return `<div class="ai-balk-rij"><span class="ai-balk-naam">${p === 'chatgpt' ? 'ChatGPT' : 'Gemini'}</span><span class="ai-balk"><span class="ai-balk-vul" style="width:${pct}%"></span></span><span class="ai-balk-waarde">${pct}%</span></div>`;
       };
-      return `<div class="ai-trend-week"><div class="ai-trend-label">${esc(w.label)}</div>${balk('chatgpt')}${balk('gemini')}</div>`;
+      const markering = w.kernVervangen ? `<div class="ai-markering">Vanaf deze week ${w.kernVervangen === 1 ? 'is 1 vaste vraag' : `zijn ${w.kernVervangen} vaste vragen`} vervangen. Vergelijk met eerdere weken daarom met enige voorzichtigheid.</div>` : '';
+      return `<div class="ai-trend-week"><div class="ai-trend-label">${esc(w.label)}</div>${balk('chatgpt')}${balk('gemini')}${markering}</div>`;
     }).join('');
+    const basis = reeks === 'kern'
+      ? 'Dit verloop is gebaseerd op een vaste set kernvragen, zodat de weken goed vergelijkbaar zijn. Elk kwartaal controleren wij of die vragen nog bij jullie aanbod en de zoekopdrachten passen.'
+      : '';
+    const controle = reeks === 'kern' && laatsteControle ? ` Laatste controle van de kernvragen: ${esc(datumKort(laatsteControle))}.` : '';
     return `<div class="ai-blok"><h3>Verloop per week</h3>
-      <p class="ai-uitleg">Het percentage antwoorden waarin jullie merk genoemd wordt. Kleine schommelingen zeggen weinig, kijk vooral naar de richting over meerdere weken.</p>${rijen}</div>`;
+      <p class="ai-uitleg">Het percentage antwoorden waarin jullie merk genoemd wordt. Kleine schommelingen zeggen weinig, kijk vooral naar de richting over meerdere weken.</p>${basis || controle ? `<p class="ai-uitleg">${esc(basis)}${controle}</p>` : ''}${rijen}</div>`;
+  }
+
+  function datumKort(iso) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+    if (!m) return String(iso || '');
+    const mnd = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
+    return `${Number(m[3])} ${mnd[Number(m[2]) - 1]} ${m[1]}`;
+  }
+
+  function kansenBlok(kansen) {
+    if (!kansen || !kansen.length) return '';
+    const label = { hoog: 'Hoge prioriteit', middel: 'Middelhoge prioriteit', laag: 'Lage prioriteit' };
+    const items = kansen.map((k) => `<div class="ai-kans">
+      <div class="ai-kans-tag ai-kans-${esc(k.prioriteit)}">${esc(label[k.prioriteit] || 'Prioriteit')}</div>
+      <div class="ai-kans-rij"><span class="ai-kans-lbl">Signaal</span><span>${esc(k.signaal)}</span></div>
+      <div class="ai-kans-rij"><span class="ai-kans-lbl">Waarom</span><span>${esc(k.waarom)}</span></div>
+      <div class="ai-kans-rij"><span class="ai-kans-lbl">Actie</span><span>${esc(k.actie)}</span></div>
+      <div class="ai-kans-rij ai-klein"><span class="ai-kans-lbl">Onderbouwing</span><span>${esc(k.onderbouwing)}</span></div>
+    </div>`).join('');
+    return `<div class="ai-blok"><h3>Kansen voor AI zichtbaarheid</h3>
+      <p class="ai-uitleg">Dit zijn signalen uit de meting. Het zijn geen garanties: AI antwoorden verschillen van keer tot keer.</p>${items}</div>`;
   }
 
   function urlBlok(urls) {
@@ -136,8 +162,9 @@
       ${data.clusterSoort === 'markt' ? '<p class="ai-uitleg">De cijfers hieronder zijn het totaal over alle markten. Per markt staat het hieronder.</p>' : ''}
       <div class="ai-kaarten">${data.platformen.map(kaart).join('')}</div>
       ${data.aantalWeken < 3 ? '<p class="ai-uitleg">Het verloop per week verschijnt zodra er drie volledige weken zijn gemeten. Zo voorkomen we dat toeval als winst of verlies wordt gezien.</p>' : ''}
-      ${trendBlok(data.trend)}
+      ${trendBlok(data.trend, data.reeks, data.laatsteKernControle)}
       ${clusterTabel(data.clusters, data.clusterSoort === 'markt')}
+      ${kansenBlok(data.kansen)}
       <div class="ai-blok" id="aiVragenBlok"><p class="ai-uitleg">Vragen laden...</p></div>
       ${urlBlok(data.eigenUrls)}
       <p class="ai-voet">Het gaat om vragen die wij zelf hebben opgesteld. AI antwoorden verschillen van keer tot keer, dus het gaat om het grote beeld.</p>`;

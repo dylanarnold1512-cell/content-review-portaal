@@ -14,6 +14,8 @@ const TABLE_ID = process.env.N8N_AI_SAMENVATTING_TABLE_ID || 'PO71b1z9NwtgTFoO';
 
 const PROMPTS_TABLE_ID = process.env.N8N_AI_PROMPTS_TABLE_ID || 'fOe0eUDOQ7FNaL1r';
 const METINGEN_TABLE_ID = process.env.N8N_AI_METINGEN_TABLE_ID || 'IRsXYL5ndnD6Yy7m';
+const KERN_WIJZIGINGEN_TABLE_ID = process.env.N8N_AI_KERN_WIJZIGINGEN_TABLE_ID || 'SeItyAsQZfNQXZ3t';
+const KANSEN_TABLE_ID = process.env.N8N_KANSEN_TABLE_ID || 'C0ASGyrj8nT1zXOS';
 
 const PLATFORMEN = ['chatgpt', 'gemini'];
 const PLATFORM_LABEL = { chatgpt: 'ChatGPT', gemini: 'Gemini' };
@@ -95,10 +97,17 @@ function platformCijfers(r) {
   return { antwoorden: num(r.antwoorden), genoemd: num(r.genoemd), geciteerd: num(r.geciteerd), fouten: num(r.fouten) };
 }
 
-function bouwWeken(rijen) {
+// De kop van het tabblad en het verloop gebruiken de vaste kernvragen zodra
+// daar cijfers van zijn. De wisselvragen veranderen elke maand en maken het
+// verloop onvergelijkbaar. Zonder kernrijen (oudere metingen) geldt het totaal.
+function gekozenReeks(rijen) {
+  return (rijen || []).some((r) => r.cluster === 'kern') ? 'kern' : 'totaal';
+}
+
+function bouwWeken(rijen, reeks = 'totaal') {
   const perWeek = new Map();
   for (const r of rijen) {
-    if (r.cluster !== 'totaal' || !PLATFORMEN.includes(r.platform)) continue;
+    if (r.cluster !== reeks || !PLATFORMEN.includes(r.platform)) continue;
     const week = perWeek.get(r.week_start) || { weekStart: r.week_start, platformen: {} };
     week.platformen[r.platform] = platformCijfers(r);
     perWeek.set(r.week_start, week);
@@ -142,13 +151,43 @@ function bouwEigenUrls(rijen, weekStart) {
   return [...telling.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([url, aantal]) => ({ url, aantal }));
 }
 
+// Wanneer de kernvragen zijn aangepast: per reeksstart het aantal vervangen vragen,
+// plus de datum van de laatste kwartaalcontrole. Zonder vraagteksten van de klant te tonen.
+function bouwKernWijzigingen(rijen) {
+  const perStart = new Map();
+  let laatsteControle = '';
+  for (const r of rijen || []) {
+    if (!r || !r.soort) continue;
+    const datum = String(r.datum || '').slice(0, 10);
+    if (datum > laatsteControle) laatsteControle = datum;
+    if (r.soort !== 'vervangen') continue;
+    const start = String(r.reeks_start || '').slice(0, 10);
+    if (!start) continue;
+    perStart.set(start, (perStart.get(start) || 0) + 1);
+  }
+  const wijzigingen = [...perStart.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([weekStart, aantal]) => ({ weekStart, aantal, label: weekLabel(weekStart) }));
+  return { wijzigingen, laatsteControle };
+}
+
+// AI kansen uit de kansentabel (soort ai_zichtbaarheid). Alleen de tekstvelden, zonder interne velden.
+function bouwAiKansen(rijen) {
+  const rang = { hoog: 0, middel: 1, laag: 2 };
+  return (rijen || [])
+    .filter((r) => r && r.soort === 'ai_zichtbaarheid' && r.signaal)
+    .sort((a, b) => (rang[a.prioriteit] ?? 3) - (rang[b.prioriteit] ?? 3))
+    .map((r) => ({ onderwerp: r.zoekwoord || '', prioriteit: r.prioriteit || 'laag', signaal: r.signaal, waarom: r.waarom || '', actie: r.actie || '', onderbouwing: r.onderbouwing || '' }));
+}
+
 // Alles wat de klant te zien krijgt. Bewust zonder merken van anderen, bronnen van anderen en kosten.
 function bouwOverzicht(ruweRijen, opties = {}) {
   const clusterSoort = opties.clusterSoort === 'markt' ? 'markt' : 'onderwerp';
   const rijen = uniekeRijen(ruweRijen);
-  const weken = bouwWeken(rijen);
+  const reeks = gekozenReeks(rijen);
+  const weken = bouwWeken(rijen, reeks);
   const volledig = weken.filter((w) => w.compleet);
   const nieuwste = weken[weken.length - 1] || null;
+  const kernInfo = bouwKernWijzigingen(opties.kernWijzigingen);
+  const kansen = bouwAiKansen(opties.kansen);
   const laatste = volledig[volledig.length - 1] || null;
   const vorige = volledig.length > 1 ? volledig[volledig.length - 2] : null;
 
@@ -159,9 +198,12 @@ function bouwOverzicht(ruweRijen, opties = {}) {
       melding: nieuwste
         ? 'De eerste meting was nog niet volledig. Zodra er een volledige week is, zie je hier de resultaten.'
         : 'De eerste meting volgt. Zodra die klaar is, zie je hier de resultaten.',
+      reeks,
       platformen: [],
       clusters: [],
       trend: [],
+      kernWijzigingen: kernInfo.wijzigingen,
+      kansen: [],
       eigenUrls: []
     };
   }
@@ -179,7 +221,7 @@ function bouwOverzicht(ruweRijen, opties = {}) {
     };
   });
 
-  const clusterNamen = [...new Set(rijen.filter((r) => r.week_start === laatste.weekStart && r.cluster !== 'totaal').map((r) => r.cluster))].sort();
+  const clusterNamen = [...new Set(rijen.filter((r) => r.week_start === laatste.weekStart && r.cluster !== 'totaal' && r.cluster !== 'kern').map((r) => r.cluster))].sort();
   const clusters = clusterNamen.map((naam) => {
     const rij = { naam, platformen: {} };
     for (const p of PLATFORMEN) {
@@ -193,9 +235,15 @@ function bouwOverzicht(ruweRijen, opties = {}) {
     ? volledig.slice(-MAX_WEKEN_IN_TREND).map((w) => ({
       weekStart: w.weekStart,
       label: weekLabel(w.weekStart),
-      platformen: Object.fromEntries(PLATFORMEN.map((p) => [p, { antwoorden: w.platformen[p].antwoorden, genoemd: w.platformen[p].genoemd, geciteerd: w.platformen[p].geciteerd }]))
+      platformen: Object.fromEntries(PLATFORMEN.map((p) => [p, { antwoorden: w.platformen[p].antwoorden, genoemd: w.platformen[p].genoemd, geciteerd: w.platformen[p].geciteerd }])),
+      kernVervangen: 0
     }))
     : [];
+  // De markering hoort bij de eerste week in het verloop vanaf de dag dat de nieuwe kernvragen ingaan.
+  for (const k of kernInfo.wijzigingen) {
+    const doel = trend.find((w) => w.weekStart >= k.weekStart);
+    if (doel) doel.kernVervangen += k.aantal;
+  }
 
   const nieuwsteOnvolledig = nieuwste && !nieuwste.compleet && nieuwste.weekStart > laatste.weekStart;
   return {
@@ -203,6 +251,10 @@ function bouwOverzicht(ruweRijen, opties = {}) {
     clusterSoort,
     laatsteWeek: { start: laatste.weekStart, label: weekLabel(laatste.weekStart) },
     aantalWeken: volledig.length,
+    reeks,
+    kernWijzigingen: kernInfo.wijzigingen,
+    laatsteKernControle: kernInfo.laatsteControle,
+    kansen,
     melding: nieuwsteOnvolledig ? `De meting van de ${weekLabel(nieuwste.weekStart)} was niet volledig en telt daarom niet mee.` : '',
     platformen,
     clusters,
@@ -298,12 +350,26 @@ async function getAiVragen(klantNaam) {
   return { status: 'ok', week, vragen: bouwVragen(prompts, metingen, week.start) };
 }
 
+// Kernwijzigingen en kansen zijn extra: lukt het ophalen niet (tabel bestaat nog niet), dan blijft de rest werken.
+async function optioneleTabel(tabelId, filters) {
+  try {
+    return await n8nTabel(tabelId, filters);
+  } catch (err) {
+    return [];
+  }
+}
+
 async function getAiZichtbaarheid(klantNaam, opties = {}) {
-  return bouwOverzicht(await n8nRows(klantNaam), opties);
+  const [rijen, kernWijzigingen, kansen] = await Promise.all([
+    n8nRows(klantNaam),
+    optioneleTabel(KERN_WIJZIGINGEN_TABLE_ID, [{ columnName: 'klant', condition: 'eq', value: klantNaam }]),
+    optioneleTabel(KANSEN_TABLE_ID, [{ columnName: 'client_name', condition: 'eq', value: klantNaam }, { columnName: 'soort', condition: 'eq', value: 'ai_zichtbaarheid' }])
+  ]);
+  return bouwOverzicht(rijen, { ...opties, kernWijzigingen, kansen });
 }
 
 async function getAiIntern(klantNaam) {
   return bouwIntern(await n8nRows(klantNaam));
 }
 
-module.exports = { getAiZichtbaarheid, getAiIntern, getAiVragen, bouwOverzicht, bouwIntern, bouwVragen, weekLabel };
+module.exports = { getAiZichtbaarheid, getAiIntern, getAiVragen, bouwOverzicht, bouwIntern, bouwVragen, bouwKernWijzigingen, bouwAiKansen, weekLabel };
