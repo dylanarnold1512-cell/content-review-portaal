@@ -98,10 +98,10 @@
     const was = aangepast && f.origineel ? `<div class="mp-opmerking">Eerder stond hier: ${esc(f.origineel)}</div>` : '';
     return `<li class="mp-feit${uitgesloten ? ' mp-uitgesloten' : ''}${f.open && !aangepast ? ' mp-feit-open' : ''}" data-id="${esc(f.id)}">
       <div class="mp-feit-tekst">${esc(f.tekst)}</div>
-      <div class="mp-feit-meta">${label}${intern}${openLabel}${bevestigd ? '<span class="mp-bron mp-bron-ok">door jou bevestigd</span>' : ''}${aangepast ? '<span class="mp-bron mp-bron-ok">door jou aangepast</span>' : ''}${uitgesloten ? '<span class="mp-bron mp-bron-uit">niet gebruiken</span>' : ''}</div>
+      <div class="mp-feit-meta">${label}${intern}${openLabel}${bevestigd ? '<span class="mp-bron mp-bron-ok">door jou bevestigd</span>' : ''}${aangepast ? '<span class="mp-bron mp-bron-ok">door jou aangepast</span>' : ''}${uitgesloten ? '<span class="mp-bron mp-bron-uit">weggelaten</span>' : ''}</div>
       ${was}${opmerking}
       <div class="mp-feit-acties">
-        ${f.beschermd ? '' : `<button type="button" class="mp-link" data-actie="uitsluiten">${uitgesloten ? 'Toch gebruiken' : 'Niet gebruiken'}</button>`}
+        ${f.beschermd ? '' : `<button type="button" class="mp-link" data-actie="uitsluiten">${uitgesloten ? 'Toch gebruiken' : 'Weglaten'}</button>`}
         ${f.beschermd ? '' : `<button type="button" class="mp-link" data-actie="aanpassen">${f.open && !aangepast ? 'Invullen' : 'Aanpassen'}</button>`}
         <button type="button" class="mp-link" data-actie="opmerking">Opmerking</button>
       </div>
@@ -113,9 +113,9 @@
   }
 
   function samenvatting(s, stand) {
-    const delen = [s.feiten.length === 1 ? "1 punt" : `${s.feiten.length} punten`];
+    const delen = [s.feiten.length === 1 ? '1 gegeven' : `${s.feiten.length} gegevens`];
     if (stand.aangepast) delen.push(`${stand.aangepast} aangepast`);
-    if (stand.uitgesloten) delen.push(`${stand.uitgesloten} niet gebruiken`);
+    if (stand.uitgesloten) delen.push(`${stand.uitgesloten} weggelaten`);
     return delen.join(' · ');
   }
 
@@ -207,7 +207,7 @@
     const naam = esc((profiel && profiel.klantNaam) || '');
     return `<div class="mp-uitgesloten">
       <h3>Zoektermen die we niet als kans tonen</h3>
-      <p class="mp-uitleg">Mensen die zoeken op jullie eigen naam, ruimtes, producten of adres kennen jullie al. Daar schrijven we geen blog voor en we tonen het ook niet als kans in Prestaties. Automatisch uitgesloten: de naam ${naam} en de naam van jullie website.${lijst.length ? ' Daarnaast hebben we deze termen uitgesloten:' : ''}</p>
+      <p class="mp-uitleg">Mensen die zoeken op jullie eigen naam, ruimtes, producten of adres kennen jullie al. Daar schrijven we geen blog voor en we tonen het ook niet als kans bij Google. Automatisch uitgesloten: de naam ${naam} en de naam van jullie website.${lijst.length ? ' Daarnaast hebben we deze termen uitgesloten:' : ''}</p>
       ${lijst.length ? `<div class="mp-termen">${lijst.map((t) => `<span class="mp-term">${esc(t)}</span>`).join('')}</div>` : '<p class="mp-uitleg">Er zijn nog geen extra termen toegevoegd.</p>'}
       <p class="mp-uitleg">Mis je een term, of staat er iets tussen wat wel een blog verdient? Laat het ons weten via een opmerking of een bericht.</p>
     </div>`;
@@ -260,9 +260,9 @@
   function termenSectieHtml() {
     const aantal = (l) => (Array.isArray(l) ? l.length : 0);
     const samenvatting = [
-      `${aantal(profiel && profiel.verbodenTermen)} verboden termen`,
+      `${aantal(profiel && profiel.verbodenTermen)} woorden die we niet gebruiken`,
       `${aantal(profiel && profiel.vasteTermen)} vaste schrijfwijzen`,
-      `${aantal(profiel && profiel.uitgeslotenZoektermen)} uitgesloten zoektermen`
+      `${aantal(profiel && profiel.uitgeslotenZoektermen)} uitgesloten zoekwoorden`
     ].join(', ');
     return `<details class="mp-termen-sectie"${termenOpen ? ' open' : ''}>
       <summary><strong>Termen en schrijfregels</strong><span class="mp-termen-samenvatting">${esc(samenvatting)}</span></summary>
@@ -287,7 +287,7 @@
     const t = tellingen();
     const totaal = profiel.secties.length;
     const todo = t.aanvullen + t.controleren;
-    if (filter === null) filter = todo > 0 ? 'todo' : 'alles';
+    if (filter === null || (todo === 0 && filter === 'todo')) filter = todo > 0 ? 'todo' : 'alles';
     const naam = esc(profiel.klantNaam || '');
     const procent = Math.round((t.bevestigd / totaal) * 100);
     const openFeiten = [];
@@ -306,17 +306,18 @@
     const klaar = todo === 0 && !(profiel.aantalOpenTegenstrijdigheden > 0)
       ? '<div class="mp-klaar"><strong>Alles is bevestigd.</strong> Bedankt. Wij schrijven jullie blogs op basis van dit profiel. Wil je later nog iets wijzigen, dan kan dat hier altijd.</div>'
       : '';
+    const klaarZin = todo === 0 && !(profiel.aantalOpenTegenstrijdigheden > 0);
+    const zin = klaarZin ? 'Het merkprofiel is bevestigd' : (todo === 1 ? '1 onderdeel wacht op jouw controle' : `${todo} onderdelen wachten op jouw controle`);
+    const toelichting = klaarZin
+      ? 'Bedankt. Wij schrijven jullie blogs op basis van dit profiel. Wil je later nog iets wijzigen, dan kan dat hier altijd.'
+      : `Vastgesteld${profiel.bijgewerkt ? ' op ' + esc(datumLang(profiel.bijgewerkt)) : ''}${profiel.aantalPaginas ? ` uit ${profiel.aantalPaginas} pagina's van jullie website` : ' uit jullie website'}, aangevuld met jullie eigen informatie. Open een onderdeel en kies "Dit klopt allemaal", of pas aan wat niet klopt.`;
+    const filterHtml = todo > 0 ? `<div class="mp-tabs">${tabs}</div>` : '';
     root.innerHTML = `
-      <div class="mp-hero">
-        <div>
-          <h2>Zo zien wij ${naam}</h2>
-          <p>Vastgesteld${profiel.bijgewerkt ? ' op ' + esc(datumLang(profiel.bijgewerkt)) : ''}${profiel.aantalPaginas ? ` uit ${profiel.aantalPaginas} pagina's van jullie website` : ' uit jullie website'}, aangevuld met jullie eigen informatie. Hier baseren we jullie blogs op. Open een onderdeel om te lezen wat we hebben vastgesteld. Klopt het, kies dan "Dit klopt allemaal". Klopt iets niet, pas het aan of laat het weg.</p>
-        </div>
-        <div class="mp-voortgang"><div class="mp-voortgang-tekst">${t.bevestigd} van ${totaal} onderdelen bevestigd</div>
-          <div class="mp-balk"><div class="mp-balk-vulling" style="width:${procent}%"></div></div></div>
-      </div>
-      ${samenvattingHtml()}${klaar}${tegenstrijdigHtml()}${openHtml}
-      <div class="mp-tabs">${tabs}</div>
+      <div class="p-ov-kop"><div><h1>Merkprofiel</h1><p>Zo zien wij ${naam}. Hier baseren we jullie blogs op.</p></div></div>
+      <section class="p-kaart p-ov-status" data-toon="${klaarZin ? 'goed' : 'let-op'}"><div class="p-ov-status-hoofd"><div class="p-ov-status-regel"><span class="p-ov-puls"></span>${esc(zin)}</div><p>${toelichting}</p></div>
+        <div class="p-ov-status-volgend"><div class="p-ov-volgend"><span class="p-ov-lbl">Bevestigd</span><span class="p-ov-val">${t.bevestigd} van ${totaal}</span><div class="mp-balk"><div class="mp-balk-vulling" style="width:${procent}%"></div></div></div></div></section>
+      ${samenvattingHtml()}${tegenstrijdigHtml()}${klaarZin ? '' : openHtml}
+      ${filterHtml}
       <div class="mp-kaarten">${kaarten || '<p class="mp-uitleg">Niets in deze lijst.</p>'}</div>
       ${termenSectieHtml()}`;
     root.querySelectorAll('.mp-feiten').forEach((u) => { if (!u.children.length) u.remove(); });

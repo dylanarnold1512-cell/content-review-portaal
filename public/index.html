@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Content Review Portaal — Advertisr.</title>
+<title>Contentportaal Advertisr</title>
 <link rel="icon" href="https://advertisr.nl/wp-content/uploads/2025/03/Logo_Advertisr_new_2025.svg">
 <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/merkprofiel.css">
@@ -15,10 +15,10 @@
 <div id="loginScreen" class="login-screen">
   <div class="login-box">
     <img class="brand-logo" src="https://advertisr.nl/wp-content/uploads/2025/03/Logo_Advertisr_new_2025.svg" alt="Advertisr.">
-    <h1>Content Review Portaal</h1>
-    <p class="login-sub">Log in om de contentplanning te bekijken.</p>
+    <h1>Contentportaal</h1>
+    <p class="login-sub">Log in om jullie blogs, cijfers en merkprofiel te bekijken.</p>
     <div id="presetClientBadge" class="preset-badge hidden"></div>
-    <p id="invalidLinkMessage" class="login-error hidden">Deze link is niet geldig. Vraag Advertisr om de juiste link naar jouw contentplanning.</p>
+    <p id="invalidLinkMessage" class="login-error hidden">Deze link is niet geldig. Vraag Advertisr om de juiste link naar jullie portaal.</p>
     <form id="loginForm">
       <label for="passwordInput">Wachtwoord</label>
       <input id="passwordInput" type="password" required autocomplete="current-password">
@@ -80,18 +80,23 @@
   <div id="overzichtTab" class="tab-panel"></div>
 
   <div id="blogsTab" class="tab-panel hidden">
-    <div class="layout">
-      <div>
-        <div class="list-header">
-          <div class="col-title" id="listTitle">Blogs</div>
-          <button type="button" id="newIdeaBtn" class="btn-idea">+ Idee aandragen</button>
-        </div>
-        <input type="text" id="searchInput" class="search-input" placeholder="Zoek op titel of onderwerp...">
-        <div class="filters" id="filters"></div>
-        <div class="date-filters" id="dateFilters"></div>
-        <div class="list" id="list"></div>
+    <div class="p-pagina">
+      <div class="p-ov-kop">
+        <div><h1>Blogs</h1><p>Alle blogs die wij voor jullie schrijven, van idee tot live. Wat op jou wacht staat bovenaan het filter.</p></div>
+        <div class="p-ov-kop-acties"><button type="button" id="newIdeaBtn" class="p-knop p-knop-hoofd hidden">+ Idee aandragen</button></div>
       </div>
-      <div class="detail" id="detail"></div>
+      <div class="layout p-bl-layout">
+        <div class="p-bl-lijstkolom">
+          <div class="p-bl-gereedschap">
+            <input type="text" id="searchInput" class="p-bl-zoek" placeholder="Zoek op titel of onderwerp" aria-label="Zoek op titel of onderwerp">
+            <div class="p-bl-chips" id="filters"></div>
+            <div class="date-filters" id="dateFilters"></div>
+          </div>
+          <div class="p-bl-lijsttitel" id="listTitle"></div>
+          <div class="list p-bl-lijst" id="list"></div>
+        </div>
+        <div class="detail" id="detail"></div>
+      </div>
     </div>
   </div>
 
@@ -103,9 +108,9 @@
   </div>
 
   <div id="rapportagesTab" class="tab-panel hidden">
-    <div class="pv2">
+    <div class="p-pagina">
       <div id="rapportenKop"></div>
-      <div id="rapportenInhoud"></div>
+      <div id="rapportenInhoud" class="p-pagina"></div>
     </div>
   </div>
 
@@ -114,7 +119,7 @@
   </div>
 
   <div id="merkprofielTab" class="tab-panel hidden">
-    <div class="merkprofiel-panel">
+    <div class="merkprofiel-panel p-pagina">
       <div id="merkprofielLeeg" class="mp-leeg hidden">Het merkprofiel is nog niet vastgesteld. Zodra het klaar is, zie je hier hoe wij jullie merk hebben vastgelegd en kun je het bevestigen of aanvullen.</div>
       <div id="merkprofielInhoud"></div>
       <p id="merkprofielFout" class="login-error"></p>
@@ -122,12 +127,11 @@
   </div>
 
   <div id="kennisdocumentTab" class="tab-panel hidden">
-    <div class="kennisdocument-panel">
-      <div class="kd-header">Jouw kennisdocument</div>
+    <div class="kennisdocument-panel p-pagina">
+      <div class="p-ov-kop"><div><h1>Kennisdocument</h1><p>Achtergrondinformatie over jullie bedrijf, die wij gebruiken bij het schrijven van blogs. Spaarzaam en alleen waar het natuurlijk past, nooit als checklist.</p></div>
+        <div class="p-ov-kop-acties"><label for="kennisdocumentFile" class="p-knop p-knop-hoofd" id="kdKnop">Bestand uploaden</label></div></div>
       <div class="kd-body">
-        <p class="kennisdocument-intro">
-          Achtergrondinformatie over jouw bedrijf waar de AI spaarzaam gebruik van maakt bij het schrijven van blogs. Nooit als checklist, alleen waar het natuurlijk past.
-        </p>
+        <section class="p-kaart kd-verschil"><div class="kd-verschil-tekst"><strong>Wat is het verschil met het Merkprofiel?</strong> Het Merkprofiel is wat wij uit jullie website halen en laten bevestigen. Het Kennisdocument is jullie eigen aanvulling: een bestand uploaden vervangt de huidige tekst hieronder. Je kunt de tekst ook zelf aanpassen en opslaan.</div></section>
         <label for="kennisdocumentFile" class="kd-dropzone" id="kdDropzone">
           <svg class="kd-drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 17v-6"/><path d="m9.5 13.5 2.5-2.5 2.5 2.5"/></svg>
           <span class="kd-drop-title">Sleep een bestand hierheen, of klik om te selecteren</span>
@@ -136,16 +140,17 @@
         <input type="file" id="kennisdocumentFile" accept=".docx,.pdf,.txt,.md" class="hidden">
         <p id="kennisdocumentUploadStatus" class="kennisdocument-status"></p>
 
+        <section class="p-kaart kd-kaart"><h3 class="kd-kaart-titel">Huidig document</h3>
         <div class="kd-table-wrap">
           <table class="kd-table">
             <thead><tr><th>Naam</th><th>Type</th><th>Bijgewerkt</th><th>Grootte</th><th class="kd-actie">Acties</th></tr></thead>
             <tbody id="kdTabelBody"></tbody>
           </table>
-        </div>
+        </div></section>
 
         <div id="kdEditor" class="kd-editor hidden">
           <label for="kennisdocumentText" class="kd-editor-label">Tekst van het kennisdocument</label>
-          <textarea id="kennisdocumentText" class="kennisdocument-textarea" placeholder="Nog geen kennisdocument. Upload een bestand of typ hier de belangrijkste informatie over jouw bedrijf, diensten en klanten..."></textarea>
+          <textarea id="kennisdocumentText" class="kennisdocument-textarea" placeholder="Nog geen kennisdocument. Upload een bestand of typ hier de belangrijkste informatie over jullie bedrijf, diensten en klanten..."></textarea>
           <div class="kennisdocument-footer">
             <span id="kennisdocumentUpdated" class="kennisdocument-updated"></span>
             <button type="button" id="kennisdocumentSaveBtn" class="btn-save-sm">Opslaan</button>
@@ -189,6 +194,7 @@
 
 <script src="/portaal-format.js"></script>
 <script src="/portaal-ui.js"></script>
+  <script src="/blogs-model.js"></script>
 <script src="/portaal-shell.js"></script>
 <script src="/prestaties-v2.js"></script>
 <script src="/merkprofiel.js"></script>
