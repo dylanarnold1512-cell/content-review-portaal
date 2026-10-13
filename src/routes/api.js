@@ -140,6 +140,27 @@ router.get('/:clientId/rapporten/:maand', requireLogin, async (req, res) => {
   }
 });
 
+router.get('/:clientId/rapporten/:maand/pdf', requireLogin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    const settings = await settingsService.getClientSettings(req.params.clientId, config);
+    if (!settings.performanceEnabled) return res.status(404).json({ error: 'Rapportages staan nog niet aan voor deze klant.' });
+    const rapport = await rapportenService.getRapport(config.naam, req.params.maand);
+    if (!rapport) return res.status(404).json({ error: 'Dit rapport bestaat niet.' });
+    let ai = null;
+    if (settings.aiZichtbaarheid) {
+      try { ai = { beschikbaar: true, ...(await aiZichtbaarheidService.getAiZichtbaarheid(config.naam, { clusterSoort: config.aiClusterSoort })) }; } catch (err) { ai = null; }
+    }
+    const pdf = await require('../services/rapportPdf').bouwPdf({ rapport, klantNaam: config.naam, ai });
+    const bestand = `Maandrapport-${String(config.naam).replace(/[^A-Za-z0-9]+/g, '-')}-${rapport.maand}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${bestand}"`);
+    res.send(pdf);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/:clientId/items/:pageId', requireLogin, async (req, res) => {
   try {
     const item = await notionService.getItemDetail(req.params.clientId, req.params.pageId);
