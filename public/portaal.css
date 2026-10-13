@@ -184,3 +184,43 @@ button, input, textarea, select { font-family: inherit; }
   .p-kerncijfer { border-left: 0 !important; border-top: 1px solid var(--border); }
   .p-kerncijfer:first-child { border-top: 0; }
 }
+
+/* Overzicht (Fase 7 stap 2) */
+.p-ov { display: flex; flex-direction: column; gap: 16px; }
+.p-ov-status { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 24px; padding: 22px 24px; align-items: center; }
+.p-ov-status h1 { margin: 10px 0 8px; font-size: 24px; letter-spacing: -0.02em; line-height: 1.25; font-weight: 600; text-wrap: balance; }
+.p-ov-status-meta { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; color: var(--p-tekst-zacht); }
+.p-ov-plan { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.p-ov-plan-kop { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.p-ov-plan-kop span { color: var(--p-tekst-zacht); }
+.p-ov-twee { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.p-ov-lijst { display: flex; flex-direction: column; }
+.p-ov-rij { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 0; border: 0; border-top: 1px solid var(--border); background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.p-ov-rij:first-child { border-top: 0; padding-top: 0; }
+.p-ov-rij:hover .p-ov-rij-titel { color: var(--p-plan); }
+.p-ov-rij-titel { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.p-ov-datum { flex: none; width: 52px; font-size: 13px; color: var(--p-tekst-zacht); font-variant-numeric: tabular-nums; }
+.p-ov-merk { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; margin: 0 0 8px; }
+.p-ov-merk span { color: var(--p-tekst-zacht); }
+.p-ov-merk + .p-ov-merk, .p-voortgang + .p-ov-merk { margin-top: 14px; }
+.p-ov-feed { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; font-size: 14px; }
+.p-ov-feed li { display: flex; gap: 12px; min-width: 0; }
+.p-ov-feed-datum { flex: none; width: 52px; font-size: 13px; color: var(--p-tekst-zacht); font-variant-numeric: tabular-nums; }
+.p-ov-onderwerpen { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.p-ov-onderwerp { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--p-vlak-2); font-size: 13px; min-width: 0; }
+.p-ov-onderwerp b { font-size: 14px; }
+.p-ov-onderwerp span { color: var(--p-tekst-zacht); }
+.p-ov-grafiek { display: flex; align-items: flex-end; gap: 8px; height: 160px; }
+.p-ov-kolom { flex: 1 1 0; min-width: 0; height: 100%; display: flex; align-items: flex-end; }
+.p-ov-staaf { position: relative; display: block; width: 100%; border-radius: 4px 4px 0 0; background: var(--p-plan); opacity: .85; }
+.p-ov-nieuw::before { content: ""; position: absolute; left: 50%; top: -12px; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%; background: var(--p-goed); }
+.p-ov-as { display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; font-size: 12px; color: var(--p-tekst-zacht); }
+.p-ov-legenda i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--p-goed); margin-right: 4px; }
+@media (max-width: 900px) {
+  .p-ov-status, .p-ov-twee { grid-template-columns: minmax(0, 1fr); }
+  .p-ov-status { padding: 18px; gap: 16px; }
+  .p-ov-status h1 { font-size: 20px; }
+  .p-ov-legenda { display: none; }
+}
+.p-ov .p-kerncijfers { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.p-ov .p-kerncijfer:first-child { border-left: 0; }
