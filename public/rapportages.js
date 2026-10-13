@@ -21,6 +21,7 @@
   const U = () => window.PortaalUI;
   let alleBlogs = false;
   let alleVooruit = false;
+  let alleZoek = false;
 
   function blogTabel(blogs) {
     const metCijfers = blogs.filter((b) => (b.vertoningen || 0) > 0 || (b.clicks || 0) > 0);
@@ -39,6 +40,13 @@
     const zichtbaar = alleVooruit ? lijst : lijst.slice(0, 3);
     return '<div class="rp-punten">' + zichtbaar.map((p) => `<div class="rp-punt"><div class="pv-ins-titel">${rpEsc(p.titel)}</div><div class="pv-ins-tekst">${rpEsc(p.tekst)}</div></div>`).join('') + '</div>' +
       (lijst.length > 3 ? `<button type="button" class="pv-toggle" id="rpAlleVooruit">${alleVooruit ? 'Toon minder' : `Toon alle ${lijst.length}`}</button>` : '');
+  }
+
+  function zoekKaart(r) {
+    if (!window.Zoekwoorden) return '';
+    const lijst = window.Zoekwoorden.samenvoegen(r.blogs, 'vertoningen');
+    if (!lijst.length) return '';
+    return U().kaart({ titel: `Zoekwoorden in ${r.label}`, uitleg: 'Waar mensen op zochten toen ze jullie blogs in Google zagen. Een lage positie is beter.', inhoud: window.Zoekwoorden.html(lijst, { aantal: 8, alle: alleZoek }) });
   }
 
   function effectenKaart(e, label) {
@@ -135,6 +143,7 @@
         <div class="p-ov-stapel">
           ${U().kaart({ titel: `Terugblik op ${r.label}`, inhoud: `<div class="rp-tekst">${terug}</div>` })}
           ${aiKaart(g, r.label)}
+          ${zoekKaart(r)}
           ${U().kaart({ titel: 'Blogs met de meeste vertoningen', inhoud: blogTabel(r.blogs) })}
         </div>
         <div class="p-ov-stapel">
@@ -151,6 +160,8 @@
   function bindRapport(inhoud) {
     const blogs = el('rpAlleBlogs');
     if (blogs) blogs.addEventListener('click', () => { alleBlogs = !alleBlogs; inhoud.innerHTML = renderRapport(rp.huidig, rp.ai); bindRapport(inhoud); });
+    const zoek = inhoud.querySelector('[data-zw-meer]');
+    if (zoek) zoek.addEventListener('click', () => { alleZoek = !alleZoek; inhoud.innerHTML = renderRapport(rp.huidig, rp.ai); bindRapport(inhoud); });
     const vooruit = el('rpAlleVooruit');
     if (vooruit) vooruit.addEventListener('click', () => { alleVooruit = !alleVooruit; inhoud.innerHTML = renderRapport(rp.huidig, rp.ai); bindRapport(inhoud); });
   }
@@ -159,6 +170,7 @@
     const inhoud = el('rapportenInhoud');
     alleBlogs = false;
     alleVooruit = false;
+    alleZoek = false;
     inhoud.innerHTML = U().laden([{ breedte: '100%', hoogte: 120 }, { breedte: '100%', hoogte: 90 }, { breedte: '100%', hoogte: 200 }]);
     try {
       const [rapport, ai] = await Promise.all([

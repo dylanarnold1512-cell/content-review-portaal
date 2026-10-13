@@ -46,6 +46,10 @@ function aiMaand(ai, maand) {
   return { weken: weken.length, antwoorden, genoemd, percentage: Math.round((genoemd / antwoorden) * 100), per };
 }
 
+function samenvoegZoekwoorden(blogs) {
+  return require('../../public/zoekwoorden').samenvoegen(blogs, 'vertoningen');
+}
+
 function verschilTekst(nu, vorig) {
   if (vorig === null || vorig === undefined) return '';
   if (!vorig) return nu > 0 ? `+${nl(nu)} t.o.v. vorige maand` : 'gelijk aan vorige maand';
@@ -192,6 +196,31 @@ function bouwPdf({ rapport: r, klantNaam, ai }) {
       });
       const zonder = (r.blogs || []).length - metCijfers.length;
       if (zonder > 0) { doc.moveDown(0.5); tekst(`${zonder} ${zonder === 1 ? 'blog had' : 'blogs hadden'} deze maand geen vertoningen of bezoekers.`, { maat: 8.5, kleur: KLEUR.zacht }); }
+    }
+
+    // Zoekwoorden
+    const zw = samenvoegZoekwoorden(r.blogs).slice(0, 12);
+    if (zw.length) {
+      kop(`Zoekwoorden in ${r.label}`, 'Waar mensen op zochten toen ze jullie blogs in Google zagen.');
+      const cQ = W - 210;
+      ruimte(24);
+      let zy = doc.y;
+      tekst('ZOEKWOORD', { vet: true, maat: 8, kleur: KLEUR.zacht, y: zy, breed: cQ });
+      tekst('GETOOND', { vet: true, maat: 8, kleur: KLEUR.zacht, x: L + cQ, y: zy, breed: 70, uitlijn: 'right' });
+      tekst('BEZOEKERS', { vet: true, maat: 8, kleur: KLEUR.zacht, x: L + cQ + 70, y: zy, breed: 70, uitlijn: 'right' });
+      tekst('POSITIE', { vet: true, maat: 8, kleur: KLEUR.zacht, x: L + cQ + 140, y: zy, breed: 70, uitlijn: 'right' });
+      doc.y = zy + 14;
+      zw.forEach((x) => {
+        const h = Math.max(hoogte(x.q, 10, cQ - 10), 12) + 10;
+        ruimte(h);
+        zy = doc.y;
+        doc.moveTo(L, zy).lineTo(L + W, zy).strokeColor(KLEUR.lijn).lineWidth(0.5).stroke();
+        tekst(x.q, { x: L, y: zy + 5, breed: cQ - 10 });
+        tekst(nl(x.i), { x: L + cQ, y: zy + 5, breed: 70, uitlijn: 'right' });
+        tekst(nl(x.c), { x: L + cQ + 70, y: zy + 5, breed: 70, uitlijn: 'right' });
+        tekst(x.p === null ? '-' : nl1(x.p), { x: L + cQ + 140, y: zy + 5, breed: 70, uitlijn: 'right', vet: x.p !== null && x.p <= 10, kleur: x.p !== null && x.p <= 10 ? KLEUR.goed : KLEUR.tekst });
+        doc.y = zy + h;
+      });
     }
 
     // Effecten

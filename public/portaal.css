@@ -203,7 +203,8 @@ button, input, textarea, select { font-family: inherit; }
 
 .p-ov-status { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); overflow: hidden; }
 .p-ov-status-hoofd { padding: 20px 22px; display: flex; flex-direction: column; gap: 10px; }
-.p-ov-status-regel { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+.p-ov-status-regel { display: flex; align-items: flex-start; gap: 10px; font-size: 20px; line-height: 1.3; font-weight: 600; letter-spacing: -0.01em; }
+.p-ov-status-regel .p-ov-puls { margin-top: calc(0.65em - 5px); }
 .p-ov-puls { width: 10px; height: 10px; border-radius: 50%; background: var(--p-goed); box-shadow: 0 0 0 4px var(--p-goed-zacht); flex: none; }
 .p-ov-status[data-toon="let-op"] .p-ov-puls { background: var(--p-let-op); box-shadow: 0 0 0 4px var(--p-let-op-zacht); }
 .p-ov-status[data-toon="fout"] .p-ov-puls { background: var(--p-fout); box-shadow: 0 0 0 4px var(--p-fout-zacht); }
@@ -527,3 +528,18 @@ button, input, textarea, select { font-family: inherit; }
 .p-main .mp-termen-sectie > summary { padding: 16px 20px; }
 @media (max-width: 700px) { .p-main .mp-acc-actie { display: none; } .p-main .mp-acc > summary { padding: 14px; } .p-main .mp-kop-sub { white-space: normal; } }
 @media (min-width: 1000px) { .p-kerncijfers.rp-vijf { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+
+/* Zoekwoorden */
+.zw-tabel { width: 100%; border-collapse: collapse; font-size: 14px; }
+.zw-tabel th { text-align: left; font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--p-tekst-zacht); padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.zw-tabel td { padding: 9px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.zw-tabel tr:last-child td { border-bottom: 0; }
+.zw-tabel .zw-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.zw-naam { font-weight: 600; overflow-wrap: anywhere; }
+.zw-balk { height: 4px; border-radius: 99px; background: var(--p-vlak-2); margin-top: 6px; overflow: hidden; max-width: 260px; }
+.zw-balk span { display: block; height: 100%; background: var(--p-plan); border-radius: 99px; }
+.zw-pos { display: inline-block; min-width: 38px; text-align: center; padding: 2px 8px; border-radius: 99px; font-size: 12.5px; font-weight: 600; background: var(--p-vlak-2); color: var(--p-tekst-zacht); }
+.zw-pos-goed { background: var(--p-goed-zacht); color: var(--p-goed); }
+.zw-pos-bijna { background: var(--p-let-op-zacht); color: var(--p-let-op); }
+.zw-pos-geen { font-weight: 500; font-size: 12px; }
+@media (max-width: 700px) { .zw-tabel { font-size: 13px; } .zw-tabel th, .zw-tabel td { padding-left: 4px; padding-right: 4px; } .zw-pos { min-width: 0; padding: 2px 6px; } }
