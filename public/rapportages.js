@@ -129,9 +129,7 @@
       <div class="p-ov-status-volgend"><div class="p-ov-volgend"><span class="p-ov-lbl">Nieuwe blogs</span><span class="p-ov-val">${r.nieuweBlogs.length}</span><span class="p-ov-txt">in ${rpEsc(r.label)}</span></div>
       <div class="p-ov-volgend"><span class="p-ov-lbl">Vastgelegd op</span><span class="p-ov-val">${rpEsc(r.aangemaakt ? Fm.datumKort(r.aangemaakt) : '')}</span><span class="p-ov-txt">Staat vast</span></div></div></section>`;
     const terug = r.terugblik.length ? r.terugblik.map((a) => `<p>${rpEsc(a)}</p>`).join('') : '<p class="pv-muted">Voor deze maand is geen toelichting beschikbaar.</p>';
-    const klant = (document.getElementById('clientName') || {}).textContent || '';
-    const printkop = `<div class="rp-printkop"><div class="rp-printmerk">Advertisr.</div><h1>Maandrapport ${rpEsc(r.label)}</h1><p>${rpEsc(klant)}${r.aangemaakt ? ' · vastgelegd op ' + rpEsc(Fm.datumLang(r.aangemaakt)) : ''}</p></div>`;
-    return `${printkop}${status}
+    return `${status}
       <section class="p-kerncijfers${lijst.length === 5 ? ' rp-vijf' : ''}">${lijst.map((x) => U().kerncijfer(x)).join('')}</section>
       <div class="p-ov-raster2">
         <div class="p-ov-stapel">
@@ -196,18 +194,10 @@
     }
     const gekozen = rp.lijst.some((x) => x.maand === rp.gevraagd) ? rp.gevraagd : rp.lijst[0].maand;
     rp.gevraagd = null;
-    kop.innerHTML = KOP(`<label class="rp-kies"><span>Maand</span><select id="rapportKeuze" aria-label="Kies een maand">${rp.lijst.map((x) => `<option value="${rpEsc(x.maand)}"${x.maand === gekozen ? ' selected' : ''}>${rpEsc(x.label)}</option>`).join('')}</select></label><button type="button" class="p-knop" id="rpPdf">Opslaan als PDF</button>`);
+    kop.innerHTML = KOP(`<label class="rp-kies"><span>Maand</span><select id="rapportKeuze" aria-label="Kies een maand">${rp.lijst.map((x) => `<option value="${rpEsc(x.maand)}"${x.maand === gekozen ? ' selected' : ''}>${rpEsc(x.label)}</option>`).join('')}</select></label><button type="button" class="p-knop" id="rpPdf">Download als PDF</button>`);
     el('rpPdf').addEventListener('click', () => {
-      const inh = el('rapportenInhoud');
-      const was = [alleBlogs, alleVooruit];
-      alleBlogs = false;
-      alleVooruit = true;
-      inh.innerHTML = renderRapport(rp.huidig, rp.ai);
-      window.print();
-      alleBlogs = was[0];
-      alleVooruit = was[1];
-      inh.innerHTML = renderRapport(rp.huidig, rp.ai);
-      bindRapport(inh);
+      if (!rp.huidig) return;
+      window.location.href = `/api/${encodeURIComponent(state.clientId)}/rapporten/${encodeURIComponent(rp.huidig.maand)}/pdf`;
     });
     el('rapportKeuze').addEventListener('change', (e) => toon(e.target.value));
     toon(gekozen);
