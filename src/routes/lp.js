@@ -21,7 +21,8 @@ const gelijk = require('../lp/gelijkenis');
 const { verzamelTekst } = gelijk;
 const share = require('../lp/share');
 const { validatePage, validateTemplateStructure } = require('../lp/validator');
-const { pushDraft, deletePage: deleteWpPage, searchMedia, uploadMedia, listSitePages } = require('../lp/wordpress');
+const { pushDraft, deletePage: deleteWpPage, searchMedia, uploadMedia, listSitePages, haalPaginaStatussen } = require('../lp/wordpress');
+const { vindTekst, vervangTekst } = require('../lp/tekstVervangen');
 const { haalSiteTeksten, formatSiteTekstenVoorPrompt } = require('../lp/siteTeksten');
 const { checkLpPassword, requireLpInternal } = require('../middleware/auth');
 
@@ -877,6 +878,117 @@ router.post('/pages/:pageId/publish', requireLpInternal, async (req, res) => {
     await lpNotion.setStatus(req.params.pageId, 'Ter review');
     const updated = await lpNotion.getPage(req.params.pageId);
     res.json({ page: updated, validation, seo: result.seo });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// ---- Tekst vervangen bij alle pagina's van een klant (13-10-2026) ----
+// Stap 1 (zoek): welke pagina's van de klant bevatten deze tekst? Past niets aan. Het scherm toont de lijst met de
+// echte WordPress status per pagina, zodat Dylan ziet welke pagina's live staan.
+// Stap 2 (per pagina): vervangen, opslaan in Notion en (optioneel) opnieuw naar WordPress sturen. Het scherm roept
+// dit pagina voor pagina aan, zodat een verzoek nooit te lang duurt en een fout bij een pagina de rest niet stopt.
+async function metGelijktijdigheid(items, max, taak) {
+  const uit = new Array(items.length);
+  let volgende = 0;
+  async function werker() {
+    for (;;) {
+      const i = volgende++;
+      if (i >= items.length) return;
+      uit[i] = await taak(items[i]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(max, items.length) }, werker));
+  return uit;
+}
+
+router.post('/clients/:clientId/tekst-vervangen/zoek', requireLpInternal, async (req, res) => {
+  try {
+    const client = getLpClient(req.params.clientId);
+    const { zoek, slotKey } = req.body || {};
+    const lijst = await lpNotion.listPages({ klant: req.params.clientId });
+    const geladen = await metGelijktijdigheid(lijst, 5, async (p) => {
+      try {
+        const volledig = await lpNotion.getPage(p.id);
+        const slotData = (volledig.content && volledig.content.slotData) || {};
+        return { pagina: p, gevonden: vindTekst(slotData, { zoek, slotKey: slotKey || undefined }) };
+      } catch (err) {
+        return { pagina: p, fout: err.message };
+      }
+    });
+    let statussen = {};
+    let statusWaarschuwing = null;
+    try {
+      statussen = await haalPaginaStatussen({ profile: client.profile, ids: lijst.map((p) => p.wpPaginaId) });
+    } catch (err) {
+      statusWaarschuwing = `De WordPress status kon niet worden opgehaald (${err.message}). Controleer zelf welke pagina's live staan.`;
+    }
+    const paginas = geladen
+      .filter((r) => r.fout || r.gevonden.aantal > 0)
+      .map((r) => ({
+        id: r.pagina.id,
+        titel: r.pagina.titel,
+        notionStatus: r.pagina.status,
+        wpPaginaId: r.pagina.wpPaginaId || null,
+        wpUrl: r.pagina.wpUrl || null,
+        wpStatus: r.pagina.wpPaginaId ? (statussen[r.pagina.wpPaginaId] || 'onbekend') : 'niet gepubliceerd',
+        aantal: r.gevonden ? r.gevonden.aantal : 0,
+        velden: r.gevonden ? r.gevonden.slotKeys : [],
+        fragment: r.gevonden && r.gevonden.fragmenten[0] ? r.gevonden.fragmenten[0].tekst : '',
+        fout: r.fout || null
+      }));
+    res.json({ totaalGescand: lijst.length, paginas, statusWaarschuwing });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/pages/:pageId/tekst-vervangen', requireLpInternal, async (req, res) => {
+  try {
+    const { zoek, vervang, slotKey, heleVeld, publiceer } = req.body || {};
+    const page = await lpNotion.getPage(req.params.pageId);
+    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const content = page.content;
+    if (contentIsEmpty(blueprint, content)) return res.status(400).json({ error: 'Deze pagina heeft nog geen content.' });
+
+    const { slotData, aantal } = vervangTekst(content.slotData || {}, { zoek, vervang, slotKey: slotKey || undefined, heleVeld: !!heleVeld });
+    if (!aantal) return res.json({ aantal: 0, opgeslagen: false, gepubliceerd: false, melding: 'De tekst staat niet meer op deze pagina.' });
+
+    // Eerst valideren: een verplicht veld leegmaken mag niet stilletjes een kapotte pagina opleveren.
+    const nieuweContent = { ...content, slotData };
+    const validation = validatePage({ blueprint, contentJson: nieuweContent });
+    if (!validation.ok) {
+      return res.status(400).json({ error: `Niet aangepast, de pagina zou niet meer geldig zijn: ${validation.errors.join('; ')}` });
+    }
+
+    await lpNotion.updateSection(req.params.pageId, 'content', nieuweContent);
+
+    let gepubliceerd = false;
+    let wpStatus = null;
+    let melding = null;
+    if (publiceer && page.wpPaginaId) {
+      const client = getLpClient(page.klant);
+      const html = renderPageHtml(buildRenderPage({ blueprint, content: nieuweContent, clientId: page.klant, slug: page.slug, invoer: page.invoer }), { forWordPress: true });
+      const result = await pushDraft({
+        profile: client.profile,
+        wpPaginaId: page.wpPaginaId,
+        titel: page.titel,
+        html,
+        slug: page.slug,
+        metaTitel: slotData.metaTitle,
+        metaBeschrijving: slotData.metaDescription,
+        behoudStatus: true
+      });
+      gepubliceerd = true;
+      wpStatus = result.status || null;
+      if (result.opnieuwAangemaakt) {
+        await lpNotion.setWordpressInfo(req.params.pageId, { wpPaginaId: result.id, wpUrl: result.link });
+        melding = 'De WordPress pagina bestond niet meer, er is een nieuw concept gemaakt.';
+      }
+    } else if (publiceer && !page.wpPaginaId) {
+      melding = 'Deze pagina staat nog niet in WordPress, alleen de tekst in het portaal is aangepast.';
+    }
+    res.json({ aantal, opgeslagen: true, gepubliceerd, wpStatus, melding, waarschuwingen: validation.warnings || [] });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

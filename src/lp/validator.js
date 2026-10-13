@@ -177,8 +177,30 @@ function validateSlotPage({ blueprint, contentJson }) {
 
   validateSeoRegels(blueprint, meta, errors);
   validateUniciteitsbudget(blueprint, warnings);
+  warnings.push(...vindVulzinnenInIntro(slotData, slots));
 
   return { errors, warnings, ok: errors.length === 0 };
+}
+
+// Intro onder een sectiekop (projectsIntro, offerIntro, ...) die alleen vult: het bedrijf "toont" of "laat zien"
+// iets, of "uiteenlopende projecten". Dat is geen feit uit de bron (bij MAC Bouw: "MAC Bouw toont uiteenlopende
+// projecten, van verbouw en timmerwerk tot werkzaamheden buiten de woning", 13-10-2026). Alleen een waarschuwing,
+// werkt voor elke klant en elk sjabloon. heroIntro, introText en de contact- en praktische intro vallen erbuiten.
+const INTRO_UITZONDERING = new Set(['heroIntro', 'contactIntro', 'practicalIntro']);
+const VULZIN_ONDERWERP_RE = /^[A-Z][\wÀ-ÿ&.'-]*(?:\s+[A-Z][\wÀ-ÿ&.'-]*){0,3}\s+(toont|presenteert|laat\s+zien)\b/;
+const VULZIN_WOORDEN_RE = /\b(toont|presenteert|laat\s+zien|biedt\s+een\s+overzicht\s+van)\s+(uiteenlopende|diverse|verschillende|allerlei|een\s+selectie|een\s+breed)/i;
+function vindVulzinnenInIntro(slotData, slots) {
+  const meldingen = [];
+  (Array.isArray(slots) ? slots : []).forEach((slot) => {
+    if (!slot || slot.type === 'list' || !/Intro$/.test(slot.key) || INTRO_UITZONDERING.has(slot.key)) return;
+    const waarde = slotData[slot.key];
+    if (typeof waarde !== 'string' || !waarde.trim()) return;
+    const tekst = waarde.trim();
+    if (VULZIN_ONDERWERP_RE.test(tekst) || VULZIN_WOORDEN_RE.test(tekst)) {
+      meldingen.push(`"${slot.label || slot.key}" lijkt een vulzin die het bedrijf iets laat "tonen" ("${tekst.slice(0, 90)}${tekst.length > 90 ? '...' : ''}"). Dat is geen feit uit de bron. Vervang de tekst door iets concreets of maak het veld leeg.`);
+    }
+  });
+  return meldingen;
 }
 
 // Telt [ankertekst](url)-links middenin tekst-slots (dus NIET de losse linksItems-lijst, die telt
@@ -284,4 +306,4 @@ function validateTemplateStructure(blueprint) {
   return { errors, warnings, ok: errors.length === 0 };
 }
 
-module.exports = { validatePage, validateTemplateStructure };
+module.exports = { validatePage, validateTemplateStructure, vindVulzinnenInIntro };

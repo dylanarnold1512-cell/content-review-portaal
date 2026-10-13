@@ -133,7 +133,7 @@
     if (!blok) return;
     try {
       const data = await apiAi(`/${clientId}/ai-zichtbaarheid/vragen`);
-      if (data.status !== 'ok') { blok.remove(); return; }
+      if (data.status !== 'ok' || !(data.vragen || []).length) { blok.remove(); return; }
       const teken2 = (alles) => {
         blok.innerHTML = vragenBlok(data, alles);
         const knop = el('aiVragenAlle');

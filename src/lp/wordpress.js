@@ -8,6 +8,11 @@
 // eenmalige "SWP Builder"-klik, zie besluiten.md) blijft een bewuste,
 // handmatige stap door Dylan/Marc. Er is bewust geen functie in deze tool
 // die status "publish" zet — "niets gaat live zonder dat jij het ziet".
+//
+// Aanvulling 13-10-2026 (tekst vervangen bij alle pagina's van een klant): met `behoudStatus: true` sturen we
+// bij een BESTAANDE pagina helemaal geen status mee, zodat WordPress de status laat zoals hij is. Een pagina die
+// live staat blijft dus live en een concept blijft een concept. Er is nog steeds nergens een functie die
+// status "publish" zet.
 
 const { wrapForWordPress } = require('./render');
 const { stripHtml } = require('./utils');
@@ -50,7 +55,7 @@ function seoSleutels(profile) {
 // is geregistreerd, en de meeste SEO plugins (ook Yoast) doen dat standaard NIET. Daarom lezen we de
 // pagina na het opslaan terug en melden we eerlijk of de SEO velden echt zijn opgeslagen. Zie
 // SEO_REST_SNIPPET hieronder voor de code die de klantsite daarvoor nodig heeft.
-async function pushDraft({ profile, wpPaginaId, titel, html, slug, metaTitel, metaBeschrijving }) {
+async function pushDraft({ profile, wpPaginaId, titel, html, slug, metaTitel, metaBeschrijving, behoudStatus }) {
   const { url, username, appPassword } = getWpConfig(profile);
   const endpoint = wpPaginaId
     ? `${url}/wp-json/wp/v2/pages/${wpPaginaId}`
@@ -61,7 +66,10 @@ async function pushDraft({ profile, wpPaginaId, titel, html, slug, metaTitel, me
   if (sleutels && metaTitel) gewenstMeta[sleutels.titel] = metaTitel;
   if (sleutels && metaBeschrijving) gewenstMeta[sleutels.beschrijving] = metaBeschrijving;
 
-  const body = { title: titel, content: wrapForWordPress(html), status: 'draft' };
+  const body = { title: titel, content: wrapForWordPress(html) };
+  // Bestaande pagina + behoudStatus: geen status meesturen, WordPress laat hem dan ongemoeid.
+  // Een nieuwe pagina (ook het 404 herstel hieronder) wordt altijd een concept.
+  if (!(behoudStatus && wpPaginaId)) body.status = 'draft';
   if (slug) body.slug = slug;
   if (Object.keys(gewenstMeta).length) body.meta = gewenstMeta;
 
@@ -80,6 +88,7 @@ async function pushDraft({ profile, wpPaginaId, titel, html, slug, metaTitel, me
   // dan maken we een nieuwe conceptpagina aan in plaats van te blijven falen met "Ongeldig bericht ID".
   let opnieuwAangemaakt = false;
   if (!res.ok && wpPaginaId && res.status === 404 && (data.code === 'rest_post_invalid_id' || /bericht ID/i.test(data.message || ''))) {
+    body.status = 'draft';
     res = await stuur(`${url}/wp-json/wp/v2/pages`);
     data = await res.json().catch(() => ({}));
     opnieuwAangemaakt = true;
@@ -90,7 +99,7 @@ async function pushDraft({ profile, wpPaginaId, titel, html, slug, metaTitel, me
   }
 
   const seo = await controleerSeoOpslag({ url, username, appPassword, id: data.id, gewenstMeta, slug });
-  return { id: data.id, link: data.link, seo, opnieuwAangemaakt };
+  return { id: data.id, link: data.link, status: data.status, seo, opnieuwAangemaakt };
 }
 
 async function controleerSeoOpslag({ url, username, appPassword, id, gewenstMeta, slug }) {
@@ -275,7 +284,26 @@ async function listSitePages({ profile, maxPaginas }) {
   return alleItems.slice(0, limiet);
 }
 
+// Haalt de echte WordPress status (publish, draft, ...) op van een aantal pagina's in een keer.
+// Geeft een object { [id]: status } terug. Lukt het niet, dan een leeg object: de aanroeper toont dan "onbekend".
+async function haalPaginaStatussen({ profile, ids }) {
+  const lijst = [...new Set((ids || []).map(Number).filter((n) => n > 0))];
+  if (!lijst.length) return {};
+  const { url, username, appPassword } = getWpConfig(profile);
+  const uitkomst = {};
+  for (let i = 0; i < lijst.length; i += 50) {
+    const deel = lijst.slice(i, i + 50);
+    const params = new URLSearchParams({ include: deel.join(','), per_page: '100', status: 'any', _fields: 'id,status' });
+    const res = await fetch(`${url}/wp-json/wp/v2/pages?${params.toString()}`, { headers: { Authorization: authHeader(username, appPassword) } });
+    const data = await res.json().catch(() => ([]));
+    if (!res.ok) throw new Error(`WordPress-fout bij ophalen van de statussen (${res.status}): ${data?.message || res.statusText}`);
+    (Array.isArray(data) ? data : []).forEach((p) => { uitkomst[p.id] = p.status; });
+  }
+  return uitkomst;
+}
+
 module.exports = {
+  haalPaginaStatussen,
   SEO_META_SLEUTELS,
   SEO_REST_SNIPPET,
   seoSleutels,

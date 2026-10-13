@@ -282,6 +282,14 @@ const SITE_BRON_REGELS = `BRONTEKSTEN VAN DE KLANTSITE (als ze zijn meegegeven, 
   veld leeg. Zet daar nooit een eigenschap of onderwerp uit de tekst, zoals "Communicatie" of "Service". Verzin geen reviews, namen of sterren.
 - Mis je voor een onderdeel bronmateriaal, maak het onderdeel dan korter en feitelijker. Vul het nooit met verzinsels.`;
 
+// Intro onder een sectiekop (13-10-2026). Aanleiding: bij MAC Bouw stond onder "Projecten" op meerdere pagina's de verzonnen
+// vulzin "MAC Bouw toont uiteenlopende projecten, van verbouw en timmerwerk tot werkzaamheden buiten de woning."
+const SECTIE_INTRO_REGELS = `INTRO ONDER EEN SECTIEKOP (slots die eindigen op "Intro", zoals projectsIntro, offerIntro, uspIntro, stepsIntro, reviewsIntro en faqIntro; heroIntro valt hier niet onder):
+- Schrijf een of twee korte, concrete zinnen die de bezoeker helpen bij wat hij in die sectie ziet, op basis van de bronteksten, de feiten of de invoer.
+- Schrijf het bedrijf nooit als iemand die iets "toont", "laat zien", "presenteert" of "een overzicht biedt". Dus niet: "[Bedrijf] toont uiteenlopende projecten, van ... tot ...". Zo'n zin zegt niets en is geen feit.
+- Bij projecten, reviews en foto's: noem alleen wat echt in de bron of in de lijst van de sectie staat. Noem geen soorten werk of plaatsen die niet in de bron staan.
+- Heb je voor zo'n intro geen bron of niets concreets te zeggen, laat het veld dan leeg (""). Een lege intro is beter dan een vulzin.`;
+
 function buildTemplateSystemPrompt() {
   return `Je bent een senior webdesigner/frontend-developer voor een Nederlands marketingbureau. Je
 ontwerpt een COMPLEET, BESPOKE HTML+CSS-sjabloon voor een terugkerend paginatype — niet de inhoud van
@@ -713,6 +721,8 @@ geen adressen, prijzen, data of andere harde feiten.
 
 ${SITE_BRON_REGELS}
 
+${SECTIE_INTRO_REGELS}
+
 Slots die gevuld moeten worden:
 ${slotBeschrijving}${afbeeldingNotitie}${galerijNotitie}${iconNotitie}
 
@@ -1012,6 +1022,7 @@ module.exports = {
   ONTWERP_TOOLKIT,
   SEO_GEO_SJABLOON_REGELS,
   SEO_GEO_CONTENT_REGELS,
+  SECTIE_INTRO_REGELS,
   beschrijfVisueleRichting,
   buildTemplateSystemPrompt,
   buildContentSystemPrompt,

@@ -317,7 +317,7 @@ function bouwVragen(prompts, metingen, weekStart) {
   }
   const rijen = [];
   for (const pr of prompts) {
-    if (pr.actief === false) continue;
+    // Ook vragen die inmiddels zijn vervangen tellen mee voor de week waarin ze gemeten zijn.
     const rec = perVraag.get(pr.prompt_id);
     if (!rec) continue;
     rijen.push({
