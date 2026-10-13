@@ -174,6 +174,35 @@ function pvKansen(lijst, kansPeriode) {
     </div>`;
 }
 
+const PV_EFFECT_ZICHTBAAR = 4;
+
+function pvEffecten(e) {
+  if (!e || !e.items || !e.items.length) return '';
+  const open = Boolean(pvState.insOpen.effecten);
+  const zichtbaar = open ? e.items : e.items.slice(0, PV_EFFECT_ZICHTBAAR);
+  const meer = e.items.length - PV_EFFECT_ZICHTBAAR;
+  const intro = e.gemeten
+    ? `${e.gemeten} ${e.gemeten === 1 ? 'actie is' : 'acties zijn'} gemeten${e.nogTeMeten ? `, ${e.nogTeMeten} ${e.nogTeMeten === 1 ? 'volgt' : 'volgen'} nog` : ''}.`
+    : 'De eerste metingen volgen ongeveer een maand na publicatie.';
+  return `
+    <div class="pv-card pv-effecten">
+      <div class="pv-sectie-titel">Wat hebben we gedaan en wat was het effect</div>
+      <p class="pv-muted">${pvEsc(intro)} We meten 28, 56 en 90 dagen na de actie. Het zijn gemeten cijfers uit Google. Ze laten niet zien wat de oorzaak was.</p>
+      ${zichtbaar.map((i) => `
+        <div class="pv-effect-item">
+          <div class="pv-effect-kop"><span class="pv-effect-soort">${pvEsc(i.soortLabel)}</span>${i.datum ? `<span class="pv-muted"> ${pvEsc(pvDatum(String(i.datum).slice(0, 10)))}</span>` : ''}</div>
+          <div class="pv-ins-titel">${pvEsc(i.titel)}</div>
+          ${i.regels.map((r) => `<div class="pv-ins-tekst">${pvEsc(r)}</div>`).join('')}
+        </div>`).join('')}
+      ${meer > 0 ? `<button type="button" class="pv-toggle" data-pv-ins="effecten">${open ? 'Toon minder' : `Toon alle ${e.items.length}`}</button>` : ''}
+    </div>`;
+}
+
+function pvTekenEffecten() {
+  const el = document.getElementById('pvEffecten');
+  if (el && pvState.data) el.innerHTML = pvEffecten(pvState.data.effecten);
+}
+
 function pvPeriodeKeuze(d) {
   const opties = d.periodeOpties || [];
   if (!opties.length) return '';
@@ -340,6 +369,7 @@ function renderPrestatiesV2(d) {
     ${d.weken.length ? `<div class="pv-card" id="pvWekenKaart"><div class="pv-sectie-titel">De laatste weken</div>
       <div class="pv-charts">${pvBars(d.weken, 'vertoningen', 'pv-bar-a', 'Keer getoond per week')}${pvBars(d.weken, 'clicks', 'pv-bar-b', 'Bezoekers vanuit Google per week')}</div>
       <div class="pv-muted pv-legenda">Een stip onder een week betekent dat er in die week een nieuwe blog live ging. De lichte staaf is de week die nog loopt.</div></div>` : ''}
+    <div id="pvEffecten"></div>
     <div id="pvInzichten"></div>
     <div class="pv-card">
       <div id="pvBlogControls"></div>
@@ -353,6 +383,7 @@ function renderPrestatiesV2(d) {
     </details>
     <div class="pv-muted pv-footer">Periode ${pvEsc(pvDatum(d.periode.start))} tot en met ${pvEsc(pvDatum(d.periode.eind))}${d.laatstBijgewerkt ? `. Laatst bijgewerkt op ${pvEsc(pvDatum(d.laatstBijgewerkt))}` : ''}.</div>`;
   pvTekenInzichten();
+  pvTekenEffecten();
   document.getElementById('pvBlogControls').innerHTML = pvControlsHtml();
   document.getElementById('pvBlogList').innerHTML = pvLijstHtml();
   pvTekenTaalRij();
@@ -398,6 +429,7 @@ function renderPrestatiesV2(d) {
       const k = ins.getAttribute('data-pv-ins');
       pvState.insOpen[k] = !pvState.insOpen[k];
       pvTekenInzichten();
+      pvTekenEffecten();
     }
   };
   el.onchange = (e) => {

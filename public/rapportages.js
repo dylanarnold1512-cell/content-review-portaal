@@ -42,6 +42,18 @@
       <div class="rp-punt"><div class="pv-ins-titel">${rpEsc(p.titel)}</div><div class="pv-ins-tekst">${rpEsc(p.tekst)}</div></div>`).join('')}</div>`;
   }
 
+  function effectenKaart(e, label) {
+    if (!e || !e.items || !e.items.length) return '';
+    return `<div class="pv-card pv-effecten"><div class="pv-sectie-titel">Wat hebben we gedaan en wat was het effect</div>
+      <p class="pv-muted">Metingen die in ${rpEsc(label)} zijn gedaan. Het zijn gemeten cijfers uit Google. Ze laten niet zien wat de oorzaak was.</p>
+      ${e.items.map((i) => `
+        <div class="pv-effect-item">
+          <div class="pv-effect-kop"><span class="pv-effect-soort">${rpEsc(i.soortLabel)}</span>${i.datum ? `<span class="pv-muted"> ${rpEsc(dat(i.datum))}</span>` : ''}</div>
+          <div class="pv-ins-titel">${rpEsc(i.titel)}</div>
+          ${i.regels.map((x) => `<div class="pv-ins-tekst">${rpEsc(x)}</div>`).join('')}
+        </div>`).join('')}</div>`;
+  }
+
   function renderRapport(r) {
     const t = r.totalen || {};
     const tegels = [
@@ -63,6 +75,7 @@
       </div>
       <div class="pv-tiles">${tegels.join('')}</div>
       <div class="pv-card"><div class="pv-sectie-titel">Nieuwe blogs in ${rpEsc(r.label)}</div>${nieuw}</div>
+      ${effectenKaart(r.effecten, r.label)}
       <div class="pv-card"><div class="pv-sectie-titel">Blogs met de meeste vertoningen</div>${blogTabel(r.blogs)}</div>
       <div class="pv-card"><div class="pv-sectie-titel">Vooruitblik</div>${vooruitblik(r.vooruitblik)}</div>
       <div class="pv-muted pv-footer">${rpEsc(r.bron || '')}${r.aangemaakt ? `. Vastgelegd op ${rpEsc(dat(r.aangemaakt))}. Deze cijfers staan vast en veranderen niet meer.` : ''}</div>`;

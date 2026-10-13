@@ -3,8 +3,12 @@
 // maandrapporten. Het portaal leest dat alleen en rekent niets opnieuw uit,
 // zodat cijfers achteraf niet verschuiven.
 
+const { bouwEffecten } = require('./effecten');
+
 const N8N_BASE_URL = (process.env.N8N_BASE_URL || 'https://n8n.advertisr.nl').replace(/\/+$/, '');
 const TABLE_ID = process.env.N8N_MAANDRAPPORTEN_TABLE_ID || 'uLdHsmHxDy1A0HU2';
+const EFFECTEN_TABLE_ID = process.env.N8N_EFFECTEN_TABLE_ID || 'LvhL8FkJPDySGE7N';
+const VERBETERINGEN_TABLE_ID = process.env.N8N_VERBETERINGEN_TABLE_ID || 'comDCmDwMvzTSamB';
 
 const MAANDEN = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
 
@@ -14,9 +18,9 @@ function getApiKey() {
   return key;
 }
 
-async function n8nRows(klantNaam, limit) {
+async function n8nRows(klantNaam, limit, tableId) {
   const filter = encodeURIComponent(JSON.stringify({ type: 'and', filters: [{ columnName: 'client_name', condition: 'eq', value: klantNaam }] }));
-  const res = await fetch(`${N8N_BASE_URL}/api/v1/data-tables/${TABLE_ID}/rows?limit=${limit}&filter=${filter}`, {
+  const res = await fetch(`${N8N_BASE_URL}/api/v1/data-tables/${tableId || TABLE_ID}/rows?limit=${limit}&filter=${filter}`, {
     headers: { 'X-N8N-API-KEY': getApiKey(), 'Content-Type': 'application/json' }
   });
   const raw = await res.text();
@@ -48,7 +52,7 @@ function maandLabel(maand) {
 
 const GELDIG = /^\d{4}-(0[1-9]|1[0-2])$/;
 
-function bouwRapport(rij) {
+function bouwRapport(rij, effectRijen, verbeterRijen) {
   const terugblik = parseJson(rij.terugblik, {});
   const alinea = Array.isArray(terugblik.alinea) ? terugblik.alinea.filter((a) => typeof a === 'string' && a.trim()) : [];
   const lijst = (tekst) => {
@@ -69,7 +73,8 @@ function bouwRapport(rij) {
     nieuweBlogs: lijst(rij.nieuwe_blogs),
     kansen: lijst(rij.kansen),
     terugblik: alinea,
-    vooruitblik: lijst(rij.vooruitblik)
+    vooruitblik: lijst(rij.vooruitblik),
+    effecten: bouwEffecten(effectRijen, verbeterRijen, rij.maand)
   };
 }
 
@@ -85,7 +90,13 @@ async function getRapport(klantNaam, maand) {
   if (!GELDIG.test(String(maand || ''))) return null;
   const rijen = await n8nRows(klantNaam, 60);
   const rij = rijen.find((r) => r.maand === maand);
-  return rij ? bouwRapport(rij) : null;
+  if (!rij) return null;
+  // Effecten zijn een extra: ontbreekt de tabel, dan blijft het rapport gewoon werken.
+  const [effectRijen, verbeterRijen] = await Promise.all([
+    n8nRows(klantNaam, 250, EFFECTEN_TABLE_ID).catch(() => []),
+    n8nRows(klantNaam, 250, VERBETERINGEN_TABLE_ID).catch(() => [])
+  ]);
+  return bouwRapport(rij, effectRijen, verbeterRijen);
 }
 
 module.exports = { listRapporten, getRapport, bouwRapport, maandLabel };

@@ -659,3 +659,8 @@ body {
 .rp-punten { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
 .rp-punt { border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
 .rp-tabel td a { color: inherit; }
+
+.pv-effecten .pv-effect-item { padding: 10px 0; border-top: 1px solid var(--border, rgba(0,0,0,0.08)); }
+.pv-effecten .pv-effect-item:first-of-type { border-top: 0; }
+.pv-effect-kop { font-size: 12px; margin-bottom: 2px; }
+.pv-effect-soort { font-weight: 700; color: var(--blue); }

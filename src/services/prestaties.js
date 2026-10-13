@@ -8,6 +8,8 @@
 // statusbadges) wordt hier met vaste regels berekend uit de cijfers. Er wordt
 // dus niets verzonnen: elke zin is terug te voeren op een getal in de tabel.
 
+const { bouwEffecten } = require('./effecten');
+
 const N8N_BASE_URL = (process.env.N8N_BASE_URL || 'https://n8n.advertisr.nl').replace(/\/+$/, '');
 const TABLES = {
   blogs: process.env.N8N_PRESTATIES_BLOGS_TABLE_ID || 'HfpN6rbJMStyOvyj',
@@ -15,7 +17,9 @@ const TABLES = {
   overzicht: process.env.N8N_PRESTATIES_OVERZICHT_TABLE_ID || 'caOsvqDNlG79IjTA',
   indexatie: process.env.N8N_PRESTATIES_INDEXATIE_TABLE_ID || 'OCXbGmfnEipDHU9b',
   conversies: process.env.N8N_PRESTATIES_CONVERSIES_TABLE_ID || 'ZO8PIIwot7d0ODgX',
-  kansen: process.env.N8N_PRESTATIES_KANSEN_TABLE_ID || 'C0ASGyrj8nT1zXOS'
+  kansen: process.env.N8N_PRESTATIES_KANSEN_TABLE_ID || 'C0ASGyrj8nT1zXOS',
+  effecten: process.env.N8N_EFFECTEN_TABLE_ID || 'LvhL8FkJPDySGE7N',
+  verbeteringen: process.env.N8N_VERBETERINGEN_TABLE_ID || 'comDCmDwMvzTSamB'
 };
 
 // Periodes die de sync opslaat (kolom periode_type). Rijen van voor de
@@ -83,7 +87,7 @@ function perKlant(klantNaam) {
 // het portaal dan gewoon de oude weergave kan tonen.
 async function getPrestatiesData(klantNaam, periodeKeuze) {
   const periode = kiesPeriode(periodeKeuze);
-  const [overzichtAlle, blogsAlle, weken, indexatie, conversies, kansenRijen] = await Promise.all([
+  const [overzichtAlle, blogsAlle, weken, indexatie, conversies, kansenRijen, effectRijen, verbeterRijen] = await Promise.all([
     n8nRows(TABLES.overzicht, perKlant(klantNaam), 20),
     n8nRows(TABLES.blogs, perKlant(klantNaam), 250),
     n8nRows(TABLES.weken, perKlant(klantNaam), 60),
@@ -91,12 +95,15 @@ async function getPrestatiesData(klantNaam, periodeKeuze) {
     n8nRows(TABLES.indexatie, perKlant(klantNaam), 250).catch(() => []),
     n8nRows(TABLES.conversies, perKlant(klantNaam), 250).catch(() => []),
     // Kansen zijn een extra. Ontbreekt de tabel of de data, dan gelden de oude regels.
-    n8nRows(TABLES.kansen, perKlant(klantNaam), 100).catch(() => [])
+    n8nRows(TABLES.kansen, perKlant(klantNaam), 100).catch(() => []),
+    // Effecten zijn een extra. Ontbreekt de tabel of de data, dan verschijnt het blok niet.
+    n8nRows(TABLES.effecten, perKlant(klantNaam), 250).catch(() => []),
+    n8nRows(TABLES.verbeteringen, perKlant(klantNaam), 250).catch(() => [])
   ]);
   const overzichtRijen = rijenVanPeriode(overzichtAlle, periode);
   if (!overzichtRijen.length) return null;
   const blogs = rijenVanPeriode(blogsAlle, periode);
-  return { overzicht: overzichtRijen[0], blogs, weken, indexatie, conversies, kansenRijen, periode };
+  return { overzicht: overzichtRijen[0], blogs, weken, indexatie, conversies, kansenRijen, effectRijen, verbeterRijen, periode };
 }
 
 const num = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
@@ -171,7 +178,7 @@ function conversieWoorden(klantNaam) {
   return { lead: w.lead || ['aanvraag', 'aanvragen'], boeking: w.boeking || ['boeking', 'boekingen'], boekLabel: w.boekLabel || 'boeken' };
 }
 
-function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies, kansenRijen, periode: periodeKeuze, klantNaam }, vandaagIso) {
+function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies, kansenRijen, effectRijen, verbeterRijen, periode: periodeKeuze, klantNaam }, vandaagIso) {
   const periodeType = kiesPeriode(periodeKeuze);
   const vandaag = vandaagIso || new Date().toISOString().slice(0, 10);
   const o = overzicht || {};
@@ -470,6 +477,7 @@ function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies, kansen
     totalen,
     inzichten: { goed: cap(goed), kansen, aandacht: aandachtBlok.concat(aandacht) },
     weken: wekenUit,
+    effecten: bouwEffecten(effectRijen, verbeterRijen),
     blogs: blogRijen
   };
 }
