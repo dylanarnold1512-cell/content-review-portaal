@@ -101,12 +101,16 @@ async function enterApp(clientId, clientMeta) {
   state.clientId = clientId;
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
-  document.getElementById('clientName').textContent = clientMeta ? clientMeta.naam : clientId;
+  const klantNaam = clientMeta ? clientMeta.naam : clientId;
+  document.getElementById('clientName').textContent = klantNaam;
+  if (window.portaalVulKop) window.portaalVulKop(klantNaam);
   // Een directe link naar één blog (bijvoorbeeld uit de review mail) opent die blog
   // meteen in Blogs. Anders is het Overzicht de startpagina.
   const komtUitDeepLink = Boolean(deepLinkItemId);
   switchTab(komtUitDeepLink ? 'blogs' : 'overzicht');
   await loadItems();
+  // Een adres als /basecamp-utrecht#google opent meteen dat tabblad (zie portaal-shell.js).
+  if (!komtUitDeepLink && !deepLinkRapportages && window.portaalVraagTabUitAdres) window.portaalVraagTabUitAdres();
   if (deepLinkRapportages && state.performanceEnabled) {
     deepLinkRapportages = false;
     switchTab('rapportages');
@@ -161,6 +165,7 @@ function switchTab(tab) {
   if (tab === 'merkprofiel' && window.loadMerkprofiel) {
     window.loadMerkprofiel();
   }
+  if (window.portaalTabGewijzigd) window.portaalTabGewijzigd(tab);
 }
 
 document.querySelectorAll('.tab-btn').forEach((btn) => {
@@ -181,6 +186,7 @@ async function loadItems() {
   const rapportagesTabBtn = document.getElementById('rapportagesTabBtn');
   if (rapportagesTabBtn) rapportagesTabBtn.classList.toggle('hidden', !state.performanceEnabled);
   if (!state.performanceEnabled && (state.activeTab === 'prestaties' || state.activeTab === 'rapportages')) switchTab('blogs');
+  if (window.portaalVulTellers) window.portaalVulTellers(state);
   if (window.checkMerkprofiel) window.checkMerkprofiel(state.clientId);
   if (window.checkAiZichtbaarheid) window.checkAiZichtbaarheid(state.clientId);
   if (!state.selectedId && state.items.length) {
@@ -412,7 +418,8 @@ function updateUrlForSelection() {
   if (!state.clientId || !state.selectedId) return;
   const url = '/' + encodeURIComponent(state.clientId) + '/' + encodeURIComponent(state.selectedId);
   if (location.pathname !== url) {
-    history.pushState({ clientId: state.clientId, itemId: state.selectedId }, '', url);
+    // Het adres van het tabblad (#blogs) blijft behouden als er een andere blog wordt gekozen.
+    history.pushState({ clientId: state.clientId, itemId: state.selectedId }, '', url + location.hash);
   }
 }
 

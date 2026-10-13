@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/merkprofiel.css">
   <link rel="stylesheet" href="/ai-zichtbaarheid.css">
+  <link rel="stylesheet" href="/portaal.css">
 </head>
 <body>
 
@@ -28,27 +29,53 @@
 </div>
 
 <div id="app" class="app hidden">
-  <div class="top">
-    <div class="top-left">
-      <img class="brand-logo-small" src="https://advertisr.nl/wp-content/uploads/2025/03/Logo_Advertisr_new_2025.svg" alt="Advertisr.">
-      <div class="top-divider"></div>
+  <aside class="p-side" id="pSide" aria-label="Hoofdmenu">
+    <div class="p-merk"><img class="p-logo" src="https://advertisr.nl/wp-content/uploads/2025/03/Logo_Advertisr_new_2025.svg" alt="Advertisr."></div>
+    <div class="p-klant">
+      <div class="p-klant-av" id="clientAvatar" aria-hidden="true">–</div>
       <div>
-        <div class="top-title" id="clientName">—</div>
-        <div class="top-sub">Contentreview, gekoppeld aan Notion</div>
+        <div class="p-klant-naam" id="clientName">—</div>
+        <div class="p-klant-sub">Contentportaal</div>
       </div>
     </div>
-    <button id="logoutBtn" class="btn-plain">Uitloggen</button>
-  </div>
 
-  <div class="tab-nav" id="tabNav">
-    <button type="button" class="tab-btn active" data-tab="overzicht">Overzicht</button>
-    <button type="button" class="tab-btn" data-tab="blogs">Blogs</button>
-    <button type="button" class="tab-btn hidden" data-tab="prestaties" id="prestatiesTabBtn">Prestaties</button>
-    <button type="button" class="tab-btn hidden" data-tab="rapportages" id="rapportagesTabBtn">Rapportages</button>
-    <button type="button" class="tab-btn" data-tab="kennisdocument">Kennisdocument</button>
-    <button type="button" class="tab-btn hidden" data-tab="merkprofiel" id="merkprofielTabBtn">Merkprofiel</button>
-    <button type="button" class="tab-btn hidden" data-tab="aiZichtbaarheid" id="aiZichtbaarheidTabBtn">AI zichtbaarheid</button>
-  </div>
+    <nav class="p-nav" id="tabNav" aria-label="Onderdelen van het portaal">
+      <div class="p-nav-groep">
+        <button type="button" class="tab-btn p-nav-item active" data-tab="overzicht" aria-current="page"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5M5.5 10v9.5h13V10"/></svg>Overzicht</button>
+      </div>
+      <div class="p-nav-groep">
+        <div class="p-nav-label">Content</div>
+        <button type="button" class="tab-btn p-nav-item" data-tab="blogs"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>Blogs<span class="p-teller hidden" id="blogsTeller" aria-label="Blogs die op jouw review wachten"></span></button>
+      </div>
+      <div class="p-nav-groep">
+        <div class="p-nav-label">Resultaten</div>
+        <button type="button" class="tab-btn p-nav-item hidden" data-tab="prestaties" id="prestatiesTabBtn"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Google</button>
+        <button type="button" class="tab-btn p-nav-item hidden" data-tab="aiZichtbaarheid" id="aiZichtbaarheidTabBtn"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>AI zichtbaarheid</button>
+        <button type="button" class="tab-btn p-nav-item hidden" data-tab="rapportages" id="rapportagesTabBtn"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Maandrapporten</button>
+      </div>
+      <div class="p-nav-groep">
+        <div class="p-nav-label">Jullie merk</div>
+        <button type="button" class="tab-btn p-nav-item hidden" data-tab="merkprofiel" id="merkprofielTabBtn"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Merkprofiel</button>
+        <button type="button" class="tab-btn p-nav-item" data-tab="kennisdocument"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/></svg>Kennisdocument</button>
+      </div>
+    </nav>
+
+    <div class="p-side-voet">
+      <div class="p-contact"><div class="p-contact-av" aria-hidden="true">DA</div><div><b>Dylan Arnold</b>Jouw contact bij Advertisr</div></div>
+      <button type="button" id="logoutBtn" class="p-nav-item"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>Uitloggen</button>
+    </div>
+  </aside>
+  <div class="p-scrim" id="pScrim"></div>
+
+  <div class="p-main">
+  <header class="p-mtop">
+    <img class="p-logo" src="https://advertisr.nl/wp-content/uploads/2025/03/Logo_Advertisr_new_2025.svg" alt="Advertisr." style="height:20px">
+    <div>
+      <div class="p-mtop-klant" id="pMobielKlant"></div>
+      <div class="p-mtop-tab" id="pMobielTab">Overzicht</div>
+    </div>
+    <button type="button" class="p-menuknop" id="pMenuknop" aria-label="Menu openen" aria-expanded="false" aria-controls="pSide"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  </header>
 
   <div id="overzichtTab" class="tab-panel"></div>
 
@@ -128,6 +155,7 @@
       </div>
     </div>
   </div>
+  </div>
 </div>
 
 <div id="annotationPopover" class="annotation-popover hidden">
@@ -159,6 +187,9 @@
   </div>
 </div>
 
+<script src="/portaal-format.js"></script>
+<script src="/portaal-ui.js"></script>
+<script src="/portaal-shell.js"></script>
 <script src="/prestaties-v2.js"></script>
 <script src="/merkprofiel.js"></script>
 <script src="/ai-zichtbaarheid.js"></script>
