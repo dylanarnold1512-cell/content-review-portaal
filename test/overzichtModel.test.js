@@ -12,7 +12,7 @@ test('blogs op review geven de stand actie nodig en een zin met het aantal', () 
   const s = bouwStartscherm(basis([blog(1, 'Ter review', ''), blog(2, 'Ter review', '')]), NU);
   assert.strictEqual(s.stand, 'actie');
   assert.strictEqual(s.review.length, 2);
-  assert.strictEqual(statusZin(s), 'Er wachten 2 blogs op jouw beoordeling.');
+  assert.strictEqual(statusZin(s), '2 blogs wachten op jouw review');
 });
 
 test('zonder review voor de klant telt review niet mee', () => {
@@ -24,14 +24,15 @@ test('zonder review voor de klant telt review niet mee', () => {
 test('een klant zonder live blogs en zonder Google cijfers is nieuw', () => {
   const s = bouwStartscherm(basis([blog(1, 'Gepland', '2026-10-20')]), NU);
   assert.strictEqual(s.stand, 'nieuw');
-  assert.match(statusZin(s), /contentplan staat klaar/);
+  assert.match(statusZin(s), /Welkom/);
+  assert.strictEqual(s.stappen.find((x) => x.status === 'nu').titel, 'Google koppelen');
 });
 
 test('een lopende klant noemt de volgende blog in dagen', () => {
   const s = bouwStartscherm(basis([blog(1, 'Gepubliceerd', '2026-10-01'), blog(2, 'Gepland', '2026-10-15')], { google: google({ vertoningen: 10, clicks: 1 }) }), NU);
   assert.strictEqual(s.stand, 'normaal');
   assert.strictEqual(s.volgendeBlog.dagen, 2);
-  assert.strictEqual(statusZin(s), 'Alles loopt. De volgende blog gaat over 2 dagen live.');
+  assert.strictEqual(statusZin(s), 'Alles loopt. Er wacht niets op jou.');
 });
 
 test('komende blogs: gesorteerd, verleden en zonder datum eruit, maximaal vijf', () => {
@@ -53,9 +54,10 @@ test('Google: staafjes uit de laatste volledige weken en markering van nieuwe bl
   for (let i = 0; i < 12; i += 1) weken.push({ start: '2026-08-' + String(i + 1).padStart(2, '0'), volledig: true, vertoningen: i * 10, nieuw: i === 11 ? ['x'] : [] });
   weken.push({ start: '2026-10-12', volledig: false, vertoningen: 5, nieuw: [] });
   const s = bouwStartscherm(basis([], { google: google({ vertoningen: 500, vertoningenVorig: 400, clicks: 5, clicksVorig: 0 }, weken) }), NU);
-  assert.strictEqual(s.google.staafjes.length, 10);
-  assert.strictEqual(s.google.staafjes[9], 110);
-  assert.strictEqual(s.google.weken[9].nieuw, 1);
+  assert.strictEqual(s.google.weken.length, 10);
+  assert.strictEqual(s.google.weken[9].open, true);
+  assert.strictEqual(s.google.weken[8].vertoningen, 110);
+  assert.strictEqual(s.google.weken[8].nieuw, 1);
   assert.strictEqual(s.google.heeftData, true);
 });
 
@@ -100,7 +102,7 @@ test('onderwerpen tellen live en gepland per cluster en koppelen AI per naam', (
   const s = bouwStartscherm(basis(items, { ai }), NU);
   const t = s.onderwerpen.find((o) => o.naam === 'Teamdagen');
   assert.strictEqual(t.live, 1);
-  assert.strictEqual(t.vertoningen, 40);
+  assert.strictEqual(t.vertoningen, null);
   assert.strictEqual(t.aiPercentage, 25);
   assert.strictEqual(s.onderwerpen.find((o) => o.naam === 'teamdagen').gepland, 1);
 });
@@ -109,11 +111,36 @@ test('wat er gebeurde: nieuwste eerst, toekomst en blogs zonder datum tellen nie
   const items = [blog(1, 'Gepubliceerd', '2026-10-01'), blog(2, 'Gepubliceerd', '2026-10-09'), blog(3, 'Gepubliceerd', '2026-11-01'), blog(4, 'Gepubliceerd', '')];
   const s = bouwStartscherm(basis(items), NU);
   assert.deepStrictEqual(s.feed.map((f) => f.id), [2, 1]);
+  assert.strictEqual(s.feed[0].sub, 'Blog 2');
 });
 
 test('lege invoer breekt niet', () => {
   const s = bouwStartscherm({}, NU);
   assert.strictEqual(s.stand, 'nieuw');
   assert.strictEqual(s.komend.length, 0);
-  assert.match(statusZin(s), /We zijn begonnen/);
+  assert.match(statusZin(s), /Welkom/);
+});
+
+test('storing: Google faalt met oude stand geeft stand storing en een melding in de feed', () => {
+  const s = bouwStartscherm(basis([blog(1, 'Gepubliceerd', '2026-10-01')], { google: { status: 'fout', stand: { totalen: { vertoningen: 7, clicks: 1 }, weken: [] } } }), NU);
+  assert.strictEqual(s.stand, 'storing');
+  assert.strictEqual(s.feed[0].tekst, 'Google cijfers niet opgehaald');
+  assert.match(statusZin(s), /niet opgehaald/);
+});
+
+test('onderwerp: Google per cluster, pagina 1 hint en AI hint', () => {
+  const items = [blog(1, 'Gepubliceerd', '2026-10-01', { cluster: 'A' }), blog(2, 'Gepubliceerd', '2026-10-02', { cluster: 'B' }), blog(3, 'Gepland', '2026-12-01', { cluster: 'C' })];
+  const g = { totalen: { vertoningen: 10, clicks: 0 }, weken: [], blogs: [{ cluster: 'A', vertoningen: 30, hkPositie: 4 }, { cluster: 'A', vertoningen: 20, hkPositie: 15 }, { cluster: 'B', vertoningen: 5, hkPositie: null }] };
+  const ai = { status: 'ok', data: { beschikbaar: true, status: 'ok', platformen: [], trend: [], clusters: [{ naam: 'B', platformen: { x: { antwoorden: 6, genoemd: 0 } } }] } };
+  const s = bouwStartscherm(basis(items, { google: { status: 'ok', data: g }, ai }), NU);
+  const o = (n) => s.onderwerpen.find((x) => x.naam === n);
+  assert.strictEqual(o('A').vertoningen, 50);
+  assert.strictEqual(o('A').hint.toon, 'goed');
+  assert.strictEqual(o('B').hint.tekst, 'AI assistenten noemen jullie hier nog niet');
+  assert.match(o('C').hint.tekst, /gepland tot en met 2026-12-01/);
+});
+
+test('volgende AI meting is een week na de laatste meting', () => {
+  const ai = { status: 'ok', data: { beschikbaar: true, status: 'ok', laatsteWeek: { start: '2026-10-12', label: 'x' }, platformen: [{ antwoorden: 4, genoemd: 1 }], trend: [], clusters: [] } };
+  assert.strictEqual(bouwStartscherm(basis([], { ai }), NU).volgendeAiMeting, '2026-10-19');
 });
