@@ -225,6 +225,7 @@
       <button type="button" class="tab-btn" data-lp-tab="sjablonen">Sjablonen</button>
       <button type="button" class="tab-btn" data-lp-tab="intake">Nieuwe klant</button>
       <button type="button" class="tab-btn" data-lp-tab="kloon">WordPress kloon</button>
+      <button type="button" class="tab-btn" data-lp-tab="vervang">Tekst vervangen</button>
     </div>
     <button id="lpLogoutBtn" class="btn-plain">Uitloggen</button>
   </div>
@@ -463,6 +464,60 @@
 
       <div class="modal-actions" style="margin-top:16px;">
         <button type="button" id="lpIntakeSubmitBtn" class="btn btn-approve">Intake verzenden</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="lpVervangTab" class="tab-panel hidden">
+    <div class="lp-shell">
+      <div id="lpVervangError" class="admin-error hidden"></div>
+      <div class="lp-h1">Tekst vervangen bij alle pagina's van een klant</div>
+      <p class="admin-footnote">
+        Heeft de AI ergens een foute zin gezet? Zoek hem hier op, bekijk op welke pagina's hij staat en pas ze in een keer aan.
+        Er wordt niets aangepast voordat je bevestigt. Een pagina die in WordPress live staat, blijft live.
+      </p>
+      <div class="lp-field-row">
+        <label for="lpVervangKlant">Klant</label>
+        <select id="lpVervangKlant"></select>
+      </div>
+      <div class="lp-field-row">
+        <label for="lpVervangZoek">Tekst zoeken</label>
+        <textarea id="lpVervangZoek" class="lp-json-textarea" style="min-height:70px;" placeholder="bv. MAC Bouw toont uiteenlopende projecten"></textarea>
+        <span class="lp-field-hint">Exact zoals de tekst op de pagina staat (hoofdlettergevoelig), minstens 4 tekens. Een stuk van de zin is genoeg.</span>
+      </div>
+      <div class="lp-field-row">
+        <label for="lpVervangVeld">Alleen in dit veld (optioneel)</label>
+        <input type="text" id="lpVervangVeld" autocomplete="off" placeholder="bv. projectsIntro">
+        <span class="lp-field-hint">De naam van het veld in het sjabloon. Leeg laten betekent: overal zoeken.</span>
+      </div>
+      <div class="lp-field-row">
+        <label for="lpVervangNieuw">Vervangen door</label>
+        <textarea id="lpVervangNieuw" class="lp-json-textarea" style="min-height:70px;" placeholder="Leeg laten om de tekst te verwijderen"></textarea>
+      </div>
+      <div class="lp-field-row">
+        <label><input type="checkbox" id="lpVervangHeel"> Vervang het hele veld waarin de tekst staat (handig als de zin per pagina een beetje verschilt)</label>
+      </div>
+      <div class="modal-actions" style="justify-content:flex-start;gap:10px;">
+        <button type="button" id="lpVervangZoekBtn" class="btn btn-approve">Zoek pagina's</button>
+      </div>
+
+      <div id="lpVervangResultaat" class="hidden" style="margin-top:18px;">
+        <p id="lpVervangSamenvatting" class="admin-footnote"></p>
+        <p id="lpVervangWaarschuwing" class="admin-footnote hidden"></p>
+        <div class="lp-table-card">
+          <table class="lp-table">
+            <thead><tr><th><input type="checkbox" id="lpVervangAlles" checked aria-label="Alles selecteren"></th><th>Pagina</th><th>WordPress</th><th>Veld</th><th>Zo staat het er nu</th><th>Uitkomst</th></tr></thead>
+            <tbody id="lpVervangBody"></tbody>
+          </table>
+        </div>
+        <div class="lp-field-row" style="margin-top:12px;">
+          <label><input type="checkbox" id="lpVervangPubliceer" checked> Pagina's die al in WordPress staan ook direct bijwerken (de status blijft zoals die is: live blijft live, concept blijft concept)</label>
+        </div>
+        <div class="modal-actions" style="justify-content:flex-start;gap:10px;">
+          <button type="button" id="lpVervangUitvoerBtn" class="btn btn-approve">Aanpassen...</button>
+          <button type="button" id="lpVervangAnnuleerBtn" class="btn-plain hidden">Annuleren</button>
+        </div>
+        <p id="lpVervangBevestig" class="admin-footnote hidden" style="font-weight:600;"></p>
       </div>
     </div>
   </div>
@@ -1082,6 +1137,7 @@
 
 <script src="/lp.js"></script>
 <script src="/lp-kloon.js"></script>
+<script src="/lp-vervang.js"></script>
 <script src="/lp-festival.js"></script>
 </body>
 </html>

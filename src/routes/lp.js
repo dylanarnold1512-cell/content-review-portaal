@@ -906,6 +906,7 @@ router.post('/clients/:clientId/tekst-vervangen/zoek', requireLpInternal, async 
   try {
     const client = getLpClient(req.params.clientId);
     const { zoek, slotKey } = req.body || {};
+    vindTekst({}, { zoek, slotKey: slotKey || undefined }); // gooit een duidelijke fout bij een ongeldige invoer
     const lijst = await lpNotion.listPages({ klant: req.params.clientId });
     const geladen = await metGelijktijdigheid(lijst, 5, async (p) => {
       try {
