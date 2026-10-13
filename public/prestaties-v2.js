@@ -19,7 +19,7 @@ const PV_STAP = 10;
 const PV_INZICHT_ZICHTBAAR = 3;
 const PV_KANSEN_ZICHTBAAR = 4;
 
-const pvState = { periode: '28d', laden: false, sort: 'vertoningen', cluster: '', status: '', q: '', taal: '', toon: PV_STAP, open: {}, insOpen: {}, data: null };
+const pvState = { insTab: '', periode: '28d', laden: false, sort: 'vertoningen', cluster: '', status: '', q: '', taal: '', toon: PV_STAP, open: {}, insOpen: {}, data: null };
 
 function pvDelta(nu, vorig) {
   if (vorig === null || vorig === undefined) return '';
@@ -53,46 +53,41 @@ function pvTotalenVoorTaal(t) {
 }
 
 function pvTiles(t) {
-  const hkDelta = t.hkPositieVerbetering === null || t.hkPositieVerbetering === undefined
-    ? ''
+  const F = window.PortaalFormat;
+  const U = window.PortaalUI;
+  const vorigTekst = (v) => (v === null || v === undefined ? '' : F.getal(v) + ' in de periode ervoor');
+  const hkVerschil = t.hkPositieVerbetering === null || t.hkPositieVerbetering === undefined
+    ? null
     : Math.abs(t.hkPositieVerbetering) < 0.5
-      ? '<span class="pv-delta pv-flat">vrijwel gelijk aan de periode ervoor</span>'
-      : t.hkPositieVerbetering > 0
-        ? `<span class="pv-delta pv-up">${t.hkPositieVerbetering.toLocaleString('nl-NL', { maximumFractionDigits: 1 })} plaatsen omhoog</span>`
-        : `<span class="pv-delta pv-down">${Math.abs(t.hkPositieVerbetering).toLocaleString('nl-NL', { maximumFractionDigits: 1 })} plaatsen omlaag</span>`;
-  const tiles = [
-    { l: 'Keer getoond in Google', v: pvNl(t.vertoningen), d: pvDelta(t.vertoningen, t.vertoningenVorig), h: 'Hoe vaak een blog in de zoekresultaten stond.' },
-    { l: 'Bezoekers vanuit Google', v: pvNl(t.clicks), d: pvDelta(t.clicks, t.clicksVorig), h: 'Hoe vaak iemand doorklikte naar een blog.' },
-    { l: 'Positie hoofdzoekwoorden', v: pvEsc(t.hkPositieLabel || 'Nog geen meting'), d: hkDelta, h: 'Waar de blogs gemiddeld staan voor het zoekwoord waar ze voor geschreven zijn.' }
+      ? { tekst: 'Vrijwel gelijk', toon: 'gelijk' }
+      : { tekst: F.decimaal(Math.abs(t.hkPositieVerbetering), 1) + (t.hkPositieVerbetering > 0 ? ' plaatsen omhoog' : ' plaatsen omlaag'), toon: t.hkPositieVerbetering > 0 ? 'goed' : 'slecht' };
+  const lijst = [
+    { label: 'Keer getoond in Google', icoon: 'oog', waarde: F.getal(t.vertoningen), verschil: F.verschil(t.vertoningen, t.vertoningenVorig), vergelijking: vorigTekst(t.vertoningenVorig) || 'Hoe vaak een blog in de zoekresultaten stond' },
+    { label: 'Bezoekers vanuit Google', icoon: 'mensen', waarde: F.getal(t.clicks), verschil: F.verschil(t.clicks, t.clicksVorig), vergelijking: vorigTekst(t.clicksVorig) || 'Hoe vaak iemand doorklikte naar een blog' },
+    { label: 'Positie hoofdzoekwoorden', icoon: 'grafiek', waarde: t.hkPositieLabel || 'Nog geen meting', verschil: hkVerschil, vergelijking: 'Pagina 1 zijn de eerste tien resultaten' }
   ];
-  if (t.verbergHk) tiles.pop();
+  if (t.verbergHk) lijst.pop();
   if (t.paginaweergaven !== null && t.paginaweergaven !== undefined) {
-    tiles.push({ l: 'Paginaweergaven', v: pvNl(t.paginaweergaven), d: '', h: 'Hoe vaak de blogpagina\'s zijn bekeken.' });
+    lijst.push({ label: 'Paginaweergaven', icoon: 'blad', waarde: F.getal(t.paginaweergaven), vergelijking: 'Hoe vaak de blogpagina\u2019s zijn bekeken' });
   }
   if (t.conversies) {
     const c = t.conversies;
     const w = c.woorden || { lead: ['aanvraag', 'aanvragen'], boeking: ['boeking', 'boekingen'], boekLabel: 'boeken' };
     const delen = [];
-    if (c.leads) delen.push(`${pvNl(c.leads)} ${c.leads === 1 ? w.lead[0] : w.lead[1]}`);
-    if (c.boekingen) delen.push(`${pvNl(c.boekingen)} ${c.boekingen === 1 ? w.boeking[0] : w.boeking[1]}${c.omzet ? ` (${pvEsc(Number(c.omzet).toLocaleString('nl-NL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }))})` : ''}`);
+    if (c.leads) delen.push(`${F.getal(c.leads)} ${c.leads === 1 ? w.lead[0] : w.lead[1]}`);
+    if (c.boekingen) delen.push(`${F.getal(c.boekingen)} ${c.boekingen === 1 ? w.boeking[0] : w.boeking[1]}${c.omzet ? ` (${Number(c.omzet).toLocaleString('nl-NL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })})` : ''}`);
     const doelen = [];
     if (c.heeftLeads || c.heeftDoorklik) doelen.push('contact');
     if (c.heeftBoekingen || c.heeftDoorklik) doelen.push(w.boekLabel);
     const kort = doelen.length ? doelen : ['contact'];
     const nogGeen = [c.heeftLeads || !c.heeftBoekingen ? w.lead[0] : null, c.heeftBoekingen ? w.boeking[0] : null].filter(Boolean).join(' of ');
-    tiles.push({
-      l: `Van blog naar ${kort.join(' of ')}`,
-      v: pvNl(c.heeftDoorklik ? c.doorkliks : (c.leads || 0) + (c.boekingen || 0)),
-      d: delen.length ? `<span class="pv-delta pv-up">${delen.join(', ')} in bezoeken die op een blog begonnen</span>` : `<span class="pv-delta pv-flat">nog geen ${nogGeen} vanuit een blog begonnen bezoek</span>`,
-      h: c.heeftDoorklik ? 'Hoe vaak iemand vanaf een blog doorklikte naar de pagina voor contact, offerte of boeken.' : 'Hoeveel bezoeken die op een blog begonnen, uitliepen op een aanvraag of aankoop.'
+    lijst.push({
+      label: `Van blog naar ${kort.join(' of ')}`, icoon: 'pijl',
+      waarde: F.getal(c.heeftDoorklik ? c.doorkliks : (c.leads || 0) + (c.boekingen || 0)),
+      vergelijking: delen.length ? `${delen.join(', ')} in bezoeken die op een blog begonnen` : `Nog geen ${nogGeen} vanuit een blog begonnen bezoek`
     });
   }
-  return tiles.map((x) => `
-    <div class="pv-tile" title="${pvEsc(x.h)}">
-      <div class="pv-tile-label">${pvEsc(x.l)}</div>
-      <div class="pv-tile-value">${x.v}</div>
-      ${x.d}
-    </div>`).join('');
+  return lijst.map((x) => U.kerncijfer(x)).join('');
 }
 
 function pvBars(weken, veld, kleurKlasse, titel) {
@@ -119,60 +114,7 @@ function pvBars(weken, veld, kleurKlasse, titel) {
     </div>`;
 }
 
-function pvInzicht(sleutel, kop, klasse, lijst, metActie) {
-  if (!lijst.length) return '';
-  const open = Boolean(pvState.insOpen[sleutel]);
-  const zichtbaar = open ? lijst : lijst.slice(0, PV_INZICHT_ZICHTBAAR);
-  const meer = lijst.length - PV_INZICHT_ZICHTBAAR;
-  return `
-    <div class="pv-ins pv-ins-${klasse}">
-      <div class="pv-ins-kop">${pvEsc(kop)}${lijst.length > 1 ? ` <span class="pv-ins-aantal">${lijst.length}</span>` : ''}</div>
-      ${zichtbaar.map((i) => `
-        <div class="pv-ins-item">
-          <div class="pv-ins-titel">${pvEsc(i.titel)}</div>
-          <div class="pv-ins-tekst">${pvEsc(i.tekst)}</div>
-          ${metActie && i.actie ? `<div class="pv-ins-actie">Wat wij doen: ${pvEsc(i.actie)}</div>` : ''}
-        </div>`).join('')}
-      ${meer > 0 ? `<button type="button" class="pv-toggle" data-pv-ins="${pvEsc(sleutel)}">${open ? 'Toon minder' : `Toon alle ${lijst.length}`}</button>` : ''}
-    </div>`;
-}
-
 const PV_PRIO = { hoog: 'Hoge prioriteit', middel: 'Middel prioriteit', laag: 'Lage prioriteit' };
-
-function pvKansen(lijst, kansPeriode) {
-  if (!lijst.length) return '';
-  const open = Boolean(pvState.insOpen.kansen);
-  const zichtbaar = open ? lijst : lijst.slice(0, PV_KANSEN_ZICHTBAAR);
-  const meer = lijst.length - PV_KANSEN_ZICHTBAAR;
-  const uitgebreid = lijst.some((k) => k.signaal);
-  const noot = uitgebreid && kansPeriode && kansPeriode.start && kansPeriode.eind
-    ? `<div class="pv-muted pv-kans-noot">Kansen horen bij de laatste 28 dagen (${pvEsc(pvDatum(kansPeriode.start))} tot en met ${pvEsc(pvDatum(kansPeriode.eind))}), ook als je hierboven een andere periode kiest.</div>`
-    : '';
-  return `
-    <div class="pv-ins pv-ins-kans">
-      <div class="pv-ins-kop">Kansen${lijst.length > 1 ? ` <span class="pv-ins-aantal">${lijst.length}</span>` : ''}</div>
-      ${noot}
-      <div class="pv-kans-lijst">
-      ${zichtbaar.map((k) => k.signaal ? `
-        <div class="pv-ins-item pv-kans">
-          <div class="pv-kans-tags">
-            <span class="pv-tag">${pvEsc(k.soortLabel)}</span>
-            <span class="pv-tag pv-tag-${pvEsc(k.prioriteit)}">${pvEsc(PV_PRIO[k.prioriteit] || '')}</span>
-          </div>
-          <div class="pv-kans-rij"><span class="pv-kans-lbl">Signaal</span><span>${pvEsc(k.signaal)}</span></div>
-          <div class="pv-kans-rij"><span class="pv-kans-lbl">Waarom</span><span>${pvEsc(k.waarom)}</span></div>
-          <div class="pv-kans-rij"><span class="pv-kans-lbl">Actie</span><span>${pvEsc(k.actie)}</span></div>
-          <div class="pv-kans-rij pv-muted"><span class="pv-kans-lbl">Onderbouwing</span><span>${pvEsc(k.onderbouwing)}</span></div>
-        </div>` : `
-        <div class="pv-ins-item">
-          <div class="pv-ins-titel">${pvEsc(k.titel)}</div>
-          <div class="pv-ins-tekst">${pvEsc(k.tekst)}</div>
-          ${k.actie ? `<div class="pv-ins-actie">Wat wij doen: ${pvEsc(k.actie)}</div>` : ''}
-        </div>`).join('')}
-      </div>
-      ${meer > 0 ? `<button type="button" class="pv-toggle" data-pv-ins="kansen">${open ? 'Toon minder' : `Toon alle ${lijst.length}`}</button>` : ''}
-    </div>`;
-}
 
 const PV_EFFECT_ZICHTBAAR = 4;
 
@@ -185,8 +127,7 @@ function pvEffecten(e) {
     ? `${e.gemeten} ${e.gemeten === 1 ? 'actie is' : 'acties zijn'} gemeten${e.nogTeMeten ? `, ${e.nogTeMeten} ${e.nogTeMeten === 1 ? 'volgt' : 'volgen'} nog` : ''}.`
     : 'De eerste metingen volgen ongeveer een maand na publicatie.';
   return `
-    <div class="pv-card pv-effecten">
-      <div class="pv-sectie-titel">Wat hebben we gedaan en wat was het effect</div>
+    <section class="p-kaart pv-effecten"><div class="p-kaart-kop"><div class="p-kaart-titel-blok"><h2 class="p-kaart-titel">Wat hebben we gedaan en wat was het effect</h2></div></div><div class="p-kaart-inhoud">
       <p class="pv-muted">${pvEsc(intro)} We meten 28, 56 en 90 dagen na de actie. Het zijn gemeten cijfers uit Google. Ze laten niet zien wat de oorzaak was.</p>
       ${zichtbaar.map((i) => `
         <div class="pv-effect-item">
@@ -195,7 +136,7 @@ function pvEffecten(e) {
           ${i.regels.map((r) => `<div class="pv-ins-tekst">${pvEsc(r)}</div>`).join('')}
         </div>`).join('')}
       ${meer > 0 ? `<button type="button" class="pv-toggle" data-pv-ins="effecten">${open ? 'Toon minder' : `Toon alle ${e.items.length}`}</button>` : ''}
-    </div>`;
+    </div></section>`;
 }
 
 function pvTekenEffecten() {
@@ -354,34 +295,44 @@ function renderPrestatiesV2(d) {
   pvState.toon = PV_STAP;
   el.classList.remove('pv-laden');
   const t = d.totalen;
-  const voortgang = `${t.blogsGepubliceerd} ${t.blogsGepubliceerd === 1 ? 'blog staat' : 'blogs staan'} live${t.blogsPipeline ? `, nog ${t.blogsPipeline} in de planning` : ''}.`;
-  el.innerHTML = `
+  const F = window.PortaalFormat;
+  const U = window.PortaalUI;
+  const getoond = t.blogsGetoond || 0;
+  const gemeten = t.blogsGemeten || 0;
+  const paginaEen = d.blogs.filter((b) => b.hkPositie !== null && b.hkPositie !== undefined && b.hkPositie <= 10).length;
+  const regel = t.vertoningen > 0 ? `Jullie blogs stonden ${F.getal(t.vertoningen)} keer in Google` : 'Google heeft jullie blogs nog niet getoond';
+  const uitleg = t.vertoningen > 0 ? d.samenvatting.slice(1).join(' ') : 'Een nieuwe blog heeft meestal een paar weken nodig voordat Google hem oppakt. Zodra het zover is, zie je het hier.';
+  const status = `<section class="p-kaart p-ov-status" data-toon="goed"><div class="p-ov-status-hoofd"><div class="p-ov-status-regel"><span class="p-ov-puls"></span>${pvEsc(regel)}</div><p>${pvEsc(uitleg)}</p></div>
+    <div class="p-ov-status-volgend">
+      <div class="p-ov-volgend"><span class="p-ov-lbl">Blogs in Google</span><span class="p-ov-val">${getoond} van ${gemeten}</span><span class="p-ov-txt">worden al getoond</span></div>
+      <div class="p-ov-volgend"><span class="p-ov-lbl">Op pagina 1</span><span class="p-ov-val">${paginaEen} ${paginaEen === 1 ? 'blog' : 'blogs'}</span><span class="p-ov-txt">voor het hoofdzoekwoord</span></div>
+      <div class="p-ov-volgend"><span class="p-ov-lbl">Cijfers tot en met</span><span class="p-ov-val">${pvEsc(F.datumKort(d.periode && d.periode.eind))}</span><span class="p-ov-txt">Google loopt 2 tot 3 dagen achter</span></div>
+    </div></section>`;
+  el.innerHTML = `<div class="p-pagina">
+    <div class="p-ov-kop"><div><h1>Google</h1><p>Hoe jullie blogs het doen in de zoekresultaten van Google. Dit is altijd de laatste stand. Wat vastligt per maand staat bij Maandrapporten.</p></div>
+      <div class="p-ov-kop-acties">${d.laatstBijgewerkt ? `<span class="p-ov-chip"><i class="p-ov-punt"></i>Bijgewerkt ${pvEsc(F.datumKort(d.laatstBijgewerkt))}</span>` : ''}</div></div>
     <div class="pv-periode-wrap">${pvPeriodeKeuze(d)}<div class="pv-muted" id="pvPeriodeMelding"></div></div>
-    ${d.toelichting ? `<div class="pv-card pv-toelichting"><div class="pv-sectie-titel">Toelichting van Advertisr</div><p>${pvEsc(d.toelichting)}</p></div>` : ''}
-    <div class="pv-card pv-samenvatting">
-      <div class="pv-sectie-titel">Zo gaat het nu</div>
-      <p>${d.samenvatting.map(pvEsc).join(' ')}</p>
-      ${d.periode && d.periode.eind ? `<p class="pv-muted"><em>Google geeft de cijfers van de laatste 2 tot 3 dagen pas later door. Daarom lopen deze cijfers tot en met ${pvEsc(pvDatum(d.periode.eind))}${d.laatstBijgewerkt ? `. Bijgewerkt op ${pvEsc(pvDatum(d.laatstBijgewerkt))}` : ''}.</em></p>` : ''}
-    </div>
+    ${d.toelichting ? `<section class="p-kaart pv-toelichting"><div class="p-kaart-inhoud"><b>Toelichting van Advertisr</b><p>${pvEsc(d.toelichting)}</p></div></section>` : ''}
+    ${status}
     <div id="pvTaalRij"></div>
-    <div class="pv-tiles" id="pvTiles">${pvTiles(t)}</div>
-    <div class="pv-voortgang">${pvEsc(voortgang)}</div>
-    ${d.weken.length ? `<div class="pv-card" id="pvWekenKaart"><div class="pv-sectie-titel">De laatste weken</div>
-      <div class="pv-charts">${pvBars(d.weken, 'vertoningen', 'pv-bar-a', 'Keer getoond per week')}${pvBars(d.weken, 'clicks', 'pv-bar-b', 'Bezoekers vanuit Google per week')}</div>
-      <div class="pv-muted pv-legenda">Een stip onder een week betekent dat er in die week een nieuwe blog live ging. De lichte staaf is de week die nog loopt.</div></div>` : ''}
-    <div id="pvEffecten"></div>
-    <div id="pvInzichten"></div>
-    <div class="pv-card">
-      <div id="pvBlogControls"></div>
-      <div id="pvBlogList"></div>
+    <section class="p-kerncijfers" id="pvTiles">${pvTiles(t)}</section>
+    <div class="p-ov-raster2">
+      <div class="p-ov-stapel">
+        ${d.weken.length ? `<section class="p-kaart" id="pvWekenKaart"><div class="p-kaart-kop"><div class="p-kaart-titel-blok"><h2 class="p-kaart-titel">De laatste weken</h2><div class="p-kaart-uitleg">Een stip onder een week betekent dat er die week een nieuwe blog live ging. De lichte staaf is de week die nog loopt.</div></div></div>
+          <div class="p-kaart-inhoud"><div class="pv-charts">${pvBars(d.weken, 'vertoningen', 'pv-bar-a', 'Keer getoond per week')}${pvBars(d.weken, 'clicks', 'pv-bar-b', 'Bezoekers vanuit Google per week')}</div></div></section>` : ''}
+        <section class="p-kaart"><div class="p-kaart-kop"><div class="p-kaart-titel-blok"><h2 class="p-kaart-titel">Per blog</h2></div></div><div class="p-kaart-inhoud"><div id="pvBlogControls"></div><div id="pvBlogList"></div></div></section>
+      </div>
+      <div class="p-ov-stapel">
+        <div id="pvInzichten"></div>
+        <div id="pvEffecten"></div>
+        <details class="p-kaart pv-uitleg"><summary>Hoe lees ik dit?</summary><div class="p-kaart-inhoud">
+          <p><b>Getoond</b> betekent dat een blog in de zoekresultaten van Google stond. Dat gebeurt vaak eerder dan dat iemand doorklikt.</p>
+          <p><b>Positie</b> laten we in pagina\u2019s zien. Pagina 1 zijn de eerste tien resultaten, en daar komen de meeste bezoekers vandaan. Een lagere positie is beter.</p>
+          <p>Een nieuwe blog heeft meestal een paar weken nodig voordat Google hem oppakt. Cijfers uit Google lopen bovendien 2 tot 3 dagen achter.</p>
+          <p>Blogs zijn vaak het begin van een ori\u00ebntatie. Iemand die eerst een blog leest en later via een andere weg terugkomt om te boeken, zien we niet terug. De cijfers over aanvragen en boekingen laten dus zien wat een blog aantoonbaar bijdraagt, niet alles wat een blog oplevert.</p></div></details>
+      </div>
     </div>
-    <details class="pv-card pv-uitleg"><summary>Hoe lees ik dit?</summary>
-      <p><b>Getoond</b> betekent dat een blog in de zoekresultaten van Google stond. Dat gebeurt vaak eerder dan dat iemand doorklikt.</p>
-      <p><b>Positie</b> laten we in pagina's zien. Pagina 1 zijn de eerste tien resultaten, en daar komen de meeste bezoekers vandaan.</p>
-      <p>Een nieuwe blog heeft meestal een paar weken nodig voordat Google hem oppakt. Cijfers uit Google lopen bovendien 2 tot 3 dagen achter.</p>
-      <p>Blogs zijn vaak het begin van een oriëntatie. Iemand die eerst een blog leest en later via een andere weg terugkomt om te boeken, zien we niet terug. De cijfers over aanvragen en boekingen laten dus zien wat een blog aantoonbaar bijdraagt, niet alles wat een blog oplevert.</p>
-    </details>
-    <div class="pv-muted pv-footer">Periode ${pvEsc(pvDatum(d.periode.start))} tot en met ${pvEsc(pvDatum(d.periode.eind))}${d.laatstBijgewerkt ? `. Laatst bijgewerkt op ${pvEsc(pvDatum(d.laatstBijgewerkt))}` : ''}.</div>`;
+  </div>`;
   pvTekenInzichten();
   pvTekenEffecten();
   document.getElementById('pvBlogControls').innerHTML = pvControlsHtml();
@@ -424,6 +375,8 @@ function renderPrestatiesV2(d) {
       herteken();
       return;
     }
+    const insTab = e.target.closest('[data-pv-instab]');
+    if (insTab) { pvState.insTab = insTab.getAttribute('data-pv-instab'); pvTekenInzichten(); return; }
     const ins = e.target.closest('[data-pv-ins]');
     if (ins) {
       const k = ins.getAttribute('data-pv-ins');
@@ -464,16 +417,60 @@ function pvTekenTaalRij() {
   if (weken) weken.style.display = pvState.taal ? 'none' : '';
 }
 
+const PV_ZIN_KANSEN = 'Advertisr beoordeelt of een blog kan worden aangevuld. Bestaande blogs worden niet automatisch aangepast.';
+
+function pvKansenPerBlog(lijst) {
+  const open = Boolean(pvState.insOpen.kansen);
+  const groepen = [];
+  lijst.forEach((k) => {
+    const naam = k.blogTitel || (k.soort === 'nieuw_onderwerp' ? 'Nieuwe onderwerpen' : 'Overige kansen');
+    let g = groepen.find((x) => x.naam === naam);
+    if (!g) { g = { naam, items: [] }; groepen.push(g); }
+    g.items.push(k);
+  });
+  const zichtbaar = open ? groepen : groepen.slice(0, PV_KANSEN_ZICHTBAAR);
+  const html = zichtbaar.map((g) => `
+    <div class="pv-groep">
+      <div class="pv-groep-naam">${pvEsc(g.naam)}</div>
+      ${g.items.map((k) => k.signaal ? `
+        <div class="pv-kans">
+          <div class="pv-kans-tags"><span class="pv-tag">${pvEsc(k.soortLabel)}</span><span class="pv-tag pv-tag-${pvEsc(k.prioriteit)}">${pvEsc(PV_PRIO[k.prioriteit] || '')}</span></div>
+          <div class="pv-ins-titel">${pvEsc(k.signaal)}</div>
+          ${k.waarom ? `<div class="pv-ins-tekst">${pvEsc(k.waarom)}</div>` : ''}
+          ${k.actie ? `<div class="pv-ins-actie">Wat wij doen: ${pvEsc(k.actie)}</div>` : ''}
+          ${k.onderbouwing ? `<details class="pv-onderbouwing"><summary>Onderbouwing</summary><div class="pv-ins-tekst">${pvEsc(k.onderbouwing)}</div></details>` : ''}
+        </div>` : `
+        <div class="pv-kans">
+          <div class="pv-ins-titel">${pvEsc(k.titel)}</div>
+          <div class="pv-ins-tekst">${pvEsc(k.tekst)}</div>
+        </div>`).join('')}
+    </div>`).join('');
+  const meer = groepen.length - PV_KANSEN_ZICHTBAAR;
+  return html + (meer > 0 ? `<button type="button" class="pv-toggle" data-pv-ins="kansen">${open ? 'Toon minder' : `Toon alle ${groepen.length} blogs`}</button>` : '') + `<div class="pv-muted pv-kans-noot">${pvEsc(PV_ZIN_KANSEN)}</div>`;
+}
+
 function pvTekenInzichten() {
   const box = document.getElementById('pvInzichten');
   if (!box) return;
   const i = pvState.data.inzichten;
   if (!(i.goed.length || i.kansen.length || i.aandacht.length)) { box.innerHTML = ''; return; }
-  box.innerHTML = `
-    <div class="pv-card"><div class="pv-sectie-titel">Wat we zien en wat we doen</div>
-      <div class="pv-ins-grid">
-        ${pvInzicht('goed', 'Goed nieuws', 'goed', i.goed, false)}
-        ${pvKansen(i.kansen, pvState.data.kansenPeriode)}
-        ${pvInzicht('aandacht', 'Aandacht', 'aandacht', i.aandacht, true)}
-      </div></div>`;
+  const tabs = [['goed', 'Goed nieuws', i.goed], ['kansen', 'Kansen', i.kansen], ['aandacht', 'Aandacht', i.aandacht]].filter((t) => t[2].length);
+  if (!tabs.some((t) => t[0] === pvState.insTab)) pvState.insTab = tabs[0][0];
+  const actief = tabs.find((t) => t[0] === pvState.insTab);
+  let inhoud;
+  if (actief[0] === 'kansen') {
+    const noot = i.kansen.some((k) => k.signaal) && pvState.data.kansenPeriode && pvState.data.kansenPeriode.start
+      ? `<div class="pv-muted pv-kans-noot">Kansen horen bij de laatste 28 dagen (${pvEsc(pvDatum(pvState.data.kansenPeriode.start))} tot en met ${pvEsc(pvDatum(pvState.data.kansenPeriode.eind))}), ook als je een andere periode kiest.</div>` : '';
+    inhoud = noot + pvKansenPerBlog(i.kansen);
+  } else {
+    const lijst = actief[2];
+    const open = Boolean(pvState.insOpen[actief[0]]);
+    const zichtbaar = open ? lijst : lijst.slice(0, PV_INZICHT_ZICHTBAAR);
+    const meer = lijst.length - PV_INZICHT_ZICHTBAAR;
+    inhoud = zichtbaar.map((x) => `<div class="pv-kans"><div class="pv-ins-titel">${pvEsc(x.titel)}</div><div class="pv-ins-tekst">${pvEsc(x.tekst)}</div>${actief[0] === 'aandacht' && x.actie ? `<div class="pv-ins-actie">Wat wij doen: ${pvEsc(x.actie)}</div>` : ''}</div>`).join('') +
+      (meer > 0 ? `<button type="button" class="pv-toggle" data-pv-ins="${actief[0]}">${open ? 'Toon minder' : `Toon alle ${lijst.length}`}</button>` : '');
+  }
+  box.innerHTML = `<section class="p-kaart"><div class="p-kaart-kop"><div class="p-kaart-titel-blok"><h2 class="p-kaart-titel">Wat we zien en wat we doen</h2></div></div>
+    <div class="p-kaart-inhoud"><div class="pv-tabs" role="tablist">${tabs.map((t) => `<button type="button" role="tab" aria-selected="${t[0] === pvState.insTab}" class="pv-tab${t[0] === pvState.insTab ? ' actief' : ''}" data-pv-instab="${t[0]}">${t[1]}<span>${t[2].length}</span></button>`).join('')}</div>
+    <div class="pv-tabinhoud">${inhoud}</div></div></section>`;
 }

@@ -26,29 +26,28 @@
     return 'ai-verschil';
   }
 
-  function kaart(p) {
+  const F = () => window.PortaalFormat;
+  const U = () => window.PortaalUI;
+  let toonAlleVragen = false;
+
+  function platformKerncijfer(p) {
     const vt = verschilTekst(p.verschil);
-    return `<div class="ai-kaart">
-      <div class="ai-kaart-kop">${esc(p.label)}</div>
-      <div class="ai-groot">${p.percentage}%</div>
-      <div class="ai-onder">${p.genoemd} van de ${p.antwoorden} antwoorden noemt jullie merk</div>
-      <div class="ai-onder">${p.geciteerd} keer is jullie website als bron gebruikt</div>
-      ${vt ? `<div class="${verschilKlasse(p.verschil)}">${esc(vt)}</div>` : ''}
-    </div>`;
+    return U().kerncijfer({
+      label: p.label, icoon: 'ai', toon: 'ai', waarde: F().procent(p.percentage),
+      verschil: p.verschil && p.verschil.soort === 'meer' ? { tekst: 'Vaker genoemd', toon: 'goed' } : p.verschil && p.verschil.soort === 'minder' ? { tekst: 'Minder genoemd', toon: 'slecht' } : p.verschil && p.verschil.soort === 'schommeling' ? { tekst: 'Gelijk', toon: 'gelijk' } : null,
+      vergelijking: p.genoemd + ' van de ' + p.antwoorden + ' antwoorden noemt jullie merk',
+      extra: p.geciteerd + ' keer is jullie website als bron gebruikt' + (vt && p.verschil.soort !== 'schommeling' ? '. ' + vt : '')
+    });
   }
 
-  function procent(c) {
-    if (!c || !c.antwoorden) return '<span class="ai-nvt">geen data</span>';
-    return `${Math.round((c.genoemd / c.antwoorden) * 100)}% <span class="ai-klein">(${c.genoemd} van ${c.antwoorden})</span>`;
-  }
-
-  function clusterTabel(clusters, markt) {
+  function onderwerpKaarten(clusters, markt) {
     if (!clusters.length) return '';
-    const woord = markt ? 'Markt' : 'Onderwerp';
-    const rijen = clusters.map((c) => `<tr><td>${esc(c.naam)}</td><td>${procent(c.platformen.chatgpt)}</td><td>${procent(c.platformen.gemini)}</td></tr>`).join('');
-    return `<div class="ai-blok"><h3>${markt ? 'Per markt' : 'Per onderwerp'}</h3>
-      <p class="ai-uitleg">${markt ? 'In welke markten (talen) noemt de AI jullie merk het vaakst.' : 'Bij welke onderwerpen noemt de AI jullie merk het vaakst.'}</p>
-      <div class="ai-tabel-wrap"><table class="ai-tabel"><thead><tr><th>${woord}</th><th>ChatGPT</th><th>Gemini</th></tr></thead><tbody>${rijen}</tbody></table></div></div>`;
+    const cel = (naam, c) => {
+      if (!c || !c.antwoorden) return '<div><dt>' + naam + '</dt><dd class="ai-nvt">Geen data</dd></div>';
+      return '<div><dt>' + naam + '</dt><dd>' + esc(F().procent((c.genoemd / c.antwoorden) * 100)) + '<span class="ai-klein"> ' + c.genoemd + ' van ' + c.antwoorden + '</span></dd></div>';
+    };
+    const kaarten = clusters.map((c) => '<article class="p-ov-onderwerp"><h3>' + esc(c.naam) + '</h3><dl>' + cel('ChatGPT', c.platformen.chatgpt) + cel('Gemini', c.platformen.gemini) + '</dl></article>').join('');
+    return U().kaart({ titel: markt ? 'Per markt' : 'Per onderwerp', uitleg: markt ? 'In welke markten (talen) de AI jullie merk het vaakst noemt' : 'Bij welke onderwerpen de AI jullie merk het vaakst noemt', inhoud: '<div class="p-ov-onderwerpen">' + kaarten + '</div>' });
   }
 
   function trendBlok(trend, reeks, laatsteControle) {
@@ -65,37 +64,27 @@
     const basis = reeks === 'kern'
       ? 'Dit verloop is gebaseerd op een vaste set kernvragen, zodat de weken goed vergelijkbaar zijn. Elk kwartaal controleren wij of die vragen nog bij jullie aanbod en de zoekopdrachten passen.'
       : '';
-    const controle = reeks === 'kern' && laatsteControle ? ` Laatste controle van de kernvragen: ${esc(datumKort(laatsteControle))}.` : '';
-    return `<div class="ai-blok"><h3>Verloop per week</h3>
-      <p class="ai-uitleg">Het percentage antwoorden waarin jullie merk genoemd wordt. Kleine schommelingen zeggen weinig, kijk vooral naar de richting over meerdere weken.</p>${basis || controle ? `<p class="ai-uitleg">${esc(basis)}${controle}</p>` : ''}${rijen}</div>`;
-  }
-
-  function datumKort(iso) {
-    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
-    if (!m) return String(iso || '');
-    const mnd = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
-    return `${Number(m[3])} ${mnd[Number(m[2]) - 1]} ${m[1]}`;
+    const controle = reeks === 'kern' && laatsteControle ? ` Laatste controle van de kernvragen: ${esc(F().datumLang(laatsteControle))}.` : '';
+    return U().kaart({ titel: 'Verloop per week', uitleg: 'Het percentage antwoorden waarin jullie merk genoemd wordt. Kijk vooral naar de richting over meerdere weken.', inhoud: (basis || controle ? `<p class="ai-uitleg">${esc(basis)}${controle}</p>` : '') + rijen });
   }
 
   function kansenBlok(kansen) {
     if (!kansen || !kansen.length) return '';
     const label = { hoog: 'Hoge prioriteit', middel: 'Middelhoge prioriteit', laag: 'Lage prioriteit' };
-    const items = kansen.map((k) => `<div class="ai-kans">
-      <div class="ai-kans-tag ai-kans-${esc(k.prioriteit)}">${esc(label[k.prioriteit] || 'Prioriteit')}</div>
-      <div class="ai-kans-rij"><span class="ai-kans-lbl">Signaal</span><span>${esc(k.signaal)}</span></div>
-      <div class="ai-kans-rij"><span class="ai-kans-lbl">Waarom</span><span>${esc(k.waarom)}</span></div>
-      <div class="ai-kans-rij"><span class="ai-kans-lbl">Actie</span><span>${esc(k.actie)}</span></div>
-      <div class="ai-kans-rij ai-klein"><span class="ai-kans-lbl">Onderbouwing</span><span>${esc(k.onderbouwing)}</span></div>
+    const items = kansen.map((k) => `<div class="pv-kans">
+      <div class="pv-kans-tags"><span class="pv-tag pv-tag-${esc(k.prioriteit)}">${esc(label[k.prioriteit] || 'Prioriteit')}</span></div>
+      <div class="pv-ins-titel">${esc(k.signaal)}</div>
+      ${k.waarom ? `<div class="pv-ins-tekst">${esc(k.waarom)}</div>` : ''}
+      ${k.actie ? `<div class="pv-ins-actie">Wat wij doen: ${esc(k.actie)}</div>` : ''}
+      ${k.onderbouwing ? `<details class="pv-onderbouwing"><summary>Onderbouwing</summary><div class="pv-ins-tekst">${esc(k.onderbouwing)}</div></details>` : ''}
     </div>`).join('');
-    return `<div class="ai-blok"><h3>Kansen voor AI zichtbaarheid</h3>
-      <p class="ai-uitleg">Dit zijn signalen uit de meting. Het zijn geen garanties: AI antwoorden verschillen van keer tot keer.</p>${items}</div>`;
+    return U().kaart({ titel: 'Kansen voor AI zichtbaarheid', inhoud: items + '<div class="pv-muted pv-kans-noot">Dit zijn signalen uit de meting, geen garanties. AI antwoorden verschillen van keer tot keer.</div>' });
   }
 
   function urlBlok(urls) {
     if (!urls.length) return '';
     const lijst = urls.map((u) => `<li><a href="${esc(u.url)}" target="_blank" rel="noopener noreferrer">${esc(u.url.replace(/^https?:\/\//, ''))}</a> <span class="ai-klein">${u.aantal} keer</span></li>`).join('');
-    return `<div class="ai-blok"><h3>Pagina's die de AI gebruikt</h3>
-      <p class="ai-uitleg">Deze pagina's van jullie website zijn als bron aangehaald in de antwoorden.</p><ul class="ai-lijst">${lijst}</ul></div>`;
+    return U().kaart({ titel: 'Pagina’s die de AI gebruikt', uitleg: 'Deze pagina’s van jullie website zijn als bron aangehaald in de antwoorden.', inhoud: `<ul class="ai-lijst">${lijst}</ul>` });
   }
 
   function stip(p) {
@@ -112,20 +101,20 @@
     return url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 48))}</a>` : `${n} keer`;
   }
 
-  function vragenBlok(data, alles) {
+  function vragenBlok(data) {
     const markt = data.clusterSoort === 'markt';
     const lijst = data.vragen || [];
     if (!lijst.length) return '';
-    const getoond = alles ? lijst : lijst.slice(0, 15);
-    const rijen = getoond.map((v) => {
-      const gevonden = v.chatgpt.genoemd + v.gemini.genoemd > 0;
-      return `<tr class="${gevonden ? '' : 'ai-rij-zwak'}"><td>${esc(v.vraag)}</td>${markt ? `<td class="ai-kol">${esc(v.onderwerp)}</td>` : ''}<td class="ai-kol">${stip(v.chatgpt)}</td><td class="ai-kol">${stip(v.gemini)}</td><td class="ai-kol-bron">${bronCel(v)}</td></tr>`;
-    }).join('');
-    const gevonden = lijst.filter((v) => v.chatgpt.genoemd + v.gemini.genoemd > 0).length;
-    const meer = !alles && lijst.length > 15 ? `<button type="button" class="mp-link" id="aiVragenAlle">Toon alle ${lijst.length} vragen</button>` : '';
-    return `<h3>Per vraag</h3>
-      <p class="ai-uitleg">Bij ${gevonden} van de ${lijst.length} vragen werd jullie merk genoemd in de ${esc(data.week.label)}. Een groene stip betekent dat het merk in het antwoord stond.</p>
-      <div class="ai-tabel-wrap"><table class="ai-tabel"><thead><tr><th>Vraag</th>${markt ? '<th class="ai-kol">Markt</th>' : ''}<th class="ai-kol">ChatGPT</th><th class="ai-kol">Gemini</th><th class="ai-kol-bron">Website als bron</th></tr></thead><tbody>${rijen}</tbody></table></div>${meer}`;
+    const genoemd = (v) => v.chatgpt.genoemd + v.gemini.genoemd > 0;
+    const met = lijst.filter(genoemd);
+    const zonder = lijst.length - met.length;
+    const getoond = toonAlleVragen ? lijst : met;
+    const rij = (v) => `<tr class="${genoemd(v) ? '' : 'ai-rij-zwak'}"><td>${esc(v.vraag)}</td>${markt ? `<td class="ai-kol">${esc(v.onderwerp)}</td>` : ''}<td class="ai-kol">${stip(v.chatgpt)}</td><td class="ai-kol">${stip(v.gemini)}</td><td class="ai-kol-bron">${bronCel(v)}</td></tr>`;
+    const tabel = getoond.length
+      ? `<div class="ai-tabel-wrap"><table class="ai-tabel"><thead><tr><th>Vraag</th>${markt ? '<th class="ai-kol">Markt</th>' : ''}<th class="ai-kol">ChatGPT</th><th class="ai-kol">Gemini</th><th class="ai-kol-bron">Website als bron</th></tr></thead><tbody>${getoond.map(rij).join('')}</tbody></table></div>`
+      : U().legeStand({ soort: 'wacht', titel: 'Nog bij geen enkele vraag genoemd', tekst: 'Zodra jullie merk in een antwoord staat, zie je de vraag hier.' });
+    const knop = zonder > 0 ? `<button type="button" class="pv-toggle" id="aiVragenAlle">${toonAlleVragen ? 'Verberg de vragen zonder vermelding' : `Toon ook de vragen zonder vermelding (${zonder})`}</button>` : '';
+    return U().kaart({ titel: 'Per vraag', uitleg: `Bij ${met.length} van de ${lijst.length} vragen werd jullie merk genoemd in de ${data.week.label}. Een groene stip betekent dat het merk in het antwoord stond.`, inhoud: tabel + knop });
   }
 
   async function laadVragen() {
@@ -134,12 +123,12 @@
     try {
       const data = await apiAi(`/${clientId}/ai-zichtbaarheid/vragen`);
       if (data.status !== 'ok' || !(data.vragen || []).length) { blok.remove(); return; }
-      const teken2 = (alles) => {
-        blok.innerHTML = vragenBlok(data, alles);
+      const teken2 = () => {
+        blok.innerHTML = vragenBlok(data);
         const knop = el('aiVragenAlle');
-        if (knop) knop.addEventListener('click', () => teken2(true));
+        if (knop) knop.addEventListener('click', () => { toonAlleVragen = !toonAlleVragen; teken2(); });
       };
-      teken2(false);
+      teken2();
     } catch (err) {
       blok.remove();
     }
@@ -148,36 +137,45 @@
   function teken(data) {
     const inhoud = el('aiZichtbaarheidInhoud');
     if (!inhoud) return;
+    const kop = '<div class="p-ov-kop"><div><h1>AI zichtbaarheid</h1><p>Steeds meer mensen stellen hun vraag aan ChatGPT of Gemini in plaats van aan Google. Wij stellen elke week dezelfde vragen aan beide en tellen hoe vaak jullie merk in het antwoord voorkomt.</p></div>' +
+      (data.status === 'ok' ? `<div class="p-ov-kop-acties"><span class="p-ov-chip"><i class="p-ov-punt"></i>Laatste meting: ${esc(data.laatsteWeek.label)}</span></div>` : '') + '</div>';
     if (data.status !== 'ok') {
-      inhoud.innerHTML = `<div class="ai-leeg">${esc(data.melding || 'Er zijn nog geen resultaten.')}</div>`;
+      inhoud.innerHTML = '<div class="p-pagina">' + kop + U().kaart({ inhoud: U().legeStand({ soort: 'wacht', titel: 'De eerste meting volgt', tekst: data.melding || 'Zodra de eerste volledige week is gemeten, zie je hier de resultaten.' }) }) + '</div>';
       return;
     }
-    inhoud.innerHTML = `
-      <div class="ai-intro">
-        <h2>AI zichtbaarheid</h2>
-        <p>Steeds meer mensen stellen hun vraag aan ChatGPT of Gemini in plaats van aan Google. Wij stellen elke week dezelfde vragen aan beide en tellen hoe vaak jullie merk in het antwoord voorkomt.</p>
-        <p class="ai-stand">Laatste volledige meting: ${esc(data.laatsteWeek.label)}</p>
-        ${data.melding ? `<p class="ai-let-op">${esc(data.melding)}</p>` : ''}
-      </div>
-      ${data.clusterSoort === 'markt' ? '<p class="ai-uitleg">De cijfers hieronder zijn het totaal over alle markten. Per markt staat het hieronder.</p>' : ''}
-      <div class="ai-kaarten">${data.platformen.map(kaart).join('')}</div>
-      ${data.aantalWeken < 3 ? '<p class="ai-uitleg">Het verloop per week verschijnt zodra er drie volledige weken zijn gemeten. Zo voorkomen we dat toeval als winst of verlies wordt gezien.</p>' : ''}
-      ${trendBlok(data.trend, data.reeks, data.laatsteKernControle)}
-      ${clusterTabel(data.clusters, data.clusterSoort === 'markt')}
-      ${kansenBlok(data.kansen)}
-      <div class="ai-blok" id="aiVragenBlok"><p class="ai-uitleg">Vragen laden...</p></div>
-      ${urlBlok(data.eigenUrls)}
-      <p class="ai-voet">Het gaat om vragen die wij zelf hebben opgesteld. AI antwoorden verschillen van keer tot keer, dus het gaat om het grote beeld.</p>`;
+    const antw = data.platformen.reduce((t, p) => t + p.antwoorden, 0);
+    const gen = data.platformen.reduce((t, p) => t + p.genoemd, 0);
+    const totaal = antw ? Math.round((gen / antw) * 100) : 0;
+    const gec = data.platformen.reduce((t, p) => t + p.geciteerd, 0);
+    const d = new Date(Date.UTC(+data.laatsteWeek.start.slice(0, 4), +data.laatsteWeek.start.slice(5, 7) - 1, +data.laatsteWeek.start.slice(8, 10) + 7)).toISOString().slice(0, 10);
+    const volgende = d >= new Date().toISOString().slice(0, 10) ? F().datumLang(d) : 'Deze week';
+    const status = `<section class="p-kaart p-ov-status" data-toon="goed"><div class="p-ov-status-hoofd"><div class="p-ov-status-regel"><span class="p-ov-puls p-ov-puls-ai"></span>${esc(totaal === 0 ? 'AI noemt jullie merk nog niet' : 'AI noemt jullie merk in ' + totaal + '% van de antwoorden')}</div>
+      <p>${esc(totaal === 0 ? 'Dat is een normaal beginpunt. Wij meten elke week en laten hier zien wat er verandert.' : 'Dit is het totaal over ChatGPT en Gemini in de laatste volledige week.')}${data.melding ? ' ' + esc(data.melding) : ''}</p></div>
+      <div class="p-ov-status-volgend">
+        <div class="p-ov-volgend"><span class="p-ov-lbl">Laatste meting</span><span class="p-ov-val">${esc(data.laatsteWeek.label)}</span><span class="p-ov-txt">${antw} antwoorden</span></div>
+        <div class="p-ov-volgend"><span class="p-ov-lbl">Volgende meting</span><span class="p-ov-val">${esc(volgende)}</span><span class="p-ov-txt">Elke week</span></div>
+        <div class="p-ov-volgend"><span class="p-ov-lbl">Weken gemeten</span><span class="p-ov-val">${data.aantalWeken}</span><span class="p-ov-txt">${data.aantalWeken < 3 ? 'Verloop volgt na 3 weken' : 'Zie het verloop'}</span></div>
+      </div></section>`;
+    const verloop = data.aantalWeken < 3
+      ? U().kaart({ titel: 'Verloop per week', inhoud: U().legeStand({ soort: 'wacht', titel: 'Het verloop volgt na drie weken', tekst: 'Zo voorkomen we dat toeval als winst of verlies wordt gezien.' }) })
+      : trendBlok(data.trend, data.reeks, data.laatsteKernControle);
+    inhoud.innerHTML = `<div class="p-pagina">${kop}${status}
+      <section class="p-kerncijfers">${data.platformen.map(platformKerncijfer).join('')}${U().kerncijfer({ label: 'Website als bron', icoon: 'blad', waarde: F().getal(gec), vergelijking: 'Keer dat jullie website in een antwoord werd aangehaald' })}</section>
+      ${data.clusterSoort === 'markt' ? '<p class="ai-uitleg">De cijfers hierboven zijn het totaal over alle markten.</p>' : ''}
+      <div class="p-ov-raster2">
+        <div class="p-ov-stapel">${verloop}${onderwerpKaarten(data.clusters, data.clusterSoort === 'markt')}<div id="aiVragenBlok"></div></div>
+        <div class="p-ov-stapel">${kansenBlok(data.kansen)}${urlBlok(data.eigenUrls)}<p class="ai-voet">Het gaat om vragen die wij zelf hebben opgesteld. AI antwoorden verschillen van keer tot keer, dus het gaat om het grote beeld.</p></div>
+      </div></div>`;
     laadVragen();
   }
 
   async function laad() {
     const inhoud = el('aiZichtbaarheidInhoud');
-    if (inhoud) inhoud.innerHTML = '<div class="ai-leeg">Laden...</div>';
+    if (inhoud) inhoud.innerHTML = '<div class="p-pagina">' + U().laden([{ breedte: '40%', hoogte: 30 }, { breedte: '100%', hoogte: 120 }, { breedte: '100%', hoogte: 160 }]) + '</div>';
     try {
       teken(await apiAi(`/${clientId}/ai-zichtbaarheid`));
     } catch (err) {
-      if (inhoud) inhoud.innerHTML = `<div class="ai-leeg">${esc(err.message)}</div>`;
+      if (inhoud) inhoud.innerHTML = '<div class="p-pagina">' + U().foutStand({ titel: 'De AI meting laadt even niet', tekst: 'De rest van het portaal werkt gewoon. Probeer het straks opnieuw.' }) + '</div>';
     }
   }
 

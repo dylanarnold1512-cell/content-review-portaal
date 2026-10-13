@@ -5,7 +5,7 @@ let state = {
   items: [],
   filter: 'alle',
   datumFilter: 'alle',
-  sorteer: 'nieuw',
+  sorteer: 'komend',
   selectedId: null,
   searchQuery: '',
   activeTab: 'blogs'
@@ -436,12 +436,14 @@ window.addEventListener('popstate', () => {
 });
 
 function renderFilters() {
-  const statuses = ['alle', ...Object.values(state.statusValues)];
   const filtersEl = document.getElementById('filters');
-  filtersEl.innerHTML = statuses
-    .map((s) => `<div class="filter-chip ${state.filter === s ? 'active' : ''}" data-status="${s}">${s === 'alle' ? 'Alle' : s}</div>`)
+  const M = window.BlogsModel;
+  const t = M.telPerFilter(state.items, state.statusValues);
+  const keuzes = [['alle', 'Alles'], ...(state.reviewEnabled ? [['wacht', 'Wacht op jou']] : []), ['gepland', 'Gepland'], ['live', 'Live']];
+  filtersEl.innerHTML = keuzes
+    .map(([code, label]) => `<button type="button" class="p-bl-chip ${state.filter === code ? 'actief' : ''}" data-status="${code}">${label}<span>${t[code]}</span></button>`)
     .join('');
-  filtersEl.querySelectorAll('.filter-chip').forEach((chip) => {
+  filtersEl.querySelectorAll('.p-bl-chip').forEach((chip) => {
     chip.addEventListener('click', () => {
       state.filter = chip.dataset.status;
       renderFilters();
@@ -507,6 +509,7 @@ function renderDateFilters() {
   el.innerHTML =
     `<label class="filter-field"><span>Periode</span><select class="date-select" id="periodeSelect">${opties}</select></label>` +
     `<label class="filter-field"><span>Volgorde</span><select class="date-select" id="sorteerSelect">` +
+    `<option value="komend" ${state.sorteer === 'komend' ? 'selected' : ''}>Komende eerst</option>` +
     `<option value="nieuw" ${state.sorteer === 'nieuw' ? 'selected' : ''}>Nieuwste eerst</option>` +
     `<option value="oud" ${state.sorteer === 'oud' ? 'selected' : ''}>Oudste eerst</option></select></label>` +
     `<div class="filter-meta"><span id="filterAantal"></span>${gefilterd ? '<button type="button" class="filter-reset" id="filterReset">Wis filters</button>' : ''}</div>`;
@@ -535,27 +538,15 @@ function renderDateFilters() {
 }
 
 function getFiltered() {
-  let items = state.filter === 'alle' ? state.items : state.items.filter((i) => i.status === state.filter);
+  let items = state.items.filter((i) => window.BlogsModel.pastBijFilter(i, state.filter, state.statusValues));
   items = items.filter(pastBijDatumFilter);
   const q = state.searchQuery.trim().toLowerCase();
   if (q) {
     items = items.filter(
-      (i) => (i.titel || '').toLowerCase().includes(q) || (i.categorie || '').toLowerCase().includes(q)
+      (i) => (i.titel || '').toLowerCase().includes(q) || (i.categorie || '').toLowerCase().includes(q) || (i.cluster || '').toLowerCase().includes(q)
     );
   }
-  // Sorteren op publicatiedatum. Blogs zonder datum staan altijd onderaan.
-  const tijd = (i) => {
-    const d = parseFlexibeleDatum(i.publicatiedatum);
-    return d ? d.getTime() : null;
-  };
-  return items.slice().sort((a, b) => {
-    const ta = tijd(a);
-    const tb = tijd(b);
-    if (ta === null && tb === null) return 0;
-    if (ta === null) return 1;
-    if (tb === null) return -1;
-    return state.sorteer === 'nieuw' ? tb - ta : ta - tb;
-  });
+  return items;
 }
 
 document.getElementById('searchInput')?.addEventListener('input', (e) => {
@@ -567,29 +558,56 @@ function renderList() {
   renderDateFilters();
   const listEl = document.getElementById('list');
   const filtered = getFiltered();
-  document.getElementById('listTitle').textContent = `Blogs (${filtered.length})`;
-  listEl.innerHTML =
-    filtered
-      .map(
-        (item) => `
-    <div class="card ${item.id === state.selectedId ? 'selected' : ''}" data-id="${item.id}">
-      <div class="card-top">
-        <p class="card-title">${item.titel || '(geen titel)'}${isNieuwBlog(item) ? ' <span class="nieuw-label">Nieuw</span>' : ''}</p>
-        <span class="badge ${badgeClass(item.status)}">${item.status || '—'}</span>
+  const M = window.BlogsModel;
+  const titel = document.getElementById('listTitle');
+  if (titel) titel.textContent = '';
+  const groepen = M.groepeerPerMaand(filtered, state.sorteer, new Date().toISOString().slice(0, 10));
+  const rij = (item) => {
+    const iso = String(item.publicatiedatum || '').slice(0, 10);
+    const heeftDatum = /^\d{4}-\d{2}-\d{2}$/.test(iso);
+    const datumVak = heeftDatum
+      ? `<div class="p-ov-datum"><b>${Number(iso.slice(8, 10))}</b><span>${escapeHtml(PortaalFormat.datumKort(iso).split(' ')[1] || '')}</span></div>`
+      : '<div class="p-ov-datum"><b>–</b><span>&nbsp;</span></div>';
+    const tone = M.toonVan(item.status, state.statusValues);
+    return `
+    <div class="p-bl-rij ${item.id === state.selectedId ? 'geselecteerd' : ''}" data-id="${escapeHtml(item.id)}" role="button" tabindex="0">
+      ${datumVak}
+      <div class="p-bl-rij-tekst">
+        <div class="p-bl-rij-titel">${escapeHtml(item.titel || '(geen titel)')}${isNieuwBlog(item) ? ' <span class="nieuw-label">Nieuw</span>' : ''}</div>
+        ${item.cluster ? `<div class="p-ov-rij-meta"><span class="p-ov-tag">${escapeHtml(item.cluster)}</span></div>` : ''}
       </div>
-      <div class="card-meta">${item.categorie || ''} ${item.publicatiedatum ? '· ' + item.publicatiedatum : ''}</div>
-    </div>
-  `
-      )
-      .join('') || `<div class="empty-state">Geen blogs gevonden met deze filters.</div>`;
-  listEl.querySelectorAll('.card').forEach((card) => {
-    card.addEventListener('click', () => {
-      state.selectedId = card.dataset.id;
-      updateUrlForSelection();
-      renderList();
-      renderDetail();
-    });
+      ${PortaalUI.pil(item.status || '', tone)}
+    </div>`;
+  };
+  listEl.innerHTML =
+    groepen
+      .map((g) => `<div class="p-bl-maand">${escapeHtml(g.label)}</div>${g.items.map(rij).join('')}`)
+      .join('') ||
+    `<div class="empty-state">${state.items.length ? 'Geen blogs gevonden met deze filters.' : 'Er staan nog geen blogs. Zodra de planning klaar is, zie je ze hier.'}</div>`;
+  const kies = (el) => {
+    state.selectedId = el.dataset.id;
+    updateUrlForSelection();
+    renderList();
+    renderDetail();
+    if (window.matchMedia && window.matchMedia('(max-width: 900px)').matches) {
+      const d = document.getElementById('detail');
+      if (d) d.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+  listEl.querySelectorAll('.p-bl-rij').forEach((card) => {
+    card.addEventListener('click', () => kies(card));
+    card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); kies(card); } });
   });
+}
+
+// Bij een blog zonder tekst zeggen we wat er gaat gebeuren, geen foutmelding.
+function geenTekstBericht(item) {
+  const d = String(item.publicatiedatum || '').slice(0, 10);
+  const wanneer = /^\d{4}-\d{2}-\d{2}$/.test(d) ? ' rond ' + PortaalFormat.datumLang(d) : '';
+  const tekst = item.status === state.statusValues.idea
+    ? 'Dit is een idee. Zodra het wordt ingepland, schrijven we de blog en zie je hem hier.'
+    : 'Deze blog schrijven wij' + wanneer + '. Je krijgt een mail als hij klaar is voor review.';
+  return `<p class="p-bl-nog-niet">${escapeHtml(tekst)}</p>`;
 }
 
 async function renderDetail() {
@@ -620,18 +638,18 @@ async function renderDetail() {
   // tab) — dit blok laat zien hóe het onderwerp tot stand kwam, dus ook
   // relevant vóór publicatie (Idee/Gepland).
   const strategyRows = [
-    item.mainKeyword ? `<div><span class="seo-label">Hoofdkeyword</span>${item.mainKeyword}</div>` : '',
-    item.secundaireKeywords ? `<div><span class="seo-label">Secundaire keywords</span>${item.secundaireKeywords}</div>` : '',
+    item.mainKeyword ? `<div><span class="seo-label">Belangrijkste zoekwoord</span>${escapeHtml(item.mainKeyword)}</div>` : '',
+    item.secundaireKeywords ? `<div><span class="seo-label">Andere zoekwoorden</span>${escapeHtml(item.secundaireKeywords)}</div>` : '',
     item.cluster || item.zoekintentie
-      ? `<div><span class="seo-label">Cluster / zoekintentie</span>${[item.cluster, item.zoekintentie].filter(Boolean).join(' · ')}</div>`
+      ? `<div><span class="seo-label">Onderwerp en wat de lezer zoekt</span>${escapeHtml([item.cluster, item.zoekintentie].filter(Boolean).join(' · '))}</div>`
       : '',
-    item.strategieOnderbouwing ? `<div><span class="seo-label">Onderbouwing</span>${item.strategieOnderbouwing}</div>` : ''
+    item.strategieOnderbouwing ? `<div><span class="seo-label">Waarom dit onderwerp</span>${escapeHtml(item.strategieOnderbouwing)}</div>` : ''
   ].join('');
   const strategyBlock = strategyRows ? `<div class="seo-box strategy-box">${strategyRows}</div>` : '';
 
   let actionsBlock = '';
   if (!state.reviewEnabled) {
-    actionsBlock = `<div class="no-review-note">Voor deze klant staat review uit — dit is een leesweergave.</div>`;
+    actionsBlock = `<div class="no-review-note">Dit is een leesweergave. Beoordelen is voor jullie niet nodig.</div>`;
   } else if (isReviewStatus) {
     actionsBlock = `
       <div class="actions">
@@ -650,22 +668,22 @@ async function renderDetail() {
   detailEl.innerHTML = `
     <div class="detail-header">
       <div>
-        <h2 class="detail-title">${item.titel}</h2>
+        <h2 class="detail-title">${escapeHtml(item.titel)}</h2>
         <div class="detail-tags">
-          <span class="tag">${item.categorie || ''}</span>
-          ${item.publicatiedatum ? `<span class="tag">Publicatiedatum: ${item.publicatiedatum}</span>` : ''}
+          ${item.categorie ? `<span class="tag">${escapeHtml(item.categorie)}</span>` : ''}
+          ${item.publicatiedatum ? `<span class="tag">Publicatiedatum: ${escapeHtml(PortaalFormat.datumLang(item.publicatiedatum) || item.publicatiedatum)}</span>` : ''}
         </div>
       </div>
-      <span class="badge ${badgeClass(item.status)}">${item.status}</span>
+      ${PortaalUI.pil(item.status || '', window.BlogsModel.toonVan(item.status, state.statusValues))}
     </div>
     <div class="seo-box">
-      <div><span class="seo-label">SEO titel</span>${item.seoTitle || '—'}</div>
-      <div><span class="seo-label">Meta omschrijving</span>${item.seoDescription || '—'}</div>
-      <div><span class="seo-label">CTA</span>${item.cta || '—'}</div>
+      <div><span class="seo-label">Titel in Google</span>${item.seoTitle || '—'}</div>
+      <div><span class="seo-label">Beschrijving in Google</span>${item.seoDescription || '—'}</div>
+      <div><span class="seo-label">Knop onder de blog</span>${item.cta || '—'}</div>
     </div>
     ${feedbackBlock}
     ${strategyBlock}
-    <div class="content-body">${item.contentHtml || '<p><em>Geen inhoud gevonden.</em></p>'}</div>
+    <div class="content-body">${item.contentHtml || geenTekstBericht(item)}</div>
     ${actionsBlock}
   `;
 
@@ -892,10 +910,10 @@ function renderKennisTabel() {
   const open = editor && !editor.classList.contains('hidden');
   body.innerHTML = `<tr>
     <td class="kd-naam">${escapeHtml(naam)}</td>
-    <td class="kd-icoon" title="${type}">${KD_ICOON_BESTAND}</td>
+    <td class="kd-icoon" title="${type}">${KD_ICOON_BESTAND}<span class="kd-type">${type}</span></td>
     <td class="kd-datum">${datum}</td>
     <td class="kd-datum">${woorden.toLocaleString('nl-NL')} woorden</td>
-    <td class="kd-actie"><button type="button" class="kd-oog ${open ? 'actief' : ''}" id="kdOogBtn" aria-label="Tekst bekijken of bewerken" title="Tekst bekijken of bewerken">${KD_ICOON_OOG}</button></td>
+    <td class="kd-actie"><button type="button" class="kd-oog ${open ? 'actief' : ''}" id="kdOogBtn" aria-label="Tekst bekijken of bewerken" title="Tekst bekijken of bewerken">${KD_ICOON_OOG}<span class="kd-type">${open ? 'Verberg tekst' : 'Bekijk tekst'}</span></button></td>
   </tr>`;
   document.getElementById('kdOogBtn').addEventListener('click', () => {
     editor.classList.toggle('hidden');
