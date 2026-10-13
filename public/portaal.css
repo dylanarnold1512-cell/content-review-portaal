@@ -477,3 +477,13 @@ button, input, textarea, select { font-family: inherit; }
 .p-main .kd-dropzone { margin: 0; }
 .p-main .kennisdocument-status:empty { display: none; }
 .p-main .kd-verschil, .p-main .kd-kaart { padding: 16px 18px; }
+
+/* Levend bolletje in de statusbalk: groeit en krimpt rustig, met een ring die uitwaaiert. */
+.p-ov-puls { animation: p-ov-puls 2.4s ease-in-out infinite; }
+@keyframes p-ov-puls {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 4px var(--p-puls-ring, var(--p-goed-zacht)); }
+  50% { transform: scale(1.35); box-shadow: 0 0 0 9px transparent; }
+}
+.p-ov-status[data-toon="let-op"] .p-ov-puls { --p-puls-ring: var(--p-let-op-zacht); }
+.p-ov-status[data-toon="fout"] .p-ov-puls { --p-puls-ring: var(--p-fout-zacht); }
+@media (prefers-reduced-motion: reduce) { .p-ov-puls { animation: none; } }
