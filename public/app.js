@@ -110,6 +110,15 @@ async function enterApp(clientId, clientMeta) {
   let producten = { blogr: true, pagr: false };
   try { producten = await api(`/${clientId}/producten`); } catch (err) { /* bij een fout blijft het blogportaal staan */ }
   state.producten = producten;
+  // Merkregel: de naam van het product van de klant, met "door Advertisr." en het logo eronder.
+  const productNaam = producten.blogr && producten.pagr ? 'Blogr. en Pagr.' : (producten.pagr ? 'Pagr.' : 'Blogr.');
+  const naamEl = document.getElementById('pProductNaam');
+  if (naamEl) {
+    naamEl.textContent = productNaam;
+    naamEl.classList.remove('hidden');
+    document.querySelector('#pDoor .p-door-tekst').classList.remove('hidden');
+    document.title = `${productNaam} door Advertisr.`;
+  }
   const paginasGroep = document.getElementById('paginasGroep');
   if (paginasGroep) paginasGroep.classList.toggle('hidden', !producten.pagr);
   if (!producten.blogr) {

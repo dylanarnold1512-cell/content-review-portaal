@@ -161,6 +161,8 @@
   /* Kopbalk + navigatie in één regel, tabs als "pil"-knoppen i.p.v. een streepje onder de actieve
      tab -- exact zoals de mockup. */
   #lpApp .top { flex-wrap: wrap; gap: 12px; }
+  .top-door { display: flex; align-items: center; gap: 6px; }
+  .brand-logo-klein { height: 13px; display: block; }
   /* Binnen de admin (iframe) tonen we geen eigen logo, titel en uitlogknop: de admin heeft die al. */
   /* Zodra de LP in de admin staat, kiest de zijbalk van de admin het onderdeel: geen eigen kopbalk of tabs. */
   html.ingebed #lpApp .top { display: none; }
@@ -224,11 +226,9 @@
 <div id="lpApp" class="app hidden">
   <div class="top">
     <div class="top-left">
-      <img class="brand-logo-small" src="https://advertisr.nl/wp-content/uploads/2025/03/Logo_Advertisr_new_2025.svg" alt="Advertisr.">
-      <div class="top-divider"></div>
       <div>
         <div class="top-title">Pagr.</div>
-        <div class="top-sub">Landingspagina's per klant</div>
+        <div class="top-sub top-door">door <img class="brand-logo-klein" src="https://advertisr.nl/wp-content/uploads/2025/03/Logo_Advertisr_new_2025.svg" alt="Advertisr."></div>
       </div>
     </div>
     <div class="tab-nav" id="lpTabNav">
