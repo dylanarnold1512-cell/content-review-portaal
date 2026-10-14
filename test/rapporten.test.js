@@ -25,7 +25,11 @@ test('bouwRapport leest JSON en blijft heel bij kapotte velden', () => {
 test('bouwRapport telt wat er in de maand is gedaan', () => {
   const r = bouwRapport(
     { maand: '2026-10', nieuwe_blogs: '[{"titel":"A"},{"titel":"B"}]' },
-    [],
+    [
+      { soort: 'interne_link', actiedatum: '2026-10-12', details: '{"aantal":2}' },
+      { soort: 'interne_link', actiedatum: '2026-10-13', details: 'kapot' },
+      { soort: 'interne_link', actiedatum: '2026-09-30', details: '{"aantal":5}' }
+    ],
     [
       { status: 'geplaatst', geplaatst_op: '2026-10-09T13:04:00Z' },
       { status: 'gedeeltelijk', geplaatst_op: '2026-10-20' },
@@ -33,5 +37,5 @@ test('bouwRapport telt wat er in de maand is gedaan', () => {
       { status: 'voorgesteld', geplaatst_op: '2026-10-11' }
     ]
   );
-  assert.deepEqual(r.gedaan, { nieuweBlogs: 2, aangevuld: 2 });
+  assert.deepEqual(r.gedaan, { nieuweBlogs: 2, aangevuld: 2, internelinks: 3 });
 });

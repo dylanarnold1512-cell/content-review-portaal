@@ -63,6 +63,10 @@ function bouwRapport(rij, effectRijen, verbeterRijen) {
   // Wat er in deze kalendermaand is gedaan: aantallen uit de gegevens die er al zijn.
   const inMaand = (d) => String(d || '').slice(0, 7) === rij.maand;
   const aangevuld = (verbeterRijen || []).filter((r) => r && (r.status === 'geplaatst' || r.status === 'gedeeltelijk') && inMaand(r.geplaatst_op || r.besluit_op)).length;
+  const internelinks = (effectRijen || []).filter((r) => r && r.soort === 'interne_link' && inMaand(r.actiedatum)).reduce((t, r) => {
+    const d = parseJson(r.details, {});
+    return t + (Number(d && d.aantal) > 0 ? Number(d.aantal) : 1);
+  }, 0);
   return {
     maand: rij.maand,
     label: maandLabel(rij.maand),
@@ -74,7 +78,7 @@ function bouwRapport(rij, effectRijen, verbeterRijen) {
     totalen: totalen && typeof totalen === 'object' ? totalen : {},
     blogs: lijst(rij.blogs),
     nieuweBlogs: lijst(rij.nieuwe_blogs),
-    gedaan: { nieuweBlogs: lijst(rij.nieuwe_blogs).length, aangevuld },
+    gedaan: { nieuweBlogs: lijst(rij.nieuwe_blogs).length, aangevuld, internelinks },
     kansen: lijst(rij.kansen),
     terugblik: alinea,
     vooruitblik: lijst(rij.vooruitblik),

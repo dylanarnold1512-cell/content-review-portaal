@@ -55,6 +55,7 @@
     const delen = [];
     if (g.nieuweBlogs) delen.push(g.nieuweBlogs + (g.nieuweBlogs === 1 ? ' nieuwe blog' : ' nieuwe blogs'));
     if (g.aangevuld) delen.push(g.aangevuld + (g.aangevuld === 1 ? ' bestaande blog aangevuld' : ' bestaande blogs aangevuld'));
+    if (g.internelinks) delen.push(g.internelinks + (g.internelinks === 1 ? ' interne link toegevoegd' : ' interne links toegevoegd'));
     if (!delen.length) return '';
     return U().kaart({ titel: `Wat we deden in ${label}`, inhoud: `<div class="rp-tekst"><p>${rpEsc(delen.join(' en '))}.</p></div>` });
   }

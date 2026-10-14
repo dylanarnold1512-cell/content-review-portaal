@@ -154,6 +154,7 @@
     effectItems.forEach((e) => {
       const d = dagTekst(e && e.datum);
       if (e && e.soort === 'verbetering' && geldig(d) && d <= vandaag) feed.push({ soort: 'goed', datum: d, tekst: 'Blog aangevuld', sub: e.titel || '(geen titel)' });
+      if (e && e.soort === 'interne_link' && geldig(d) && d <= vandaag) feed.push({ soort: 'goed', datum: d, tekst: 'Interne link toegevoegd', sub: e.titel || '(geen titel)' });
     });
     if (google.status === 'ok' && google.bijgewerkt && geldig(dagTekst(google.bijgewerkt))) feed.push({ soort: 'grafiek', datum: dagTekst(google.bijgewerkt), tekst: 'Google cijfers bijgewerkt', sub: '' });
     if (ai.status === 'ok' && ai.heeftMeting && ai.weekStart) feed.push({ soort: 'ai', datum: ai.weekStart, tekst: 'AI meting afgerond', sub: ai.weekLabel });

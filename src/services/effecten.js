@@ -103,10 +103,44 @@ function verbeterItem(rij, maand) {
   };
 }
 
+// Interne link: er is in andere blogs een link toegevoegd naar deze pagina. De
+// periode voor de link staat in details.voor, de meting daarna komt van Effect Meting.
+function linkItem(rij, maand) {
+  const det = parse(rij.details) || {};
+  const aantal = Number(det.aantal) > 0 ? Number(det.aantal) : 1;
+  const meting = laatsteMeting(rij, maand);
+  const regels = [`Er ${aantal === 1 ? 'is 1 link' : 'zijn ' + aantal + ' links'} toegevoegd in ${aantal === 1 ? 'een andere blog' : 'andere blogs'} naar deze pagina.`];
+  if (!meting) {
+    regels.push('De eerste meting volgt 31 dagen na de link.');
+  } else {
+    const m = meting.m;
+    const na = num(m.vertoningen) || 0;
+    const voor = det.voor && det.voor.betrouwbaar ? det.voor : null;
+    if (voor && num(voor.vertoningen) > 0) {
+      regels.push(`${meting.dagen} dagen na de link: ${nl(na)} keer getoond, tegenover ${nl(voor.vertoningen)} in de 28 dagen ervoor.`);
+      if (num(voor.positie) > 0 && num(m.positie) > 0) regels.push(`Gemiddelde positie: van ${nl1(voor.positie)} naar ${nl1(m.positie)}.`);
+    } else if (na === 0) {
+      regels.push(`${FASE[meting.dagen]} is deze pagina niet getoond in Google.`);
+    } else {
+      regels.push(`${FASE[meting.dagen]} is deze pagina ${nl(na)} keer getoond.`);
+    }
+  }
+  return {
+    soort: 'interne_link',
+    soortLabel: 'Interne link toegevoegd',
+    titel: rij.blog_titel || rij.blog_pad,
+    url: rij.blog_url || '',
+    datum: rij.actiedatum,
+    gemetenNa: meting ? meting.dagen : null,
+    regels
+  };
+}
+
 function bouwEffecten(effRijen, verbRijen, maand) {
   const blogs = (effRijen || []).filter((r) => r && r.soort === 'nieuwe_blog');
   const verbeteringen = (verbRijen || []).filter((r) => r && (r.status === 'geplaatst' || r.status === 'gedeeltelijk'));
-  let items = blogs.map((r) => blogItem(r, maand)).concat(verbeteringen.map((r) => verbeterItem(r, maand)));
+  const links = (effRijen || []).filter((r) => r && r.soort === 'interne_link');
+  let items = blogs.map((r) => blogItem(r, maand)).concat(verbeteringen.map((r) => verbeterItem(r, maand)), links.map((r) => linkItem(r, maand)));
   // In een maandrapport staan alleen metingen die in die maand zijn gedaan.
   if (maand) items = items.filter((i) => i.gemetenNa);
   // Eerst wat al gemeten is, daarbinnen nieuwste eerst. Nog niet gemeten onderaan.
@@ -123,4 +157,4 @@ function bouwEffecten(effRijen, verbRijen, maand) {
   };
 }
 
-module.exports = { bouwEffecten, blogItem, verbeterItem };
+module.exports = { bouwEffecten, blogItem, verbeterItem, linkItem };
