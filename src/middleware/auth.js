@@ -63,7 +63,8 @@ function checkLpPassword(password) {
 }
 
 function requireLpInternal(req, res, next) {
-  if (req.session && req.session.isLpInternal) {
+  // Wie in de admin is ingelogd, mag ook in Pagr. (14-10-2026: een login, Pagr. is een onderdeel van de admin).
+  if (req.session && (req.session.isLpInternal || req.session.isAdmin)) {
     return next();
   }
   return res.status(401).json({ error: 'Niet ingelogd bij LP Fabriek.' });

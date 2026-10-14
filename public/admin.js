@@ -50,7 +50,7 @@ const KLANT_TABS = [
   { id: 'ideeen', titel: 'Ideeën' },
   { id: 'merkprofiel', titel: 'Merkprofiel opbouwen' }
 ];
-const VIEW_TITELS = { klanten: 'Alle klanten', nieuw: 'Nieuwe klant', ideeen: 'Ideeën', klant: 'Klant' };
+const VIEW_TITELS = { klanten: 'Alle klanten', nieuw: 'Nieuwe klant', ideeen: 'Ideeën', pagr: 'Pagr.', klant: 'Klant' };
 let huidig = { view: 'klanten', klantId: '', tab: 'instellingen' };
 
 function leesHash() {
@@ -59,7 +59,7 @@ function leesHash() {
     const tab = KLANT_TABS.some((t) => t.id === delen[2]) ? delen[2] : beginTab(delen[1]);
     return { view: 'klant', klantId: delen[1], tab };
   }
-  if (['klanten', 'nieuw', 'ideeen'].includes(delen[0])) return { view: delen[0], klantId: '', tab: 'instellingen' };
+  if (['klanten', 'nieuw', 'ideeen', 'pagr'].includes(delen[0])) return { view: delen[0], klantId: '', tab: 'instellingen' };
   return { view: 'klanten', klantId: '', tab: 'instellingen' };
 }
 
@@ -111,7 +111,7 @@ function toonScherm() {
   sluitMenu();
   const { view, klantId, tab } = huidig;
   const klant = zoekKlant(klantId);
-  ['Klanten', 'Klant', 'Ideeen', 'Nieuw'].forEach((naam) => {
+  ['Klanten', 'Klant', 'Ideeen', 'Nieuw', 'Pagr'].forEach((naam) => {
     document.getElementById('view' + naam).classList.toggle('hidden', naam.toLowerCase() !== (view === 'klant' ? 'klant' : view));
   });
   document.querySelectorAll('#adminNav [data-view]').forEach((btn) => {
@@ -124,6 +124,11 @@ function toonScherm() {
   if (view === 'klant') renderKlant(klant, tab);
   if (view === 'ideeen') renderIdeeenScherm();
   if (view === 'nieuw') loadIntakes();
+  if (view === 'pagr') {
+    // De LP omgeving laadt pas bij het eerste bezoek, daarna blijft hij staan met zijn eigen stand.
+    const frame = document.getElementById('pagrFrame');
+    if (!frame.getAttribute('src')) frame.setAttribute('src', frame.dataset.src);
+  }
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', toonScherm);
@@ -515,6 +520,8 @@ function bindInstellingen(root) {
         await adminApi(`/settings/${encodeURIComponent(client)}`, { method: 'POST', body: JSON.stringify({ field: 'producten', value: select.value }) });
         entry.producten = select.value;
         renderError('');
+        // Opnieuw tekenen: bij Pagr. of Beide verschijnen Pagina's per maand en Paginameting, bij Blogr. verdwijnen ze.
+        if (entry.id) { renderInstellingen(entry, root); return; }
       } catch (err) {
         select.value = oud;
         renderError(err.message);

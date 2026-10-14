@@ -161,6 +161,8 @@
   /* Kopbalk + navigatie in één regel, tabs als "pil"-knoppen i.p.v. een streepje onder de actieve
      tab -- exact zoals de mockup. */
   #lpApp .top { flex-wrap: wrap; gap: 12px; }
+  /* Binnen de admin (iframe) tonen we geen eigen logo, titel en uitlogknop: de admin heeft die al. */
+  html.ingebed #lpApp .top-left, html.ingebed #lpLogoutBtn { display: none; }
   #lpApp .tab-nav { border-bottom: none; padding: 0; margin: 0; max-width: none; gap: 6px; }
   #lpApp .tab-btn { padding: 9px 16px; margin-right: 0; border-radius: var(--radius-pill); border-bottom: none; color: var(--text-muted); font-weight: 600; }
   #lpApp .tab-btn.active { color: var(--accent-strong); background: var(--accent-soft); border-bottom: none; font-weight: 700; }
@@ -196,6 +198,7 @@
 </style>
 </head>
 <body>
+<script>try { if (window.self !== window.top) document.documentElement.classList.add('ingebed'); } catch (e) { document.documentElement.classList.add('ingebed'); }</script>
 
 <div id="lpLoginScreen" class="login-screen">
   <div class="login-box">
