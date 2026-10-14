@@ -245,6 +245,7 @@
       <button type="button" class="tab-btn" data-lp-tab="intake">Nieuwe klant</button>
       <button type="button" class="tab-btn" data-lp-tab="kloon">Kopie van WordPress</button>
       <button type="button" class="tab-btn" data-lp-tab="vervang">Tekst vervangen</button>
+      <button type="button" class="tab-btn" data-lp-tab="klantgegevens">Klantgegevens</button>
     </div>
     <button id="lpLogoutBtn" class="btn-plain">Uitloggen</button>
   </div>
@@ -545,6 +546,63 @@
 
       <div class="modal-actions" style="margin-top:16px;">
         <button type="button" id="lpIntakeSubmitBtn" class="btn btn-approve">Intake verzenden</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="lpKlantgegevensTab" class="tab-panel hidden">
+    <div class="lp-shell">
+      <div id="kgFout" class="admin-error hidden"></div>
+      <div class="wp-kop">
+        <div>
+          <h1 class="lp-h1">Klantgegevens</h1>
+          <p class="wp-sub">Bedrijfsgegevens, toon en feiten met bron per klant. Wijzigingen gelden direct voor nieuwe pagina's.</p>
+        </div>
+        <div class="wp-kies">
+          <label for="kgKlant">Klant</label>
+          <select id="kgKlant"></select>
+        </div>
+      </div>
+      <div class="wp-kaart hidden" id="kgNieuwKaart">
+        <div class="wp-kaart-kop"><h2>Nieuwe klant</h2></div>
+        <div class="wp-planvorm">
+          <div class="wp-veld wp-veld-breed"><label for="kgNieuwNaam">Naam van de klant</label><input id="kgNieuwNaam" type="text" autocomplete="off" placeholder="Bijvoorbeeld: Jansen Dakwerken"></div>
+          <div class="wp-veld wp-veld-breed"><label for="kgNieuwId">Korte code (zonder spaties)</label><input id="kgNieuwId" type="text" autocomplete="off" placeholder="jansen"></div>
+        </div>
+        <p class="wp-muted wp-uitleg">De code wordt ook gebruikt voor de WordPress gegevens op Render: WP_URL_CODE, WP_USERNAME_CODE en WP_APP_PASSWORD_CODE (hoofdletters). Wachtwoorden staan nooit in Notion.</p>
+        <div class="wp-plan-actie"><button type="button" id="kgNieuwMaak" class="btn btn-approve">Klant aanmaken</button><button type="button" id="kgNieuwAnnuleer" class="btn btn-plain">Annuleren</button></div>
+      </div>
+      <div id="kgFormulier" class="wp-links">
+        <section class="wp-kaart">
+          <div class="wp-kaart-kop"><h2>Bedrijf</h2><span id="kgBron" class="wp-muted"></span></div>
+          <div class="kg-raster">
+            <div class="wp-veld"><label for="kgNaam">Naam</label><input id="kgNaam" type="text" autocomplete="off"></div>
+            <div class="wp-veld"><label for="kgBedrijfNaam">Naam op de website</label><input id="kgBedrijfNaam" type="text" autocomplete="off"></div>
+            <div class="wp-veld"><label for="kgUrl">Website</label><input id="kgUrl" type="text" autocomplete="off" placeholder="https://www.voorbeeld.nl/"></div>
+            <div class="wp-veld"><label for="kgTelefoon">Telefoon</label><input id="kgTelefoon" type="text" autocomplete="off"></div>
+            <div class="wp-veld"><label for="kgEmail">E-mail</label><input id="kgEmail" type="text" autocomplete="off"></div>
+            <div class="wp-veld"><label for="kgStraat">Straat en nummer</label><input id="kgStraat" type="text" autocomplete="off"></div>
+            <div class="wp-veld"><label for="kgPostcode">Postcode</label><input id="kgPostcode" type="text" autocomplete="off"></div>
+            <div class="wp-veld"><label for="kgPlaats">Plaats</label><input id="kgPlaats" type="text" autocomplete="off"></div>
+          </div>
+          <div class="wp-veld"><label for="kgWerkgebied">Werkgebied (een per regel)</label><textarea id="kgWerkgebied" rows="3"></textarea></div>
+        </section>
+        <section class="wp-kaart">
+          <div class="wp-kaart-kop"><h2>Toon en regels</h2></div>
+          <div class="wp-veld"><label for="kgToon">Toon van de teksten</label><textarea id="kgToon" rows="3"></textarea></div>
+          <div class="wp-veld"><label for="kgFoto">Richtlijn voor foto's (optioneel)</label><textarea id="kgFoto" rows="2"></textarea></div>
+          <div class="wp-veld"><label for="kgNiet">Wat zeker niet mag (een per regel)</label><textarea id="kgNiet" rows="3"></textarea></div>
+        </section>
+        <section class="wp-kaart">
+          <div class="wp-kaart-kop"><h2>Feiten met bron</h2><button type="button" id="kgFeitPlus" class="btn btn-plain">+ Feit toevoegen</button></div>
+          <p class="wp-muted wp-uitleg">Alleen feiten die je kunt aanwijzen op de site of in een document van de klant. Zonder bron wordt een feit niet bewaard. "Standaard" betekent dat het feit bij elke nieuwe pagina vooraf is aangevinkt.</p>
+          <div id="kgFeiten"></div>
+        </section>
+        <section class="wp-kaart" id="kgTechniek">
+          <div class="wp-kaart-kop"><h2>Technisch</h2></div>
+          <p class="wp-muted wp-uitleg" id="kgTechniekTekst"></p>
+        </section>
+        <div class="wp-plan-actie"><button type="button" id="kgBewaar" class="btn btn-approve">Opslaan in Notion</button><span id="kgStatus" class="wp-muted"></span></div>
       </div>
     </div>
   </div>
@@ -1220,6 +1278,7 @@
 <script src="/lp-werkplaats.js"></script>
 <script src="/lp-kloon.js"></script>
 <script src="/lp-vervang.js"></script>
+<script src="/lp-klantgegevens.js"></script>
 <script src="/lp-festival.js"></script>
 </body>
 </html>

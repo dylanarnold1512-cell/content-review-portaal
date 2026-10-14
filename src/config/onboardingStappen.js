@@ -44,7 +44,7 @@ const PAGR_STAPPEN = [
   { nr: 104, fase: 'B', titel: 'Plan voor de pagina\'s', uitleg: 'Eerste planvoorstel in de Werkplaats: diensten en plaatsen met een reden. Pas bouwen na akkoord van Dylan.', aanZet: 'Dylan' },
   { nr: 105, fase: 'C', titel: 'Sjabloon', uitleg: 'Eerste sjabloon met echte tekst van de klant, controleren en op Actief zetten.', aanZet: 'Dylan' },
   { nr: 106, fase: 'C', titel: 'WordPress koppeling', uitleg: 'REST test, SEO plugin, formulier shortcode, mediabibliotheek en Cloudflare.', aanZet: 'Claude' },
-  { nr: 107, fase: 'C', titel: 'Klantgegevens in de LP Fabriek', uitleg: 'Klant, feiten met bron en tokens toevoegen aan src/lp/clients, tot dit naar Notion verhuist.', aanZet: 'Claude' },
+  { nr: 107, fase: 'C', titel: 'Klantgegevens in de LP Fabriek', uitleg: 'Bedrijfsgegevens, toon en feiten met bron invullen bij Pagr., Klantgegevens (staat in Notion). Kleuren en lettertypen (tokens) in src/lp/tokens.js en de WordPress variabelen op Render blijven een stap voor Claude.', aanZet: 'Claude' },
   { nr: 108, fase: 'C', titel: 'Portaal en login', uitleg: 'Product Pagr. aanzetten bij Instellingen en login voor de klant regelen.', aanZet: 'Claude' },
   { nr: 109, fase: 'D', titel: 'Testpagina', uitleg: 'Een pagina laten maken, controleren, als concept naar WordPress en het voorbeeld bekijken.', aanZet: 'Claude' },
   { nr: 110, fase: 'D', titel: 'Eerste pagina door Dylan gecontroleerd', uitleg: 'In de Werkplaats, voordat er iets live gaat.', aanZet: 'Dylan' },

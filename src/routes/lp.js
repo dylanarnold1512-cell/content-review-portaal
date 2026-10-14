@@ -4,6 +4,7 @@
 
 const express = require('express');
 const { getLpClient, clients: lpClients } = require('../lp/clients');
+const klantgegevens = require('../lp/klantgegevens');
 const lpNotion = require('../lp/notion');
 const templates = require('../lp/templates');
 const clientIntake = require('../lp/clientIntake');
@@ -121,6 +122,42 @@ router.get('/clients/:clientId/feiten', requireLpInternal, (req, res) => {
     res.json({ feiten: client.feiten });
   } catch (err) {
     res.status(404).json({ error: err.message });
+  }
+});
+
+// Klantgegevens (profiel en feiten) in Notion, zie src/lp/klantgegevens.js.
+router.get('/klantgegevens', requireLpInternal, (req, res) => {
+  res.json({ klanten: klantgegevens.overzicht(), status: klantgegevens.status() });
+});
+
+router.post('/klantgegevens/ververs', requireLpInternal, async (req, res) => {
+  const r = await klantgegevens.ververs();
+  res.status(r.ok ? 200 : 502).json({ ...r, status: klantgegevens.status() });
+});
+
+router.get('/klantgegevens/:clientId', requireLpInternal, (req, res) => {
+  const k = klantgegevens.bewerkbaar(req.params.clientId);
+  if (!k) return res.status(404).json({ error: 'Onbekende klant.' });
+  res.json({ klant: k });
+});
+
+router.put('/klantgegevens/:clientId', requireLpInternal, async (req, res) => {
+  try {
+    const { profiel, feiten } = req.body || {};
+    const klant = await klantgegevens.bewaar(req.params.clientId, { profiel, feiten });
+    res.json({ klant });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/klantgegevens', requireLpInternal, async (req, res) => {
+  try {
+    const { klantId, profiel, feiten } = req.body || {};
+    const klant = await klantgegevens.bewaar(klantId, { profiel, feiten, nieuw: true });
+    res.status(201).json({ klant });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 
