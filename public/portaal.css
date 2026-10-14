@@ -571,3 +571,5 @@ body.alleen-pagr #tabNav .p-nav-groep:not(#paginasGroep) { display: none; }
 .p-door { display: flex; align-items: center; gap: 6px; }
 .p-door-tekst { font-size: 12px; color: var(--p-tekst-zacht, #6b7280); }
 .p-door .p-logo { height: 15px; }
+
+.p-punt { color: var(--p-merk); }
