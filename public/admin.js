@@ -675,31 +675,63 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
   };
   try {
     const intakeAntwoord = await adminApi('/intake', { method: 'POST', body: JSON.stringify(payload) });
-    let profielMelding = '';
+    let profiel = { gestart: false, fout: '' };
     if (ikEl('intakeProfiel').checked && payload.website) {
       try {
         await adminApi('/profiel/start', { method: 'POST', body: JSON.stringify({ klant: payload.klant, website: payload.website, force: false }) });
-        profielMelding = 'Intake opgeslagen. Het merkprofiel wordt opgebouwd (ongeveer 4 minuten).';
+        profiel.gestart = true;
       } catch (err) {
-        profielMelding = 'Intake opgeslagen, maar het merkprofiel kon niet starten: ' + err.message;
+        profiel.fout = err.message;
       }
     }
-    if (intakeAntwoord.onboardingMelding) profielMelding = (profielMelding ? profielMelding + '\n\n' : '') + intakeAntwoord.onboardingMelding;
-    if (profielMelding) window.alert(profielMelding);
     document.getElementById('intakeForm').reset();
     document.getElementById('intakeReview').checked = true;
     clientIdHandmatig = false;
     ikMelding('');
     ikUpdate();
     await loadIntakes();
-    if (payload.clientId) {
-      await loadOnboarding();
-      gaNaar('klant', payload.clientId, 'onboarding');
-    }
+    await loadOnboarding();
+    toonIntakeSucces({ klant: payload.klant, clientId: payload.clientId, onboardingFout: intakeAntwoord.onboardingMelding, profiel });
+    window.scrollTo(0, 0);
   } catch (err) {
     renderIntakeError(err.message);
   }
 });
+
+// Na het opslaan: bevestiging en de zin die Dylan in een nieuwe chat plakt om de onboarding samen af te lopen.
+function toonIntakeSucces({ klant, clientId, onboardingFout, profiel }) {
+  const el = ikEl('ikSucces');
+  const zin = `Onboarding ${klant}, ga verder.`;
+  const regel = (ok, tekst) => `<li class="${ok ? 'ok' : 'let-op'}"><span aria-hidden="true">${ok ? '&#10003;' : '!'}</span>${escapeHtmlAdmin(tekst)}</li>`;
+  const regels = [
+    regel(true, 'De intake staat in Notion. n8n verwerkt hem binnen een uur.'),
+    onboardingFout || !clientId
+      ? regel(false, onboardingFout || 'Er is geen Client ID, dus de onboardingstappen zijn niet aangemaakt.')
+      : regel(true, 'De 21 onboardingstappen zijn aangemaakt. Stap 1 (websitescan en nieuwe klant) staat op Klaar.'),
+    profiel.gestart ? regel(true, 'Het merkprofiel wordt opgebouwd, ongeveer 4 minuten.') : '',
+    profiel.fout ? regel(false, 'Het merkprofiel kon niet starten: ' + profiel.fout) : ''
+  ].join('');
+  el.className = 'p-kaart ad-succes';
+  el.innerHTML = `
+    <h2>Intake gelukt voor ${escapeHtmlAdmin(klant)}</h2>
+    <ul class="ad-succes-lijst">${regels}</ul>
+    <div class="ad-succes-prompt">
+      <b>Ga nu verder in een nieuwe chat</b>
+      <span>Plak deze zin in een nieuwe chat in het project SEO Blog Automation. Claude leest de stand en loopt de onboarding met je door.</span>
+      <code id="ikPrompt">${escapeHtmlAdmin(zin)}</code>
+      <div class="ad-succes-acties">
+        <button type="button" class="p-knop p-knop-hoofd" id="ikKopieer">Kopieer zin</button>
+        ${clientId && !onboardingFout ? '<button type="button" class="p-knop" id="ikNaarOnboarding">Bekijk de onboarding</button>' : ''}
+      </div>
+    </div>`;
+  ikEl('ikKopieer').addEventListener('click', async (e) => {
+    const ok = await kopieer(zin);
+    e.target.textContent = ok ? 'Gekopieerd' : 'Kopiëren lukt niet, selecteer de zin';
+    setTimeout(() => { e.target.textContent = 'Kopieer zin'; }, 2000);
+  });
+  const naar = ikEl('ikNaarOnboarding');
+  if (naar) naar.addEventListener('click', () => gaNaar('klant', clientId, 'onboarding'));
+}
 
 
 // ---- Intakeformulier: analyse, dynamische secties en checklist ----
