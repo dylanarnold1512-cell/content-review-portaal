@@ -515,6 +515,8 @@ function bindInstellingen(root) {
         await adminApi(`/settings/${encodeURIComponent(client)}`, { method: 'POST', body: JSON.stringify({ field: 'producten', value: select.value }) });
         entry.producten = select.value;
         renderError('');
+        // Opnieuw tekenen: bij Pagr. of Beide verschijnen Pagina's per maand en Paginameting, bij Blogr. verdwijnen ze.
+        if (entry.id) { renderInstellingen(entry, root); return; }
       } catch (err) {
         select.value = oud;
         renderError(err.message);
