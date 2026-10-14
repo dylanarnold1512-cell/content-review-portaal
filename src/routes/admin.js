@@ -6,6 +6,7 @@ const settingsService = require('../services/settings');
 const notionService = require('../services/notion');
 const intakeService = require('../services/intake');
 const onboardingService = require('../services/onboarding');
+const lpKlantgegevens = require('../lp/klantgegevens');
 const aiZichtbaarheidService = require('../services/aiZichtbaarheid');
 const { checkAdminPassword, requireAdmin } = require('../middleware/auth');
 
@@ -65,7 +66,18 @@ router.post('/settings/:clientId', requireAdmin, async (req, res) => {
         return res.status(400).json({ error: `Onbekend product: ${value}` });
       }
       await settingsService.updateClientSetting(req.params.clientId, field, value);
-      return res.json({ ok: true, melding: '' });
+      // Staat de klant in onboarding en komt Pagr. erbij, dan komen de Pagr. stappen er vanzelf bij.
+      let melding = '';
+      if (value === 'Pagr.' || value === 'Beide') {
+        try {
+          const o = await onboardingService.voorKlant(req.params.clientId);
+          if (o.rijen.length) {
+            const r = await onboardingService.start({ klant: o.klant, clientId: req.params.clientId, producten: value });
+            if (r.aangemaakt) melding = `De ${r.aangemaakt} Pagr. stappen zijn aan de onboarding toegevoegd.`;
+          }
+        } catch (err) { melding = `Het product is gezet, maar de Pagr. stappen konden niet worden toegevoegd: ${err.message}`; }
+      }
+      return res.json({ ok: true, melding });
     }
     if (!['reviewEnabled', 'performanceEnabled', 'ideaEnrichmentEnabled', 'merkprofiel', 'merkprofielNaarKennisdocument', 'aiZichtbaarheid', 'paginameting'].includes(field)) {
       return res.status(400).json({ error: `Onbekend instellingveld: ${field}` });
@@ -190,7 +202,20 @@ router.post('/intake', requireAdmin, async (req, res) => {
     } catch (err) {
       onboardingMelding = `De intake is opgeslagen, maar de onboardingstappen konden niet worden aangemaakt: ${err.message}`;
     }
-    res.json({ ok: true, id: result.id, onboardingMelding });
+    // Gaat het om Pagr., dan staat de klant ook meteen in de LP Klantgegevens (Notion), zodat je daar alleen nog hoeft aan te vullen.
+    let klantgegevensMelding = '';
+    try {
+      const b = req.body || {};
+      const producten = settingsService.normaliseerProducten(b.producten);
+      const clientId = String(b.clientId || b.portaalSlug || '').trim();
+      if ((producten === 'Pagr.' || producten === 'Beide') && clientId) {
+        await lpKlantgegevens.bewaar(clientId, { nieuw: true, feiten: [], profiel: { naam: klant.trim(), bedrijf: { naam: klant.trim(), url: String(b.website || '') }, toonNotitie: String(b.toneOfVoice || '') } });
+        klantgegevensMelding = 'De klant staat ook in Pagr. Klantgegevens. Vul daar adres, werkgebied en feiten aan.';
+      }
+    } catch (err) {
+      if (!/bestaat al/i.test(err.message)) klantgegevensMelding = `De klant kon niet in Pagr. Klantgegevens worden gezet: ${err.message}`;
+    }
+    res.json({ ok: true, id: result.id, onboardingMelding, klantgegevensMelding });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

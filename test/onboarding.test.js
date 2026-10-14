@@ -88,3 +88,14 @@ test('stap 4 verandert niet als er niets nieuws is', () => {
   assert.strictEqual(bepaalMerkprofielStap('Bezig', 'geen'), null);
   assert.strictEqual(bepaalMerkprofielStap('Overgeslagen', 'bezig'), null);
 });
+
+test('ontbrekendeStappen vult alleen aan wat er mist', () => {
+  const { ontbrekendeStappen } = require('../src/services/onboarding');
+  const { STAPPEN } = require('../src/config/onboardingStappen');
+  const blog = STAPPEN.map((s) => s.nr);
+  const erbij = ontbrekendeStappen('Pagr.', blog);
+  assert.ok(erbij.length > 0);
+  assert.ok(erbij.every((s) => s.nr >= 100 && !s.gedeeld));
+  assert.equal(ontbrekendeStappen('Blogr.', blog).length, 0);
+  assert.equal(ontbrekendeStappen('Beide', []).length, require('../src/config/onboardingStappen').stappenVoor('Beide').length);
+});

@@ -539,9 +539,10 @@ function bindInstellingen(root) {
       const oud = entry.producten || 'Blogr.';
       select.disabled = true;
       try {
-        await adminApi(`/settings/${encodeURIComponent(client)}`, { method: 'POST', body: JSON.stringify({ field: 'producten', value: select.value }) });
+        const antw = await adminApi(`/settings/${encodeURIComponent(client)}`, { method: 'POST', body: JSON.stringify({ field: 'producten', value: select.value }) });
         entry.producten = select.value;
         renderError('');
+        if (antw && antw.melding) { await loadOnboarding(); renderError(antw.melding); }
         // Opnieuw tekenen: bij Pagr. of Beide verschijnen Pagina's per maand en Paginameting, bij Blogr. verdwijnen ze.
         if (entry.id) { renderInstellingen(entry, root); return; }
       } catch (err) {
@@ -796,7 +797,7 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
     ikUpdate();
     await loadIntakes();
     await loadOnboarding();
-    toonIntakeSucces({ klant: payload.klant, clientId: payload.clientId, onboardingFout: intakeAntwoord.onboardingMelding, profiel });
+    toonIntakeSucces({ klant: payload.klant, clientId: payload.clientId, onboardingFout: intakeAntwoord.onboardingMelding, klantgegevens: intakeAntwoord.klantgegevensMelding, profiel });
     window.scrollTo(0, 0);
   } catch (err) {
     renderIntakeError(err.message);
@@ -804,7 +805,7 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
 });
 
 // Na het opslaan: bevestiging en de zin die Dylan in een nieuwe chat plakt om de onboarding samen af te lopen.
-function toonIntakeSucces({ klant, clientId, onboardingFout, profiel }) {
+function toonIntakeSucces({ klant, clientId, onboardingFout, klantgegevens, profiel }) {
   const el = ikEl('ikSucces');
   const zin = `Onboarding ${klant}, ga verder.`;
   const regel = (ok, tekst) => `<li class="${ok ? 'ok' : 'let-op'}"><span aria-hidden="true">${ok ? '&#10003;' : '!'}</span>${escapeHtmlAdmin(tekst)}</li>`;
@@ -812,7 +813,8 @@ function toonIntakeSucces({ klant, clientId, onboardingFout, profiel }) {
     regel(true, 'De intake staat in Notion. n8n verwerkt hem binnen een uur.'),
     onboardingFout || !clientId
       ? regel(false, onboardingFout || 'Er is geen Client ID, dus de onboardingstappen zijn niet aangemaakt.')
-      : regel(true, 'De 21 onboardingstappen zijn aangemaakt. Stap 1 (websitescan en nieuwe klant) staat op Klaar.'),
+      : regel(true, 'De onboardingstappen zijn aangemaakt. Stap 1 (websitescan en nieuwe klant) staat op Klaar.'),
+    klantgegevens ? regel(!/kon niet/i.test(klantgegevens), klantgegevens) : '',
     profiel.gestart ? regel(true, 'Het merkprofiel wordt opgebouwd, ongeveer 4 minuten.') : '',
     profiel.fout ? regel(false, 'Het merkprofiel kon niet starten: ' + profiel.fout) : ''
   ].join('');
