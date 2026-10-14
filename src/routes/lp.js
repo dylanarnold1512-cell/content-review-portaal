@@ -53,7 +53,7 @@ router.post('/logout', (req, res) => {
 });
 
 router.get('/me', (req, res) => {
-  res.json({ isLpInternal: Boolean(req.session && req.session.isLpInternal) });
+  res.json({ isLpInternal: Boolean(req.session && (req.session.isLpInternal || req.session.isAdmin)) });
 });
 
 // Klanten + hun blueprints, voor de dropdowns in het formulier-scherm.

@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="/styles.css">
 <link rel="stylesheet" href="/portaal.css">
 <link rel="stylesheet" href="/admin.css">
+<style>.ad-pagr-frame{display:block;width:100%;height:calc(100vh - 8px);border:0;background:transparent}@media (max-width:900px){.ad-pagr-frame{height:calc(100vh - 70px)}}</style>
 </head>
 <body>
 
@@ -39,6 +40,10 @@
         <button type="button" class="p-nav-item" data-view="nieuw"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Nieuwe klant</button>
       </div>
       <div class="p-nav-groep">
+        <div class="p-nav-label">Landingspagina's</div>
+        <button type="button" class="p-nav-item" data-view="pagr"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h8"/></svg>Pagr.</button>
+      </div>
+      <div class="p-nav-groep">
         <div class="p-nav-label">Beoordelen</div>
         <button type="button" class="p-nav-item" data-view="ideeen"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>Ideeën<span class="p-teller hidden" id="ideeenTeller" aria-label="Ideeën ter beoordeling"></span></button>
       </div>
@@ -60,6 +65,10 @@
 
     <div id="viewKlanten" class="tab-panel"></div>
     <div id="viewKlant" class="tab-panel hidden"></div>
+
+    <div id="viewPagr" class="tab-panel hidden">
+      <iframe id="pagrFrame" class="ad-pagr-frame" title="Pagr. landingspagina's" data-src="/lp"></iframe>
+    </div>
 
     <div id="viewIdeeen" class="tab-panel hidden">
       <div class="p-pagina">
