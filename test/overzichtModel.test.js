@@ -149,10 +149,14 @@ test('wat er gebeurde: een aangevulde blog komt in de feed, een toekomstige datu
   const g = { status: 'ok', data: { totalen: { vertoningen: 5, clicks: 1 }, weken: [], laatstBijgewerkt: '2026-10-13', effecten: { items: [
     { soort: 'verbetering', titel: 'Duurzaam vergaderen', datum: '2026-10-09' },
     { soort: 'verbetering', titel: 'Later', datum: '2027-01-01' },
-    { soort: 'nieuwe_blog', titel: 'Nieuw', datum: '2026-10-05' }
+    { soort: 'nieuwe_blog', titel: 'Nieuw', datum: '2026-10-05' },
+    { soort: 'interne_link', titel: 'Doelpagina', datum: '2026-10-10' }
   ] } } };
   const s = bouwStartscherm(basis([], { google: g }), NU);
   const aangevuld = s.feed.filter((f) => f.tekst === 'Blog aangevuld');
   assert.strictEqual(aangevuld.length, 1);
   assert.strictEqual(aangevuld[0].sub, 'Duurzaam vergaderen');
+  const links = s.feed.filter((f) => f.tekst === 'Interne link toegevoegd');
+  assert.strictEqual(links.length, 1);
+  assert.strictEqual(links[0].sub, 'Doelpagina');
 });
