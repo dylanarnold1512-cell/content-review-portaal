@@ -278,10 +278,22 @@
             <div class="wp-kaart-kop"><h2>Pagina's</h2><span class="wp-kaart-acties"><button type="button" id="wpKloonKnop" class="btn btn-plain">Kopie van een bestaande pagina</button><button type="button" id="wpNieuwePagina" class="btn btn-approve">+ Nieuwe pagina</button></span></div>
             <div id="wpTellers" class="wp-tellers"></div>
             <div id="wpBulk" class="wp-bulk hidden"></div>
-            <div class="wp-tabel-wrap"><table class="lp-table wp-tabel"><thead><tr><th>Pagina</th><th>Stand</th><th>Laatst bijgewerkt</th></tr></thead><tbody id="wpPaginas"></tbody></table></div>
+            <div class="wp-selbalk" id="wpPaginaSelBalk">
+              <label class="wp-vink"><input type="checkbox" id="wpPaginaSelAlles"> Alles selecteren</label>
+              <span id="wpPaginaSelTel" class="wp-muted"></span>
+              <button type="button" id="wpPaginaVerwijderBtn" class="btn-plain lp-btn-danger hidden">Verwijder geselecteerde</button>
+            </div>
+            <p id="wpPaginaSelMelding" class="wp-muted np-klein hidden"></p>
+            <div class="wp-tabel-wrap"><table class="lp-table wp-tabel"><thead><tr><th></th><th>Pagina</th><th>Stand</th><th>Laatst bijgewerkt</th></tr></thead><tbody id="wpPaginas"></tbody></table></div>
           </section>
           <section class="wp-kaart">
             <div class="wp-kaart-kop"><h2>Sjablonen</h2><button type="button" id="wpNieuwSjabloon" class="btn btn-plain">+ Nieuw sjabloon</button></div>
+            <div class="wp-selbalk" id="wpSjabSelBalk">
+              <label class="wp-vink"><input type="checkbox" id="wpSjabSelAlles"> Alles selecteren</label>
+              <span id="wpSjabSelTel" class="wp-muted"></span>
+              <button type="button" id="wpSjabVerwijderBtn" class="btn-plain lp-btn-danger hidden">Verwijder geselecteerde</button>
+            </div>
+            <p id="wpSjabSelMelding" class="wp-muted np-klein hidden"></p>
             <div id="wpSjablonen"></div>
           </section>
         </div>

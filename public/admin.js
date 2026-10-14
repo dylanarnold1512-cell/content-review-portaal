@@ -786,7 +786,7 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
     reviewEnabled: ikBlogr() && document.getElementById('intakeReview').checked,
     performanceEnabled: ikBlogr() && document.getElementById('intakePerformance').checked,
     ideaEnrichmentEnabled: ikBlogr() && document.getElementById('intakeIdea').checked,
-    notities: document.getElementById('intakeNotes').value.trim()
+    notities: [document.getElementById('intakeNotes').value.trim(), (ikAdviesData && ikEl('ikAdviesNotitie') && ikEl('ikAdviesNotitie').checked) ? ikAdviesData.notitie : ''].filter(Boolean).join(' ')
   };
   try {
     const intakeAntwoord = await adminApi('/intake', { method: 'POST', body: JSON.stringify(payload) });
@@ -800,6 +800,7 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
       }
     }
     document.getElementById('intakeForm').reset();
+    ikAdviesData = null; ikEl('ikAdviesUit').classList.add('hidden'); ikEl('ikAdviesUit').innerHTML = '';
     document.getElementById('intakeReview').checked = true;
     ikEl('intakeProducten').value = 'Blogr.';
     clientIdHandmatig = false;
@@ -997,6 +998,88 @@ ikEl('intakeForm').addEventListener('change', ikUpdate);
 ikUpdate();
 
 
+// ---- AI advies bij de intake ----
+let ikAdviesData = null;
+const IK_DOELEN = {
+  omschrijving: { id: 'intakeBusiness', waarde: (a) => a.omschrijving, label: 'Omschrijving' },
+  onderwerpen: { id: 'intakeTopics', waarde: (a) => (a.blogr ? a.blogr.onderwerpsrichtingen.join('\n') : ''), label: 'Onderwerpsrichtingen' },
+  tone: { id: 'intakeTone', waarde: (a) => (a.blogr ? a.blogr.toneOfVoice : ''), label: 'Tone of voice' },
+  blogs: { id: 'intakeBlogsPerMaand', waarde: (a) => (a.blogr && a.blogr.blogsPerMaand ? String(a.blogr.blogsPerMaand) : ''), label: 'Blogs per maand' },
+  werkgebied: { id: 'intakeLpWerkgebied', waarde: (a) => (a.pagr ? a.pagr.werkgebied.join(', ') : ''), label: 'Werkgebied' },
+  paginas: { id: 'intakePaginasPerMaand', waarde: (a) => (a.pagr && a.pagr.paginasPerMaand ? String(a.pagr.paginasPerMaand) : ''), label: "Pagina's per maand" }
+};
+
+function ikNeem(doel, alleenLeeg) {
+  const d = IK_DOELEN[doel];
+  const waarde = ikAdviesData && d.waarde(ikAdviesData);
+  const el = ikEl(d.id);
+  if (!waarde || !el) return false;
+  const isSelect = el.tagName === 'SELECT';
+  if (alleenLeeg && !isSelect && el.value.trim()) return false;
+  el.value = waarde;
+  return true;
+}
+
+function ikTekenAdvies(a) {
+  const lijstHtml = (items) => `<ul class="ika-lijst">${items.map((i) => `<li>${escapeHtmlAdmin(i)}</li>`).join('')}</ul>`;
+  const blok = (titel, inhoud, doelen = []) => inhoud ? `<div class="ika-blok"><div class="ika-kop"><b>${titel}</b>${doelen.map((d) => `<button type="button" class="p-knop ika-neem" data-doel="${d}">Overnemen in ${escapeHtmlAdmin(IK_DOELEN[d].label.toLowerCase())}</button>`).join('')}</div>${inhoud}</div>` : '';
+  const conc = a.concurrenten.length ? `<ul class="ika-lijst">${a.concurrenten.map((c) => `<li>${c.url ? `<a href="${escapeHtmlAdmin(c.url)}" target="_blank" rel="noopener">${escapeHtmlAdmin(c.naam)}</a>` : escapeHtmlAdmin(c.naam)}${c.opvallend ? ': ' + escapeHtmlAdmin(c.opvallend) : ''}</li>`).join('')}</ul>` : '';
+  const html = [
+    blok('Zo zie ik de klant', `<p>${escapeHtmlAdmin(a.samenvatting)}</p>`, a.omschrijving ? ['omschrijving'] : []),
+    a.blogr ? blok('Blogr. inhoud', `${a.blogr.onderwerpsrichtingen.length ? lijstHtml(a.blogr.onderwerpsrichtingen) : ''}${a.blogr.toneOfVoice ? `<p><em>Schrijfstijl:</em> ${escapeHtmlAdmin(a.blogr.toneOfVoice)}</p>` : ''}${a.blogr.blogsPerMaand ? `<p><em>Advies:</em> ${a.blogr.blogsPerMaand} blogs per maand. ${escapeHtmlAdmin(a.blogr.toelichting)}</p>` : `<p>${escapeHtmlAdmin(a.blogr.toelichting)}</p>`}`, ['onderwerpen', 'tone', ...(a.blogr.blogsPerMaand ? ['blogs'] : [])]) : '',
+    a.pagr ? blok("Pagr. landingspagina's", `${a.pagr.diensten.length ? `<p><em>Diensten voor een eigen pagina:</em></p>${lijstHtml(a.pagr.diensten)}` : ''}${a.pagr.werkgebied.length ? `<p><em>Werkgebied:</em> ${escapeHtmlAdmin(a.pagr.werkgebied.join(', '))}</p>` : ''}${a.pagr.toelichting ? `<p>${escapeHtmlAdmin(a.pagr.toelichting)}</p>` : ''}`, [...(a.pagr.werkgebied.length ? ['werkgebied'] : []), ...(a.pagr.paginasPerMaand ? ['paginas'] : [])]) : '',
+    blok('Markt en concurrentie', `${a.markt ? `<p>${escapeHtmlAdmin(a.markt)}</p>` : ''}${conc}`),
+    blok('Kansen', a.kansen.length ? lijstHtml(a.kansen) : ''),
+    blok('Let op en vragen aan de klant', `${a.aandachtspunten.length ? lijstHtml(a.aandachtspunten) : ''}${a.vragenAanKlant.length ? `<p><em>Vraag de klant:</em></p>${lijstHtml(a.vragenAanKlant)}` : ''}`)
+  ].join('');
+  const bronnen = a.bronnen.length ? `<details class="ika-bronnen"><summary>Bronnen (${a.bronnen.length})</summary>${a.bronnen.map((u) => `<div><a href="${escapeHtmlAdmin(u)}" target="_blank" rel="noopener">${escapeHtmlAdmin(u)}</a></div>`).join('')}</details>` : '';
+  const let_op = [!a.websiteGelezen ? 'De website kon niet worden gelezen.' : '', !a.zelfOnderzoek ? 'De AI kon niet op internet zoeken, dit advies is alleen gebaseerd op wat je invulde.' : ''].filter(Boolean).join(' ');
+  ikEl('ikAdviesUit').innerHTML = `${let_op ? `<div class="ik-melding">${escapeHtmlAdmin(let_op)}</div>` : ''}${html}
+    <div class="ika-onder">
+      <button type="button" class="btn btn-approve" id="ikNeemAlles">Alles overnemen in lege velden</button>
+      <label class="ik-schakel"><input type="checkbox" id="ikAdviesNotitie" checked><span class="ik-spoor"></span><span>Advies kort bewaren in de notities van de klant</span></label>
+    </div>${bronnen}
+    <p class="ik-hint">Dit is een voorstel. Jij of de klant weet meer: pas gerust aan, en vul zelf aan.</p>`;
+  ikEl('ikAdviesUit').classList.remove('hidden');
+  ikEl('ikAdviesUit').querySelectorAll('.ika-neem').forEach((b) => b.addEventListener('click', () => { ikNeem(b.dataset.doel, false); b.textContent = 'Overgenomen'; ikUpdate(); }));
+  ikEl('ikNeemAlles').addEventListener('click', (e) => {
+    let n = 0;
+    Object.keys(IK_DOELEN).forEach((d) => { if (ikNeem(d, true)) n += 1; });
+    e.target.textContent = n ? `${n} velden ingevuld` : 'Alles was al ingevuld';
+    ikUpdate();
+  });
+}
+
+async function ikVraagAdvies() {
+  const knop = ikEl('intakeAdviesKnop');
+  const status = ikEl('ikAdviesStatus');
+  if (!ikEl('intakeWebsite').value.trim() && !ikEl('intakeKlant').value.trim()) { status.textContent = 'Vul eerst de website of klantnaam in.'; return; }
+  knop.disabled = true;
+  knop.textContent = 'De AI onderzoekt...';
+  status.textContent = 'Dit duurt ongeveer een minuut.';
+  try {
+    const r = await adminApi('/intake/advies', { method: 'POST', body: JSON.stringify({
+      klant: ikEl('intakeKlant').value.trim(), website: ikEl('intakeWebsite').value.trim(), producten: ikProduct(),
+      omschrijving: ikEl('intakeBusiness').value.trim(), extra: ikEl('intakeAdviesExtra').value.trim()
+    }) });
+    ikAdviesData = r.advies;
+    ikTekenAdvies(r.advies);
+    status.textContent = '';
+    knop.textContent = 'Opnieuw advies vragen';
+  } catch (err) {
+    status.textContent = err.message;
+    knop.textContent = 'Vraag advies';
+  } finally {
+    knop.disabled = false;
+  }
+}
+ikEl('intakeAdviesKnop').addEventListener('click', ikVraagAdvies);
+// Het advies hoort bij het gekozen product: bij een wisseling vragen we het opnieuw.
+document.querySelectorAll('input[name="ikProduct"]').forEach((r) => r.addEventListener('change', () => {
+  if (ikAdviesData) { ikAdviesData = null; ikEl('ikAdviesUit').classList.add('hidden'); ikEl('ikAdviesStatus').textContent = 'Het product is veranderd, vraag het advies opnieuw.'; }
+}));
+
+
 // ---- Merkprofiel opbouwen ----
 let mpTimer = null;
 
@@ -1075,43 +1158,40 @@ function renderIntakeList(intakes) {
     listEl.innerHTML = `<p class="admin-footnote">Nog geen intakes ingevuld.</p>`;
     return;
   }
-  listEl.innerHTML = intakes
-    .map(
-      (i) => `
-    <div class="proposal-card" data-page-id="${i.id}">
-      <div class="proposal-header">
-        <div class="proposal-title">${escapeHtmlAdmin(i.klant)}</div>
-        <span class="tag">${escapeHtmlAdmin(i.tier || 'geen tier')}</span>
-      </div>
-      <div class="proposal-meta">
-        ${i.clientId ? `<div><span class="seo-label">Client ID</span>${escapeHtmlAdmin(i.clientId)}</div>` : ''}
-        ${i.website ? `<div><span class="seo-label">Website</span>${escapeHtmlAdmin(i.website)}</div>` : ''}
-        ${i.businessOmschrijving ? `<div><span class="seo-label">Business</span>${escapeHtmlAdmin(i.businessOmschrijving)}</div>` : ''}
-        ${i.onderwerpsrichtingen ? `<div><span class="seo-label">Onderwerpsrichtingen</span>${escapeHtmlAdmin(i.onderwerpsrichtingen)}</div>` : ''}
-        ${i.blogsPerMaand ? `<div><span class="seo-label">Blogs per maand</span>${escapeHtmlAdmin(i.blogsPerMaand)}</div>` : ''}
-        ${i.driveMapUrl ? `<div><span class="seo-label">Drive-map</span>${escapeHtmlAdmin(i.driveMapUrl)}</div>` : ''}
-        ${i.notificatieEmails ? `<div><span class="seo-label">Notificatie e-mail</span>${escapeHtmlAdmin(i.notificatieEmails)}</div>` : ''}
-        ${i.wordpressUrl ? `<div><span class="seo-label">WordPress URL</span>${escapeHtmlAdmin(i.wordpressUrl)}</div>` : ''}
-        ${i.wpGebruikersnaam ? `<div><span class="seo-label">WP gebruikersnaam</span>${escapeHtmlAdmin(i.wpGebruikersnaam)}</div>` : ''}
-        ${i.wpAppPassword ? `<div><span class="seo-label">WP app password</span>••••••••</div>` : ''}
-        ${i.wpPostType ? `<div><span class="seo-label">WP post type</span>${escapeHtmlAdmin(i.wpPostType)}</div>` : ''}
-        ${i.merknaam ? `<div><span class="seo-label">Merknaam</span>${escapeHtmlAdmin(i.merknaam)}</div>` : ''}
-        ${i.portaalSlug ? `<div><span class="seo-label">Portaal slug</span>${escapeHtmlAdmin(i.portaalSlug)}</div>` : ''}
-        ${i.ga4PropertyId ? `<div><span class="seo-label">GA4</span>${escapeHtmlAdmin(i.ga4PropertyId)}${i.leadEvent ? ' / lead: ' + escapeHtmlAdmin(i.leadEvent) : ''}${i.boekingEvent ? ' / boeking: ' + escapeHtmlAdmin(i.boekingEvent) : ''}</div>` : ''}
-        ${i.foutreden ? `<div class="admin-error"><span class="seo-label">Foutreden</span>${escapeHtmlAdmin(i.foutreden)}</div>` : ''}
-        ${i.notities ? `<div><span class="seo-label">Notities</span>${escapeHtmlAdmin(i.notities)}</div>` : ''}
-      </div>
-      <div class="proposal-actions">
+  const veld = (label, waarde) => (waarde ? `<div class="ikl-veld"><span>${label}</span><p>${escapeHtmlAdmin(waarde)}</p></div>` : '');
+  const productVan = (i) => (/Producten:\s*(Pagr\.|Beide)/.exec(i.notities || '') || [])[1] || 'Blogr.';
+  listEl.innerHTML = '<div class="ikl-lijst">' + intakes
+    .map((i) => {
+      const datum = i.aangemaaktOp ? new Date(i.aangemaaktOp).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+      const statusKlasse = i.status === 'Fout' ? 'ikl-fout' : (i.status === 'Afgerond' ? 'ikl-klaar' : 'ikl-bezig');
+      return `
+    <details class="ikl-rij" data-page-id="${i.id}">
+      <summary>
+        <span class="ikl-naam">${escapeHtmlAdmin(i.klant)}</span>
+        <span class="ikl-product">${escapeHtmlAdmin(productVan(i))}</span>
+        <span class="ikl-status ${statusKlasse}">${escapeHtmlAdmin(i.status || 'Nieuw')}</span>
+        <span class="ikl-datum">${escapeHtmlAdmin(datum)}</span>
+      </summary>
+      <div class="ikl-body">
+        ${i.foutreden ? `<div class="admin-error"><b>Foutreden</b> ${escapeHtmlAdmin(i.foutreden)}</div>` : ''}
+        <div class="ikl-velden">
+          ${veld('Client ID', i.clientId)}${veld('Website', i.website)}${veld('Tier', i.tier)}${veld('Blogs per maand', i.blogsPerMaand)}
+          ${veld('Merknaam', i.merknaam)}${veld('WordPress', i.wordpressUrl)}${veld('Post type', i.wpPostType)}
+          ${veld('GA4', [i.ga4PropertyId, i.leadEvent && 'lead: ' + i.leadEvent, i.boekingEvent && 'boeking: ' + i.boekingEvent].filter(Boolean).join(' / '))}
+          ${veld('Notificatie e-mail', i.notificatieEmails)}${veld('Drive map', i.driveMapUrl)}
+        </div>
+        ${i.businessOmschrijving ? `<div class="ikl-veld ikl-breed"><span>Omschrijving</span><p>${escapeHtmlAdmin(i.businessOmschrijving)}</p></div>` : ''}
+        ${i.onderwerpsrichtingen ? `<div class="ikl-veld ikl-breed"><span>Onderwerpsrichtingen</span><p>${escapeHtmlAdmin(i.onderwerpsrichtingen)}</p></div>` : ''}
+        ${i.notities ? `<div class="ikl-veld ikl-breed"><span>Notities</span><p>${escapeHtmlAdmin(i.notities)}</p></div>` : ''}
         <label class="intake-status-label">Status
           <select class="intake-status-select" data-page-id="${i.id}">
-            ${INTAKE_STATUS_OPTIONS.map((s) => `<option value="${s}" ${s === i.status ? 'selected' : ''}>${s}</option>`).join('')}
+            ${INTAKE_STATUS_OPTIONS.map((st) => `<option value="${st}" ${st === i.status ? 'selected' : ''}>${st}</option>`).join('')}
           </select>
         </label>
       </div>
-    </div>
-    `
-    )
-    .join('');
+    </details>`;
+    })
+    .join('') + '</div>';
 
   listEl.querySelectorAll('.intake-status-select').forEach((select) => {
     select.addEventListener('change', async () => {

@@ -2,6 +2,7 @@ const express = require('express');
 const { clients, getClient } = require('../config/clients');
 const merkprofielService = require('../services/merkprofiel');
 const intakeAnalyse = require('../services/intakeAnalyse');
+const intakeAdvies = require('../services/intakeAdvies');
 const settingsService = require('../services/settings');
 const notionService = require('../services/notion');
 const intakeService = require('../services/intake');
@@ -183,6 +184,20 @@ router.post('/intake/analyseer', requireAdmin, async (req, res) => {
     res.json(result);
   } catch (err) {
     res.status(400).json({ error: err.message || 'De website kon niet worden geanalyseerd.' });
+  }
+});
+
+// AI advies bij de intake: leest de website, zoekt zelf op internet en geeft voorstellen die je kunt overnemen.
+router.post('/intake/advies', requireAdmin, async (req, res) => {
+  try {
+    const b = req.body || {};
+    const advies = await intakeAdvies.adviesVoorIntake({
+      klant: b.klant, website: b.website, producten: b.producten, omschrijving: b.omschrijving, extra: b.extra,
+      aiFn: intakeAdvies.callOpenAiOnderzoek
+    });
+    res.json({ advies });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

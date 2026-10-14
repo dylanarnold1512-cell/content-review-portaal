@@ -128,3 +128,7 @@ html #lpKlantgegevensTab .kg-kleurrij input[type="text"] { min-width: 0; flex: 1
 .wp-vink input { width: 16px; height: 16px; margin: 0; }
 .wp-selbalk { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; padding: 6px 6px 10px; border-bottom: 1px solid #eceef5; margin-bottom: 4px; }
 @media (max-width: 700px) { .wp-rij { grid-template-columns: 26px minmax(0, 1fr) auto; } }
+
+.wp-vinkcel { width: 28px; }
+.wp-sjabloon { justify-content: flex-start; }
+.wp-sjabloon strong { flex: 1; min-width: 0; }
