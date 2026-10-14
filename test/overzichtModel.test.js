@@ -144,3 +144,15 @@ test('volgende AI meting is een week na de laatste meting', () => {
   const ai = { status: 'ok', data: { beschikbaar: true, status: 'ok', laatsteWeek: { start: '2026-10-12', label: 'x' }, platformen: [{ antwoorden: 4, genoemd: 1 }], trend: [], clusters: [] } };
   assert.strictEqual(bouwStartscherm(basis([], { ai }), NU).volgendeAiMeting, '2026-10-19');
 });
+
+test('wat er gebeurde: een aangevulde blog komt in de feed, een toekomstige datum niet', () => {
+  const g = { status: 'ok', data: { totalen: { vertoningen: 5, clicks: 1 }, weken: [], laatstBijgewerkt: '2026-10-13', effecten: { items: [
+    { soort: 'verbetering', titel: 'Duurzaam vergaderen', datum: '2026-10-09' },
+    { soort: 'verbetering', titel: 'Later', datum: '2027-01-01' },
+    { soort: 'nieuwe_blog', titel: 'Nieuw', datum: '2026-10-05' }
+  ] } } };
+  const s = bouwStartscherm(basis([], { google: g }), NU);
+  const aangevuld = s.feed.filter((f) => f.tekst === 'Blog aangevuld');
+  assert.strictEqual(aangevuld.length, 1);
+  assert.strictEqual(aangevuld[0].sub, 'Duurzaam vergaderen');
+});

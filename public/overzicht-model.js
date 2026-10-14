@@ -149,6 +149,12 @@
       const d = dagTekst(i.publicatiedatum);
       if (geldig(d) && d <= vandaag) feed.push({ soort: 'goed', datum: d, tekst: 'Blog live', sub: i.titel || '(geen titel)', id: i.id });
     });
+    // Blogs waar tekst aan is toegevoegd (page enrichment). De datum komt uit de verbeteringen in de Google gegevens.
+    const effectItems = g.status === 'ok' && g.data && g.data.effecten && Array.isArray(g.data.effecten.items) ? g.data.effecten.items : [];
+    effectItems.forEach((e) => {
+      const d = dagTekst(e && e.datum);
+      if (e && e.soort === 'verbetering' && geldig(d) && d <= vandaag) feed.push({ soort: 'goed', datum: d, tekst: 'Blog aangevuld', sub: e.titel || '(geen titel)' });
+    });
     if (google.status === 'ok' && google.bijgewerkt && geldig(dagTekst(google.bijgewerkt))) feed.push({ soort: 'grafiek', datum: dagTekst(google.bijgewerkt), tekst: 'Google cijfers bijgewerkt', sub: '' });
     if (ai.status === 'ok' && ai.heeftMeting && ai.weekStart) feed.push({ soort: 'ai', datum: ai.weekStart, tekst: 'AI meting afgerond', sub: ai.weekLabel });
     if (kennis.status === 'ok' && kennis.heeft && geldig(dagTekst(kennis.bijgewerkt))) feed.push({ soort: 'boek', datum: dagTekst(kennis.bijgewerkt), tekst: 'Kennisdocument bijgewerkt', sub: kennis.woorden ? kennis.woorden + (kennis.woorden === 1 ? ' woord' : ' woorden') : '' });

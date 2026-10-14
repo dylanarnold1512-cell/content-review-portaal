@@ -121,6 +121,9 @@ async function enterApp(clientId, clientMeta) {
   }
   const paginasGroep = document.getElementById('paginasGroep');
   if (paginasGroep) paginasGroep.classList.toggle('hidden', !producten.pagr);
+  // De knop zelf ook verbergen: de zijbalk toont een groep zodra er een zichtbare knop in staat (portaal-shell.js).
+  const paginasKnop = document.getElementById('paginasTabBtn');
+  if (paginasKnop) paginasKnop.classList.toggle('hidden', !producten.pagr);
   if (!producten.blogr) {
     document.body.classList.add('alleen-pagr');
     ['pagrOverzichtBtn', 'pagrResultatenBtn'].forEach((id) => { const b = document.getElementById(id); if (b) b.classList.remove('hidden'); });
