@@ -1,0 +1,76 @@
+const test = require('node:test');
+const assert = require('node:assert');
+const { samenvat, normaliseerRij, groepeerPerKlant, chatZin } = require('../src/services/onboarding');
+const { STAPPEN, FASEN, STATUSSEN } = require('../src/config/onboardingStappen');
+
+const rij = (nr, status, extra = {}) => ({ nr, status, fase: (STAPPEN.find((s) => s.nr === nr) || {}).fase, titel: 'x' + nr, ...extra });
+
+test('de lijst heeft 21 stappen met unieke nummers in 5 fasen', () => {
+  assert.strictEqual(STAPPEN.length, 21);
+  assert.strictEqual(new Set(STAPPEN.map((s) => s.nr)).size, 21);
+  assert.strictEqual(FASEN.length, 5);
+  STAPPEN.forEach((s) => assert.ok(FASEN.some((f) => f.code === s.fase), `fase van stap ${s.nr}`));
+  assert.ok(STATUSSEN.includes('Wacht op Dylan'));
+});
+
+test('samenvat telt klaar en overgeslagen als afgerond en vindt de volgende stap', () => {
+  const rijen = [rij(1, 'Klaar'), rij(2, 'Overgeslagen'), rij(3, 'Bezig'), rij(4, 'Wacht op Dylan'), rij(5, 'Wacht op klant'), rij(6, 'Nog niet gestart')];
+  const s = samenvat(rijen);
+  assert.strictEqual(s.totaal, 6);
+  assert.strictEqual(s.afgerond, 2);
+  assert.strictEqual(s.procent, 33);
+  assert.strictEqual(s.volgende.nr, 3);
+  assert.strictEqual(s.wachtOpDylan.length, 1);
+  assert.strictEqual(s.wachtOpKlant.length, 1);
+  assert.strictEqual(s.fase, 'A');
+  assert.strictEqual(s.gereed, false);
+});
+
+test('samenvat zonder rijen geeft nul en niet gereed', () => {
+  const s = samenvat([]);
+  assert.strictEqual(s.totaal, 0);
+  assert.strictEqual(s.procent, 0);
+  assert.strictEqual(s.gereed, false);
+  assert.strictEqual(s.volgende, null);
+});
+
+test('alles klaar is gereed', () => {
+  const s = samenvat([rij(1, 'Klaar'), rij(2, 'Overgeslagen')]);
+  assert.strictEqual(s.gereed, true);
+  assert.strictEqual(s.procent, 100);
+});
+
+test('normaliseerRij leest een Notion pagina en vult de uitleg uit de vaste lijst', () => {
+  const r = normaliseerRij({
+    id: 'p1',
+    properties: {
+      Stap: { title: [{ plain_text: 'SEO en GEO strategie' }] },
+      Klant: { rich_text: [{ plain_text: 'Hirs Installaties' }] },
+      'Client ID': { rich_text: [{ plain_text: 'hirs-installaties' }] },
+      Nr: { number: 7 },
+      Status: { select: { name: 'Wacht op Dylan' } },
+      'Aan zet': { select: { name: 'Dylan' } },
+      Uitkomst: { rich_text: [{ plain_text: 'Concept klaar' }] }
+    }
+  });
+  assert.strictEqual(r.nr, 7);
+  assert.strictEqual(r.fase, 'B');
+  assert.strictEqual(r.status, 'Wacht op Dylan');
+  assert.strictEqual(r.clientId, 'hirs-installaties');
+  assert.match(r.uitleg, /akkoord/i);
+});
+
+test('rijen zonder Client ID worden genegeerd en klanten worden gegroepeerd', () => {
+  const groepen = groepeerPerKlant([
+    rij(1, 'Klaar', { clientId: 'a', klant: 'A' }),
+    rij(2, 'Bezig', { clientId: 'a', klant: 'A' }),
+    rij(1, 'Klaar', { clientId: 'b', klant: 'B' }),
+    rij(1, 'Klaar', { clientId: '' })
+  ]);
+  assert.strictEqual(groepen.length, 2);
+  assert.strictEqual(groepen.find((g) => g.clientId === 'a').samenvatting.totaal, 2);
+});
+
+test('de chatzin noemt de klant', () => {
+  assert.strictEqual(chatZin('Hirs Installaties'), 'Onboarding Hirs Installaties, ga verder.');
+});

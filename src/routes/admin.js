@@ -5,6 +5,7 @@ const intakeAnalyse = require('../services/intakeAnalyse');
 const settingsService = require('../services/settings');
 const notionService = require('../services/notion');
 const intakeService = require('../services/intake');
+const onboardingService = require('../services/onboarding');
 const aiZichtbaarheidService = require('../services/aiZichtbaarheid');
 const { checkAdminPassword, requireAdmin } = require('../middleware/auth');
 
@@ -161,7 +162,15 @@ router.post('/intake', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Klantnaam is verplicht.' });
     }
     const result = await intakeService.createIntake(req.body || {});
-    res.json({ ok: true, id: result.id });
+    // De onboarding wordt vanaf nu bijgehouden: stap 1 (websitescan en nieuwe klant) is klaar. Lukt dat niet, dan blijft de intake gewoon staan.
+    let onboardingMelding = '';
+    try {
+      const clientId = String((req.body || {}).clientId || (req.body || {}).portaalSlug || '').trim();
+      if (clientId) await onboardingService.start({ klant: klant.trim(), clientId, klaar: [1] });
+    } catch (err) {
+      onboardingMelding = `De intake is opgeslagen, maar de onboardingstappen konden niet worden aangemaakt: ${err.message}`;
+    }
+    res.json({ ok: true, id: result.id, onboardingMelding });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -177,6 +186,42 @@ router.post('/intake/:pageId/status', requireAdmin, async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/onboarding', requireAdmin, async (req, res) => {
+  try {
+    res.json({ klanten: await onboardingService.overzicht() });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/onboarding/:clientId', requireAdmin, async (req, res) => {
+  try {
+    res.json(await onboardingService.voorKlant(req.params.clientId));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/onboarding', requireAdmin, async (req, res) => {
+  try {
+    const { klant, clientId, klaar } = req.body || {};
+    const result = await onboardingService.start({ klant, clientId, klaar: Array.isArray(klaar) ? klaar : [] });
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/onboarding/stap/:pageId', requireAdmin, async (req, res) => {
+  try {
+    const { status, uitkomst } = req.body || {};
+    await onboardingService.zetStap(req.params.pageId, { status, uitkomst });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 
