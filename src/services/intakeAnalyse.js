@@ -136,4 +136,4 @@ async function analyseerWebsite(invoer) {
   };
 }
 
-module.exports = { analyseerWebsite, analyseerHtml, slugify, naamUitTitel, isPrivateIp };
+module.exports = { analyseerWebsite, analyseerHtml, slugify, naamUitTitel, isPrivateIp, haal, decodeer };

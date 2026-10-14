@@ -74,18 +74,21 @@ function wpTeken() {
 
   document.getElementById('wpPaginas').innerHTML = pages.map((p) => {
     const stand = wpStandVan(p.status);
-    return `<tr class="lp-row" data-page-id="${wpEsc(p.id)}"><td><strong>${wpEsc(p.titel || '(zonder titel)')}</strong></td><td><span class="wp-pil ${WP_STAND_KLASSE[stand]}"><span class="wp-stip"></span>${stand}</span></td><td class="wp-muted">${p.laatstGewijzigd ? new Date(p.laatstGewijzigd).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : ''}</td></tr>`;
-  }).join('') || '<tr><td colspan="3" class="wp-muted">Nog geen pagina\'s voor deze klant.</td></tr>';
+    return `<tr class="lp-row" data-page-id="${wpEsc(p.id)}"><td class="wp-vinkcel"><label class="wp-vink"><input type="checkbox" data-sel="${wpEsc(p.id)}" aria-label="Selecteer ${wpEsc(p.titel || '')}"></label></td><td><strong>${wpEsc(p.titel || '(zonder titel)')}</strong></td><td><span class="wp-pil ${WP_STAND_KLASSE[stand]}"><span class="wp-stip"></span>${stand}</span></td><td class="wp-muted">${p.laatstGewijzigd ? new Date(p.laatstGewijzigd).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : ''}</td></tr>`;
+  }).join('') || '<tr><td colspan="4" class="wp-muted">Nog geen pagina\'s voor deze klant.</td></tr>';
   document.querySelectorAll('#wpPaginas tr.lp-row').forEach((row) => {
-    row.addEventListener('click', () => { lpState.laatsteLijst = 'werkplaats'; openPageDetail(row.dataset.pageId); });
+    row.addEventListener('click', (e) => { if (e.target.closest('.wp-vink')) return; lpState.laatsteLijst = 'werkplaats'; openPageDetail(row.dataset.pageId); });
   });
+  lpKoppelSelectie('wpPagina', document.getElementById('wpPaginas'));
 
   document.getElementById('wpSjablonen').innerHTML = templates.length
-    ? templates.map((t) => `<div class="wp-sjabloon" data-tpl-id="${wpEsc(t.id)}"><strong>${wpEsc(t.naam)}</strong><span class="wp-pil ${t.status === 'Actief' ? 'wp-live' : 'wp-gepland'}"><span class="wp-stip"></span>${wpEsc(t.status)}</span></div>`).join('')
+    ? templates.map((t) => `<div class="wp-sjabloon" data-tpl-id="${wpEsc(t.id)}"><label class="wp-vink"><input type="checkbox" data-sel="${wpEsc(t.id)}" aria-label="Selecteer ${wpEsc(t.naam)}"></label><strong>${wpEsc(t.naam)}</strong><span class="wp-pil ${t.status === 'Actief' ? 'wp-live' : 'wp-gepland'}"><span class="wp-stip"></span>${wpEsc(t.status)}</span></div>`).join('')
     : '<p class="wp-muted">Nog geen sjablonen voor deze klant.</p>';
   document.querySelectorAll('#wpSjablonen .wp-sjabloon').forEach((el) => {
-    el.addEventListener('click', () => { switchLpTab('sjablonen'); if (typeof openTemplateDetail === 'function') openTemplateDetail(el.dataset.tplId); });
+    el.addEventListener('click', (e) => { if (e.target.closest('.wp-vink')) return; switchLpTab('sjablonen'); if (typeof openTemplateDetail === 'function') openTemplateDetail(el.dataset.tplId); });
   });
+
+  lpKoppelSelectie('wpSjab', document.getElementById('wpSjablonen'));
 
   document.getElementById('wpAdvies').innerHTML = uit.advies.map((a, i) => `<div class="wp-advies-item ${a.soort}"><p>${wpEsc(a.tekst)}</p>${a.knop ? `<button type="button" class="btn btn-plain" data-adv="${i}">${wpEsc(a.knop)}</button>` : ''}</div>`).join('');
   document.querySelectorAll('#wpAdvies [data-adv]').forEach((b) => {
@@ -113,7 +116,7 @@ async function wpLaad() {
       lpApi('/templates?klant=' + encodeURIComponent(klantId))
     ]);
     lpState.wpPages = pages;
-    lpState.wpTemplates = templates;
+    lpState.wpTemplates = (templates || []).filter((t) => t.status !== 'Gearchiveerd');
     wpTeken();
     wpLaadExtra();
   } catch (err) {

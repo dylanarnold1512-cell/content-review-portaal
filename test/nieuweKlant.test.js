@@ -30,3 +30,17 @@ test('zetNieuweKlant weigert een lege Client ID', async () => {
   const s = require('../src/services/settings');
   await assert.rejects(() => s.zetNieuweKlant('', 'X', {}), /Client ID/);
 });
+
+test('werkplaats heeft vinkjes en verwijderen voor pagina\'s en sjablonen', () => {
+  const html = lees('public/lp.html');
+  const wp = lees('public/lp-werkplaats.js');
+  for (const pre of ['wpPagina', 'wpSjab']) {
+    assert.ok(html.includes(`id="${pre}SelAlles"`) && html.includes(`id="${pre}VerwijderBtn"`), pre);
+    assert.ok(wp.includes(`lpKoppelSelectie('${pre}'`), pre);
+  }
+  assert.match(wp, /Gearchiveerd/);
+});
+
+test('eerdere intakes zijn uitklapbaar', () => {
+  assert.match(lees('public/admin.js'), /<details class="ikl-rij"/);
+});

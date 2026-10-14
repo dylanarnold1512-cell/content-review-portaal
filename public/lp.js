@@ -344,6 +344,8 @@ function renderPagesTable() {
 // endpoint dat per item verwijdert en fouten per item teruggeeft.
 const LP_SELECTIE = {
   lpPagina: { eenheid: 'pagina', meervoud: "pagina's", url: '/pages/verwijder-meerdere', ververs: () => loadPages(), extra: ' Pagina\'s die al in WordPress staan gaan daar naar de prullenbak.' },
+  wpPagina: { eenheid: 'pagina', meervoud: "pagina's", url: '/pages/verwijder-meerdere', ververs: () => wpLaad(), extra: ' Pagina\'s die al in WordPress staan gaan daar naar de prullenbak.' },
+  wpSjab: { eenheid: 'sjabloon', meervoud: 'sjablonen', url: '/templates/verwijder-meerdere', ververs: () => wpLaad(), extra: ' Een sjabloon dat Actief is kan niet verwijderd worden, zet het eerst op Concept.' },
   lpTemplate: { eenheid: 'sjabloon', meervoud: 'sjablonen', url: '/templates/verwijder-meerdere', ververs: () => loadTemplates(), extra: ' Een sjabloon dat Actief is kan niet verwijderd worden, zet het eerst op Concept.' }
 };
 function lpKoppelSelectie(pre, lijst) {
