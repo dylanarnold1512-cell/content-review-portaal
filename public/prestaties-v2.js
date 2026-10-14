@@ -19,7 +19,7 @@ const PV_STAP = 10;
 const PV_INZICHT_ZICHTBAAR = 3;
 const PV_KANSEN_ZICHTBAAR = 4;
 
-const pvState = { zwSort: 'vertoningen', zwAlle: false, insTab: '', periode: '28d', laden: false, sort: 'vertoningen', cluster: '', status: '', q: '', taal: '', toon: PV_STAP, open: {}, insOpen: {}, data: null };
+const pvState = { zwSort: 'vertoningen', zwAlle: false, insTab: '', periode: '28d', laden: false, sort: 'vertoningen', cluster: '', status: '', q: '', taal: '', toon: PV_STAP, open: {}, insOpen: {}, kaartOpen: {}, data: null };
 
 function pvDelta(nu, vorig) {
   if (vorig === null || vorig === undefined) return '';
@@ -116,6 +116,12 @@ function pvBars(weken, veld, kleurKlasse, titel) {
 
 const PV_PRIO = { hoog: 'Hoge prioriteit', middel: 'Middel prioriteit', laag: 'Lage prioriteit' };
 
+// Twee lange kaarten staan standaard ingeklapt, zodat de rest van de pagina in beeld blijft.
+function pvKaartKop(sleutel, titel, aantal) {
+  const open = Boolean(pvState.kaartOpen[sleutel]);
+  return `<button type="button" class="pv-kaart-knop" data-pv-kaart="${sleutel}" aria-expanded="${open}"><span class="p-kaart-titel">${pvEsc(titel)}</span>${aantal ? `<span class="pv-kaart-aantal">${aantal}</span>` : ''}<span class="pv-pijl">${open ? '−' : '+'}</span></button>`;
+}
+
 const PV_EFFECT_ZICHTBAAR = 4;
 
 function pvEffecten(e) {
@@ -127,7 +133,7 @@ function pvEffecten(e) {
     ? `${e.gemeten} ${e.gemeten === 1 ? 'actie is' : 'acties zijn'} gemeten${e.nogTeMeten ? `, ${e.nogTeMeten} ${e.nogTeMeten === 1 ? 'volgt' : 'volgen'} nog` : ''}.`
     : 'De eerste metingen volgen ongeveer een maand na publicatie.';
   return `
-    <section class="p-kaart pv-effecten"><div class="p-kaart-kop"><div class="p-kaart-titel-blok"><h2 class="p-kaart-titel">Wat hebben we gedaan en wat was het effect</h2></div></div><div class="p-kaart-inhoud">
+    <section class="p-kaart pv-effecten"><h2 class="pv-kaart-h2">${pvKaartKop('effecten', 'Wat hebben we gedaan en wat was het effect', e.items.length)}</h2>${pvState.kaartOpen.effecten ? '<div class="p-kaart-inhoud">' : '<div class="p-kaart-inhoud" hidden>'}
       <p class="pv-muted">${pvEsc(intro)} We meten 28, 56 en 90 dagen na de actie. Het zijn gemeten cijfers uit Google. Ze laten niet zien wat de oorzaak was.</p>
       ${zichtbaar.map((i) => `
         <div class="pv-effect-item">
@@ -177,7 +183,8 @@ async function pvLaadPeriode(code) {
 function pvBlogRegel(b0, idx) {
   const tc = pvTaalCijfers(b0);
   const b = tc ? Object.assign({}, b0, { vertoningen: tc.vertoningen || 0, clicks: tc.clicks || 0, paginaweergaven: tc.paginaweergaven === undefined ? null : tc.paginaweergaven, talen: [] }) : b0;
-  const toonNl = !pvState.taal || pvState.taal === 'hoofd';
+  const toonNl = true;
+  if (tc && pvState.taal !== 'hoofd') b.zoekwoorden = tc.zoekwoorden || [];
   const open = Boolean(pvState.open[idx]);
   const dagen = b.leeftijdDagen === null ? '' : b.leeftijdDagen === 0 ? 'vandaag live' : `${b.leeftijdDagen} ${b.leeftijdDagen === 1 ? 'dag' : 'dagen'} live`;
   const g = b.gedrag;
@@ -380,6 +387,14 @@ function renderPrestatiesV2(d) {
     const zwSort = e.target.closest('[data-pv-zwsort]');
     if (zwSort) { pvState.zwSort = zwSort.getAttribute('data-pv-zwsort'); pvTekenZoekwoorden(); return; }
     if (e.target.closest('[data-zw-meer]')) { pvState.zwAlle = !pvState.zwAlle; pvTekenZoekwoorden(); return; }
+    const kaartKnop = e.target.closest('[data-pv-kaart]');
+    if (kaartKnop) {
+      const k = kaartKnop.getAttribute('data-pv-kaart');
+      pvState.kaartOpen[k] = !pvState.kaartOpen[k];
+      pvTekenInzichten();
+      pvTekenEffecten();
+      return;
+    }
     const insTab = e.target.closest('[data-pv-instab]');
     if (insTab) { pvState.insTab = insTab.getAttribute('data-pv-instab'); pvTekenInzichten(); return; }
     const ins = e.target.closest('[data-pv-ins]');
@@ -418,6 +433,7 @@ function pvTekenTaalRij() {
   }
   const tegels = document.getElementById('pvTiles');
   if (tegels) tegels.innerHTML = pvTiles(pvTotalenVoorTaal(d.totalen));
+  pvTekenZoekwoorden();
   const weken = document.getElementById('pvWekenKaart');
   if (weken) weken.style.display = pvState.taal ? 'none' : '';
 }
@@ -454,12 +470,31 @@ function pvKansenPerBlog(lijst) {
   return html + (meer > 0 ? `<button type="button" class="pv-toggle" data-pv-ins="kansen">${open ? 'Toon minder' : `Toon alle ${groepen.length} blogs`}</button>` : '') + `<div class="pv-muted pv-kans-noot">${pvEsc(PV_ZIN_KANSEN)}</div>`;
 }
 
+// Zoekwoorden volgen de gekozen taal. Zonder taalkeuze tellen alle talen mee.
+// Elke taalpagina heeft in b.talen zijn eigen zoekwoorden (veld zoekwoorden), de hoofdtaal staat in b.zoekwoorden.
+function pvZoekwoordenBlogs() {
+  const blogs = pvState.data.blogs || [];
+  return blogs.map((b) => {
+    const talen = b.talen || [];
+    const metTaal = (code) => { const e = talen.find((x) => x.code === code); return e && e.zoekwoorden ? e.zoekwoorden : []; };
+    if (!pvState.taal) {
+      return { zoekwoorden: (b.zoekwoorden || []).concat(...talen.filter((x) => x.code !== 'hoofd').map((x) => x.zoekwoorden || [])) };
+    }
+    if (pvState.taal === 'hoofd') return { zoekwoorden: b.zoekwoorden || [] };
+    return { zoekwoorden: metTaal(pvState.taal) };
+  });
+}
+
 function pvTekenZoekwoorden() {
   const box = document.getElementById('pvZwKaart');
   if (!box || !pvState.data || !window.Zoekwoorden) return;
-  const lijst = window.Zoekwoorden.samenvoegen(pvState.data.blogs, pvState.zwSort);
-  if (!lijst.length) { box.style.display = 'none'; return; }
+  const lijst = window.Zoekwoorden.samenvoegen(pvZoekwoordenBlogs(), pvState.zwSort);
+  if (!lijst.length && !pvState.taal) { box.style.display = 'none'; return; }
   box.style.display = '';
+  if (!lijst.length) {
+    box.innerHTML = '<div class="p-kaart-kop"><div class="p-kaart-titel-blok"><h2 class="p-kaart-titel">Zoekwoorden</h2><div class="p-kaart-uitleg">Voor deze taal zijn nog geen zoekwoorden gemeten. Die komen na de volgende dagelijkse update.</div></div></div>';
+    return;
+  }
   const keuzes = [['vertoningen', 'Meest getoond'], ['bezoekers', 'Meeste bezoekers']];
   box.innerHTML = `<div class="p-kaart-kop"><div class="p-kaart-titel-blok"><h2 class="p-kaart-titel">Zoekwoorden</h2><div class="p-kaart-uitleg">Waar mensen op zochten toen ze jullie blogs in Google zagen. Een lage positie is beter, pagina 1 is positie 1 tot en met 10.</div></div>
     <div class="pv-periode" role="group" aria-label="Sorteer zoekwoorden">${keuzes.map((k) => `<button type="button" class="pv-chip${pvState.zwSort === k[0] ? ' pv-chip-aan' : ''}" data-pv-zwsort="${k[0]}">${k[1]}</button>`).join('')}</div></div>
@@ -487,7 +522,7 @@ function pvTekenInzichten() {
     inhoud = zichtbaar.map((x) => `<div class="pv-kans"><div class="pv-ins-titel">${pvEsc(x.titel)}</div><div class="pv-ins-tekst">${pvEsc(x.tekst)}</div>${actief[0] === 'aandacht' && x.actie ? `<div class="pv-ins-actie">Wat wij doen: ${pvEsc(x.actie)}</div>` : ''}</div>`).join('') +
       (meer > 0 ? `<button type="button" class="pv-toggle" data-pv-ins="${actief[0]}">${open ? 'Toon minder' : `Toon alle ${lijst.length}`}</button>` : '');
   }
-  box.innerHTML = `<section class="p-kaart"><div class="p-kaart-kop"><div class="p-kaart-titel-blok"><h2 class="p-kaart-titel">Wat we zien en wat we doen</h2></div></div>
-    <div class="p-kaart-inhoud"><div class="pv-tabs" role="tablist">${tabs.map((t) => `<button type="button" role="tab" aria-selected="${t[0] === pvState.insTab}" class="pv-tab${t[0] === pvState.insTab ? ' actief' : ''}" data-pv-instab="${t[0]}">${t[1]}<span>${t[2].length}</span></button>`).join('')}</div>
+  box.innerHTML = `<section class="p-kaart"><h2 class="pv-kaart-h2">${pvKaartKop('inzichten', 'Wat we zien en wat we doen', tabs.reduce((n, t) => n + t[2].length, 0))}</h2>
+    <div class="p-kaart-inhoud"${pvState.kaartOpen.inzichten ? '' : ' hidden'}><div class="pv-tabs" role="tablist">${tabs.map((t) => `<button type="button" role="tab" aria-selected="${t[0] === pvState.insTab}" class="pv-tab${t[0] === pvState.insTab ? ' actief' : ''}" data-pv-instab="${t[0]}">${t[1]}<span>${t[2].length}</span></button>`).join('')}</div>
     <div class="pv-tabinhoud">${inhoud}</div></div></section>`;
 }
