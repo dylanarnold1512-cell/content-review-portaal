@@ -145,4 +145,4 @@ function vindDubbeleVragen({ vragen, zusterVragen, plaatsen, drempel = 0.7, nege
   return dubbel;
 }
 
-module.exports = { haalZoekvragen, dienstenUitTekst, vragenUitContent, vindDubbeleVragen, kernWoorden, gelijkenis, schoonVraag };
+module.exports = { haalSuggesties, haalZoekvragen, dienstenUitTekst, vragenUitContent, vindDubbeleVragen, kernWoorden, gelijkenis, schoonVraag };

@@ -249,9 +249,21 @@
       <div id="wpStappen" class="wp-stappen"></div>
       <div class="wp-raster">
         <div class="wp-links">
+          <section class="wp-kaart" id="wpPlanKaart">
+            <div class="wp-kaart-kop"><h2>Plan</h2></div>
+            <p class="wp-muted wp-uitleg">De AI stelt pagina's voor op basis van de site van de klant en wat mensen zoeken. Jij keurt goed. Er wordt pas iets aangemaakt als je goedkeurt.</p>
+            <div class="wp-planvorm">
+              <div class="wp-veld"><label for="wpAantal">Aantal deze maand</label><input id="wpAantal" type="number" min="1" max="20" value="4"></div>
+              <div class="wp-veld wp-veld-breed"><label for="wpWens">Wens (optioneel)</label><input id="wpWens" type="text" placeholder="Bijvoorbeeld: meer plaatsen rond Haarlem"></div>
+              <button type="button" id="wpPlanKnop" class="btn btn-approve">Stel pagina's voor</button>
+            </div>
+            <div id="wpPlanStatus" class="wp-muted"></div>
+            <div id="wpPlanLijst"></div>
+          </section>
           <section class="wp-kaart">
             <div class="wp-kaart-kop"><h2>Pagina's</h2><button type="button" id="wpNieuwePagina" class="btn btn-approve">+ Nieuwe pagina</button></div>
             <div id="wpTellers" class="wp-tellers"></div>
+            <div id="wpBulk" class="wp-bulk hidden"></div>
             <div class="wp-tabel-wrap"><table class="lp-table wp-tabel"><thead><tr><th>Pagina</th><th>Stand</th><th>Laatst bijgewerkt</th></tr></thead><tbody id="wpPaginas"></tbody></table></div>
           </section>
           <section class="wp-kaart">
