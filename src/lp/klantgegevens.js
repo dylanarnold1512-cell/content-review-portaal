@@ -18,6 +18,7 @@
 const { Client } = require('@notionhq/client');
 const { clients } = require('./clients');
 const { slugify } = require('./utils');
+const { clientTokens, defaultTokens, getTokens, checkFontLoadConsistency } = require('./tokens');
 
 const DATABASE_ID = process.env.LP_KLANTGEGEVENS_DATABASE_ID || '926632fa-da31-464a-ad31-24ee36592459';
 const VERVERS_MS = 5 * 60 * 1000;
@@ -32,6 +33,10 @@ const diepKopie = (v) => JSON.parse(JSON.stringify(v));
 // verdwijnen en gaat de klant terug naar de code.
 const CODE_BASIS = {};
 Object.keys(clients).forEach((id) => { CODE_BASIS[id] = { profile: diepKopie(clients[id].profile), feiten: diepKopie(clients[id].feiten) }; });
+
+// Tokens zoals in code, zodat een huisstijl uit Notion later weer weg kan.
+const CODE_TOKENS = {};
+Object.keys(clientTokens).forEach((id) => { CODE_TOKENS[id] = diepKopie(clientTokens[id]); });
 
 let notion = null;
 function getNotion() {
@@ -79,7 +84,8 @@ function schoonProfiel(invoer) {
     bedrijf,
     nietToegestaan: lijst(i.nietToegestaan, 20, 300),
     toonNotitie: tekst(i.toonNotitie, 600),
-    fotoRichtlijn: tekst(i.fotoRichtlijn, 600)
+    fotoRichtlijn: tekst(i.fotoRichtlijn, 600),
+    huisstijl: schoonHuisstijl(i.huisstijl)
   };
 }
 
@@ -103,6 +109,87 @@ function schoonFeiten(invoer) {
     uit.push(feit);
   });
   return uit;
+}
+
+// ---- Huisstijl (tokens) ----
+// Alleen deze velden komen uit Notion. customFonts, googleFontGewichten, themeOverrideCss en sfeer blijven in code,
+// want een eigen lettertypebestand of een stuk CSS hoort niet in een formulier.
+const HEX_RE = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
+const MAAT_RE = /^\d{1,4}(px|rem|%)$/;
+const KLEUR_VELDEN = ['primary', 'primaryDark', 'secondary', 'text', 'textMuted', 'bg', 'bgAlt', 'bgDark', 'border', 'headingColor', 'kickerColor', 'ctaBg', 'ctaText'];
+const MAAT_VELDEN = ['maxWidth', 'radius', 'buttonRadius', 'cardRadius'];
+const TRANSFORM_VELDEN = ['headingTransform', 'buttonTransform'];
+const TRANSFORMS = ['none', 'uppercase', 'capitalize'];
+const FONT_VELDEN = ['fontHeading', 'fontBody', 'fontAccent'];
+const HUISSTIJL_VELDEN = [...KLEUR_VELDEN, ...MAAT_VELDEN, ...TRANSFORM_VELDEN, 'headingWeight', ...FONT_VELDEN, 'googleFonts'];
+
+// Een lege waarde betekent: geen eigen keuze, dus de code of de standaard blijft gelden.
+function schoonHuisstijl(invoer) {
+  const i = invoer || {};
+  const uit = {};
+  KLEUR_VELDEN.forEach((k) => {
+    const w = tekst(i[k], 20);
+    if (!w) return;
+    if (!HEX_RE.test(w)) throw new Error(`Huisstijl: "${w}" is geen kleurcode. Gebruik bijvoorbeeld #0F5257.`);
+    uit[k] = w.toUpperCase();
+  });
+  MAAT_VELDEN.forEach((k) => {
+    const w = tekst(i[k], 12).toLowerCase();
+    if (!w) return;
+    if (!MAAT_RE.test(w)) throw new Error(`Huisstijl: "${w}" is geen maat. Gebruik bijvoorbeeld 8px of 1200px.`);
+    uit[k] = w;
+  });
+  TRANSFORM_VELDEN.forEach((k) => {
+    const w = tekst(i[k], 20).toLowerCase();
+    if (!w) return;
+    if (!TRANSFORMS.includes(w)) throw new Error('Huisstijl: hoofdletters kan alleen geen, hoofdletters of eerste letter.');
+    uit[k] = w;
+  });
+  const gewicht = tekst(i.headingWeight, 4);
+  if (gewicht) {
+    if (!/^[1-9]00$/.test(gewicht)) throw new Error('Huisstijl: dikte van de koppen moet 100 tot en met 900 zijn.');
+    uit.headingWeight = gewicht;
+  }
+  FONT_VELDEN.forEach((k) => {
+    const w = tekst(i[k], 120);
+    if (!w) return;
+    if (!/^[A-Za-z0-9 ,'"\-]+$/.test(w)) throw new Error('Huisstijl: een lettertype mag alleen letters, cijfers, spaties, komma\'s en aanhalingstekens bevatten.');
+    uit[k] = w;
+  });
+  const gf = (Array.isArray(i.googleFonts) ? i.googleFonts : String(i.googleFonts || '').split(',')).map((x) => tekst(x, 60)).filter(Boolean).slice(0, 5);
+  gf.forEach((n) => { if (!/^[A-Za-z0-9 ]+$/.test(n)) throw new Error(`Huisstijl: "${n}" is geen geldige naam van een Google Font.`); });
+  if (gf.length) uit.googleFonts = gf;
+  return uit;
+}
+
+// Houdt alleen de velden over die afwijken van de basis (de tokens in code, of de standaard).
+function alleenVerschil(h, id) {
+  const basis = CODE_TOKENS[id] || defaultTokens;
+  const uit = {};
+  Object.keys(h || {}).forEach((k) => {
+    if (JSON.stringify(h[k]).toLowerCase() !== JSON.stringify(basis[k] == null ? '' : basis[k]).toLowerCase()) uit[k] = h[k];
+  });
+  return uit;
+}
+
+// Voor een AI voorstel: een ongeldige waarde laten we weg in plaats van het hele voorstel te weigeren.
+function huisstijlUitVoorstel(voorstel) {
+  const uit = {};
+  Object.keys(voorstel || {}).forEach((k) => {
+    if (!HUISSTIJL_VELDEN.includes(k)) return;
+    try { Object.assign(uit, schoonHuisstijl({ [k]: voorstel[k] })); } catch (e) { /* ongeldige waarde: weglaten */ }
+  });
+  return uit;
+}
+
+function huisstijlUitTokens(t) {
+  const uit = {};
+  HUISSTIJL_VELDEN.forEach((k) => { uit[k] = t[k] == null ? (k === 'googleFonts' ? [] : '') : t[k]; });
+  return uit;
+}
+
+function huisstijlWaarschuwingen(id) {
+  try { return checkFontLoadConsistency(getTokens(id)); } catch (e) { return []; }
 }
 
 // ---- Samenvoegen met de code ----
@@ -154,6 +241,18 @@ function pasToe() {
   });
   notionData.forEach((k, id) => {
     if (!CODE_BASIS[id]) clients[id] = bouwKlant(id, k);
+  });
+  pasTokensToe();
+}
+
+// Legt de huisstijl uit Notion over de tokens in code. Het gedeelde object clientTokens wordt ter plekke aangepast.
+function pasTokensToe() {
+  Object.keys(clientTokens).forEach((id) => { if (!CODE_TOKENS[id]) delete clientTokens[id]; });
+  Object.keys(CODE_TOKENS).forEach((id) => { clientTokens[id] = diepKopie(CODE_TOKENS[id]); });
+  notionData.forEach((k, id) => {
+    const h = k.profiel && k.profiel.huisstijl;
+    if (!h || !Object.keys(h).length || !clients[id]) return;
+    clientTokens[id] = { ...(CODE_TOKENS[id] ? diepKopie(CODE_TOKENS[id]) : diepKopie(defaultTokens)), ...diepKopie(h) };
   });
 }
 
@@ -250,8 +349,13 @@ function bewerkbaar(id) {
       bedrijf: { naam: b.naam || '', url: b.url || '', telefoon: b.telefoon || '', email: b.email || '', adres: { straat: '', postcode: '', plaats: '', land: 'NL', ...(b.adres || {}) }, werkgebied: b.werkgebied || [] },
       nietToegestaan: p.nietToegestaan || [],
       toonNotitie: p.toonNotitie || '',
-      fotoRichtlijn: p.fotoRichtlijn || ''
+      fotoRichtlijn: p.fotoRichtlijn || '',
+      huisstijl: huisstijlUitTokens(getTokens(id))
     },
+    huisstijlEigen: Boolean(notionData.get(id) && notionData.get(id).profiel && notionData.get(id).profiel.huisstijl && Object.keys(notionData.get(id).profiel.huisstijl).length),
+    huisstijlVanCode: Boolean(CODE_TOKENS[id]),
+    eigenLettertypenInCode: (getTokens(id).customFonts || []).map((f) => f && f.family).filter(Boolean),
+    waarschuwingen: huisstijlWaarschuwingen(id),
     feiten: (c.feiten || []).map((f) => ({ id: f.id, label: f.label, waarde: f.waarde, bron: f.bron, standaard: Boolean(f.standaard) }))
   };
 }
@@ -277,6 +381,9 @@ async function bewaar(klantIdInvoer, { profiel, feiten, nieuw = false } = {}) {
   if (nieuw && clients[id]) throw new Error('Deze klant bestaat al.');
   if (!nieuw && !clients[id]) throw new Error('Onbekende klant.');
   const p = schoonProfiel(profiel);
+  const bestaandProfiel = notionData.get(id) && notionData.get(id).profiel;
+  if (profiel && profiel.huisstijl === undefined) p.huisstijl = (bestaandProfiel && bestaandProfiel.huisstijl) || {};
+  else p.huisstijl = alleenVerschil(p.huisstijl, id); // alleen wat afwijkt van de code of de standaard, zodat latere wijzigingen in code blijven gelden
   if (!p.naam) throw new Error('Vul de naam van de klant in.');
   const f = schoonFeiten(feiten);
 
@@ -303,4 +410,4 @@ async function bewaar(klantIdInvoer, { profiel, feiten, nieuw = false } = {}) {
   return bewerkbaar(id);
 }
 
-module.exports = { start, ververs, bewaar, bewerkbaar, overzicht, status, schoonProfiel, schoonFeiten, schoonKlantId, bouwKlant, pasToe, PROFIEL_VELDEN, _zetNotionData: (m) => { notionData = m; } };
+module.exports = { start, ververs, bewaar, bewerkbaar, overzicht, status, schoonProfiel, schoonFeiten, schoonKlantId, schoonHuisstijl, huisstijlUitVoorstel, alleenVerschil, bouwKlant, pasToe, PROFIEL_VELDEN, _zetNotionData: (m) => { notionData = m; } };

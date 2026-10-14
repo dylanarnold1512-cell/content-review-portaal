@@ -135,6 +135,21 @@ router.post('/klantgegevens/ververs', requireLpInternal, async (req, res) => {
   res.status(r.ok ? 200 : 502).json({ ...r, status: klantgegevens.status() });
 });
 
+// Voorstel voor de huisstijl op basis van de website van de klant (bestaande huisstijlmeting plus AI).
+router.post('/klantgegevens/huisstijl-voorstel', requireLpInternal, async (req, res) => {
+  try {
+    const { url } = req.body || {};
+    const voorstel = await buildHuisstijlVoorstel(url);
+    res.json({
+      huisstijl: klantgegevens.huisstijlUitVoorstel(voorstel.tokensVoorstel),
+      samenvatting: voorstel.samenvatting || '',
+      twijfels: voorstel.twijfels || []
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 router.get('/klantgegevens/:clientId', requireLpInternal, (req, res) => {
   const k = klantgegevens.bewerkbaar(req.params.clientId);
   if (!k) return res.status(404).json({ error: 'Onbekende klant.' });
