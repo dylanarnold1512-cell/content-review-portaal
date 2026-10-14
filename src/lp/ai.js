@@ -308,9 +308,11 @@ ${SLOT_SCHEMA_REFERENCE}
 Antwoord ALLEEN met een JSON-object met exact twee velden, geen tekst erbuiten:
 {
   "blueprint": <het blueprint-object hierboven>,
-  "voorbeeldSlotData": <object met per slot-key een voorbeeldwaarde (tekst of array van items), met
-    duidelijk herkenbare Nederlandse PLACEHOLDER-content, puur om meteen een visueel voorbeeld te tonen
-    — dit wordt niet opgeslagen, het hoeft geen echte feiten te bevatten>
+  "voorbeeldSlotData": <object met per slot-key een voorbeeldwaarde (tekst of array van items), puur om
+    meteen een visueel voorbeeld te tonen, dit wordt niet opgeslagen. Staat er in de gegevens van de klant een
+    blok "ECHTE GEGEVENS VAN DE KLANT", gebruik dan daaruit de echte bedrijfsnaam, plaats, diensten, werkwijze,
+    voordelen en toon, en verzin geen andere plaatsen of cijfers. Een veld waarvoor de bron niets zegt maak je kort
+    of laat je leeg. Is er geen bron, dan is duidelijk herkenbare Nederlandse placeholder tekst goed>
 }`;
 }
 
@@ -468,6 +470,40 @@ Knoppen/links: ${summary.structuur.knoppenEnLinks.slice(0, 15).join(' | ') || '(
 Aantal afbeeldingen op de pagina: ${summary.structuur.aantalAfbeeldingen}`;
 }
 
+// Echte gegevens van de klant voor het ontwerpen van een sjabloon en het voorbeeld (Pagr., 14-10-2026).
+// Aanleiding: het sjabloonvoorbeeld voor MAC Bouw toonde verzonnen tekst ("Dakkapel laten plaatsen in Amsterdam"),
+// omdat de AI alleen de huisstijl kreeg en niet wat de klant doet en waar. Nu krijgt hij bedrijf, plaats, werkgebied
+// en een deel van de teksten van de eigen site. Nooit blokkerend: lukt het niet, dan gaat het sjabloon door zonder.
+const SJABLOON_BRON_MAX_WOORDEN = 3500;
+
+async function formatKlantBronnenVoorSjabloon(klant) {
+  let profile = null;
+  try {
+    const { getLpClient } = require('./clients');
+    profile = getLpClient(klant).profile;
+  } catch (err) {
+    return '';
+  }
+  const bedrijf = (profile && profile.bedrijf) || {};
+  const regels = [];
+  if (bedrijf.naam) regels.push(`- bedrijfsnaam: ${bedrijf.naam}`);
+  if (bedrijf.adres && bedrijf.adres.plaats) regels.push(`- vestigingsplaats: ${bedrijf.adres.plaats}`);
+  if (Array.isArray(bedrijf.werkgebied) && bedrijf.werkgebied.length) regels.push(`- werkgebied: ${bedrijf.werkgebied.join(', ')}`);
+  if (bedrijf.url) regels.push(`- website: ${bedrijf.url}`);
+  if (profile && profile.toonNotitie) regels.push(`- toon: ${profile.toonNotitie}`);
+  let teksten = '';
+  try {
+    const { haalSiteTeksten, formatSiteTekstenVoorPrompt, kapAfOpWoorden } = require('./siteTeksten');
+    const site = await haalSiteTeksten({ url: bedrijf.url });
+    teksten = kapAfOpWoorden(formatSiteTekstenVoorPrompt(site), SJABLOON_BRON_MAX_WOORDEN);
+  } catch (err) {
+    teksten = '';
+  }
+  if (!regels.length && !teksten) return '';
+  return `ECHTE GEGEVENS VAN DE KLANT (gebruik deze voor de voorbeeldtekst, verzin geen andere plaatsen, diensten of cijfers):
+${regels.join('\n')}${teksten ? `\n\nTeksten van de eigen website van de klant (bron voor diensten, werkwijze, voordelen en toon):\n${teksten}` : ''}`;
+}
+
 function buildVasteOnderdelenTekst(verplichteOnderdelen) {
   const keys = (Array.isArray(verplichteOnderdelen) ? verplichteOnderdelen : []).filter((k) => VASTE_ONDERDELEN_LABELS[k]);
   const metGalerij = keys.includes('galerij');
@@ -494,7 +530,8 @@ async function generateTemplateProposal({
   const systemPrompt = buildTemplateSystemPrompt();
   const beelden = schoonScreenshots(screenshots);
   const referentieTekst = await formatReferenceForPrompt(referentieUrl);
-  const brandingTekst = formatBrandingForPrompt(klant) + '\n\n' + (await formatKlantSiteVoorPrompt(klant));
+  const [klantSiteTekst, klantBronnen] = await Promise.all([formatKlantSiteVoorPrompt(klant), formatKlantBronnenVoorSjabloon(klant)]);
+  const brandingTekst = formatBrandingForPrompt(klant) + '\n\n' + klantSiteTekst + (klantBronnen ? '\n\n' + klantBronnen : '');
   const userPrompt = `Klant: ${klant}
 Naam van dit sjabloon: ${naam}
 Paginatype / doel: ${paginatype || '(niet opgegeven)'}
@@ -530,6 +567,8 @@ Naam van dit sjabloon: ${naam}
 ${formatBrandingForPrompt(klant)}
 
 ${await formatKlantSiteVoorPrompt(klant)}
+
+${await formatKlantBronnenVoorSjabloon(klant)}
 
 Huidig blueprint:
 ${JSON.stringify(huidigBlueprint, null, 2)}
@@ -769,7 +808,23 @@ ${lijst.map((z) => `--- ${z.titel} ---\n${z.tekst}`).join('\n\n')}
 Belangrijk voor SEO en GEO: deze nieuwe pagina mag NIET op deze zusterpagina's lijken. Gebruik andere zinnen, een andere volgorde van argumenten, andere voorbeelden en andere kopjes. Kopieer geen zinnen en verander niet alleen de plaatsnaam. Onderscheid de pagina met wat er specifiek is voor deze plaats of dit onderwerp, maar alleen als dat in de feiten staat (zoals "Lokale informatie"). Noem geen plaatsnamen van de zusterpagina's, tenzij de feiten dat vragen.`;
 }
 
-async function generatePageContent({ klant, template, invoer, feiten, watGaatDezePaginaOver, ctaOverride, linkKandidaten, zusterInhoud, siteTeksten }) {
+// Echte zoekvragen en de vragen die al op zusterpagina's staan (Pagr., 14-10-2026). Zie zoekvragen.js.
+// De AI moet de FAQ opbouwen uit wat mensen echt zoeken en geen vragen herhalen die al op een zusterpagina staan.
+function bouwVragenBlok({ zoekvragen, zusterVragen } = {}) {
+  const echte = (Array.isArray(zoekvragen) ? zoekvragen : []).map((z) => (typeof z === 'string' ? z : z && z.vraag)).filter(Boolean);
+  const bezet = Array.isArray(zusterVragen) ? zusterVragen.filter(Boolean) : [];
+  if (!echte.length && !bezet.length) return '';
+  let tekst = '';
+  if (echte.length) {
+    tekst += `\n\nECHTE ZOEKVRAGEN bij deze dienst (Google suggesties, dit zoeken mensen echt):\n${echte.map((v) => `- ${v}`).join('\n')}\nBouw de veelgestelde vragen hier vooral uit op: kies er drie tot vijf die bij deze pagina passen en herschrijf ze natuurlijk (voeg de plaats toe als dat logisch is). Beantwoord alleen wat de bronteksten, de feiten of de invoer dekken. Is een vraag niet te beantwoorden zonder te verzinnen, sla hem dan over.`;
+  }
+  if (bezet.length) {
+    tekst += `\n\nVRAGEN DIE AL OP ZUSTERPAGINA'S STAAN (gebruik deze NIET opnieuw, ook niet met alleen een andere plaatsnaam):\n${bezet.slice(0, 40).map((v) => `- ${v}`).join('\n')}\nHooguit een vraag mag er sterk op lijken, namelijk de vraag of het bedrijf in deze plaats werkt. Alle andere vragen moeten anders zijn.`;
+  }
+  return tekst;
+}
+
+async function generatePageContent({ klant, template, invoer, feiten, watGaatDezePaginaOver, ctaOverride, linkKandidaten, zusterInhoud, siteTeksten, zoekvragen, zusterVragen }) {
   const systemPrompt = buildContentSystemPrompt(template);
   const userPrompt = `Klant: ${klant}
 
@@ -796,7 +851,7 @@ Feiten met "standaard": true zijn vaste praktische gegevens van de klant (bv. in
 Beschikbare linkbestemmingen (zusterpagina: true = andere landingspagina van deze klant binnen LP
 Fabriek, zusterpagina: false = een echte, bestaande pagina op de eigen live website — behandel beide
 even serieus, gebruik uitsluitend de opgegeven url, kies alleen wat inhoudelijk relevant is):
-${JSON.stringify(linkKandidaten || [], null, 2)}${bouwZusterBlok(zusterInhoud)}`;
+${JSON.stringify(linkKandidaten || [], null, 2)}${bouwZusterBlok(zusterInhoud)}${bouwVragenBlok({ zoekvragen, zusterVragen })}`;
 
   const result = await callOpenAi({ systemPrompt, userPrompt });
   if (!result || typeof result !== 'object' || !result.slotData) {
@@ -1033,6 +1088,8 @@ module.exports = {
   refineSectionProposal,
   generatePageContent,
   bouwZusterBlok,
+  bouwVragenBlok,
+  formatKlantBronnenVoorSjabloon,
   getImageSlots,
   pickImagesForPage,
   // Puur voor de geautomatiseerde tests - geen aparte OpenAI-aanroep nodig om de

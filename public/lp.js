@@ -697,7 +697,7 @@ document.getElementById('lpGenerateContentBtn').addEventListener('click', async 
   try {
     const watGaatDezePaginaOver = document.getElementById('lpInvoerOnderwerp').value;
     const ctaOverride = document.getElementById('lpInvoerCtaOverride').value;
-    const { slotData, imageWarning, linkWarning, siteTekstWarning, iconWarning } = await lpApi(`/pages/${page.id}/generate-content`, {
+    const { slotData, imageWarning, linkWarning, siteTekstWarning, iconWarning, faqWarning, zoekvragenWarning, zoekvragenAantal } = await lpApi(`/pages/${page.id}/generate-content`, {
       method: 'POST',
       body: JSON.stringify({ watGaatDezePaginaOver, ctaOverride })
     });
@@ -710,10 +710,10 @@ document.getElementById('lpGenerateContentBtn').addEventListener('click', async 
     // titel was gegenereerd (hij stond alleen nog niet op de juiste plek).
     if (slotData.metaTitle) document.getElementById('lpMetaTitle').value = slotData.metaTitle;
     if (slotData.metaDescription) document.getElementById('lpMetaDescription').value = slotData.metaDescription;
-    const waarschuwingen = [imageWarning, linkWarning, siteTekstWarning, iconWarning].filter(Boolean).join(' ');
+    const waarschuwingen = [imageWarning, linkWarning, siteTekstWarning, iconWarning, faqWarning, zoekvragenWarning].filter(Boolean).join(' ');
     statusEl.textContent = waarschuwingen
       ? `Voorstel gegenereerd — ${waarschuwingen} Controleer en klik daarna op "Content JSON opslaan".`
-      : `Voorstel gegenereerd (tekst, meta, afbeeldingen en interne links) — controleer en pas aan waar nodig (klik in het voorbeeldscherm op een afbeelding om te wisselen), klik daarna op "Content JSON opslaan".`;
+      : `Voorstel gegenereerd (tekst, meta, afbeeldingen en interne links${zoekvragenAantal ? `, vragen uit ${zoekvragenAantal} echte zoekvragen` : ''}) — controleer en pas aan waar nodig (klik in het voorbeeldscherm op een afbeelding om te wisselen), klik daarna op "Content JSON opslaan".`;
   } catch (err) {
     statusEl.textContent = '';
     alert(formatApiError(err));
