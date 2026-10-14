@@ -135,3 +135,76 @@ test('bewaar weigert een bestaande klant als nieuw, een onbekende klant en een l
   await assert.rejects(() => kg.bewaar('nieuwx', { nieuw: true, profiel: { naam: '' }, feiten: [] }), /naam/);
   assert.strictEqual(aanroepen.length, 0, 'bij een fout wordt er niets in Notion geschreven');
 });
+
+// ---- Huisstijl (stap 11) ----
+const { clientTokens, defaultTokens, getTokens } = require('../src/lp/tokens');
+
+test('huisstijl: geldige waarden worden opgeschoond, ongeldige geweigerd', () => {
+  const h = kg.schoonHuisstijl({ primary: '#0f5257', radius: '8PX', headingTransform: 'Uppercase', headingWeight: '600', fontHeading: "'Poppins', sans-serif", googleFonts: 'Poppins, Open Sans' });
+  assert.deepStrictEqual(h, { primary: '#0F5257', radius: '8px', headingTransform: 'uppercase', headingWeight: '600', fontHeading: "'Poppins', sans-serif", googleFonts: ['Poppins', 'Open Sans'] });
+  assert.throws(() => kg.schoonHuisstijl({ primary: 'rood' }), /kleurcode/);
+  assert.throws(() => kg.schoonHuisstijl({ radius: 'veel' }), /maat/);
+  assert.throws(() => kg.schoonHuisstijl({ fontBody: 'a;}body{display:none' }), /lettertype/);
+  assert.throws(() => kg.schoonHuisstijl({ googleFonts: ['x"><script>'] }), /Google Font/);
+  assert.deepStrictEqual(kg.schoonHuisstijl({ primary: '', fontHeading: '' }), {}, 'leeg betekent geen eigen keuze');
+});
+
+test('huisstijl: velden buiten de lijst (eigen lettertypen, extra CSS) komen nooit uit Notion', () => {
+  const h = kg.schoonHuisstijl({ themeOverrideCss: 'body{display:none}', customFonts: [{ family: 'X' }], googleFontGewichten: { a: 1 }, sfeer: 'x', primary: '#111111' });
+  assert.deepStrictEqual(h, { primary: '#111111' });
+});
+
+test('huisstijl: een AI voorstel laat ongeldige waarden weg in plaats van te falen', () => {
+  const h = kg.huisstijlUitVoorstel({ primary: 'rgb(1,2,3)', secondary: '#abcdef', radius: '10px', onbekend: 'x', themeOverrideCss: 'x' });
+  assert.deepStrictEqual(h, { secondary: '#ABCDEF', radius: '10px' });
+});
+
+test('huisstijl: alleen het verschil met code of standaard wordt bewaard', () => {
+  assert.deepStrictEqual(kg.alleenVerschil({ primary: defaultTokens.primary, secondary: '#123456' }, 'nieuweklant'), { secondary: '#123456' });
+  assert.deepStrictEqual(kg.alleenVerschil({ primary: clientTokens.roots.primary, ctaBg: '#000000' }, 'roots'), { ctaBg: '#000000' });
+});
+
+test('huisstijl uit Notion komt over de tokens in code, de rest blijft', () => {
+  const eigenFonts = clientTokens.roots.customFonts;
+  kg._zetNotionData(new Map([['roots', { pageId: 'r', profiel: { naam: 'Hostel Roots', huisstijl: { primary: '#123456' } }, feiten: undefined }]]));
+  kg.pasToe();
+  assert.strictEqual(getTokens('roots').primary, '#123456');
+  assert.strictEqual(getTokens('roots').secondary, '#8BD7FD', 'ongewijzigde velden blijven uit de code');
+  assert.deepStrictEqual(getTokens('roots').customFonts, eigenFonts, 'eigen lettertypebestanden blijven uit de code');
+  kg._zetNotionData(new Map());
+  kg.pasToe();
+  assert.strictEqual(getTokens('roots').primary, '#F9D634', 'zonder rij geldt weer de code');
+});
+
+test('huisstijl: een klant alleen in Notion krijgt de standaard met zijn eigen kleuren, en verdwijnt weer', () => {
+  kg._zetNotionData(new Map([['jansen', { pageId: 'p', profiel: { naam: 'Jansen', huisstijl: { primary: '#222222' } }, feiten: [] }]]));
+  kg.pasToe();
+  assert.strictEqual(getTokens('jansen').primary, '#222222');
+  assert.strictEqual(getTokens('jansen').bg, defaultTokens.bg);
+  kg._zetNotionData(new Map());
+  kg.pasToe();
+  assert.strictEqual(getTokens('jansen'), defaultTokens);
+});
+
+test('huisstijl: bewaar schrijft alleen het verschil en past direct toe', async () => {
+  await kg.bewaar('macbouw', { profiel: { naam: 'MAC Bouw', huisstijl: { ...kg.bewerkbaar('macbouw').profiel.huisstijl, ctaBg: '#010203' } }, feiten: [] });
+  const append = aanroepen.filter((a) => a[0] === 'append').pop()[1];
+  const profielJson = JSON.parse(append.children[1].code.rich_text.map((t) => t.text.content).join(''));
+  assert.deepStrictEqual(profielJson.huisstijl, { ctaBg: '#010203' });
+  assert.strictEqual(getTokens('macbouw').ctaBg, '#010203');
+});
+
+test('huisstijl: bewaar zonder huisstijlveld laat een bestaande huisstijl staan', async () => {
+  kg._zetNotionData(new Map([['macbouw', { pageId: 'pagina-1', profiel: { naam: 'MAC Bouw', huisstijl: { secondary: '#999999' } }, feiten: undefined }]]));
+  kg.pasToe();
+  await kg.bewaar('macbouw', { profiel: { naam: 'MAC Bouw' }, feiten: [] });
+  assert.strictEqual(getTokens('macbouw').secondary, '#999999');
+});
+
+test('huisstijl: bewerkbaar geeft de huidige waarden, waarschuwingen en eigen lettertypen', () => {
+  const k = kg.bewerkbaar('roots');
+  assert.strictEqual(k.profiel.huisstijl.primary, '#F9D634');
+  assert.strictEqual(k.huisstijlVanCode, true);
+  assert.ok(Array.isArray(k.waarschuwingen));
+  assert.ok(k.eigenLettertypenInCode.length >= 1, 'Yikes staat als eigen lettertype in de code');
+});

@@ -78,3 +78,11 @@
 .kg-feit input[type="text"], .kg-feit textarea { width: 100%; box-sizing: border-box; }
 .kg-feit label.kg-std { display: flex; align-items: center; gap: 6px; font-size: 13px; padding-top: 8px; white-space: nowrap; }
 @media (max-width: 900px) { .kg-feit { grid-template-columns: minmax(0, 1fr); } }
+
+.kg-kleuren { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.kg-kleurrij { display: flex; gap: 8px; align-items: center; }
+html #lpKlantgegevensTab .kg-kleurrij input[type="color"] { width: 40px; height: 38px; padding: 2px; flex: none; cursor: pointer; border-radius: 8px; }
+html #lpKlantgegevensTab .kg-kleurrij input[type="text"] { min-width: 0; flex: 1; width: auto; }
+#kgHuisstijl select { width: 100%; box-sizing: border-box; }
+#kgHuisWaarschuwing { margin-top: 8px; }
+#kgHuisWaarschuwing p { margin: 4px 0; color: #b26a00; }

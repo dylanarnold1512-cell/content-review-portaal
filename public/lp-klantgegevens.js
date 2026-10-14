@@ -42,6 +42,11 @@
     $('kgToon').value = p.toonNotitie;
     $('kgFoto').value = p.fotoRichtlijn;
     $('kgNiet').value = (p.nietToegestaan || []).join('\n');
+    vulHuisstijl(k.profiel.huisstijl || {});
+    $('kgHuisWaarschuwing').innerHTML = (k.waarschuwingen || []).map((w) => `<p>${esc(w)}</p>`).join('');
+    const eigen = (k.eigenLettertypenInCode || []).length ? ` Eigen lettertypebestanden (${k.eigenLettertypenInCode.join(', ')}) en extra CSS staan in de code en blijven daar.` : '';
+    $('kgHuisCode').textContent = (k.huisstijlEigen ? 'Afwijkingen van de standaard staan in Notion.' : (k.huisstijlVanCode ? 'Deze huisstijl komt nu uit de code. Wat je hier wijzigt komt erbovenop in Notion.' : 'Nog geen eigen huisstijl, de standaard geldt.')) + eigen;
+    $('kgHuisMelding').textContent = '';
     const lijst = $('kgFeiten');
     lijst.innerHTML = '';
     k.feiten.forEach((f) => lijst.appendChild(feitRij(f)));
@@ -52,6 +57,51 @@
       : 'WordPress gegevens, formulier, SEO plugin en kleuren en lettertypen staan niet hier.';
     status('');
   }
+
+  function vulHuisstijl(h) {
+    document.querySelectorAll('#kgHuisstijl [data-huis]').forEach((el) => {
+      const k = el.dataset.huis;
+      const w = k === 'googleFonts' ? (h[k] || []).join(', ') : (h[k] || '');
+      el.value = w;
+    });
+    zetKleurkiezers();
+  }
+
+  function zetKleurkiezers() {
+    document.querySelectorAll('#kgHuisstijl [data-kleurkies]').forEach((kies) => {
+      const w = $('kgH_' + kies.dataset.kleurkies).value.trim();
+      const hex = /^#([0-9a-f]{3})$/i.test(w) ? '#' + w.slice(1).split('').map((c) => c + c).join('') : w;
+      kies.value = /^#[0-9a-f]{6}$/i.test(hex) ? hex.toLowerCase() : '#ffffff';
+    });
+  }
+
+  function leesHuisstijl() {
+    const h = {};
+    document.querySelectorAll('#kgHuisstijl [data-huis]').forEach((el) => { h[el.dataset.huis] = el.value; });
+    return h;
+  }
+
+  document.querySelectorAll('#kgHuisstijl [data-kleurkies]').forEach((kies) => {
+    kies.addEventListener('input', () => { $('kgH_' + kies.dataset.kleurkies).value = kies.value.toUpperCase(); });
+  });
+  document.querySelectorAll('#kgHuisstijl .kg-kleur input[type="text"]').forEach((t) => t.addEventListener('input', zetKleurkiezers));
+
+  $('kgHuisVoorstel').addEventListener('click', async () => {
+    fout('');
+    const url = $('kgUrl').value.trim();
+    if (!url) { fout('Vul eerst de website van de klant in bij Bedrijf.'); return; }
+    const knop = $('kgHuisVoorstel');
+    knop.disabled = true;
+    $('kgHuisMelding').textContent = 'De website wordt uitgelezen. Dit duurt ongeveer een halve minuut...';
+    try {
+      const r = await lpApi('/klantgegevens/huisstijl-voorstel', { method: 'POST', body: JSON.stringify({ url }) });
+      const nu = leesHuisstijl();
+      vulHuisstijl({ ...nu, ...r.huisstijl, googleFonts: r.huisstijl.googleFonts || String(nu.googleFonts || '').split(',').map((x) => x.trim()).filter(Boolean) });
+      const twijfels = (r.twijfels || []).length ? ' Twijfelpunten: ' + r.twijfels.join(' ') : '';
+      $('kgHuisMelding').textContent = (r.samenvatting || 'Voorstel ingevuld.') + twijfels + ' Controleer de velden en sla daarna op.';
+    } catch (err) { $('kgHuisMelding').textContent = ''; fout(err.message); }
+    finally { knop.disabled = false; }
+  });
 
   function lees() {
     const regels = (id) => $(id).value.split('\n').map((x) => x.trim()).filter(Boolean);
@@ -68,7 +118,8 @@
         },
         toonNotitie: $('kgToon').value,
         fotoRichtlijn: $('kgFoto').value,
-        nietToegestaan: regels('kgNiet')
+        nietToegestaan: regels('kgNiet'),
+        huisstijl: leesHuisstijl()
       },
       feiten: [...document.querySelectorAll('#kgFeiten .kg-feit')].map((r) => ({
         id: r.dataset.id,
