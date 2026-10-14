@@ -52,3 +52,48 @@
   .ad-kerncijfers .p-kerncijfer:nth-child(3) { border-left: 0; }
   .ad-kerncijfers .p-kerncijfer:nth-child(n+3) { border-top: 1px solid var(--border); }
 }
+
+/* Onboarding */
+.ad-getal small { font-size: 13px; font-weight: 500; color: var(--p-tekst-zacht); letter-spacing: 0; }
+.ad-getal-klein { font-size: 18px; line-height: 1.6; }
+.ad-voortgang-tekst { display: flex; justify-content: space-between; font-size: 13px; color: var(--p-tekst-zacht); margin-bottom: 6px; }
+.ad-open-neutraal { background: var(--p-vlak-2); color: var(--p-tekst-zacht); border: 1px solid var(--border); }
+.ad-leeg { padding: 24px; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.ad-leeg h2 { margin: 0; font-size: 16px; }
+.ad-leeg p { margin: 0; color: var(--p-tekst-zacht); max-width: 62ch; }
+.ad-jij { padding: 18px 20px; border-left: 4px solid var(--p-let-op); }
+.ad-jij h2 { margin: 0 0 10px; font-size: 15px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ad-jij ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.ad-chat { display: flex; align-items: center; gap: 14px; padding: 16px 20px; flex-wrap: wrap; background: var(--p-ai-zacht); border-color: transparent; box-shadow: none; }
+.ad-chat > div { flex: 1; min-width: 220px; }
+.ad-chat b { display: block; margin-bottom: 2px; }
+.ad-chat span { color: var(--p-tekst-zacht); font-size: 13px; display: block; }
+.ad-chat code { display: inline-block; margin-top: 8px; background: var(--panel); border-radius: 8px; padding: 4px 9px; font-size: 13px; overflow-wrap: anywhere; }
+.ad-fase { overflow: hidden; }
+.ad-fase-kop { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 20px; border-bottom: 1px solid var(--border); }
+.ad-fase-kop h3 { margin: 0; font-size: 15px; }
+.ad-fase-kop span { font-size: 13px; color: var(--p-tekst-zacht); }
+.ad-stap { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 14px; padding: 14px 20px; border-top: 1px solid var(--p-raster); align-items: start; }
+.ad-fase-kop + .ad-stap { border-top: 0; }
+.ad-stap.ad-bezig { opacity: 0.6; pointer-events: none; }
+.ad-rond { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--border); display: grid; place-items: center; font-size: 11px; font-weight: 600; color: var(--p-tekst-vaag); margin-top: 1px; }
+.ad-rond-klaar { background: var(--p-goed); border-color: var(--p-goed); color: #fff; }
+.ad-rond-bezig { border-color: var(--p-plan); color: var(--p-plan); }
+.ad-rond-dylan { border-color: var(--p-let-op); color: var(--p-let-op); background: var(--p-let-op-zacht); }
+.ad-rond-klant { border-color: var(--p-ai); color: var(--p-ai); }
+.ad-rond-over { background: var(--p-vlak-2); }
+.ad-stap-tekst { min-width: 0; }
+.ad-stap h4 { margin: 0 0 2px; font-size: 14px; font-weight: 600; }
+.ad-stap p { margin: 0 0 8px; font-size: 13px; color: var(--p-tekst-zacht); max-width: 68ch; }
+.ad-uitkomst { width: 100%; max-width: 520px; padding: 7px 10px; font-size: 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--p-vlak-2); color: var(--p-tekst); }
+.ad-stap-rechts { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.ad-stap-rechts small { font-size: 12px; color: var(--p-tekst-vaag); }
+.ad-statusselect { font: inherit; font-size: 12px; font-weight: 600; padding: 4px 8px; border-radius: 99px; border: 1px solid var(--border); background: var(--p-vlak-2); color: var(--p-tekst-zacht); cursor: pointer; }
+.ad-statusselect.p-pil-goed { background: var(--p-goed-zacht); color: var(--p-goed); border-color: transparent; }
+.ad-statusselect.p-pil-plan { background: var(--p-plan-zacht); color: var(--p-plan); border-color: transparent; }
+.ad-statusselect.p-pil-let-op { background: var(--p-let-op-zacht); color: var(--p-let-op); border-color: transparent; }
+.ad-statusselect.p-pil-ai { background: var(--p-ai-zacht); color: var(--p-ai); border-color: transparent; }
+@media (max-width: 900px) {
+  .ad-stap { grid-template-columns: 28px minmax(0, 1fr); }
+  .ad-stap-rechts { grid-column: 2; flex-direction: row; flex-wrap: wrap; align-items: center; }
+}

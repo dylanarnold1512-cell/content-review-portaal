@@ -1,4 +1,4 @@
-let adminState = { clients: [], ideeen: {} };
+let adminState = { clients: [], ideeen: {}, onboarding: {}, onboardingFout: '' };
 
 async function adminApi(path, options) {
   const res = await fetch('/api/admin' + path, {
@@ -45,6 +45,7 @@ document.getElementById('adminLogoutBtn').addEventListener('click', async () => 
 
 // ---- Navigatie: een eigen adres per scherm (#klanten, #nieuw, #ideeen, #klant/<id>/<tabblad>) ----
 const KLANT_TABS = [
+  { id: 'onboarding', titel: 'Onboarding' },
   { id: 'instellingen', titel: 'Instellingen' },
   { id: 'ideeen', titel: 'Ideeën' },
   { id: 'merkprofiel', titel: 'Merkprofiel opbouwen' }
@@ -55,15 +56,21 @@ let huidig = { view: 'klanten', klantId: '', tab: 'instellingen' };
 function leesHash() {
   const delen = String(window.location.hash || '').replace(/^#/, '').split('/').map(decodeURIComponent);
   if (delen[0] === 'klant' && delen[1]) {
-    const tab = KLANT_TABS.some((t) => t.id === delen[2]) ? delen[2] : 'instellingen';
+    const tab = KLANT_TABS.some((t) => t.id === delen[2]) ? delen[2] : beginTab(delen[1]);
     return { view: 'klant', klantId: delen[1], tab };
   }
   if (['klanten', 'nieuw', 'ideeen'].includes(delen[0])) return { view: delen[0], klantId: '', tab: 'instellingen' };
   return { view: 'klanten', klantId: '', tab: 'instellingen' };
 }
 
+// Een klant in onboarding opent op het tabblad Onboarding, een klant die klaar is op Instellingen.
+function beginTab(klantId) {
+  const o = adminState.onboarding[klantId];
+  return o && !o.samenvatting.gereed ? 'onboarding' : 'instellingen';
+}
+
 function gaNaar(view, klantId, tab) {
-  const hash = view === 'klant' ? `#klant/${encodeURIComponent(klantId)}/${tab || 'instellingen'}` : `#${view}`;
+  const hash = view === 'klant' ? `#klant/${encodeURIComponent(klantId)}/${tab || beginTab(klantId)}` : `#${view}`;
   if (window.location.hash === hash) toonScherm();
   else window.location.hash = hash;
 }
@@ -86,11 +93,24 @@ document.querySelectorAll('#adminNav [data-view]').forEach((btn) => {
   btn.addEventListener('click', () => gaNaar(btn.dataset.view));
 });
 
+// Alle klanten: die uit het portaal, plus klanten die alleen in de onboarding staan (nog niet in clients.js).
+function alleKlanten() {
+  const lijst = adminState.clients.map((c) => ({ ...c }));
+  Object.values(adminState.onboarding).forEach((o) => {
+    if (!lijst.some((c) => c.id === o.clientId)) lijst.push({ id: o.clientId, naam: o.klant, alleenOnboarding: true });
+  });
+  return lijst;
+}
+
+function zoekKlant(id) {
+  return adminState.clients.find((c) => c.id === id) || alleKlanten().find((c) => c.id === id);
+}
+
 function toonScherm() {
   huidig = leesHash();
   sluitMenu();
   const { view, klantId, tab } = huidig;
-  const klant = adminState.clients.find((c) => c.id === klantId);
+  const klant = zoekKlant(klantId);
   ['Klanten', 'Klant', 'Ideeen', 'Nieuw'].forEach((naam) => {
     document.getElementById('view' + naam).classList.toggle('hidden', naam.toLowerCase() !== (view === 'klant' ? 'klant' : view));
   });
@@ -178,17 +198,27 @@ function adminInitialen(naam) {
 
 // ---- Alle klanten ----
 function renderKlanten() {
-  const lijst = adminState.clients;
-  const actief = lijst.filter((c) => c.klantstatusIngesteld !== false && (c.klantstatus || 'actief') === 'actief').length;
-  const aandacht = lijst.filter((c) => c.klantstatusIngesteld === false || (c.klantstatus || 'actief') !== 'actief').length;
+  const lijst = alleKlanten();
+  const inOnboarding = lijst.filter((c) => { const o = adminState.onboarding[c.id]; return o && !o.samenvatting.gereed; }).length;
+  const wachtOpJou = Object.values(adminState.onboarding).reduce((n, o) => n + o.samenvatting.wachtOpDylan.length, 0);
   const ideeen = Object.values(adminState.ideeen).reduce((n, l) => n + l.length, 0);
   const kaarten = lijst.map((c) => {
-    const st = statusVanKlant(c);
+    const o = adminState.onboarding[c.id];
+    const os = o && o.samenvatting;
+    const lopend = os && !os.gereed;
+    const st = c.alleenOnboarding ? { tekst: 'Onboarding', klasse: 'p-pil-plan' } : statusVanKlant(c);
     const aan = MODULES.filter((m) => m.kort && c[m.veld]);
     const wacht = wachtendeIdeeen(c.id);
-    const open = wacht > 0
-      ? `<div class="ad-open">${wacht} ${wacht === 1 ? 'idee wacht' : 'ideeën wachten'} op jou</div>`
-      : (c.klantstatusIngesteld === false ? '<div class="ad-open">Kies een status, anders weten de workflows het niet</div>' : '<div class="ad-open ad-open-ok">Niets dat op jou wacht</div>');
+    const meldingen = [];
+    if (os && os.wachtOpDylan.length) meldingen.push(`Onboarding: ${os.wachtOpDylan.length === 1 ? os.wachtOpDylan[0].titel : os.wachtOpDylan.length + ' punten'} wacht op jou`);
+    if (wacht > 0) meldingen.push(`${wacht} ${wacht === 1 ? 'idee wacht' : 'ideeën wachten'} op jou`);
+    if (c.klantstatusIngesteld === false) meldingen.push('Kies een status, anders weten de workflows het niet');
+    const open = meldingen.length
+      ? `<div class="ad-open">${meldingen.map(escapeHtmlAdmin).join('<br>')}</div>`
+      : (lopend && os.volgende ? `<div class="ad-open ad-open-neutraal">Volgende stap: ${escapeHtmlAdmin(os.volgende.titel)}</div>` : '<div class="ad-open ad-open-ok">Niets dat op jou wacht</div>');
+    const voortgang = os && os.totaal
+      ? `<div><div class="ad-voortgang-tekst"><span>Onboarding</span><span>${os.afgerond} van ${os.totaal} stappen</span></div><div class="p-voortgang" role="progressbar" aria-valuenow="${os.procent}" aria-valuemin="0" aria-valuemax="100"><span class="p-balk-goed" style="width:${os.procent}%"></span></div></div>`
+      : '';
     return `
     <button type="button" class="ad-klant" data-klant="${escapeHtmlAdmin(c.id)}">
       <div class="ad-klant-kop">
@@ -196,7 +226,8 @@ function renderKlanten() {
         <div class="ad-klant-naam"><b>${escapeHtmlAdmin(c.naam)}</b><span>${escapeHtmlAdmin(c.id)}</span></div>
         <span class="p-pil ${st.klasse}">${st.tekst}</span>
       </div>
-      <div class="ad-modules">${aan.length ? aan.map((m) => `<span class="p-pil p-pil-neutraal">${m.kort}</span>`).join('') : '<span class="ad-vaag">Nog geen modules aan voor de klant</span>'}</div>
+      ${voortgang}
+      <div class="ad-modules">${aan.length ? aan.map((m) => `<span class="p-pil p-pil-neutraal">${m.kort}</span>`).join('') : `<span class="ad-vaag">${c.alleenOnboarding ? 'Nog niet in het portaal' : 'Nog geen modules aan voor de klant'}</span>`}</div>
       ${open}
     </button>`;
   }).join('');
@@ -208,15 +239,16 @@ function renderKlanten() {
     </div>
     <div class="p-kerncijfers ad-kerncijfers">
       <div class="p-kerncijfer"><div class="p-kerncijfer-kop">Klanten</div><div class="ad-getal">${lijst.length}</div></div>
-      <div class="p-kerncijfer"><div class="p-kerncijfer-kop">Actief</div><div class="ad-getal">${actief}</div></div>
-      <div class="p-kerncijfer"><div class="p-kerncijfer-kop">Aandacht nodig</div><div class="ad-getal">${aandacht}</div></div>
+      <div class="p-kerncijfer"><div class="p-kerncijfer-kop">In onboarding</div><div class="ad-getal">${inOnboarding}</div></div>
+      <div class="p-kerncijfer"><div class="p-kerncijfer-kop">Onboarding wacht op jou</div><div class="ad-getal">${wachtOpJou}</div></div>
       <div class="p-kerncijfer"><div class="p-kerncijfer-kop">Ideeën ter beoordeling</div><div class="ad-getal">${ideeen}</div></div>
     </div>
     <div class="ad-raster">${kaarten || '<p class="admin-footnote">Nog geen klanten.</p>'}</div>
-    <p class="admin-footnote">Nieuwe klant nog niet in de lijst? Voeg 'm eerst toe in <code>src/config/clients.js</code>, dan verschijnt hij hier vanzelf.</p>
+    ${adminState.onboardingFout ? `<p class="admin-footnote">De onboarding kon niet worden geladen: ${escapeHtmlAdmin(adminState.onboardingFout)}</p>` : ''}
+    <p class="admin-footnote">Nieuwe klant nog niet in de lijst met modules? Voeg 'm toe in <code>src/config/clients.js</code>, dan verschijnt hij daar vanzelf. Dit is stap 15 van de onboarding.</p>
   </div>`;
   const root = document.getElementById('viewKlanten');
-  root.querySelectorAll('[data-klant]').forEach((k) => k.addEventListener('click', () => gaNaar('klant', k.dataset.klant, 'instellingen')));
+  root.querySelectorAll('[data-klant]').forEach((k) => k.addEventListener('click', () => gaNaar('klant', k.dataset.klant)));
   root.querySelector('[data-nieuw]').addEventListener('click', () => gaNaar('nieuw'));
 }
 
@@ -228,8 +260,10 @@ function renderKlant(c, tab) {
     root.querySelector('[data-terug]').addEventListener('click', () => gaNaar('klanten'));
     return;
   }
-  const st = statusVanKlant(c);
-  const tabs = KLANT_TABS.map((t) => {
+  const st = c.alleenOnboarding ? { tekst: 'Onboarding', klasse: 'p-pil-plan' } : statusVanKlant(c);
+  const zichtbareTabs = c.alleenOnboarding ? KLANT_TABS.filter((t) => t.id === 'onboarding') : KLANT_TABS;
+  if (c.alleenOnboarding && tab !== 'onboarding') tab = 'onboarding';
+  const tabs = zichtbareTabs.map((t) => {
     const teller = t.id === 'ideeen' && wachtendeIdeeen(c.id) ? `<span class="p-teller">${wachtendeIdeeen(c.id)}</span>` : '';
     return `<button type="button" class="ad-tab${t.id === tab ? ' active' : ''}" data-tab="${t.id}">${t.titel}${teller}</button>`;
   }).join('');
@@ -248,9 +282,144 @@ function renderKlant(c, tab) {
   root.querySelector('[data-terug]').addEventListener('click', () => gaNaar('klanten'));
   root.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => gaNaar('klant', c.id, b.dataset.tab)));
   const inhoud = document.getElementById('klantTabInhoud');
+  if (tab === 'onboarding') renderOnboarding(c, inhoud);
   if (tab === 'instellingen') renderInstellingen(c, inhoud);
   if (tab === 'ideeen') { inhoud.innerHTML = ideeenHtml([c], true); bindIdeeen(inhoud); }
   if (tab === 'merkprofiel') renderMerkprofielBouw(c, inhoud);
+}
+
+// ---- Onboarding ----
+const ONB_PIL = {
+  'Klaar': 'p-pil-goed',
+  'Bezig': 'p-pil-plan',
+  'Wacht op Dylan': 'p-pil-let-op',
+  'Wacht op klant': 'p-pil-ai',
+  'Overgeslagen': 'p-pil-neutraal',
+  'Nog niet gestart': 'p-pil-neutraal'
+};
+const ONB_STATUSSEN = ['Nog niet gestart', 'Bezig', 'Wacht op Dylan', 'Wacht op klant', 'Klaar', 'Overgeslagen'];
+const ONB_AAN_ZET = { Dylan: 'Dylan', Claude: 'Claude in de chat', Klant: 'De klant', Knop: 'Knop in het portaal' };
+const ONB_FASEN = { A: 'Aanmelden', B: 'Begrijpen', C: 'Inrichten', D: 'Testen', E: 'Live' };
+
+async function loadOnboarding() {
+  try {
+    const data = await adminApi('/onboarding');
+    const kaart = {};
+    data.klanten.forEach((k) => { kaart[k.clientId] = k; });
+    adminState.onboarding = kaart;
+    adminState.onboardingFout = '';
+  } catch (err) {
+    adminState.onboardingFout = err.message;
+  }
+}
+
+async function kopieer(tekst) {
+  try {
+    await navigator.clipboard.writeText(tekst);
+    return true;
+  } catch (e) {
+    const ta = document.createElement('textarea');
+    ta.value = tekst;
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+    ta.remove();
+    return ok;
+  }
+}
+
+async function renderOnboarding(c, inhoud) {
+  inhoud.innerHTML = '<p class="admin-footnote">Onboarding laden…</p>';
+  let data;
+  try {
+    data = await adminApi(`/onboarding/${encodeURIComponent(c.id)}`);
+  } catch (err) {
+    inhoud.innerHTML = `<p class="admin-footnote">De onboarding kon niet worden geladen: ${escapeHtmlAdmin(err.message)}</p>`;
+    return;
+  }
+  if (huidig.klantId !== c.id || huidig.tab !== 'onboarding') return; // intussen weggeklikt
+  if (!data.rijen.length) {
+    inhoud.innerHTML = `
+    <section class="p-kaart ad-blok ad-leeg">
+      <h2>De onboarding wordt nog niet bijgehouden</h2>
+      <p>Er zijn 21 stappen van intake tot de eerste maand. Na het starten zie je per stap wie aan zet is en wat de uitkomst was, en kun je met één zin in de chat verder.</p>
+      <button type="button" class="p-knop p-knop-hoofd" id="onbStart">Onboarding starten</button>
+      <span class="mp-bouw-status" id="onbStartStatus"></span>
+    </section>`;
+    document.getElementById('onbStart').addEventListener('click', async (e) => {
+      e.target.disabled = true;
+      document.getElementById('onbStartStatus').textContent = 'Stappen aanmaken, dit duurt ongeveer 10 seconden…';
+      try {
+        await adminApi('/onboarding', { method: 'POST', body: JSON.stringify({ klant: c.naam, clientId: c.id }) });
+        await loadOnboarding();
+        renderOnboarding(c, inhoud);
+      } catch (err) {
+        document.getElementById('onbStartStatus').textContent = err.message;
+        e.target.disabled = false;
+      }
+    });
+    return;
+  }
+  adminState.onboarding[c.id] = { clientId: c.id, klant: data.klant, samenvatting: data.samenvatting };
+  const sm = data.samenvatting;
+  const wacht = sm.wachtOpDylan.map((r) => `<li><span>Stap ${r.nr}. ${escapeHtmlAdmin(r.titel)}${r.uitkomst ? ': ' + escapeHtmlAdmin(r.uitkomst) : ''}</span></li>`).join('');
+  const fasen = Object.keys(ONB_FASEN).map((code) => {
+    const rijen = data.rijen.filter((r) => r.fase === code);
+    if (!rijen.length) return '';
+    const klaar = rijen.filter((r) => r.status === 'Klaar' || r.status === 'Overgeslagen').length;
+    const stappen = rijen.map((r) => `
+      <div class="ad-stap" data-page="${r.id}">
+        <div class="ad-rond ad-rond-${r.status === 'Klaar' ? 'klaar' : r.status === 'Wacht op Dylan' ? 'dylan' : r.status === 'Wacht op klant' ? 'klant' : r.status === 'Bezig' ? 'bezig' : r.status === 'Overgeslagen' ? 'over' : 'nog'}" aria-hidden="true">${r.status === 'Klaar' ? '&#10003;' : r.nr}</div>
+        <div class="ad-stap-tekst">
+          <h4>${escapeHtmlAdmin(r.titel)}</h4>
+          <p>${escapeHtmlAdmin(r.uitleg)}</p>
+          <input type="text" class="ad-uitkomst" value="${escapeHtmlAdmin(r.uitkomst)}" placeholder="Uitkomst of notitie" aria-label="Uitkomst van stap ${r.nr}" maxlength="500">
+        </div>
+        <div class="ad-stap-rechts">
+          <select class="ad-statusselect ${ONB_PIL[r.status] || ''}" aria-label="Status van stap ${r.nr}">${ONB_STATUSSEN.map((st) => `<option${st === r.status ? ' selected' : ''}>${st}</option>`).join('')}</select>
+          <small>Aan zet: ${ONB_AAN_ZET[r.aanZet] || escapeHtmlAdmin(r.aanZet)}</small>
+          ${r.nr === 4 && !c.alleenOnboarding ? '<button type="button" class="p-link" data-naar-merkprofiel>Merkprofiel opbouwen</button>' : ''}
+        </div>
+      </div>`).join('');
+    return `<section class="p-kaart ad-fase"><div class="ad-fase-kop"><h3>Fase ${code}. ${ONB_FASEN[code]}</h3><span>${klaar} van ${rijen.length} klaar</span></div>${stappen}</section>`;
+  }).join('');
+  inhoud.innerHTML = `
+  <div class="p-kerncijfers ad-kerncijfers">
+    <div class="p-kerncijfer"><div class="p-kerncijfer-kop">Voortgang</div><div class="ad-getal">${sm.afgerond}<small> van ${sm.totaal} stappen</small></div></div>
+    <div class="p-kerncijfer"><div class="p-kerncijfer-kop">Wacht op jou</div><div class="ad-getal">${sm.wachtOpDylan.length}</div></div>
+    <div class="p-kerncijfer"><div class="p-kerncijfer-kop">Wacht op klant</div><div class="ad-getal">${sm.wachtOpKlant.length}</div></div>
+    <div class="p-kerncijfer"><div class="p-kerncijfer-kop">Fase</div><div class="ad-getal ad-getal-klein">${sm.gereed ? 'Klaar' : (sm.fase + '. ' + (sm.faseNaam || ''))}</div></div>
+  </div>
+  ${sm.wachtOpDylan.length ? `<section class="p-kaart ad-jij"><h2><span class="p-pil p-pil-let-op">Wacht op jou</span> ${sm.wachtOpDylan.length} ${sm.wachtOpDylan.length === 1 ? 'punt' : 'punten'}</h2><ul>${wacht}</ul></section>` : ''}
+  <section class="p-kaart ad-chat">
+    <div><b>Verder in de chat</b><span>Plak deze zin in een nieuwe chat in het project. Claude leest de stand en gaat door.</span><code>${escapeHtmlAdmin(data.chatZin)}</code></div>
+    <button type="button" class="p-knop p-knop-hoofd" id="onbKopieer">Kopieer zin</button>
+  </section>
+  ${fasen}`;
+  document.getElementById('onbKopieer').addEventListener('click', async (e) => {
+    const ok = await kopieer(data.chatZin);
+    e.target.textContent = ok ? 'Gekopieerd' : 'Kopiëren lukt niet, selecteer de zin';
+    setTimeout(() => { e.target.textContent = 'Kopieer zin'; }, 2000);
+  });
+  inhoud.querySelectorAll('[data-naar-merkprofiel]').forEach((b) => b.addEventListener('click', () => gaNaar('klant', c.id, 'merkprofiel')));
+  inhoud.querySelectorAll('.ad-stap').forEach((rij) => {
+    const pageId = rij.dataset.page;
+    const sla = async (veld) => {
+      rij.classList.add('ad-bezig');
+      try {
+        await adminApi(`/onboarding/stap/${encodeURIComponent(pageId)}`, { method: 'POST', body: JSON.stringify(veld) });
+        renderError('');
+        await loadOnboarding();
+        if (veld.status !== undefined) renderOnboarding(c, inhoud); else rij.classList.remove('ad-bezig');
+      } catch (err) {
+        renderError(err.message);
+        rij.classList.remove('ad-bezig');
+      }
+    };
+    rij.querySelector('select').addEventListener('change', (e) => sla({ status: e.target.value }));
+    rij.querySelector('.ad-uitkomst').addEventListener('change', (e) => sla({ uitkomst: e.target.value }));
+  });
 }
 
 function renderInstellingen(c, inhoud) {
@@ -453,6 +622,7 @@ async function loadSettings() {
 }
 
 async function startAdmin() {
+  await loadOnboarding();
   await loadSettings();
   await loadIdeaProposals();
 }
@@ -504,7 +674,7 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
     notities: document.getElementById('intakeNotes').value.trim()
   };
   try {
-    await adminApi('/intake', { method: 'POST', body: JSON.stringify(payload) });
+    const intakeAntwoord = await adminApi('/intake', { method: 'POST', body: JSON.stringify(payload) });
     let profielMelding = '';
     if (ikEl('intakeProfiel').checked && payload.website) {
       try {
@@ -514,6 +684,7 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
         profielMelding = 'Intake opgeslagen, maar het merkprofiel kon niet starten: ' + err.message;
       }
     }
+    if (intakeAntwoord.onboardingMelding) profielMelding = (profielMelding ? profielMelding + '\n\n' : '') + intakeAntwoord.onboardingMelding;
     if (profielMelding) window.alert(profielMelding);
     document.getElementById('intakeForm').reset();
     document.getElementById('intakeReview').checked = true;
@@ -521,6 +692,10 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
     ikMelding('');
     ikUpdate();
     await loadIntakes();
+    if (payload.clientId) {
+      await loadOnboarding();
+      gaNaar('klant', payload.clientId, 'onboarding');
+    }
   } catch (err) {
     renderIntakeError(err.message);
   }
