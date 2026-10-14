@@ -8,6 +8,9 @@ const prestatiesService = require('../services/prestaties');
 const rapportenService = require('../services/rapporten');
 const aiZichtbaarheidService = require('../services/aiZichtbaarheid');
 const documentTekst = require('../services/documentTekst');
+const lpNotion = require('../lp/notion');
+const lpTemplates = require('../lp/templates');
+const { maakKlantLijst, telKerncijfers } = require('../lp/klantPaginas');
 const { checkPassword, requireLogin } = require('../middleware/auth');
 
 const router = express.Router();
@@ -59,6 +62,63 @@ router.get('/me', async (req, res) => {
     }
   }
   res.json({ clientId });
+});
+
+// Welke producten de klant heeft (Blogr., Pagr. of Beide), voor het menu van het portaal.
+router.get('/:clientId/producten', requireLogin, async (req, res) => {
+  try {
+    const settings = await settingsService.getClientSettings(req.params.clientId, getClient(req.params.clientId));
+    res.json({ producten: settings.producten, blogr: settings.blogr, pagr: settings.pagr });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Landingspagina's van de klant (Pagr.). Geen goedkeuring: de klant ziet wat er is, de stand en het plan erachter.
+async function pagrToegang(req, res) {
+  const settings = await settingsService.getClientSettings(req.params.clientId, getClient(req.params.clientId));
+  if (!settings.pagr) {
+    res.status(404).json({ error: 'Landingspagina\'s zijn niet ingeschakeld voor deze klant.' });
+    return false;
+  }
+  return true;
+}
+
+router.get('/:clientId/paginas', requireLogin, async (req, res) => {
+  try {
+    if (!(await pagrToegang(req, res))) return;
+    const paginas = await lpNotion.listPages({ klant: req.params.clientId });
+    // De reden van een geplande pagina staat in de invoer. Alleen daarvoor halen we de pagina op, maximaal 25.
+    const details = {};
+    for (const p of paginas.filter((x) => x.status === 'Idee').slice(0, 25)) {
+      try { details[p.id] = (await lpNotion.getPage(p.id)).invoer || {}; } catch (e) { /* reden blijft leeg */ }
+    }
+    const paginasLijst = maakKlantLijst(paginas, details);
+    res.json({ paginas: paginasLijst, kerncijfers: telKerncijfers(paginasLijst) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/:clientId/paginas/idee', requireLogin, async (req, res) => {
+  try {
+    if (!(await pagrToegang(req, res))) return;
+    const titel = (req.body?.titel || '').trim();
+    if (!titel) return res.status(400).json({ error: 'Vul een onderwerp in.' });
+    const actief = await lpTemplates.listTemplates({ klant: req.params.clientId, status: 'Actief' });
+    if (!actief.length) return res.status(400).json({ error: 'Idee aandragen kan nog niet. Er is nog geen sjabloon klaar.' });
+    const toelichting = (req.body?.toelichting || '').trim().slice(0, 1000);
+    const page = await lpNotion.createPage({
+      klant: req.params.clientId,
+      blueprint: actief[0].blueprintId,
+      titel: titel.slice(0, 150),
+      invoer: { onderwerp: titel, plan: { status: 'idee van klant', toelichting } }
+    });
+    await lpNotion.setStatus(page.id, 'Idee');
+    res.json({ ok: true, id: page.id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.get('/:clientId/items', requireLogin, async (req, res) => {

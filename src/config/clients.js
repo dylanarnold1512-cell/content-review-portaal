@@ -167,6 +167,27 @@ const clients = [
       planned: 'Gepland',
       generating: 'In generatie'
     }
+  },
+  // Klanten met alleen Pagr. (landingspagina's): geen Notion blogdatabase. Ze zien in het portaal alleen het onderdeel
+  // Landingspagina's. Het product staat in Portaal Instellingen (veld Producten), producten hieronder is de terugval.
+  // Inloggen kan pas nadat PORTAL_PASSWORD_MACBOUW en PORTAL_PASSWORD_ROOTS op Render staan.
+  {
+    id: 'macbouw',
+    naam: 'MAC Bouw',
+    producten: 'Pagr.',
+    loginPasswordEnv: 'PORTAL_PASSWORD_MACBOUW',
+    reviewEnabled: false,
+    performanceEnabled: false,
+    ideaEnrichmentEnabled: false
+  },
+  {
+    id: 'roots',
+    naam: 'Hostel Roots',
+    producten: 'Pagr.',
+    loginPasswordEnv: 'PORTAL_PASSWORD_ROOTS',
+    reviewEnabled: false,
+    performanceEnabled: false,
+    ideaEnrichmentEnabled: false
   }
 ];
 

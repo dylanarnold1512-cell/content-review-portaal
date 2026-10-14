@@ -9,7 +9,8 @@
     aiZichtbaarheid: 'AI zichtbaarheid',
     rapportages: 'Maandrapporten',
     merkprofiel: 'Merkprofiel',
-    kennisdocument: 'Kennisdocument'
+    kennisdocument: 'Kennisdocument',
+    paginas: 'Landingspagina\'s'
   };
   // Het adres gebruikt de woorden die de klant in het menu ziet, niet onze interne namen.
   const ADRES = {
@@ -19,7 +20,8 @@
     aiZichtbaarheid: 'ai',
     rapportages: 'maandrapporten',
     merkprofiel: 'merkprofiel',
-    kennisdocument: 'kennisdocument'
+    kennisdocument: 'kennisdocument',
+    paginas: 'paginas'
   };
 
   function hashVoorTab(tab) {

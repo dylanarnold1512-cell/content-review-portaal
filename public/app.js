@@ -106,6 +106,17 @@ async function enterApp(clientId, clientMeta) {
   if (window.portaalVulKop) window.portaalVulKop(klantNaam);
   // Een directe link naar één blog (bijvoorbeeld uit de review mail) opent die blog
   // meteen in Blogs. Anders is het Overzicht de startpagina.
+  // Welke producten de klant heeft. Alleen Pagr. betekent: alleen het onderdeel Landingspagina's, geen blogs.
+  let producten = { blogr: true, pagr: false };
+  try { producten = await api(`/${clientId}/producten`); } catch (err) { /* bij een fout blijft het blogportaal staan */ }
+  state.producten = producten;
+  const paginasGroep = document.getElementById('paginasGroep');
+  if (paginasGroep) paginasGroep.classList.toggle('hidden', !producten.pagr);
+  if (!producten.blogr) {
+    document.body.classList.add('alleen-pagr');
+    switchTab('paginas');
+    return;
+  }
   const komtUitDeepLink = Boolean(deepLinkItemId);
   switchTab(komtUitDeepLink ? 'blogs' : 'overzicht');
   await loadItems();
@@ -140,6 +151,9 @@ function switchTab(tab) {
   });
   const overzichtTab = document.getElementById('overzichtTab');
   if (overzichtTab) overzichtTab.classList.toggle('hidden', tab !== 'overzicht');
+  const paginasTab = document.getElementById('paginasTab');
+  if (paginasTab) paginasTab.classList.toggle('hidden', tab !== 'paginas');
+  if (tab === 'paginas' && window.loadPaginas) window.loadPaginas();
   document.getElementById('blogsTab').classList.toggle('hidden', tab !== 'blogs');
   if (tab === 'overzicht' && window.renderOverzicht) window.renderOverzicht(state, badgeClass, openBlogUitOverzicht);
   document.getElementById('prestatiesTab').classList.toggle('hidden', tab !== 'prestaties');
