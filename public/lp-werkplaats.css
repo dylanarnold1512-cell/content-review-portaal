@@ -1,8 +1,8 @@
 /* Pagr. werkplaats (stap 2). Alleen binnen #lpWerkplaatsTab; kleuren volgen de portaaltokens. */
-#lpWerkplaatsTab .wp-kop { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between; margin-bottom: 18px; }
-#lpWerkplaatsTab .wp-sub { margin: 4px 0 0; color: var(--text-muted); font-size: 15px; }
-#lpWerkplaatsTab .wp-kies { display: flex; flex-direction: column; gap: 4px; min-width: 220px; }
-#lpWerkplaatsTab .wp-kies label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+#lpWerkplaatsTab .wp-kop, #lpKlantgegevensTab .wp-kop { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between; margin-bottom: 18px; }
+#lpWerkplaatsTab .wp-sub, #lpKlantgegevensTab .wp-sub { margin: 4px 0 0; color: var(--text-muted); font-size: 15px; }
+#lpWerkplaatsTab .wp-kies, #lpKlantgegevensTab .wp-kies { display: flex; flex-direction: column; gap: 4px; min-width: 220px; }
+#lpWerkplaatsTab .wp-kies label, #lpKlantgegevensTab .wp-kies label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
 .wp-stappen { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
 .wp-stap { display: flex; align-items: center; gap: 12px; text-align: left; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; box-shadow: var(--shadow-card); cursor: pointer; font: inherit; color: var(--text); }
 .wp-stap:hover { border-color: #c9ccdc; }
@@ -67,3 +67,14 @@
 #wpVraag { width: 100%; box-sizing: border-box; }
 .wp-antwoord { margin: 10px 0 0; font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
 .hidden { display: none !important; }
+
+/* Klantgegevens (stap 10) */
+.kg-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.kg-raster .wp-veld input, #lpKlantgegevensTab .wp-veld textarea { width: 100%; box-sizing: border-box; }
+#lpKlantgegevensTab .wp-veld { margin-bottom: 12px; }
+#lpKlantgegevensTab .wp-veld input { width: 100%; box-sizing: border-box; }
+.kg-feit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1.2fr) auto auto; gap: 10px; align-items: start; padding: 10px 0; border-top: 1px solid #eceef5; }
+.kg-feit:first-child { border-top: none; }
+.kg-feit input[type="text"], .kg-feit textarea { width: 100%; box-sizing: border-box; }
+.kg-feit label.kg-std { display: flex; align-items: center; gap: 6px; font-size: 13px; padding-top: 8px; white-space: nowrap; }
+@media (max-width: 900px) { .kg-feit { grid-template-columns: minmax(0, 1fr); } }
