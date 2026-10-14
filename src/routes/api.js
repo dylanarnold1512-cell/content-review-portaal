@@ -96,7 +96,12 @@ router.get('/:clientId/paginas', requireLogin, async (req, res) => {
     }
     const basis = maakKlantLijst(paginas, details);
     const config = getClient(req.params.clientId);
-    const [google, aiMeting] = await Promise.all([lpMeting.haalGoogle(req.params.clientId), lpMeting.haalAi(config.naam)]);
+    // Meting alleen tonen als de schakelaar Paginameting voor deze klant aan staat.
+    const instellingen = await settingsService.getClientSettings(req.params.clientId, config);
+    const leeg = lpMeting.leegMeting();
+    const [google, aiMeting] = instellingen.paginameting
+      ? await Promise.all([lpMeting.haalGoogle(req.params.clientId), lpMeting.haalAi(config.naam)])
+      : [leeg.google, leeg.ai];
     const paginasLijst = lpMeting.verrijkMetMeting(basis, google, aiMeting);
     res.json({
       paginas: paginasLijst,

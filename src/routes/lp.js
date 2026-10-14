@@ -497,15 +497,24 @@ router.get('/pages', requireLpInternal, async (req, res) => {
 });
 
 // Instellingen van de klant voor de werkplaats: aantal pagina's per maand en product (uit Portaal Instellingen).
+async function klantInstellingen(klant) {
+  let fallback = {};
+  try { fallback = require('../config/clients').getClient(klant); } catch (e) { fallback = {}; }
+  return settingsService.getClientSettings(klant, fallback);
+}
+
 router.get('/plan/instellingen', requireLpInternal, async (req, res) => {
   try {
     const klant = String(req.query.klant || '');
-    let fallback = {};
-    try { fallback = require('../config/clients').getClient(klant); } catch (e) { fallback = {}; }
-    const inst = await settingsService.getClientSettings(klant, fallback);
-    res.json({ paginasPerMaand: inst.paginasPerMaand, producten: inst.producten, volumeBeschikbaar: require('../lp/zoekvolume').beschikbaar(), googleMetingBeschikbaar: Boolean(process.env.N8N_PAGR_METING_TABLE_ID) });
+    const inst = await klantInstellingen(klant);
+    res.json({
+      paginasPerMaand: inst.paginasPerMaand,
+      producten: inst.producten,
+      paginameting: Boolean(inst.paginameting),
+      volumeBeschikbaar: Boolean(inst.paginameting) && require('../lp/zoekvolume').beschikbaar()
+    });
   } catch (err) {
-    res.json({ paginasPerMaand: null, producten: null, volumeBeschikbaar: false, googleMetingBeschikbaar: false });
+    res.json({ paginasPerMaand: null, producten: null, paginameting: false, volumeBeschikbaar: false });
   }
 });
 
@@ -549,6 +558,12 @@ async function bouwMeting(klant) {
   const profielNaam = getLpClient(klant).profile.naam;
   const paginas = await lpNotion.listPages({ klant });
   const lijst = maakKlantLijst(paginas);
+  // Alleen meten voor klanten waarbij de schakelaar Paginameting aan staat.
+  const inst = await klantInstellingen(klant);
+  if (!inst.paginameting) {
+    const leeg = meting.leegMeting();
+    return { verrijkt: meting.verrijkMetMeting(lijst, leeg.google, leeg.ai), google: leeg.google, aiMeting: leeg.ai };
+  }
   const [google, aiMeting] = await Promise.all([meting.haalGoogle(klant), meting.haalAi(profielNaam)]);
   const verrijkt = meting.verrijkMetMeting(lijst, google, aiMeting);
   return { verrijkt, google, aiMeting };
@@ -559,6 +574,7 @@ router.get('/plan/bijhouden', requireLpInternal, async (req, res) => {
     const klant = String(req.query.klant || '');
     const { verrijkt, google, aiMeting } = await bouwMeting(klant);
     res.json({
+      metingUit: Boolean(google.uit),
       googleBeschikbaar: google.beschikbaar,
       aiBeschikbaar: aiMeting.beschikbaar,
       voorstellen: maakUpdateVoorstellen(verrijkt, { aiBeschikbaar: aiMeting.beschikbaar })
@@ -650,9 +666,12 @@ router.post('/plan/voorstel', requireLpInternal, async (req, res) => {
     getLpClient(klant);
     const bestaandePaginas = await lpNotion.listPages({ klant });
     const klantTekst = await ai.formatKlantBronnenVoorSjabloon(klant);
+    const inst = await klantInstellingen(klant);
     let aiVragen = [];
-    try { aiVragen = await meting.haalAiVragen(getLpClient(klant).profile.naam); } catch (e) { aiVragen = []; }
-    const uit = await plan.maakPlanVoorstel({ klant, aantal, wens, bestaandePaginas, klantTekst, aiVragen, aiFn: ai.callOpenAi });
+    if (inst.paginameting) {
+      try { aiVragen = await meting.haalAiVragen(getLpClient(klant).profile.naam); } catch (e) { aiVragen = []; }
+    }
+    const uit = await plan.maakPlanVoorstel({ klant, aantal, wens, bestaandePaginas, klantTekst, aiVragen, aiFn: ai.callOpenAi, volumeAan: Boolean(inst.paginameting) });
     res.json(uit);
   } catch (err) {
     res.status(400).json({ error: err.message });

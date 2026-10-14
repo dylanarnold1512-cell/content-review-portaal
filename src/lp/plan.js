@@ -103,7 +103,7 @@ async function voegSignaalToe(voorstellen, { fetchImpl } = {}) {
 }
 
 // Hoofdfunctie. aiFn en fetchImpl zijn te vervangen in tests.
-async function maakPlanVoorstel({ klant, aantal, wens, bestaandePaginas, klantTekst, aiVragen, aiFn, fetchImpl, volumeFetch }) {
+async function maakPlanVoorstel({ klant, aantal, wens, bestaandePaginas, klantTekst, aiVragen, aiFn, fetchImpl, volumeFetch, volumeAan = true }) {
   const n = Math.max(1, Math.min(MAX_AANTAL, parseInt(aantal, 10) || 4));
   const bestaande = (bestaandePaginas || []).map((p) => p.titel).filter(Boolean);
   // We vragen iets meer dan nodig, zodat er na het weghalen van dubbelen nog genoeg overblijft.
@@ -120,7 +120,8 @@ async function maakPlanVoorstel({ klant, aantal, wens, bestaandePaginas, klantTe
   })).filter((v) => v.titel);
   const { behouden, dubbel } = filterVoorstellen(schoon, bestaandePaginas);
   const metSignaal = await voegSignaalToe(behouden.slice(0, n), { fetchImpl });
-  const metVolume = await voegVolumeToe(metSignaal, { fetchImpl: volumeFetch });
+  // Volume alleen als de meting voor deze klant aan staat (kost geld per aanroep).
+  const metVolume = volumeAan ? await voegVolumeToe(metSignaal, { fetchImpl: volumeFetch }) : metSignaal.map((v) => ({ ...v, volume: null }));
   // Met volume sorteren we de voorstellen op wat het meest gezocht wordt, zonder volume blijft de volgorde van de AI.
   const heeftVolume = metVolume.some((v) => typeof v.volume === 'number');
   if (heeftVolume) metVolume.sort((a, b) => (b.volume || 0) - (a.volume || 0));

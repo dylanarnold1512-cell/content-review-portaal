@@ -52,6 +52,10 @@ router.post('/settings/:clientId', requireAdmin, async (req, res) => {
       await settingsService.updateClientSetting(req.params.clientId, field, value);
       return res.json({ ok: true, melding: '' });
     }
+    if (field === 'searchConsoleSite') {
+      await settingsService.updateClientSetting(req.params.clientId, field, String(value || ''));
+      return res.json({ ok: true, melding: '' });
+    }
     if (field === 'paginasPerMaand') {
       await settingsService.updateClientSetting(req.params.clientId, field, value);
       return res.json({ ok: true, melding: '' });
@@ -63,7 +67,7 @@ router.post('/settings/:clientId', requireAdmin, async (req, res) => {
       await settingsService.updateClientSetting(req.params.clientId, field, value);
       return res.json({ ok: true, melding: '' });
     }
-    if (!['reviewEnabled', 'performanceEnabled', 'ideaEnrichmentEnabled', 'merkprofiel', 'merkprofielNaarKennisdocument', 'aiZichtbaarheid'].includes(field)) {
+    if (!['reviewEnabled', 'performanceEnabled', 'ideaEnrichmentEnabled', 'merkprofiel', 'merkprofielNaarKennisdocument', 'aiZichtbaarheid', 'paginameting'].includes(field)) {
       return res.status(400).json({ error: `Onbekend instellingveld: ${field}` });
     }
     let melding = '';

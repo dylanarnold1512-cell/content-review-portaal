@@ -1,5 +1,5 @@
 // Meting per landingspagina (Pagr. stap 6, 14-10-2026).
-// Google: een n8n data table (env N8N_PAGR_METING_TABLE_ID) met een rij per klant en pagina, gevuld door een n8n workflow
+// Google: de n8n data table pagr_meting (standaard bBaHDpJwm1h7vl5a, te overschrijven met env N8N_PAGR_METING_TABLE_ID) met een rij per klant en pagina, gevuld door een n8n workflow
 // die Search Console per pagina uitleest. Kolommen: klant_id, url, periode_type (28d), vertoningen, klikken, positie,
 // vorige_vertoningen, vorige_klikken. Zonder tabel is Google gewoon "nog niet gemeten".
 // AI: de bestaande AI meting (aiZichtbaarheid.js). Per pagina tellen we hoe vaak de AI de pagina als bron noemde.
@@ -8,6 +8,7 @@
 const aiService = require('../services/aiZichtbaarheid');
 
 const N8N_BASE_URL = (process.env.N8N_BASE_URL || 'https://n8n.advertisr.nl').replace(/\/+$/, '');
+const PAGR_METING_TABEL = 'bBaHDpJwm1h7vl5a';
 const CACHE_MS = 10 * 60 * 1000;
 const cache = new Map();
 
@@ -45,7 +46,7 @@ function bouwGoogle(rijen) {
   return uit;
 }
 
-async function haalGoogle(klantId, { tabelId = process.env.N8N_PAGR_METING_TABLE_ID, tabelFn } = {}) {
+async function haalGoogle(klantId, { tabelId = process.env.N8N_PAGR_METING_TABLE_ID || PAGR_METING_TABEL, tabelFn } = {}) {
   if (!tabelId) return { beschikbaar: false, perUrl: {} };
   try {
     const rijen = await metCache(`g:${klantId}`, () => (tabelFn || aiService.n8nTabel)(tabelId, [{ columnName: 'klant_id', condition: 'eq', value: klantId }]));
@@ -91,6 +92,14 @@ async function haalAiVragen(klantNaam, opties) {
   return ai.vragen || [];
 }
 
+// Meting staat uit voor deze klant (schakelaar Paginameting): geen cijfers ophalen en tonen.
+function leegMeting() {
+  return {
+    google: { beschikbaar: false, perUrl: {}, uit: true },
+    ai: { beschikbaar: false, perUrl: {}, totaal: null, vragen: [], uit: true }
+  };
+}
+
 function trend(nu, vorig) {
   if (!vorig || vorig < 20) return 'onbekend';
   const v = (nu - vorig) / vorig;
@@ -110,4 +119,4 @@ function verrijkMetMeting(lijst, google, ai) {
   });
 }
 
-module.exports = { schoon, bouwGoogle, haalGoogle, bouwAiPerUrl, haalAi, haalAiVragen, verrijkMetMeting, trend };
+module.exports = { leegMeting, schoon, bouwGoogle, haalGoogle, bouwAiPerUrl, haalAi, haalAiVragen, verrijkMetMeting, trend };
