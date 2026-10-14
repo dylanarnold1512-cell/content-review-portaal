@@ -88,6 +88,7 @@ async function fetchAllFromNotion() {
         aiZichtbaarheid: Boolean(props['AI zichtbaarheid ingeschakeld']?.checkbox),
         klantstatus: normaliseerKlantstatus(props['Klantstatus']?.select?.name),
         producten: normaliseerProducten(props['Producten']?.select?.name),
+        paginasPerMaand: typeof props["Pagina's per maand"]?.number === 'number' ? props["Pagina's per maand"].number : null,
         productenIngesteld: PRODUCT_WAARDEN.includes(props['Producten']?.select?.name),
         klantstatusIngesteld: KLANTSTATUS_WAARDEN.includes(props['Klantstatus']?.select?.name)
       });
@@ -126,6 +127,7 @@ async function getClientSettings(clientId, fallback = {}) {
         merkprofielNaarKennisdocument: settings.merkprofielNaarKennisdocument,
         aiZichtbaarheid: settings.aiZichtbaarheid,
         klantstatus: settings.klantstatus,
+        paginasPerMaand: settings.paginasPerMaand,
         producten: settings.productenIngesteld ? settings.producten : normaliseerProducten(fallback.producten),
         ...productVlaggen(settings.productenIngesteld ? settings.producten : fallback.producten)
       };
@@ -141,6 +143,7 @@ async function getClientSettings(clientId, fallback = {}) {
     merkprofielNaarKennisdocument: Boolean(fallback.merkprofielNaarKennisdocument),
     aiZichtbaarheid: Boolean(fallback.aiZichtbaarheid),
     klantstatus: normaliseerKlantstatus(fallback.klantstatus),
+    paginasPerMaand: typeof fallback.paginasPerMaand === 'number' ? fallback.paginasPerMaand : null,
     producten: normaliseerProducten(fallback.producten),
     ...productVlaggen(fallback.producten)
   };
@@ -164,6 +167,7 @@ async function listAllSettings(clientsConfig) {
       merkprofielNaarKennisdocument: settings ? settings.merkprofielNaarKennisdocument : Boolean(c.merkprofielNaarKennisdocument),
       aiZichtbaarheid: settings ? settings.aiZichtbaarheid : Boolean(c.aiZichtbaarheid),
       klantstatus: settings ? settings.klantstatus : normaliseerKlantstatus(c.klantstatus),
+      paginasPerMaand: settings ? settings.paginasPerMaand : null,
       producten: settings && settings.productenIngesteld ? settings.producten : normaliseerProducten(c.producten),
       // Leeg in Notion telt voor het portaal als actief, maar de n8n sync ziet dan geen status.
       klantstatusIngesteld: settings ? settings.klantstatusIngesteld : false,
@@ -175,11 +179,16 @@ async function listAllSettings(clientsConfig) {
 async function updateClientSetting(clientId, field, value) {
   const isStatus = field === 'klantstatus';
   const isProducten = field === 'producten';
-  const propertyName = isStatus ? 'Klantstatus' : isProducten ? 'Producten' : PROPERTY_BY_FIELD[field];
+  const propertyName = isStatus ? 'Klantstatus' : isProducten ? 'Producten' : field === 'paginasPerMaand' ? "Pagina's per maand" : PROPERTY_BY_FIELD[field];
   if (!propertyName) throw new Error(`Onbekend instellingveld: ${field}`);
   if (isStatus && !KLANTSTATUS_WAARDEN.includes(value)) throw new Error(`Onbekende klantstatus: ${value}`);
   if (isProducten && !PRODUCT_WAARDEN.includes(value)) throw new Error(`Onbekend product: ${value}`);
-  const waarde = (isStatus || isProducten) ? { select: { name: value } } : { checkbox: Boolean(value) };
+  const isAantal = field === 'paginasPerMaand';
+  if (isAantal) {
+    const n = Number(value);
+    if (!Number.isInteger(n) || n < 0 || n > 100) throw new Error('Pagina\'s per maand moet een geheel getal van 0 tot 100 zijn.');
+  }
+  const waarde = isAantal ? { number: Number(value) } : (isStatus || isProducten) ? { select: { name: value } } : { checkbox: Boolean(value) };
 
   const client = getNotionClient();
   const map = await getSettingsMap();

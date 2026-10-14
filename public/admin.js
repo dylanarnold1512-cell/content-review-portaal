@@ -450,6 +450,12 @@ function renderInstellingen(c, inhoud) {
       </select>
     </div>
   </section>
+  ${(c.producten === 'Pagr.' || c.producten === 'Beide') ? `<section class="p-kaart ad-blok">
+    <div class="ad-regel">
+      <div class="ad-regel-tekst"><b>Pagina's per maand</b><span>Het plan in de Werkplaats stelt elke maand dit aantal voor. Leeg betekent geen vast aantal.</span></div>
+      <input type="number" min="0" max="100" class="admin-status" style="width:90px" data-client="${c.id}" data-aantalveld="paginasPerMaand" value="${c.paginasPerMaand == null ? '' : c.paginasPerMaand}" aria-label="Pagina's per maand van ${escapeHtmlAdmin(c.naam)}">
+    </div>
+  </section>` : ''}
   <section class="p-kaart ad-blok">
     <header class="ad-blok-kop"><h2>Wat de klant ziet</h2><p>Wijzigingen werken direct door, er is geen deploy nodig.</p></header>
     ${regels}
@@ -459,6 +465,21 @@ function renderInstellingen(c, inhoud) {
 }
 
 function bindInstellingen(root) {
+  root.querySelectorAll('input[data-aantalveld]').forEach((input) => {
+    input.addEventListener('change', async () => {
+      const client = input.dataset.client;
+      const entry = adminState.clients.find((c) => c.id === client) || {};
+      try {
+        await adminApi(`/settings/${encodeURIComponent(client)}`, { method: 'POST', body: JSON.stringify({ field: 'paginasPerMaand', value: input.value }) });
+        entry.paginasPerMaand = Number(input.value);
+        renderError('');
+      } catch (err) {
+        input.value = entry.paginasPerMaand == null ? '' : entry.paginasPerMaand;
+        renderError(err.message);
+      }
+    });
+  });
+
   root.querySelectorAll('select[data-productveld]').forEach((select) => {
     select.addEventListener('change', async () => {
       const client = select.dataset.client;

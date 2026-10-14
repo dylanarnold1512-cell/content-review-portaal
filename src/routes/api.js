@@ -11,6 +11,7 @@ const documentTekst = require('../services/documentTekst');
 const lpNotion = require('../lp/notion');
 const lpTemplates = require('../lp/templates');
 const { maakKlantLijst, telKerncijfers } = require('../lp/klantPaginas');
+const lpMeting = require('../lp/meting');
 const { checkPassword, requireLogin } = require('../middleware/auth');
 
 const router = express.Router();
@@ -93,8 +94,15 @@ router.get('/:clientId/paginas', requireLogin, async (req, res) => {
     for (const p of paginas.filter((x) => x.status === 'Idee').slice(0, 25)) {
       try { details[p.id] = (await lpNotion.getPage(p.id)).invoer || {}; } catch (e) { /* reden blijft leeg */ }
     }
-    const paginasLijst = maakKlantLijst(paginas, details);
-    res.json({ paginas: paginasLijst, kerncijfers: telKerncijfers(paginasLijst) });
+    const basis = maakKlantLijst(paginas, details);
+    const config = getClient(req.params.clientId);
+    const [google, aiMeting] = await Promise.all([lpMeting.haalGoogle(req.params.clientId), lpMeting.haalAi(config.naam)]);
+    const paginasLijst = lpMeting.verrijkMetMeting(basis, google, aiMeting);
+    res.json({
+      paginas: paginasLijst,
+      kerncijfers: { ...telKerncijfers(paginasLijst), aiGenoemd: aiMeting.totaal ? aiMeting.totaal.genoemd : null, aiVragen: aiMeting.totaal ? aiMeting.totaal.vragen : null },
+      meting: { google: google.beschikbaar, ai: aiMeting.beschikbaar }
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

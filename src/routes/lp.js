@@ -25,6 +25,10 @@ const { pushDraft, deletePage: deleteWpPage, searchMedia, uploadMedia, listSiteP
 const { vindTekst, vervangTekst } = require('../lp/tekstVervangen');
 const { haalSiteTeksten, formatSiteTekstenVoorPrompt } = require('../lp/siteTeksten');
 const plan = require('../lp/plan');
+const meting = require('../lp/meting');
+const { maakUpdateVoorstellen } = require('../lp/bijhouden');
+const { maakKlantLijst } = require('../lp/klantPaginas');
+const settingsService = require('../services/settings');
 const { haalZoekvragen, dienstenUitTekst, vragenUitContent, vindDubbeleVragen } = require('../lp/zoekvragen');
 const { checkLpPassword, requireLpInternal } = require('../middleware/auth');
 
@@ -492,6 +496,153 @@ router.get('/pages', requireLpInternal, async (req, res) => {
   }
 });
 
+// Instellingen van de klant voor de werkplaats: aantal pagina's per maand en product (uit Portaal Instellingen).
+router.get('/plan/instellingen', requireLpInternal, async (req, res) => {
+  try {
+    const klant = String(req.query.klant || '');
+    let fallback = {};
+    try { fallback = require('../config/clients').getClient(klant); } catch (e) { fallback = {}; }
+    const inst = await settingsService.getClientSettings(klant, fallback);
+    res.json({ paginasPerMaand: inst.paginasPerMaand, producten: inst.producten, volumeBeschikbaar: require('../lp/zoekvolume').beschikbaar(), googleMetingBeschikbaar: Boolean(process.env.N8N_PAGR_METING_TABLE_ID) });
+  } catch (err) {
+    res.json({ paginasPerMaand: null, producten: null, volumeBeschikbaar: false, googleMetingBeschikbaar: false });
+  }
+});
+
+// Klantideeen: pagina's met stand Idee die de klant zelf aandroeg en die nog beoordeeld moeten worden.
+router.get('/plan/ideeen', requireLpInternal, async (req, res) => {
+  try {
+    const paginas = await lpNotion.listPages({ klant: req.query.klant, status: 'Idee' });
+    const ideeen = [];
+    for (const p of paginas.slice(0, 25)) {
+      const inv = (await lpNotion.getPage(p.id)).invoer || {};
+      if (inv.plan && inv.plan.status === 'idee van klant') ideeen.push({ id: p.id, titel: p.titel, toelichting: inv.plan.toelichting || '' });
+    }
+    res.json({ ideeen });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/plan/ideeen/:pageId/beoordeel', requireLpInternal, async (req, res) => {
+  try {
+    const { besluit } = req.body || {};
+    const page = await lpNotion.getPage(req.params.pageId);
+    const inv = page.invoer || {};
+    if (!inv.plan || inv.plan.status !== 'idee van klant') return res.status(400).json({ error: 'Dit is geen klantidee dat nog beoordeeld moet worden.' });
+    if (besluit === 'goedkeuren') {
+      await lpNotion.updateSection(page.id, 'invoer', { ...inv, plan: { ...inv.plan, status: 'goedgekeurd', goedgekeurdOp: new Date().toISOString().slice(0, 10), reden: inv.plan.reden || 'Idee van de klant.' } });
+      return res.json({ ok: true });
+    }
+    if (besluit === 'afwijzen') {
+      await lpNotion.deletePage(page.id);
+      return res.json({ ok: true });
+    }
+    res.status(400).json({ error: 'Besluit moet goedkeuren of afwijzen zijn.' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Bijhouden: meting per pagina en updatevoorstellen.
+async function bouwMeting(klant) {
+  const profielNaam = getLpClient(klant).profile.naam;
+  const paginas = await lpNotion.listPages({ klant });
+  const lijst = maakKlantLijst(paginas);
+  const [google, aiMeting] = await Promise.all([meting.haalGoogle(klant), meting.haalAi(profielNaam)]);
+  const verrijkt = meting.verrijkMetMeting(lijst, google, aiMeting);
+  return { verrijkt, google, aiMeting };
+}
+
+router.get('/plan/bijhouden', requireLpInternal, async (req, res) => {
+  try {
+    const klant = String(req.query.klant || '');
+    const { verrijkt, google, aiMeting } = await bouwMeting(klant);
+    res.json({
+      googleBeschikbaar: google.beschikbaar,
+      aiBeschikbaar: aiMeting.beschikbaar,
+      voorstellen: maakUpdateVoorstellen(verrijkt, { aiBeschikbaar: aiMeting.beschikbaar })
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Bulk op de server: maakt na elkaar de tekst voor alle geplande, goedgekeurde pagina's. De voortgang blijft staan als je
+// het tabblad sluit. Een taak per klant tegelijk, in het geheugen (na een herstart van de server is de taak weg).
+const bulkTaken = new Map();
+router.post('/plan/bulk', requireLpInternal, async (req, res) => {
+  try {
+    const klant = String(req.body?.klant || '');
+    getLpClient(klant);
+    const lopend = [...bulkTaken.values()].find((t) => t.klant === klant && t.status === 'bezig');
+    if (lopend) return res.json({ taak: lopend });
+    const paginas = await lpNotion.listPages({ klant, status: 'Idee' });
+    const kandidaten = [];
+    for (const p of paginas) {
+      const volledig = await lpNotion.getPage(p.id);
+      const planStatus = ((volledig.invoer || {}).plan || {}).status;
+      if (planStatus === 'idee van klant') continue;
+      kandidaten.push(volledig);
+    }
+    if (!kandidaten.length) return res.status(400).json({ error: 'Er zijn geen geplande pagina\'s om te maken.' });
+    const taak = { id: `${Date.now()}`, klant, status: 'bezig', totaal: kandidaten.length, klaar: 0, huidige: '', fouten: [] };
+    bulkTaken.set(taak.id, taak);
+    (async () => {
+      for (const page of kandidaten) {
+        taak.huidige = page.titel;
+        try {
+          const r = await maakContentVoorstel(page, {});
+          const slotData = r.slotData || {};
+          await lpNotion.updateSection(page.id, 'content', { meta: { metaTitle: slotData.metaTitle || '', metaDescription: slotData.metaDescription || '' }, slotData });
+          await lpNotion.setStatus(page.id, 'Content klaar');
+          taak.klaar += 1;
+        } catch (err) {
+          taak.fouten.push({ titel: page.titel, fout: err.message });
+        }
+      }
+      taak.huidige = '';
+      taak.status = 'klaar';
+    })();
+    res.json({ taak });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.get('/plan/bulk/:taakId', requireLpInternal, (req, res) => {
+  const taak = bulkTaken.get(req.params.taakId);
+  if (!taak) return res.status(404).json({ error: 'Taak niet gevonden (de server is mogelijk herstart).' });
+  res.json({ taak });
+});
+
+// AI adviseur: beantwoordt een vraag over deze klant met de echte stand van zaken als context.
+router.post('/plan/vraag', requireLpInternal, async (req, res) => {
+  try {
+    const klant = String(req.body?.klant || '');
+    const vraag = String(req.body?.vraag || '').trim().slice(0, 600);
+    if (!vraag) return res.status(400).json({ error: 'Stel een vraag.' });
+    const { verrijkt, google, aiMeting } = await bouwMeting(klant);
+    const actieveSjablonen = await templates.listTemplates({ klant, status: 'Actief' });
+    const voorstellen = maakUpdateVoorstellen(verrijkt, { aiBeschikbaar: aiMeting.beschikbaar });
+    const context = [
+      `Klant: ${getLpClient(klant).profile.naam}`,
+      `Actieve sjablonen: ${actieveSjablonen.map((t) => t.naam).join(', ') || 'geen'}`,
+      `Pagina's: ${verrijkt.map((p) => `${p.titel} (${p.stand}${p.google ? `, ${p.google.vertoningen} vertoningen, ${p.google.klikken} klikken` : ''})`).join('; ') || 'geen'}`,
+      `Google meting beschikbaar: ${google.beschikbaar ? 'ja' : 'nee'}. AI meting beschikbaar: ${aiMeting.beschikbaar ? 'ja' : 'nee'}.`,
+      `Updatevoorstellen uit de meting: ${voorstellen.map((v) => `${v.titel}: ${v.reden}`).join(' | ') || 'geen'}`
+    ].join('\n');
+    const antwoord = await ai.callOpenAi({
+      systemPrompt: 'Je bent adviseur voor een bureau dat landingspagina\'s maakt voor lokale bedrijven. Beantwoord de vraag kort en concreet in eenvoudig Nederlands op basis van de gegeven stand van zaken. Verzin geen cijfers. Zeg het als je iets niet weet. Gebruik geen streepjes en geen emoticons. Antwoord als JSON: {"antwoord":"..."}.',
+      userPrompt: `${context}\n\nVraag: ${vraag}`,
+      reasoningEffort: 'low'
+    });
+    res.json({ antwoord: String((antwoord || {}).antwoord || '').trim() });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // Het plan (Pagr. stap 3): de AI stelt pagina's voor, Dylan keurt goed. Het voorstel zelf wordt niet opgeslagen.
 router.post('/plan/voorstel', requireLpInternal, async (req, res) => {
   try {
@@ -499,7 +650,9 @@ router.post('/plan/voorstel', requireLpInternal, async (req, res) => {
     getLpClient(klant);
     const bestaandePaginas = await lpNotion.listPages({ klant });
     const klantTekst = await ai.formatKlantBronnenVoorSjabloon(klant);
-    const uit = await plan.maakPlanVoorstel({ klant, aantal, wens, bestaandePaginas, klantTekst, aiFn: ai.callOpenAi });
+    let aiVragen = [];
+    try { aiVragen = await meting.haalAiVragen(getLpClient(klant).profile.naam); } catch (e) { aiVragen = []; }
+    const uit = await plan.maakPlanVoorstel({ klant, aantal, wens, bestaandePaginas, klantTekst, aiVragen, aiFn: ai.callOpenAi });
     res.json(uit);
   } catch (err) {
     res.status(400).json({ error: err.message });
