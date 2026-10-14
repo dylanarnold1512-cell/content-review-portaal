@@ -1,4 +1,4 @@
-let adminState = { clients: [] };
+let adminState = { clients: [], ideeen: {} };
 
 async function adminApi(path, options) {
   const res = await fetch('/api/admin' + path, {
@@ -32,8 +32,7 @@ document.getElementById('adminLoginForm').addEventListener('submit', async (e) =
   try {
     await adminApi('/login', { method: 'POST', body: JSON.stringify({ password }) });
     showAdminApp();
-    await loadSettings();
-    await loadIdeaProposals();
+    await startAdmin();
   } catch (err) {
     errorEl.textContent = err.message;
   }
@@ -44,18 +43,70 @@ document.getElementById('adminLogoutBtn').addEventListener('click', async () => 
   showAdminLogin();
 });
 
-function switchAdminTab(tab) {
-  document.querySelectorAll('#adminTabNav .tab-btn').forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.adminTab === tab);
-  });
-  document.getElementById('instellingenTab').classList.toggle('hidden', tab !== 'instellingen');
-  document.getElementById('intakeTab').classList.toggle('hidden', tab !== 'intake');
-  if (tab === 'intake') loadIntakes();
+// ---- Navigatie: een eigen adres per scherm (#klanten, #nieuw, #ideeen, #klant/<id>/<tabblad>) ----
+const KLANT_TABS = [
+  { id: 'instellingen', titel: 'Instellingen' },
+  { id: 'ideeen', titel: 'Ideeën' },
+  { id: 'merkprofiel', titel: 'Merkprofiel opbouwen' }
+];
+const VIEW_TITELS = { klanten: 'Alle klanten', nieuw: 'Nieuwe klant', ideeen: 'Ideeën', klant: 'Klant' };
+let huidig = { view: 'klanten', klantId: '', tab: 'instellingen' };
+
+function leesHash() {
+  const delen = String(window.location.hash || '').replace(/^#/, '').split('/').map(decodeURIComponent);
+  if (delen[0] === 'klant' && delen[1]) {
+    const tab = KLANT_TABS.some((t) => t.id === delen[2]) ? delen[2] : 'instellingen';
+    return { view: 'klant', klantId: delen[1], tab };
+  }
+  if (['klanten', 'nieuw', 'ideeen'].includes(delen[0])) return { view: delen[0], klantId: '', tab: 'instellingen' };
+  return { view: 'klanten', klantId: '', tab: 'instellingen' };
 }
 
-document.querySelectorAll('#adminTabNav .tab-btn').forEach((btn) => {
-  btn.addEventListener('click', () => switchAdminTab(btn.dataset.adminTab));
+function gaNaar(view, klantId, tab) {
+  const hash = view === 'klant' ? `#klant/${encodeURIComponent(klantId)}/${tab || 'instellingen'}` : `#${view}`;
+  if (window.location.hash === hash) toonScherm();
+  else window.location.hash = hash;
+}
+
+function sluitMenu() {
+  document.getElementById('pSide').classList.remove('open');
+  document.getElementById('pScrim').classList.remove('open');
+  document.getElementById('pMenuknop').setAttribute('aria-expanded', 'false');
+}
+
+document.getElementById('pMenuknop').addEventListener('click', () => {
+  const open = !document.getElementById('pSide').classList.contains('open');
+  document.getElementById('pSide').classList.toggle('open', open);
+  document.getElementById('pScrim').classList.toggle('open', open);
+  document.getElementById('pMenuknop').setAttribute('aria-expanded', String(open));
 });
+document.getElementById('pScrim').addEventListener('click', sluitMenu);
+
+document.querySelectorAll('#adminNav [data-view]').forEach((btn) => {
+  btn.addEventListener('click', () => gaNaar(btn.dataset.view));
+});
+
+function toonScherm() {
+  huidig = leesHash();
+  sluitMenu();
+  const { view, klantId, tab } = huidig;
+  const klant = adminState.clients.find((c) => c.id === klantId);
+  ['Klanten', 'Klant', 'Ideeen', 'Nieuw'].forEach((naam) => {
+    document.getElementById('view' + naam).classList.toggle('hidden', naam.toLowerCase() !== (view === 'klant' ? 'klant' : view));
+  });
+  document.querySelectorAll('#adminNav [data-view]').forEach((btn) => {
+    const actief = btn.dataset.view === view || (view === 'klant' && btn.dataset.view === 'klanten');
+    btn.classList.toggle('active', actief);
+    if (actief) btn.setAttribute('aria-current', 'page'); else btn.removeAttribute('aria-current');
+  });
+  document.getElementById('pMobielTab').textContent = view === 'klant' && klant ? klant.naam : VIEW_TITELS[view];
+  if (view === 'klanten') renderKlanten();
+  if (view === 'klant') renderKlant(klant, tab);
+  if (view === 'ideeen') renderIdeeenScherm();
+  if (view === 'nieuw') loadIntakes();
+  window.scrollTo(0, 0);
+}
+window.addEventListener('hashchange', toonScherm);
 
 function renderError(message) {
   const el = document.getElementById('adminError');
@@ -83,74 +134,153 @@ function toggleSwitch(id, clientId, field, checked, disabled, disabledReason) {
   </label>`;
 }
 
-// Uitleg bij de kolomkoppen, getoond als popup bij het erover heen gaan.
-const HEADER_TIPS = [
-  { label: 'Status', tip: 'Actief: alles werkt. Gepauzeerd of beëindigd: de klant kan niet meer inloggen op het portaal en ziet een melding. De workflows in n8n volgen deze status. Staat er "kies status", dan is er nog niets opgeslagen en weet n8n het niet.' },
-  { label: 'Review', tip: 'De klant ziet bij elke blog de knoppen Goedkeuren en Afwijzen. Uit: de klant kan de blogs alleen bekijken.' },
-  { label: 'Prestaties', tip: 'Toont het tabblad Prestaties (Search Console en GA4). Zet aan zodra er ongeveer een maand data is, anders ziet de klant vooral nullen. Kan alleen als de prestatiekoppeling is ingesteld.' },
-  { label: 'Ideeën', tip: 'De klant krijgt de knop Idee aandragen. Ideeën worden automatisch aangevuld en komen eerst bij jou ter goedkeuring.' },
-  { label: 'Merkprofiel', tip: 'Toont het tabblad Merkprofiel. De klant ziet hoe wij het bedrijf hebben vastgesteld en kan feiten bevestigen, aanpassen of uitsluiten. Het tabblad verschijnt alleen als er een vastgesteld profiel is.' },
-  { label: 'Naar blogs', tip: 'Reacties van de klant op het merkprofiel schrijven het Kennisdocument opnieuw, waar de blogs op schrijven. Let op: dit overschrijft het huidige Kennisdocument. Zet dit pas aan bij de overstap naar het profiel.' },
-  { label: 'AI', tip: 'Toont het tabblad AI zichtbaarheid. De klant ziet hoe vaak ChatGPT en Gemini het eigen merk noemen. Concurrenten en bronnen van anderen blijven alleen hier zichtbaar. Zet aan zodra er minstens twee volledige weken meting zijn.' }
+function escapeHtmlAdmin(str) {
+  const div = document.createElement('div');
+  div.textContent = str == null ? '' : String(str);
+  return div.innerHTML;
+}
+
+// De modules die een klant in het portaal kan zien, met de uitleg die eerder in de kolomkoppen stond.
+const MODULES = [
+  { veld: 'reviewEnabled', naam: 'Blogs goedkeuren', kort: 'Review', tip: 'De klant ziet bij elke blog de knoppen Goedkeuren en Afwijzen. Uit: de klant kan de blogs alleen bekijken.' },
+  { veld: 'performanceEnabled', naam: 'Prestaties (Google)', kort: 'Google', tip: 'Toont het tabblad Google (Search Console en GA4). Zet aan zodra er minstens één gepubliceerde blog is en de eerste nacht is gedraaid, anders ziet de klant vooral nullen. Kan alleen als de prestatiekoppeling is ingesteld.', alleenAlsKoppeling: true },
+  { veld: 'ideaEnrichmentEnabled', naam: 'Ideeën aandragen', kort: 'Ideeën', tip: 'De klant krijgt de knop Idee aandragen. Ideeën worden automatisch aangevuld en komen eerst bij jou ter goedkeuring.' },
+  { veld: 'merkprofiel', naam: 'Merkprofiel', kort: 'Merkprofiel', tip: 'Toont het tabblad Merkprofiel. De klant ziet hoe wij het bedrijf hebben vastgesteld en kan feiten bevestigen, aanpassen of uitsluiten. Het tabblad verschijnt alleen als er een vastgesteld profiel is.' },
+  { veld: 'merkprofielNaarKennisdocument', naam: 'Merkprofiel naar blogs', kort: '', tip: 'Reacties van de klant op het merkprofiel schrijven het Kennisdocument opnieuw, waar de blogs op schrijven. Let op: dit overschrijft het huidige Kennisdocument. Zet dit pas aan bij de overstap naar het profiel.' },
+  { veld: 'aiZichtbaarheid', naam: 'AI zichtbaarheid', kort: 'AI', tip: 'Toont het tabblad AI zichtbaarheid. De klant ziet hoe vaak ChatGPT en Gemini het eigen merk noemen. Concurrenten en bronnen van anderen blijven alleen hier zichtbaar. Zet aan zodra er minstens twee volledige weken meting zijn.' }
 ];
 
-function renderTable() {
-  const rows = adminState.clients.map((c) => `
-  <div class="admin-row">
-    <div class="admin-row-name">
-      ${c.naam}
-      ${c.inNotion ? '' : '<span class="admin-row-badge" title="Nog geen rij in de Notion-database — wordt automatisch aangemaakt bij de eerste wijziging.">nieuw</span>'}
+function statusVanKlant(c) {
+  if (c.klantstatusIngesteld === false) return { tekst: 'Status kiezen', klasse: 'p-pil-let-op' };
+  const s = c.klantstatus || 'actief';
+  if (s === 'actief') return { tekst: 'Actief', klasse: 'p-pil-goed' };
+  if (s === 'gepauzeerd') return { tekst: 'Gepauzeerd', klasse: 'p-pil-let-op' };
+  return { tekst: 'Beëindigd', klasse: 'p-pil-neutraal' };
+}
+
+function wachtendeIdeeen(klantId) {
+  return (adminState.ideeen[klantId] || []).length;
+}
+
+function updateIdeeenTeller() {
+  const totaal = Object.values(adminState.ideeen).reduce((n, lijst) => n + lijst.length, 0);
+  const el = document.getElementById('ideeenTeller');
+  el.textContent = totaal > 0 ? String(totaal) : '';
+  el.classList.toggle('hidden', totaal === 0);
+}
+
+function adminInitialen(naam) {
+  const woorden = String(naam || '').trim().split(/\s+/).filter(Boolean);
+  if (!woorden.length) return '–';
+  if (woorden.length === 1) return woorden[0].slice(0, 2).toUpperCase();
+  return (woorden[0][0] + woorden[1][0]).toUpperCase();
+}
+
+// ---- Alle klanten ----
+function renderKlanten() {
+  const lijst = adminState.clients;
+  const actief = lijst.filter((c) => c.klantstatusIngesteld !== false && (c.klantstatus || 'actief') === 'actief').length;
+  const aandacht = lijst.filter((c) => c.klantstatusIngesteld === false || (c.klantstatus || 'actief') !== 'actief').length;
+  const ideeen = Object.values(adminState.ideeen).reduce((n, l) => n + l.length, 0);
+  const kaarten = lijst.map((c) => {
+    const st = statusVanKlant(c);
+    const aan = MODULES.filter((m) => m.kort && c[m.veld]);
+    const wacht = wachtendeIdeeen(c.id);
+    const open = wacht > 0
+      ? `<div class="ad-open">${wacht} ${wacht === 1 ? 'idee wacht' : 'ideeën wachten'} op jou</div>`
+      : (c.klantstatusIngesteld === false ? '<div class="ad-open">Kies een status, anders weten de workflows het niet</div>' : '<div class="ad-open ad-open-ok">Niets dat op jou wacht</div>');
+    return `
+    <button type="button" class="ad-klant" data-klant="${escapeHtmlAdmin(c.id)}">
+      <div class="ad-klant-kop">
+        <div class="p-klant-av" aria-hidden="true">${escapeHtmlAdmin(adminInitialen(c.naam))}</div>
+        <div class="ad-klant-naam"><b>${escapeHtmlAdmin(c.naam)}</b><span>${escapeHtmlAdmin(c.id)}</span></div>
+        <span class="p-pil ${st.klasse}">${st.tekst}</span>
+      </div>
+      <div class="ad-modules">${aan.length ? aan.map((m) => `<span class="p-pil p-pil-neutraal">${m.kort}</span>`).join('') : '<span class="ad-vaag">Nog geen modules aan voor de klant</span>'}</div>
+      ${open}
+    </button>`;
+  }).join('');
+  document.getElementById('viewKlanten').innerHTML = `
+  <div class="p-pagina">
+    <div class="p-ov-kop">
+      <div><h1>Alle klanten</h1><p>Waar elke klant staat en wat er op jou wacht.</p></div>
+      <div class="p-ov-kop-acties"><button type="button" class="p-knop p-knop-hoofd" data-nieuw>+ Nieuwe klant</button></div>
     </div>
-    <div class="admin-row-setting">
-      <span class="admin-row-label">Status</span>
-      <select class="admin-status admin-status-${c.klantstatusIngesteld === false ? 'leeg' : (c.klantstatus || 'actief')}" data-client="${c.id}" data-statusveld="klantstatus" aria-label="Klantstatus van ${c.naam}" title="${c.klantstatusIngesteld === false ? 'Nog geen status opgeslagen. Kies een status, anders weten de workflows in n8n niet of deze klant actief is.' : ''}">
-        ${c.klantstatusIngesteld === false ? '<option value="" selected>kies status</option>' : ''}
-        ${['actief', 'gepauzeerd', 'beëindigd'].map((s) => `<option value="${s}"${c.klantstatusIngesteld !== false && (c.klantstatus || 'actief') === s ? ' selected' : ''}>${s}</option>`).join('')}
+    <div class="p-kerncijfers ad-kerncijfers">
+      <div class="p-kerncijfer"><div class="p-kerncijfer-kop">Klanten</div><div class="ad-getal">${lijst.length}</div></div>
+      <div class="p-kerncijfer"><div class="p-kerncijfer-kop">Actief</div><div class="ad-getal">${actief}</div></div>
+      <div class="p-kerncijfer"><div class="p-kerncijfer-kop">Aandacht nodig</div><div class="ad-getal">${aandacht}</div></div>
+      <div class="p-kerncijfer"><div class="p-kerncijfer-kop">Ideeën ter beoordeling</div><div class="ad-getal">${ideeen}</div></div>
+    </div>
+    <div class="ad-raster">${kaarten || '<p class="admin-footnote">Nog geen klanten.</p>'}</div>
+    <p class="admin-footnote">Nieuwe klant nog niet in de lijst? Voeg 'm eerst toe in <code>src/config/clients.js</code>, dan verschijnt hij hier vanzelf.</p>
+  </div>`;
+  const root = document.getElementById('viewKlanten');
+  root.querySelectorAll('[data-klant]').forEach((k) => k.addEventListener('click', () => gaNaar('klant', k.dataset.klant, 'instellingen')));
+  root.querySelector('[data-nieuw]').addEventListener('click', () => gaNaar('nieuw'));
+}
+
+// ---- Eén klant ----
+function renderKlant(c, tab) {
+  const root = document.getElementById('viewKlant');
+  if (!c) {
+    root.innerHTML = '<div class="p-pagina"><p class="admin-footnote">Deze klant is niet gevonden. <button type="button" class="p-link" data-terug>Terug naar alle klanten</button></p></div>';
+    root.querySelector('[data-terug]').addEventListener('click', () => gaNaar('klanten'));
+    return;
+  }
+  const st = statusVanKlant(c);
+  const tabs = KLANT_TABS.map((t) => {
+    const teller = t.id === 'ideeen' && wachtendeIdeeen(c.id) ? `<span class="p-teller">${wachtendeIdeeen(c.id)}</span>` : '';
+    return `<button type="button" class="ad-tab${t.id === tab ? ' active' : ''}" data-tab="${t.id}">${t.titel}${teller}</button>`;
+  }).join('');
+  root.innerHTML = `
+  <div class="p-pagina">
+    <div class="p-ov-kop">
+      <div>
+        <button type="button" class="p-link ad-terug" data-terug>&larr; Alle klanten</button>
+        <h1>${escapeHtmlAdmin(c.naam)}</h1>
+        <p><span class="p-pil ${st.klasse}">${st.tekst}</span></p>
+      </div>
+    </div>
+    <div class="ad-tabs" role="tablist">${tabs}</div>
+    <div id="klantTabInhoud"></div>
+  </div>`;
+  root.querySelector('[data-terug]').addEventListener('click', () => gaNaar('klanten'));
+  root.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => gaNaar('klant', c.id, b.dataset.tab)));
+  const inhoud = document.getElementById('klantTabInhoud');
+  if (tab === 'instellingen') renderInstellingen(c, inhoud);
+  if (tab === 'ideeen') { inhoud.innerHTML = ideeenHtml([c], true); bindIdeeen(inhoud); }
+  if (tab === 'merkprofiel') renderMerkprofielBouw(c, inhoud);
+}
+
+function renderInstellingen(c, inhoud) {
+  const ingesteld = c.klantstatusIngesteld !== false;
+  const statusTip = 'Actief: alles werkt. Gepauzeerd of beëindigd: de klant kan niet meer inloggen op het portaal en ziet een melding. De workflows in n8n volgen deze status.';
+  const regels = MODULES.map((m) => `
+    <div class="ad-regel">
+      <div class="ad-regel-tekst"><b>${m.naam}</b><span>${m.tip}</span></div>
+      ${toggleSwitch(m.veld + '-' + c.id, c.id, m.veld, c[m.veld], m.alleenAlsKoppeling && !c.heeftPrestaties, 'Geen prestatiekoppeling ingesteld voor deze klant')}
+    </div>`).join('');
+  inhoud.innerHTML = `
+  <section class="p-kaart ad-blok">
+    <div class="ad-regel">
+      <div class="ad-regel-tekst"><b>Klantstatus</b><span>${statusTip}</span></div>
+      <select class="admin-status admin-status-${ingesteld ? (c.klantstatus || 'actief') : 'leeg'}" data-client="${c.id}" data-statusveld="klantstatus" aria-label="Klantstatus van ${escapeHtmlAdmin(c.naam)}">
+        ${ingesteld ? '' : '<option value="" selected>kies status</option>'}
+        ${['actief', 'gepauzeerd', 'beëindigd'].map((s) => `<option value="${s}"${ingesteld && (c.klantstatus || 'actief') === s ? ' selected' : ''}>${s}</option>`).join('')}
       </select>
     </div>
-    <div class="admin-row-setting">
-      <span class="admin-row-label">Review</span>
-      ${toggleSwitch('review-' + c.id, c.id, 'reviewEnabled', c.reviewEnabled, false)}
-    </div>
-    <div class="admin-row-setting">
-      <span class="admin-row-label">Prestaties</span>
-      ${toggleSwitch(
-        'perf-' + c.id,
-        c.id,
-        'performanceEnabled',
-        c.performanceEnabled,
-        !c.heeftPrestaties,
-        'Geen prestatie-koppeling ingesteld voor deze klant'
-      )}
-    </div>
-    <div class="admin-row-setting">
-      <span class="admin-row-label">Ideeën</span>
-      ${toggleSwitch('idea-' + c.id, c.id, 'ideaEnrichmentEnabled', c.ideaEnrichmentEnabled, false)}
-    </div>
-    <div class="admin-row-setting">
-      <span class="admin-row-label">Merkprofiel</span>
-      ${toggleSwitch('mp-' + c.id, c.id, 'merkprofiel', c.merkprofiel, false)}
-    </div>
-    <div class="admin-row-setting">
-      <span class="admin-row-label">Naar blogs</span>
-      ${toggleSwitch('mpk-' + c.id, c.id, 'merkprofielNaarKennisdocument', c.merkprofielNaarKennisdocument, false)}
-    </div>
-    <div class="admin-row-setting">
-      <span class="admin-row-label">AI</span>
-      ${toggleSwitch('ai-' + c.id, c.id, 'aiZichtbaarheid', c.aiZichtbaarheid, false)}
-    </div>
-  </div>
-  `).join('');
+  </section>
+  <section class="p-kaart ad-blok">
+    <header class="ad-blok-kop"><h2>Wat de klant ziet</h2><p>Wijzigingen werken direct door, er is geen deploy nodig.</p></header>
+    ${regels}
+  </section>
+  ${c.inNotion ? '' : '<p class="admin-footnote">Deze klant heeft nog geen rij in de Notion database Portaal Instellingen. Die wordt automatisch aangemaakt bij de eerste wijziging.</p>'}`;
+  bindInstellingen(inhoud);
+}
 
-  document.getElementById('adminTable').innerHTML = `
-  <div class="admin-row admin-row-head">
-    <div class="admin-row-name">Klant</div>
-    ${HEADER_TIPS.map((h, i) => `<div class="admin-row-setting"><span class="admin-row-label admin-tip${i >= 4 ? ' admin-tip-rechts' : ''}" tabindex="0" data-tip="${h.tip}">${h.label}</span></div>`).join('')}
-  </div>
-  ${rows}
-  `;
-
-  document.querySelectorAll('#adminTable select[data-statusveld]').forEach((select) => {
+function bindInstellingen(root) {
+  root.querySelectorAll('select[data-statusveld]').forEach((select) => {
     select.addEventListener('change', async () => {
       const client = select.dataset.client;
       const entry = adminState.clients.find((c) => c.id === client) || {};
@@ -173,11 +303,8 @@ function renderTable() {
         });
         entry.klantstatus = nieuw;
         entry.klantstatusIngesteld = true;
-        select.title = '';
-        const leegOptie = select.querySelector('option[value=""]');
-        if (leegOptie) leegOptie.remove();
-        select.className = `admin-status admin-status-${nieuw}`;
         renderError('');
+        renderKlant(entry, 'instellingen');
       } catch (err) {
         select.value = oud;
         renderError(err.message);
@@ -187,7 +314,7 @@ function renderTable() {
     });
   });
 
-  document.querySelectorAll('#adminTable input[type="checkbox"][data-client]').forEach((input) => {
+  root.querySelectorAll('input[type="checkbox"][data-client]').forEach((input) => {
     input.addEventListener('change', async () => {
       const { client, field } = input.dataset;
       const value = input.checked;
@@ -223,26 +350,10 @@ function renderTable() {
   });
 }
 
-function escapeHtmlAdmin(str) {
-  const div = document.createElement('div');
-  div.textContent = str || '';
-  return div.innerHTML;
-}
-
-function renderIdeaProposals(byClient) {
-  const container = document.getElementById('ideaProposals');
-  const clientsWithFeature = adminState.clients.filter((c) => c.ideaEnrichmentEnabled);
-
-  if (!clientsWithFeature.length) {
-    container.innerHTML = `<p class="admin-footnote">Geen enkele klant heeft ideeën-verrijking aanstaan.</p>`;
-    return;
-  }
-
-  const sections = clientsWithFeature.map((c) => {
-    const proposals = byClient[c.id] || [];
-    const cards = proposals.length
-      ? proposals.map((p) => `
-      <div class="proposal-card" data-page-id="${p.id}">
+// ---- Ideeën ter beoordeling ----
+function ideeKaart(p, klantId) {
+  return `
+      <div class="proposal-card" data-page-id="${p.id}" data-client="${escapeHtmlAdmin(klantId)}">
         <div class="proposal-header">
           <div class="proposal-title">${escapeHtmlAdmin(p.titel)}</div>
           <span class="tag">${escapeHtmlAdmin(p.categorie)} / ${escapeHtmlAdmin(p.cluster)}</span>
@@ -263,56 +374,68 @@ function renderIdeaProposals(byClient) {
           <button type="button" class="btn btn-approve proposal-approve">Goedkeuren</button>
           <button type="button" class="btn btn-reject proposal-reject">Afwijzen</button>
         </div>
-      </div>
-      `).join('')
-      : `<p class="admin-footnote">Geen ideeën ter beoordeling voor ${escapeHtmlAdmin(c.naam)}.</p>`;
+      </div>`;
+}
 
+function ideeenHtml(klanten, metKop) {
+  const metFunctie = klanten.filter((c) => c.ideaEnrichmentEnabled);
+  if (!metFunctie.length) {
+    return `<p class="admin-footnote">${klanten.length === 1 ? 'Deze klant heeft' : 'Geen enkele klant heeft'} ideeën aandragen niet aanstaan.</p>`;
+  }
+  return metFunctie.map((c) => {
+    const lijst = adminState.ideeen[c.id] || [];
+    const kaarten = lijst.length
+      ? lijst.map((p) => ideeKaart(p, c.id)).join('')
+      : `<p class="admin-footnote">Geen ideeën ter beoordeling${klanten.length === 1 ? '' : ' voor ' + escapeHtmlAdmin(c.naam)}.</p>`;
     return `
     <div class="proposal-client-block">
-      <div class="proposal-client-name">${escapeHtmlAdmin(c.naam)}</div>
-      <div class="proposal-list">${cards}</div>
-    </div>
-    `;
+      ${metFunctie.length > 1 || !metKop ? `<div class="proposal-client-name">${escapeHtmlAdmin(c.naam)}</div>` : ''}
+      <div class="proposal-list">${kaarten}</div>
+    </div>`;
   }).join('');
+}
 
-  container.innerHTML = sections;
-
-  container.querySelectorAll('.proposal-card').forEach((card) => {
+function bindIdeeen(root) {
+  root.querySelectorAll('.proposal-card').forEach((card) => {
     const pageId = card.dataset.pageId;
-    const clientBlock = card.closest('.proposal-client-block');
-    const clientName = clientBlock ? clientBlock.querySelector('.proposal-client-name').textContent : '';
-    const client = adminState.clients.find((c) => c.naam === clientName);
-    if (!client) return;
-
-    const handleDecision = async (decision, btn) => {
+    const klantId = card.dataset.client;
+    const beslis = async (besluit, btn) => {
       btn.disabled = true;
       try {
-        await adminApi(`/${encodeURIComponent(client.id)}/idea-proposals/${encodeURIComponent(pageId)}/${decision}`, {
-          method: 'POST'
-        });
+        await adminApi(`/${encodeURIComponent(klantId)}/idea-proposals/${encodeURIComponent(pageId)}/${besluit}`, { method: 'POST' });
+        adminState.ideeen[klantId] = (adminState.ideeen[klantId] || []).filter((p) => p.id !== pageId);
         card.remove();
+        updateIdeeenTeller();
+        renderError('');
       } catch (err) {
         renderError(err.message);
         btn.disabled = false;
       }
     };
-
-    card.querySelector('.proposal-approve')?.addEventListener('click', (e) => handleDecision('approve', e.target));
-    card.querySelector('.proposal-reject')?.addEventListener('click', (e) => handleDecision('reject', e.target));
+    card.querySelector('.proposal-approve')?.addEventListener('click', (e) => beslis('approve', e.target));
+    card.querySelector('.proposal-reject')?.addEventListener('click', (e) => beslis('reject', e.target));
   });
 }
 
+function renderIdeeenScherm() {
+  const el = document.getElementById('ideaProposals');
+  el.innerHTML = ideeenHtml(adminState.clients, false);
+  bindIdeeen(el);
+}
+
 async function loadIdeaProposals() {
-  const clientsWithFeature = adminState.clients.filter((c) => c.ideaEnrichmentEnabled);
-  const byClient = {};
+  const metFunctie = adminState.clients.filter((c) => c.ideaEnrichmentEnabled);
+  const nieuw = {};
   try {
     await Promise.all(
-      clientsWithFeature.map(async (c) => {
+      metFunctie.map(async (c) => {
         const data = await adminApi(`/${encodeURIComponent(c.id)}/idea-proposals`);
-        byClient[c.id] = data.proposals;
+        nieuw[c.id] = data.proposals || [];
       })
     );
-    renderIdeaProposals(byClient);
+    adminState.ideeen = nieuw;
+    updateIdeeenTeller();
+    if (['klanten', 'ideeen'].includes(huidig.view) || (huidig.view === 'klant' && huidig.tab === 'ideeen')) toonScherm();
   } catch (err) {
     renderError(err.message);
   }
@@ -323,11 +446,15 @@ async function loadSettings() {
     const data = await adminApi('/settings');
     adminState.clients = data.clients;
     renderError('');
-    renderTable();
-    mpVulKlanten();
+    toonScherm();
   } catch (err) {
     renderError(err.message);
   }
+}
+
+async function startAdmin() {
+  await loadSettings();
+  await loadIdeaProposals();
 }
 
 const INTAKE_STATUS_OPTIONS = ['Nieuw', 'In behandeling', 'Afgerond', 'Fout'];
@@ -520,18 +647,34 @@ const MP_STATUSTEKST = {
   mislukt: 'Het opbouwen is niet gelukt. Probeer opnieuw.'
 };
 
-function mpVulKlanten() {
-  const sel = ikEl('mpKlant');
-  if (!sel || sel.options.length) return;
-  sel.innerHTML = adminState.clients.map((c) => `<option value="${escapeHtmlAdmin(c.naam)}">${escapeHtmlAdmin(c.naam)}</option>`).join('');
+function renderMerkprofielBouw(c, inhoud) {
+  inhoud.innerHTML = `
+  <section class="p-kaart ad-blok">
+    <header class="ad-blok-kop">
+      <h2>Merkprofiel opbouwen</h2>
+      <p>Leest de website van de klant en maakt een concept merkprofiel met de tien vaste kopjes. Dit duurt ongeveer 4 minuten. Het raakt het Kennisdocument niet. Daarna zet je Merkprofiel aan voor de klant, bij Instellingen.</p>
+    </header>
+    <div class="ad-form">
+      <input type="hidden" id="mpKlant" value="${escapeHtmlAdmin(c.naam)}">
+      <div><label for="mpWebsite">Website</label><input type="text" id="mpWebsite" placeholder="bijv. www.bedrijf.nl" autocomplete="off"></div>
+      <div class="ad-form-rij">
+        <button type="button" id="mpStart" class="p-knop p-knop-hoofd">Opbouwen</button>
+        <span id="mpStatus" class="mp-bouw-status"></span>
+      </div>
+    </div>
+  </section>`;
+  ikEl('mpStart').addEventListener('click', () => mpStart(false));
+  clearTimeout(mpTimer);
   mpToonStatus();
 }
 
 async function mpToonStatus() {
+  if (!ikEl('mpKlant')) return;
   const klant = ikEl('mpKlant').value;
   if (!klant) return;
   try {
     const stand = await adminApi('/profiel/status?klant=' + encodeURIComponent(klant));
+    if (!ikEl('mpStatus')) return;
     let tekst = MP_STATUSTEKST[stand.status] || '';
     if (stand.aangemaakt && stand.status !== 'geen' && stand.status !== 'bezig') tekst += ' (' + String(stand.aangemaakt).slice(0, 10) + ')';
     if (stand.status === 'mislukt' && stand.verslag) tekst += ' ' + stand.verslag;
@@ -541,7 +684,7 @@ async function mpToonStatus() {
     clearTimeout(mpTimer);
     if (stand.status === 'bezig') mpTimer = setTimeout(mpToonStatus, 15000);
   } catch (err) {
-    ikEl('mpStatus').textContent = err.message;
+    if (ikEl('mpStatus')) ikEl('mpStatus').textContent = err.message;
   }
 }
 
@@ -563,8 +706,6 @@ async function mpStart(force) {
   }
 }
 
-ikEl('mpStart').addEventListener('click', () => mpStart(false));
-ikEl('mpKlant').addEventListener('change', mpToonStatus);
 
 function renderIntakeList(intakes) {
   const listEl = document.getElementById('intakeList');
@@ -643,8 +784,7 @@ async function loadIntakes() {
     const me = await adminApi('/me');
     if (me.isAdmin) {
       showAdminApp();
-      await loadSettings();
-      await loadIdeaProposals();
+      await startAdmin();
     } else {
       showAdminLogin();
     }
