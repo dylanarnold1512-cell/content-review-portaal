@@ -543,3 +543,17 @@ button, input, textarea, select { font-family: inherit; }
 .zw-pos-bijna { background: var(--p-let-op-zacht); color: var(--p-let-op); }
 .zw-pos-geen { font-weight: 500; font-size: 12px; }
 @media (max-width: 700px) { .zw-tabel { font-size: 13px; } .zw-tabel th, .zw-tabel td { padding-left: 4px; padding-right: 4px; } .zw-pos { min-width: 0; padding: 2px 6px; } }
+
+/* Landingspagina's (Pagr. stap 5) */
+.pg-kaart { padding: 0; margin-top: 16px; }
+.pg-tabel-wrap { overflow-x: auto; }
+.pg-tabel { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 640px; }
+.pg-tabel th { padding: 12px 16px; text-align: left; font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--p-tekst-zacht, #62657f); }
+.pg-tabel td { padding: 14px 16px; border-top: 1px solid var(--p-lijn, #eceef5); vertical-align: top; }
+.pg-reden { margin-top: 4px; font-size: 13px; color: var(--p-tekst-zacht, #62657f); line-height: 1.4; max-width: 520px; }
+.pg-gemeten { color: var(--p-tekst-zacht, #62657f); font-size: 13px; }
+.pg-idee { margin-top: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; }
+.pg-idee label { font-size: 13px; font-weight: 600; }
+.pg-idee input, .pg-idee textarea { width: 100%; box-sizing: border-box; }
+body.alleen-pagr #tabNav .p-nav-groep:not(#paginasGroep) { display: none; }
+.pg-tabel a { color: var(--p-merk, #c4142c); text-decoration: none; } .pg-tabel a:hover { text-decoration: underline; }

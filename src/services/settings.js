@@ -88,6 +88,7 @@ async function fetchAllFromNotion() {
         aiZichtbaarheid: Boolean(props['AI zichtbaarheid ingeschakeld']?.checkbox),
         klantstatus: normaliseerKlantstatus(props['Klantstatus']?.select?.name),
         producten: normaliseerProducten(props['Producten']?.select?.name),
+        productenIngesteld: PRODUCT_WAARDEN.includes(props['Producten']?.select?.name),
         klantstatusIngesteld: KLANTSTATUS_WAARDEN.includes(props['Klantstatus']?.select?.name)
       });
     }
@@ -125,8 +126,8 @@ async function getClientSettings(clientId, fallback = {}) {
         merkprofielNaarKennisdocument: settings.merkprofielNaarKennisdocument,
         aiZichtbaarheid: settings.aiZichtbaarheid,
         klantstatus: settings.klantstatus,
-        producten: settings.producten,
-        ...productVlaggen(settings.producten)
+        producten: settings.productenIngesteld ? settings.producten : normaliseerProducten(fallback.producten),
+        ...productVlaggen(settings.productenIngesteld ? settings.producten : fallback.producten)
       };
     }
   } catch (err) {
@@ -163,7 +164,7 @@ async function listAllSettings(clientsConfig) {
       merkprofielNaarKennisdocument: settings ? settings.merkprofielNaarKennisdocument : Boolean(c.merkprofielNaarKennisdocument),
       aiZichtbaarheid: settings ? settings.aiZichtbaarheid : Boolean(c.aiZichtbaarheid),
       klantstatus: settings ? settings.klantstatus : normaliseerKlantstatus(c.klantstatus),
-      producten: settings ? settings.producten : normaliseerProducten(c.producten),
+      producten: settings && settings.productenIngesteld ? settings.producten : normaliseerProducten(c.producten),
       // Leeg in Notion telt voor het portaal als actief, maar de n8n sync ziet dan geen status.
       klantstatusIngesteld: settings ? settings.klantstatusIngesteld : false,
       inNotion: Boolean(settings)

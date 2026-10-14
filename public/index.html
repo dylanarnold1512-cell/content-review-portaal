@@ -43,6 +43,10 @@
       <div class="p-nav-groep">
         <button type="button" class="tab-btn p-nav-item active" data-tab="overzicht" aria-current="page"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5M5.5 10v9.5h13V10"/></svg>Overzicht</button>
       </div>
+      <div class="p-nav-groep hidden" id="paginasGroep">
+        <div class="p-nav-label">Landingspagina's</div>
+        <button type="button" class="tab-btn p-nav-item" data-tab="paginas" id="paginasTabBtn"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h8"/></svg>Pagina's</button>
+      </div>
       <div class="p-nav-groep">
         <div class="p-nav-label">Content</div>
         <button type="button" class="tab-btn p-nav-item" data-tab="blogs"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>Blogs<span class="p-teller hidden" id="blogsTeller" aria-label="Blogs die op jouw review wachten"></span></button>
@@ -78,6 +82,23 @@
   </header>
 
   <div id="overzichtTab" class="tab-panel"></div>
+
+  <div id="paginasTab" class="tab-panel hidden">
+    <div class="p-pagina">
+      <div class="p-ov-kop">
+        <div><h1>Landingspagina's</h1><p>Welke pagina's wij voor jullie maken, wat er live staat en hoe ze scoren. Jullie hoeven niets goed te keuren.</p></div>
+        <div class="p-ov-kop-acties"><button type="button" id="paginaIdeeKnop" class="p-knop p-knop-hoofd">+ Idee aandragen</button></div>
+      </div>
+      <form id="paginaIdeeForm" class="p-kaart pg-idee hidden">
+        <label for="paginaIdeeTitel">Waarover zou een pagina moeten gaan?</label>
+        <input type="text" id="paginaIdeeTitel" maxlength="150" placeholder="Bijvoorbeeld: dakkapel plaatsen in Lisse">
+        <label for="paginaIdeeToelichting">Toelichting (optioneel)</label>
+        <textarea id="paginaIdeeToelichting" rows="2" maxlength="1000"></textarea>
+        <div><button type="submit" class="p-knop p-knop-hoofd">Versturen</button> <span id="paginaIdeeFout" class="login-error"></span></div>
+      </form>
+      <div id="paginasInhoud"></div>
+    </div>
+  </div>
 
   <div id="blogsTab" class="tab-panel hidden">
     <div class="p-pagina">
@@ -203,6 +224,7 @@
 <script src="/rapportages.js"></script>
 <script src="/overzicht-model.js"></script>
   <script src="/overzicht.js"></script>
+<script src="/paginas.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>
