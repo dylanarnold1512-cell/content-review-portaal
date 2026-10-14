@@ -372,4 +372,4 @@ async function getAiIntern(klantNaam) {
   return bouwIntern(await n8nRows(klantNaam));
 }
 
-module.exports = { getAiZichtbaarheid, getAiIntern, getAiVragen, bouwOverzicht, bouwIntern, bouwVragen, bouwKernWijzigingen, bouwAiKansen, weekLabel };
+module.exports = { n8nTabel, schoneUrl, getAiZichtbaarheid, getAiIntern, getAiVragen, bouwOverzicht, bouwIntern, bouwVragen, bouwKernWijzigingen, bouwAiKansen, weekLabel };

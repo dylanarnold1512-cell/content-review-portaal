@@ -249,6 +249,10 @@
       <div id="wpStappen" class="wp-stappen"></div>
       <div class="wp-raster">
         <div class="wp-links">
+          <section class="wp-kaart hidden" id="wpIdeeenKaart">
+            <div class="wp-kaart-kop"><h2>Ideeën van de klant</h2></div>
+            <div id="wpIdeeen"></div>
+          </section>
           <section class="wp-kaart" id="wpPlanKaart">
             <div class="wp-kaart-kop"><h2>Plan</h2></div>
             <p class="wp-muted wp-uitleg">De AI stelt pagina's voor op basis van de site van de klant en wat mensen zoeken. Jij keurt goed. Er wordt pas iets aangemaakt als je goedkeurt.</p>
@@ -261,7 +265,7 @@
             <div id="wpPlanLijst"></div>
           </section>
           <section class="wp-kaart">
-            <div class="wp-kaart-kop"><h2>Pagina's</h2><button type="button" id="wpNieuwePagina" class="btn btn-approve">+ Nieuwe pagina</button></div>
+            <div class="wp-kaart-kop"><h2>Pagina's</h2><span class="wp-kaart-acties"><button type="button" id="wpKloonKnop" class="btn btn-plain">Kopie van een bestaande pagina</button><button type="button" id="wpNieuwePagina" class="btn btn-approve">+ Nieuwe pagina</button></span></div>
             <div id="wpTellers" class="wp-tellers"></div>
             <div id="wpBulk" class="wp-bulk hidden"></div>
             <div class="wp-tabel-wrap"><table class="lp-table wp-tabel"><thead><tr><th>Pagina</th><th>Stand</th><th>Laatst bijgewerkt</th></tr></thead><tbody id="wpPaginas"></tbody></table></div>
@@ -275,6 +279,16 @@
           <section class="wp-kaart wp-advies">
             <div class="wp-kaart-kop"><h2>Advies</h2></div>
             <div id="wpAdvies"></div>
+          </section>
+          <section class="wp-kaart">
+            <div class="wp-kaart-kop"><h2>Bijhouden</h2></div>
+            <div id="wpBijhouden"></div>
+          </section>
+          <section class="wp-kaart">
+            <div class="wp-kaart-kop"><h2>Vraag het de adviseur</h2></div>
+            <textarea id="wpVraag" rows="2" placeholder="Bijvoorbeeld: welke pagina moet ik als eerste verbeteren?"></textarea>
+            <div class="wp-plan-actie"><button type="button" id="wpVraagKnop" class="btn btn-plain">Vraag stellen</button></div>
+            <p id="wpVraagAntwoord" class="wp-antwoord"></p>
           </section>
         </aside>
       </div>
@@ -315,7 +329,7 @@
           <span class="lp-field-hint">Bepaalt welke klantgegevens en tokens gebruikt worden.</span>
         </div>
         <div class="lp-field-row">
-          <label for="lpNewBlueprint">Blueprint</label>
+          <label for="lpNewBlueprint">Sjabloon</label>
           <select id="lpNewBlueprint" required></select>
           <span class="lp-field-hint">Bepaalt welke velden hieronder relevant zijn.</span>
         </div>
@@ -350,7 +364,7 @@
       </p>
       <div class="lp-table-card">
         <table class="lp-table">
-          <thead><tr><th>Naam</th><th>Klant</th><th>BlueprintId</th><th>Status</th><th>Laatst gewijzigd</th></tr></thead>
+          <thead><tr><th>Naam</th><th>Klant</th><th>Sjabloon-code</th><th>Status</th><th>Laatst gewijzigd</th></tr></thead>
           <tbody id="lpTemplatesTableBody"></tbody>
         </table>
       </div>
@@ -841,7 +855,7 @@
         </select>
       </div>
       <div class="lp-field-row" style="max-width:280px;">
-        <label for="lpTplNewBlueprintId">BlueprintId (bv. roots-event)</label>
+        <label for="lpTplNewBlueprintId">Sjabloon-code (bv. roots-event)</label>
         <input type="text" id="lpTplNewBlueprintId" required autocomplete="off">
       </div>
 
@@ -1028,8 +1042,8 @@
 
       <div class="lp-subtabs" id="lpSubtabs">
         <button type="button" class="lp-subtab-btn active" data-lp-subtab="invoer">Invoer</button>
-        <button type="button" class="lp-subtab-btn" data-lp-subtab="feitensheet">Feitensheet</button>
-        <button type="button" class="lp-subtab-btn" data-lp-subtab="content">Content JSON</button>
+        <button type="button" class="lp-subtab-btn" data-lp-subtab="feitensheet">Feiten</button>
+        <button type="button" class="lp-subtab-btn" data-lp-subtab="content">Tekst</button>
         <button type="button" class="lp-subtab-btn" data-lp-subtab="publiceren">Voorbeeld &amp; publiceren</button>
       </div>
 
@@ -1069,7 +1083,7 @@
             Genereert in één keer een voorstel voor alle tekst-slots van dit sjabloon (op basis van "Waar
             gaat deze pagina over" op de Invoer-tab, de feitensheet, en zelfgekozen zusterpagina's voor
             interne links) én kiest zelf een passende foto uit de mediabibliotheek van de klant voor elke
-            afbeelding-slot. Vul de Invoer- en Feitensheet-tabs eerst in voor het beste resultaat. Wijst
+            afbeelding-slot. Vul de tabs Invoer en Feiten eerst in voor het beste resultaat. Wijst
             een afbeelding-slot af als er geen goede match in de mediabibliotheek staat — die vul je dan
             zelf in door in het voorbeeldscherm op de afbeelding te klikken. Controleer het hele
             resultaat altijd voordat je opslaat.

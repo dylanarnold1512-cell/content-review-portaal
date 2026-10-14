@@ -16,6 +16,21 @@
     return /^https?:\/\//i.test(url || '') ? url : '';
   }
 
+  function nl(n) { return Number(n).toLocaleString('nl-NL'); }
+  function googleTekst(p, meting) {
+    if (p.stand !== 'Live') return '';
+    if (!meting || !meting.google || !p.google) return 'nog niet gemeten';
+    const g = p.google;
+    if (!g.vertoningen) return 'nog geen vertoningen';
+    const pijl = g.trend === 'stijgt' ? ' (stijgt)' : g.trend === 'zakt' ? ' (zakt)' : '';
+    return `${g.positie != null ? `positie ${String(g.positie).replace('.', ',')}, ` : ''}${nl(g.klikken)} klikken, ${nl(g.vertoningen)} vertoningen${pijl}`;
+  }
+  function aiTekst(p, meting) {
+    if (p.stand !== 'Live') return '';
+    if (!meting || !meting.ai || !p.ai) return 'nog niet gemeten';
+    return p.ai.geciteerd > 0 ? `genoemd als bron (${p.ai.geciteerd}x)` : 'nog niet genoemd';
+  }
+
   function tekenLijst(data) {
     const k = data.kerncijfers;
     const paginas = [...data.paginas].sort((a, b) => (VOLGORDE[a.stand] - VOLGORDE[b.stand]) || String(b.bijgewerkt).localeCompare(String(a.bijgewerkt)));
@@ -23,8 +38,8 @@
       <tr>
         <td><strong>${veilig(p.url) ? `<a href="${esc(veilig(p.url))}" target="_blank" rel="noopener">${esc(p.titel)}</a>` : esc(p.titel)}</strong>${p.reden ? `<div class="pg-reden">${esc(p.reden)}</div>` : ''}</td>
         <td><span class="p-pil ${KLASSE[p.stand] || 'p-pil-neutraal'}">${esc(p.stand)}</span></td>
-        <td class="pg-gemeten">${p.stand === 'Live' ? 'nog niet gemeten' : ''}</td>
-        <td class="pg-gemeten">${p.stand === 'Live' ? 'nog niet gemeten' : ''}</td>
+        <td class="pg-gemeten">${googleTekst(p, data.meting)}</td>
+        <td class="pg-gemeten">${aiTekst(p, data.meting)}</td>
         <td>${esc(datum(p.stand === 'Live' ? (p.liveDatum || p.bijgewerkt) : p.bijgewerkt))}</td>
       </tr>`).join('');
     return `
@@ -32,6 +47,7 @@
         <div class="p-kerncijfer"><div class="p-kerncijfer-kop">Pagina's live</div><div class="p-kerncijfer-waarde">${k.live}</div><div class="p-kerncijfer-sub">${k.dezeMaandLive} deze maand erbij</div></div>
         <div class="p-kerncijfer"><div class="p-kerncijfer-kop">In de maak</div><div class="p-kerncijfer-waarde">${k.inDeMaak}</div><div class="p-kerncijfer-sub">wij werken eraan</div></div>
         <div class="p-kerncijfer"><div class="p-kerncijfer-kop">Gepland</div><div class="p-kerncijfer-waarde">${k.gepland}</div><div class="p-kerncijfer-sub">volgens het plan</div></div>
+        ${k.aiVragen ? `<div class="p-kerncijfer"><div class="p-kerncijfer-kop">AI noemt jullie</div><div class="p-kerncijfer-waarde">${k.aiGenoemd}/${k.aiVragen}</div><div class="p-kerncijfer-sub">vragen waar jullie genoemd worden</div></div>` : ''}
       </div>
       <section class="p-kaart pg-kaart">
         <div class="pg-tabel-wrap">

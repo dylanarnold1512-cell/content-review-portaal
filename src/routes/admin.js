@@ -52,6 +52,10 @@ router.post('/settings/:clientId', requireAdmin, async (req, res) => {
       await settingsService.updateClientSetting(req.params.clientId, field, value);
       return res.json({ ok: true, melding: '' });
     }
+    if (field === 'paginasPerMaand') {
+      await settingsService.updateClientSetting(req.params.clientId, field, value);
+      return res.json({ ok: true, melding: '' });
+    }
     if (field === 'producten') {
       if (!settingsService.PRODUCT_WAARDEN.includes(value)) {
         return res.status(400).json({ error: `Onbekend product: ${value}` });

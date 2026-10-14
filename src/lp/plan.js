@@ -7,6 +7,7 @@
 // (DataForSEO) zit nu in n8n en niet in dit portaal. Zie het bouwstanddocument.
 
 const { haalSuggesties } = require('./zoekvragen');
+const { voegVolumeToe } = require('./zoekvolume');
 
 const MAX_AANTAL = 20;
 
@@ -64,7 +65,7 @@ function filterVoorstellen(voorstellen, paginas) {
   return { behouden, dubbel };
 }
 
-function bouwPlanPrompt({ klantTekst, bestaande, aantal, wens }) {
+function bouwPlanPrompt({ klantTekst, bestaande, aantal, wens, aiVragen }) {
   const systeem = `Je bent SEO en GEO strateeg voor een bureau dat landingspagina's maakt voor lokale bedrijven in Nederland.
 Je stelt een plan voor van nieuwe landingspagina's. Elke pagina heeft een duidelijke zoekintentie: een dienst, een dienst in een plaats, of een onderwerp waar mensen echt naar zoeken.
 Regels:
@@ -77,7 +78,7 @@ Antwoord als JSON: {"voorstellen":[{"titel":"...","soort":"dienst|plaats|dienst 
   const user = `Aantal pagina's dat je voorstelt: ${aantal}
 ${wens ? `Wens van de beheerder: ${wens}\n` : ''}
 ${klantTekst}
-
+${Array.isArray(aiVragen) && aiVragen.length ? `\nVragen die AI assistenten (ChatGPT, Gemini) over deze klant en zijn markt krijgen. Gebruik ze als bron voor onderwerpen:\n${aiVragen.slice(0, 15).map((v) => `- ${v}`).join('\n')}\n` : ''}
 Bestaande pagina's van deze klant (niet opnieuw voorstellen):
 ${bestaande.length ? bestaande.map((b) => `- ${b}`).join('\n') : '(nog geen)'}`;
   return { systeem, user };
@@ -102,12 +103,12 @@ async function voegSignaalToe(voorstellen, { fetchImpl } = {}) {
 }
 
 // Hoofdfunctie. aiFn en fetchImpl zijn te vervangen in tests.
-async function maakPlanVoorstel({ klant, aantal, wens, bestaandePaginas, klantTekst, aiFn, fetchImpl }) {
+async function maakPlanVoorstel({ klant, aantal, wens, bestaandePaginas, klantTekst, aiVragen, aiFn, fetchImpl, volumeFetch }) {
   const n = Math.max(1, Math.min(MAX_AANTAL, parseInt(aantal, 10) || 4));
   const bestaande = (bestaandePaginas || []).map((p) => p.titel).filter(Boolean);
   // We vragen iets meer dan nodig, zodat er na het weghalen van dubbelen nog genoeg overblijft.
   const gevraagd = Math.min(MAX_AANTAL + 5, n + 3);
-  const { systeem, user } = bouwPlanPrompt({ klantTekst, bestaande, aantal: gevraagd, wens });
+  const { systeem, user } = bouwPlanPrompt({ klantTekst, bestaande, aantal: gevraagd, wens, aiVragen });
   const antwoord = await aiFn({ systemPrompt: systeem, userPrompt: user });
   const lijst = Array.isArray(antwoord && antwoord.voorstellen) ? antwoord.voorstellen : [];
   const schoon = lijst.map((v) => ({
@@ -119,7 +120,11 @@ async function maakPlanVoorstel({ klant, aantal, wens, bestaandePaginas, klantTe
   })).filter((v) => v.titel);
   const { behouden, dubbel } = filterVoorstellen(schoon, bestaandePaginas);
   const metSignaal = await voegSignaalToe(behouden.slice(0, n), { fetchImpl });
-  return { klant, voorstellen: metSignaal, dubbel };
+  const metVolume = await voegVolumeToe(metSignaal, { fetchImpl: volumeFetch });
+  // Met volume sorteren we de voorstellen op wat het meest gezocht wordt, zonder volume blijft de volgorde van de AI.
+  const heeftVolume = metVolume.some((v) => typeof v.volume === 'number');
+  if (heeftVolume) metVolume.sort((a, b) => (b.volume || 0) - (a.volume || 0));
+  return { klant, voorstellen: metVolume, dubbel, volumeBeschikbaar: heeftVolume };
 }
 
 // Zet een goedgekeurd voorstel om in de invoer van een pagina.
@@ -128,7 +133,7 @@ function invoerVoorGoedgekeurd(v) {
     plaatsnaam: v.plaats || '',
     dienstFocus: v.dienst || '',
     onderwerp: v.titel,
-    plan: { status: 'goedgekeurd', soort: v.soort || '', reden: v.reden || '', signaal: v.signaal == null ? null : v.signaal, goedgekeurdOp: new Date().toISOString().slice(0, 10) }
+    plan: { status: 'goedgekeurd', soort: v.soort || '', reden: v.reden || '', signaal: v.signaal == null ? null : v.signaal, volume: typeof v.volume === 'number' ? v.volume : null, goedgekeurdOp: new Date().toISOString().slice(0, 10) }
   };
 }
 
