@@ -3,16 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Instellingen — Content Review Portaal</title>
+<title>Beheer Advertisr</title>
 <link rel="icon" href="https://advertisr.nl/wp-content/uploads/2025/03/Logo_Advertisr_new_2025.svg">
 <link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/portaal.css">
+<link rel="stylesheet" href="/admin.css">
 </head>
 <body>
 
 <div id="adminLoginScreen" class="login-screen">
   <div class="login-box">
     <img class="brand-logo" src="https://advertisr.nl/wp-content/uploads/2025/03/Logo_Advertisr_new_2025.svg" alt="Advertisr.">
-    <h1>Instellingen</h1>
+    <h1>Beheer</h1>
     <p class="login-sub">Alleen voor Advertisr — los van de klantwachtwoorden.</p>
     <form id="adminLoginForm">
       <label for="adminPasswordInput">Wachtwoord</label>
@@ -24,62 +26,55 @@
 </div>
 
 <div id="adminApp" class="app hidden">
-  <div class="top">
-    <div class="top-left">
-      <img class="brand-logo-small" src="https://advertisr.nl/wp-content/uploads/2025/03/Logo_Advertisr_new_2025.svg" alt="Advertisr.">
-      <div class="top-divider"></div>
-      <div>
-        <div class="top-title">Portaalinstellingen</div>
-        <div class="top-sub">Wijzigingen werken direct door — geen deploy nodig</div>
+  <aside class="p-side" id="pSide" aria-label="Hoofdmenu">
+    <div class="p-merk"><img class="p-logo" src="https://advertisr.nl/wp-content/uploads/2025/03/Logo_Advertisr_new_2025.svg" alt="Advertisr."></div>
+    <div class="p-klant">
+      <div class="p-klant-av" aria-hidden="true">AD</div>
+      <div><div class="p-klant-naam">Advertisr</div><div class="p-klant-sub">Beheer</div></div>
+    </div>
+    <nav class="p-nav" id="adminNav" aria-label="Onderdelen van het beheer">
+      <div class="p-nav-groep">
+        <div class="p-nav-label">Klanten</div>
+        <button type="button" class="p-nav-item active" data-view="klanten"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg>Alle klanten</button>
+        <button type="button" class="p-nav-item" data-view="nieuw"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Nieuwe klant</button>
+      </div>
+      <div class="p-nav-groep">
+        <div class="p-nav-label">Beoordelen</div>
+        <button type="button" class="p-nav-item" data-view="ideeen"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>Ideeën<span class="p-teller hidden" id="ideeenTeller" aria-label="Ideeën ter beoordeling"></span></button>
+      </div>
+    </nav>
+    <div class="p-side-voet">
+      <button type="button" id="adminLogoutBtn" class="p-nav-item"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>Uitloggen</button>
+    </div>
+  </aside>
+  <div class="p-scrim" id="pScrim"></div>
+
+  <div class="p-main">
+    <header class="p-mtop">
+      <img class="p-logo" src="https://advertisr.nl/wp-content/uploads/2025/03/Logo_Advertisr_new_2025.svg" alt="Advertisr." style="height:20px">
+      <div><div class="p-mtop-klant">Beheer</div><div class="p-mtop-tab" id="pMobielTab">Alle klanten</div></div>
+      <button type="button" class="p-menuknop" id="pMenuknop" aria-label="Menu openen" aria-expanded="false" aria-controls="pSide"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </header>
+
+    <div id="adminError" class="admin-error hidden"></div>
+
+    <div id="viewKlanten" class="tab-panel"></div>
+    <div id="viewKlant" class="tab-panel hidden"></div>
+
+    <div id="viewIdeeen" class="tab-panel hidden">
+      <div class="p-pagina">
+        <div class="p-ov-kop"><div><h1>Ideeën ter beoordeling</h1><p>Ideeën die klanten aandragen. Pas na jouw goedkeuring worden ze ingepland.</p></div></div>
+        <div id="ideaProposals"></div>
       </div>
     </div>
-    <button id="adminLogoutBtn" class="btn-plain">Uitloggen</button>
-  </div>
 
-  <div class="tab-nav" id="adminTabNav">
-    <button type="button" class="tab-btn active" data-admin-tab="instellingen">Instellingen</button>
-    <button type="button" class="tab-btn" data-admin-tab="intake">Nieuwe klant</button>
-  </div>
-
-  <div id="instellingenTab" class="tab-panel">
-    <div class="admin-layout admin-layout-breed">
-      <div id="adminError" class="admin-error hidden"></div>
-      <div id="adminTable" class="admin-table"></div>
-      <p class="admin-footnote">
-        Wordt gelezen en geschreven vanuit de Notion-database "Portaal Instellingen".
-        Nieuwe klant nog niet in de lijst? Voeg 'm eerst toe in <code>src/config/clients.js</code>
-        (zie README) — dan verschijnt hij hier vanzelf.
-      </p>
-
-      <div class="admin-section-title">Merkprofiel opbouwen</div>
-      <div class="mp-bouw">
-        <p class="admin-footnote">
-          Leest de website van de klant en maakt een concept merkprofiel met de tien vaste kopjes. Dit duurt ongeveer 4 minuten. Het raakt het Kennisdocument niet.
-          Daarna zet je Merkprofiel aan voor de klant. De klantnaam moet precies gelijk zijn aan de naam in het portaal.
-        </p>
-        <div class="ik-grid">
-          <div><label for="mpKlant">Klant</label>
-            <select id="mpKlant"></select></div>
-          <div><label for="mpWebsite">Website</label>
-            <input type="text" id="mpWebsite" placeholder="bijv. www.bedrijf.nl" autocomplete="off"></div>
-        </div>
-        <div class="ik-rij mp-bouw-rij">
-          <button type="button" id="mpStart" class="btn btn-approve ik-knop">Opbouwen</button>
-          <span id="mpStatus" class="mp-bouw-status"></span>
-        </div>
-      </div>
-
-      <div class="admin-section-title">Ideeën ter beoordeling</div>
-      <div id="ideaProposals"></div>
-    </div>
-  </div>
-
-  <div id="intakeTab" class="tab-panel hidden">
-    <div class="admin-layout admin-layout-breed">
-      <div id="intakeError" class="admin-error hidden"></div>
-      <div class="admin-section-title">Nieuwe klant</div>
-      <p class="admin-footnote">
-        Begin met de website van de klant. We vullen zoveel mogelijk zelf in en jij controleert het. Rechts zie je wat er nog nodig is.
+    <div id="viewNieuw" class="tab-panel hidden">
+      <div class="p-pagina">
+        <div class="p-ov-kop"><div><h1>Nieuwe klant</h1><p>Begin met de website van de klant. We vullen zoveel mogelijk zelf in en jij controleert het.</p></div></div>
+        <div id="intakeTab" class="admin-layout-breed">
+          <div id="intakeError" class="admin-error hidden"></div>
+            <p class="admin-footnote">
+        Rechts zie je wat er nog nodig is.
         Grove input is genoeg: de contentclusters worden daarna verfijnd met DataForSEO onderzoek. De koppelingen met Search Console en GA4 blijven een handmatige stap.
       </p>
       <div class="ik-layout">
@@ -183,6 +178,8 @@
 
       <div class="admin-section-title">Eerdere intakes</div>
       <div id="intakeList"></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>

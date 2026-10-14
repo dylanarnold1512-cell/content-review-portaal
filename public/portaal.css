@@ -1,5 +1,5 @@
 /* Portaal Fase 7: zijbalk en bouwstenen.
-   Wordt als laatste geladen en geldt alleen voor het klantportaal (index.html), niet voor /admin of /lp.
+   Wordt als laatste geladen in het klantportaal (index.html) en in het beheer (admin.html), niet voor /lp.
    Alle nieuwe klassen beginnen met p-. De bestaande tabbladen blijven hun eigen stijl houden tot ze aan de beurt zijn. */
 
 @font-face {
