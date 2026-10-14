@@ -138,23 +138,29 @@ function switchLpTab(tab) {
   document.querySelectorAll('#lpTabNav .tab-btn').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.lpTab === tab);
   });
+  document.getElementById('lpWerkplaatsTab').classList.toggle('hidden', tab !== 'werkplaats');
   document.getElementById('lpPaginasTab').classList.toggle('hidden', tab !== 'paginas');
+  lpState.laatsteLijst = tab === 'werkplaats' ? 'werkplaats' : 'paginas';
   document.getElementById('lpNieuwTab').classList.toggle('hidden', tab !== 'nieuw');
   document.getElementById('lpSjablonenTab').classList.toggle('hidden', tab !== 'sjablonen');
   document.getElementById('lpIntakeTab').classList.toggle('hidden', tab !== 'intake');
   document.getElementById('lpDetailSection').classList.add('hidden');
   document.getElementById('lpTemplateNewSection').classList.add('hidden');
   document.getElementById('lpTemplateDetailSection').classList.add('hidden');
+  if (tab === 'werkplaats' && typeof wpLaad === 'function') wpLaad();
   if (tab === 'sjablonen') loadTemplates();
   if (tab === 'intake') loadIntakes();
 }
 document.querySelectorAll('#lpTabNav .tab-btn').forEach((btn) => {
   btn.addEventListener('click', () => switchLpTab(btn.dataset.lpTab));
 });
+function lpTerugNaarLijst() {
+  const tab = lpState.laatsteLijst === 'werkplaats' ? 'werkplaats' : 'paginas';
+  switchLpTab(tab);
+}
 document.getElementById('lpNieuwePaginaBtn')?.addEventListener('click', () => switchLpTab('nieuw'));
 document.getElementById('lpBackBtn').addEventListener('click', () => {
-  document.getElementById('lpDetailSection').classList.add('hidden');
-  document.getElementById('lpPaginasTab').classList.remove('hidden');
+  lpTerugNaarLijst();
 });
 document.getElementById('lpTemplateNewBackBtn').addEventListener('click', () => {
   document.getElementById('lpTemplateNewSection').classList.add('hidden');
@@ -213,6 +219,7 @@ async function bootLpApp() {
 
   filterKlant.addEventListener('change', loadPages);
   await loadPages();
+  if (typeof wpStart === 'function') await wpStart();
 }
 
 function fillBlueprintSelect(klantId) {
@@ -367,6 +374,7 @@ async function openPageDetail(pageId) {
   lpState.currentPage = page;
 
   document.getElementById('lpPaginasTab').classList.add('hidden');
+  document.getElementById('lpWerkplaatsTab').classList.add('hidden');
   document.getElementById('lpNieuwTab').classList.add('hidden');
   document.getElementById('lpDetailSection').classList.remove('hidden');
 
@@ -430,10 +438,9 @@ document.getElementById('lpPageDeleteBtn').addEventListener('click', async () =>
   setBtnLoading(btn, true, 'Bezig met verwijderen...');
   try {
     await lpApi(`/pages/${page.id}`, { method: 'DELETE' });
-    document.getElementById('lpDetailSection').classList.add('hidden');
-    document.getElementById('lpPaginasTab').classList.remove('hidden');
     lpState.currentPage = null;
     await loadPages();
+    lpTerugNaarLijst();
   } catch (err) {
     errorEl.textContent = formatApiError(err);
     errorEl.classList.remove('hidden');
