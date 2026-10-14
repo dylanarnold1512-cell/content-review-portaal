@@ -32,30 +32,12 @@ const { maakUpdateVoorstellen } = require('../lp/bijhouden');
 const { maakKlantLijst } = require('../lp/klantPaginas');
 const settingsService = require('../services/settings');
 const { haalZoekvragen, dienstenUitTekst, vragenUitContent, vindDubbeleVragen } = require('../lp/zoekvragen');
-const { checkLpPassword, requireLpInternal } = require('../middleware/auth');
+const { requireLpInternal } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.post('/login', (req, res) => {
-  const { password } = req.body || {};
-  try {
-    if (!checkLpPassword(password)) {
-      return res.status(401).json({ error: 'Onjuist wachtwoord.' });
-    }
-    req.session.isLpInternal = true;
-    res.json({ ok: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.post('/logout', (req, res) => {
-  if (req.session) req.session.isLpInternal = false;
-  res.json({ ok: true });
-});
-
 router.get('/me', (req, res) => {
-  res.json({ isLpInternal: Boolean(req.session && (req.session.isLpInternal || req.session.isAdmin)) });
+  res.json({ isLpInternal: Boolean(req.session && req.session.isAdmin) });
 });
 
 // Klanten + hun blueprints, voor de dropdowns in het formulier-scherm.

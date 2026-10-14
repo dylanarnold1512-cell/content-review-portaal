@@ -114,25 +114,6 @@ function showLpLogin() {
   document.getElementById('lpLoginScreen').classList.remove('hidden');
 }
 
-document.getElementById('lpLoginForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const password = document.getElementById('lpPasswordInput').value;
-  const errorEl = document.getElementById('lpLoginError');
-  errorEl.textContent = '';
-  try {
-    await lpApi('/login', { method: 'POST', body: JSON.stringify({ password }) });
-    showLpApp();
-    await bootLpApp();
-  } catch (err) {
-    errorEl.textContent = err.message;
-  }
-});
-
-document.getElementById('lpLogoutBtn').addEventListener('click', async () => {
-  await lpApi('/logout', { method: 'POST' });
-  showLpLogin();
-});
-
 // ---- Tab-navigatie (hoofdtabs) ----
 let lpDoorKlik = false;
 // Meldt de gekozen tab aan de admin, zodat het menu links meebeweegt (alleen als we ingebed zijn).

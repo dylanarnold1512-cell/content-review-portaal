@@ -91,9 +91,10 @@ die klant aanraakt.
 
 Sinds 31-08-2026: een interne zone naast de klant- en adminzone, voor het
 bouwen van SEO/GEO-landingspagina's voor agencyklanten (eerste testcases:
-Hostel Roots, later JMB). Alleen bereikbaar op `/lp`, met een eigen wachtwoord
-(environment variable `LP_PASSWORD`) — helemaal los van de klant- en
-adminwachtwoorden, klanten kunnen hier nooit bij. Zie `claude/lp-fabriek-besluiten.md`
+Hostel Roots, later JMB). Sinds 14-10-2026 een onderdeel van het admin portaal
+(`/admin`, groep Landingspagina's). Er is geen apart wachtwoord meer: wie als admin
+is ingelogd, kan erbij. `/lp` zelf werkt alleen als scherm binnen de admin en stuurt
+anderen door naar `/admin`. Klanten kunnen hier nooit bij. Zie `claude/lp-fabriek-besluiten.md`
 in het Claude-project "Landingpage automation" voor de volledige architectuur
 en alle besluiten.
 
@@ -112,8 +113,7 @@ en alle besluiten.
    die ook bij `NOTION_TOKEN_ADMIN` hoort (··· menu op de database, of op de
    "LP Fabriek"-pagina erboven, → Connections → voeg de integratie toe). Zonder
    deze stap krijgt `/lp` een foutmelding zodra je pagina's probeert te laden.
-2. Een zelfgekozen wachtwoord als environment variable `LP_PASSWORD` zetten op
-   Render.
+2. (Vervallen) De environment variable `LP_PASSWORD` is niet meer nodig en kan van Render af.
 3. Per WordPress-klant de site-URL, gebruikersnaam en applicatiewachtwoord als
    environment variables zetten — voor Roots: `WP_URL_ROOTS`,
    `WP_USERNAME_ROOTS`, `WP_APP_PASSWORD_ROOTS` (zie `.env.example`).

@@ -66,7 +66,12 @@ app.get('/admin', (req, res) => {
 });
 
 // LP Fabriek: interne zone, zie besluiten.md "Portaal: een app, twee zones".
+// Pagr. is een onderdeel van de admin en alleen nog te gebruiken als scherm daarbinnen (iframe). Wie hier niet als admin
+// binnenkomt, of de pagina los opent, gaat naar de admin. Er is geen apart LP wachtwoord meer.
 app.get('/lp', (req, res) => {
+  const isAdmin = Boolean(req.session && req.session.isAdmin);
+  const bestemming = req.headers['sec-fetch-dest'];
+  if (!isAdmin || bestemming === 'document') return res.redirect('/admin#pagr/werkplaats');
   res.sendFile(path.join(__dirname, 'public', 'lp.html'));
 });
 

@@ -14,8 +14,8 @@ test('admin mag de LP routes gebruiken, zonder apart LP wachtwoord', () => {
   assert.equal(draai({ isAdmin: true }).doorgelaten, true);
 });
 
-test('het aparte LP wachtwoord werkt nog', () => {
-  assert.equal(draai({ isLpInternal: true }).doorgelaten, true);
+test('het oude aparte LP wachtwoord bestaat niet meer', () => {
+  assert.equal(draai({ isLpInternal: true }).doorgelaten, false);
 });
 
 test('zonder login of met alleen een klantlogin geen toegang', () => {

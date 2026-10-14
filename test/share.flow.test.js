@@ -8,7 +8,6 @@ const http = require('node:http');
 const express = require('express');
 const cookieSession = require('cookie-session');
 
-process.env.LP_PASSWORD = 'test-wachtwoord';
 process.env.SESSION_SECRET = 'test-geheim';
 process.env.LP_SHARE_BASE_URL = 'https://portaal.test';
 
@@ -57,6 +56,7 @@ async function startApp() {
   const app = express();
   app.use(express.json());
   app.use(cookieSession({ name: 'portal_session', keys: ['test-geheim'] }));
+  app.post('/test-login', (req, res) => { req.session.isAdmin = true; res.json({ ok: true }); });
   app.use('/api/lp', lpRoutes);
   app.use('/voorbeeld', shareRoutes);
   app.get('*', (req, res) => res.status(200).send('INDEX HTML VAN HET PORTAAL'));
@@ -73,9 +73,7 @@ test('deellink flow: maken, openen zonder inlog, vervangen, intrekken', async ()
     assert.equal((await fetch(`${base}/api/lp/pages/pagina-goed/deellink`, { method: 'POST' })).status, 401);
 
     // Inloggen.
-    const login = await fetch(`${base}/api/lp/login`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: 'test-wachtwoord' })
-    });
+    const login = await fetch(`${base}/test-login`, { method: 'POST' });
     assert.equal(login.status, 200);
     const cookie = login.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ');
     const authed = (extra = {}) => ({ headers: { 'Content-Type': 'application/json', cookie }, ...extra });
