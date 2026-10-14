@@ -52,6 +52,13 @@ router.post('/settings/:clientId', requireAdmin, async (req, res) => {
       await settingsService.updateClientSetting(req.params.clientId, field, value);
       return res.json({ ok: true, melding: '' });
     }
+    if (field === 'producten') {
+      if (!settingsService.PRODUCT_WAARDEN.includes(value)) {
+        return res.status(400).json({ error: `Onbekend product: ${value}` });
+      }
+      await settingsService.updateClientSetting(req.params.clientId, field, value);
+      return res.json({ ok: true, melding: '' });
+    }
     if (!['reviewEnabled', 'performanceEnabled', 'ideaEnrichmentEnabled', 'merkprofiel', 'merkprofielNaarKennisdocument', 'aiZichtbaarheid'].includes(field)) {
       return res.status(400).json({ error: `Onbekend instellingveld: ${field}` });
     }
@@ -170,7 +177,8 @@ router.post('/intake', requireAdmin, async (req, res) => {
     let onboardingMelding = '';
     try {
       const clientId = String((req.body || {}).clientId || (req.body || {}).portaalSlug || '').trim();
-      if (clientId) await onboardingService.start({ klant: klant.trim(), clientId, klaar: [1] });
+      const producten = settingsService.normaliseerProducten((req.body || {}).producten);
+      if (clientId) await onboardingService.start({ klant: klant.trim(), clientId, klaar: [1], producten });
     } catch (err) {
       onboardingMelding = `De intake is opgeslagen, maar de onboardingstappen konden niet worden aangemaakt: ${err.message}`;
     }
@@ -211,8 +219,8 @@ router.get('/onboarding/:clientId', requireAdmin, async (req, res) => {
 
 router.post('/onboarding', requireAdmin, async (req, res) => {
   try {
-    const { klant, clientId, klaar } = req.body || {};
-    const result = await onboardingService.start({ klant, clientId, klaar: Array.isArray(klaar) ? klaar : [] });
+    const { klant, clientId, klaar, producten } = req.body || {};
+    const result = await onboardingService.start({ klant, clientId, klaar: Array.isArray(klaar) ? klaar : [], producten: settingsService.normaliseerProducten(producten) });
     res.json({ ok: true, ...result });
   } catch (err) {
     res.status(400).json({ error: err.message });

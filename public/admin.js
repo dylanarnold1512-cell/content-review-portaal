@@ -443,6 +443,14 @@ function renderInstellingen(c, inhoud) {
     </div>
   </section>
   <section class="p-kaart ad-blok">
+    <div class="ad-regel">
+      <div class="ad-regel-tekst"><b>Product</b><span>Blogr. toont het blogportaal, Pagr. de landingspagina's. Bij Beide staat er een extra onderdeel in het menu van de klant.</span></div>
+      <select class="admin-status" data-client="${c.id}" data-productveld="producten" aria-label="Product van ${escapeHtmlAdmin(c.naam)}">
+        ${['Blogr.', 'Pagr.', 'Beide'].map((p) => `<option value="${p}"${(c.producten || 'Blogr.') === p ? ' selected' : ''}>${p}</option>`).join('')}
+      </select>
+    </div>
+  </section>
+  <section class="p-kaart ad-blok">
     <header class="ad-blok-kop"><h2>Wat de klant ziet</h2><p>Wijzigingen werken direct door, er is geen deploy nodig.</p></header>
     ${regels}
   </section>
@@ -451,6 +459,25 @@ function renderInstellingen(c, inhoud) {
 }
 
 function bindInstellingen(root) {
+  root.querySelectorAll('select[data-productveld]').forEach((select) => {
+    select.addEventListener('change', async () => {
+      const client = select.dataset.client;
+      const entry = adminState.clients.find((c) => c.id === client) || {};
+      const oud = entry.producten || 'Blogr.';
+      select.disabled = true;
+      try {
+        await adminApi(`/settings/${encodeURIComponent(client)}`, { method: 'POST', body: JSON.stringify({ field: 'producten', value: select.value }) });
+        entry.producten = select.value;
+        renderError('');
+      } catch (err) {
+        select.value = oud;
+        renderError(err.message);
+      } finally {
+        select.disabled = false;
+      }
+    });
+  });
+
   root.querySelectorAll('select[data-statusveld]').forEach((select) => {
     select.addEventListener('change', async () => {
       const client = select.dataset.client;
@@ -653,6 +680,7 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
     businessOmschrijving: document.getElementById('intakeBusiness').value.trim(),
     toneOfVoice: document.getElementById('intakeTone').value.trim(),
     onderwerpsrichtingen: document.getElementById('intakeTopics').value.trim(),
+    producten: document.getElementById('intakeProducten').value,
     blogsPerMaand: document.getElementById('intakeBlogsPerMaand').value,
     driveMapUrl: document.getElementById('intakeDriveUrl').value.trim(),
     notificatieEmails: document.getElementById('intakeNotificatieEmails').value.trim(),

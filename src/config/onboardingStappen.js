@@ -35,6 +35,30 @@ const STAPPEN = [
   { nr: 21, fase: 'E', titel: 'Eerste maand', uitleg: 'Maandrapport op de 4e, Effect Meting en Page Enrichment doen mee, klant ontvangt de uitleg.', aanZet: 'Claude' }
 ];
 
+// Stappen voor Pagr. (landingspagina's). Nr 101 en hoger, zodat ze naast de Blogr. stappen in dezelfde database staan.
+// gedeeld: true betekent dat de stap bij Blogr. al bestaat. Bij Beide worden die niet dubbel aangemaakt.
+const PAGR_STAPPEN = [
+  { nr: 101, fase: 'A', titel: 'Websitescan en nieuwe klant', uitleg: 'Naam, id, omschrijving, taal en WordPress uit de homepage gehaald.', aanZet: 'Dylan', gedeeld: true },
+  { nr: 102, fase: 'A', titel: 'Gegevens voor de pagina\'s', uitleg: 'WordPress login via een veilige route, aantal pagina\'s per maand, contactpersoon, formulier en foto\'s.', aanZet: 'Klant', gedeeld: true },
+  { nr: 103, fase: 'B', titel: 'Merkprofiel en kennisdocument', uitleg: 'Wat de klant doet, voor wie, toon en regels. Wordt ook gebruikt voor de teksten van de pagina\'s.', aanZet: 'Claude', gedeeld: true },
+  { nr: 104, fase: 'B', titel: 'Plan voor de pagina\'s', uitleg: 'Eerste planvoorstel in de Werkplaats: diensten en plaatsen met een reden. Pas bouwen na akkoord van Dylan.', aanZet: 'Dylan' },
+  { nr: 105, fase: 'C', titel: 'Sjabloon', uitleg: 'Eerste sjabloon met echte tekst van de klant, controleren en op Actief zetten.', aanZet: 'Dylan' },
+  { nr: 106, fase: 'C', titel: 'WordPress koppeling', uitleg: 'REST test, SEO plugin, formulier shortcode, mediabibliotheek en Cloudflare.', aanZet: 'Claude' },
+  { nr: 107, fase: 'C', titel: 'Klantgegevens in de LP Fabriek', uitleg: 'Klant, feiten met bron en tokens toevoegen aan src/lp/clients, tot dit naar Notion verhuist.', aanZet: 'Claude' },
+  { nr: 108, fase: 'C', titel: 'Portaal en login', uitleg: 'Product Pagr. aanzetten bij Instellingen en login voor de klant regelen.', aanZet: 'Claude' },
+  { nr: 109, fase: 'D', titel: 'Testpagina', uitleg: 'Een pagina laten maken, controleren, als concept naar WordPress en het voorbeeld bekijken.', aanZet: 'Claude' },
+  { nr: 110, fase: 'D', titel: 'Eerste pagina door Dylan gecontroleerd', uitleg: 'In de Werkplaats, voordat er iets live gaat.', aanZet: 'Dylan' },
+  { nr: 111, fase: 'E', titel: 'Live zetten', uitleg: 'Eerste pagina\'s publiceren, status van de klant actief, mail naar de klant.', aanZet: 'Dylan' },
+  { nr: 112, fase: 'E', titel: 'Eerste maand', uitleg: 'Meting per pagina (Google en AI) en een planvoorstel voor de volgende maand.', aanZet: 'Claude' }
+];
+
 const STATUSSEN = ['Nog niet gestart', 'Bezig', 'Wacht op Dylan', 'Wacht op klant', 'Klaar', 'Overgeslagen'];
 
-module.exports = { FASEN, STAPPEN, STATUSSEN };
+// De stappen voor een productkeuze. Blogr. = 1 tot 21, Pagr. = 101 tot 112, Beide = Blogr. plus de Pagr. stappen die niet gedeeld zijn.
+function stappenVoor(producten) {
+  if (producten === 'Pagr.') return PAGR_STAPPEN;
+  if (producten === 'Beide') return [...STAPPEN, ...PAGR_STAPPEN.filter((s) => !s.gedeeld)];
+  return STAPPEN;
+}
+
+module.exports = { FASEN, STAPPEN, PAGR_STAPPEN, STATUSSEN, stappenVoor };
