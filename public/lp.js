@@ -238,7 +238,7 @@ async function loadNewFormInvoerFields() {
   try {
     const { blueprint } = await lpApi(`/clients/${klantId}/blueprints/${blueprintId}`);
     container.innerHTML = (blueprint.invoerVelden || []).map((veld) => `
-      <div class="lp-field-row">
+      <div class="wp-veld wp-veld-breed">
         <label for="lpNewVeld_${veld.key}">${veld.label}${veld.verplicht ? ' *' : ''}</label>
         <input type="text" id="lpNewVeld_${veld.key}" data-veld-key="${veld.key}" ${veld.verplicht ? 'required' : ''} placeholder="${veld.voorbeeld ? 'bv. ' + veld.voorbeeld.replace(/"/g, '&quot;') : ''}">
       </div>`).join('');
@@ -313,17 +313,27 @@ async function loadPages() {
 }
 
 function renderPagesTable() {
-  const tbody = document.getElementById('lpPagesTableBody');
-  tbody.innerHTML = lpState.pages.map((p) => `
-    <tr class="lp-row" data-page-id="${p.id}">
-      <td>${p.titel || '(zonder titel)'}</td>
-      <td>${p.klant || ''}</td>
-      <td>${p.blueprint || ''}</td>
-      <td><span class="${lpBadgeClass(LP_PAGE_STATUS_BADGE, p.status)}">${p.status || ''}</span></td>
-      <td>${p.laatstGewijzigd ? new Date(p.laatstGewijzigd).toLocaleString('nl-NL') : ''}</td>
-    </tr>`).join('') || '<tr><td colspan="5">Nog geen pagina\'s.</td></tr>';
-  tbody.querySelectorAll('tr.lp-row').forEach((row) => {
-    row.addEventListener('click', () => openPageDetail(row.dataset.pageId));
+  const lijst = document.getElementById('lpPagesTableBody');
+  const standVan = (st) => (typeof wpStandVan === 'function' ? wpStandVan(st) : st);
+  const klasse = (stand) => (typeof WP_STAND_KLASSE !== 'undefined' && WP_STAND_KLASSE[stand]) || 'wp-maak';
+  const klantNaam = (id) => ((lpState.clients || []).find((c) => c.id === id) || {}).naam || id || '';
+  const tellers = { 'Gepland': 0, 'In de maak': 0, 'Ter controle': 0, 'Live': 0 };
+  lpState.pages.forEach((p) => { const st = standVan(p.status); if (tellers[st] != null) tellers[st] += 1; });
+  document.getElementById('lpPaginaTellers').innerHTML = Object.keys(tellers)
+    .map((st) => `<span class="wp-pil ${klasse(st)}"><span class="wp-stip"></span>${st} <b>${tellers[st]}</b></span>`).join('');
+  lijst.innerHTML = lpState.pages.map((p) => {
+    const stand = standVan(p.status);
+    const datum = p.laatstGewijzigd ? new Date(p.laatstGewijzigd).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : '';
+    return `<div class="wp-rij lp-row" data-page-id="${p.id}" tabindex="0" role="button">
+      <div class="wp-rij-hoofd"><strong>${p.titel || '(zonder titel)'}</strong><small class="wp-muted">${klantNaam(p.klant)}</small></div>
+      <span class="wp-pil ${klasse(stand)}"><span class="wp-stip"></span>${stand}</span>
+      <span class="wp-muted wp-rij-datum">${datum}</span>
+    </div>`;
+  }).join('') || '<p class="wp-muted">Nog geen pagina\'s. Maak je eerste pagina met Nieuwe pagina.</p>';
+  lijst.querySelectorAll('.lp-row').forEach((row) => {
+    const open = () => openPageDetail(row.dataset.pageId);
+    row.addEventListener('click', open);
+    row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
   });
 }
 
@@ -351,10 +361,10 @@ function renderVoortgang(page, feitenCounts) {
   const gepubliceerd = page.status === 'Gepubliceerd';
 
   const stappen = [
-    { label: 'Invoer', klaar: invoerIngevuld, sub: invoerIngevuld ? 'Ingevuld' : 'Nog leeg' },
-    { label: 'Feiten controleren', klaar: feitenKlaar, sub: total ? `${gebruikt} van ${total} bevestigd` : 'Nog geen feiten beschikbaar' },
-    { label: 'Content', klaar: contentKlaar, sub: contentKlaar ? 'Ingevuld' : 'Nog leeg' },
-    { label: 'Voorbeeld & publiceren', klaar: gepubliceerd, sub: gepubliceerd ? 'Gepubliceerd' : 'Nog niet gepubliceerd' }
+    { label: 'Onderwerp', klaar: invoerIngevuld, sub: invoerIngevuld ? 'Ingevuld' : 'Nog leeg' },
+    { label: 'Feiten', klaar: feitenKlaar, sub: total ? `${gebruikt} van ${total} bevestigd` : 'Nog geen feiten beschikbaar' },
+    { label: 'Tekst', klaar: contentKlaar, sub: contentKlaar ? 'Geschreven' : 'Nog niet geschreven' },
+    { label: 'Controleren en live', klaar: gepubliceerd, sub: gepubliceerd ? 'Live' : 'Nog niet live' }
   ];
 
   let huidigGezet = false;
@@ -366,6 +376,7 @@ function renderVoortgang(page, feitenCounts) {
     const lijn = i < stappen.length - 1 ? `<div class="lp-step-line${state === 'done' ? ' done' : ''}"></div>` : '';
     return `<div class="lp-step ${state}"><div class="lp-step-circle">${circle}</div><div class="lp-step-label">${s.label}</div><div class="lp-step-sub">${s.sub}</div></div>${lijn}`;
   }).join('');
+  if (typeof lpRenderPaginaAdvies === 'function') lpRenderPaginaAdvies(page, { invoerIngevuld, feitenKlaar, contentKlaar, gepubliceerd, total, gebruikt });
 }
 
 // ---- Detailscherm ----
@@ -555,7 +566,7 @@ document.getElementById('lpDupMeerBtn').addEventListener('click', async () => {
 function renderInvoerFields(page, blueprint) {
   const container = document.getElementById('lpInvoerFields');
   if (!blueprint) {
-    container.innerHTML = '<p class="admin-error">Blueprint kon niet geladen worden.</p>';
+    container.innerHTML = '<p class="admin-error">Het sjabloon van deze pagina kon niet geladen worden.</p>';
     return;
   }
   const invoer = page.invoer || {};
@@ -675,7 +686,7 @@ function renderContentJson(page, blueprint) {
   document.getElementById('lpContentAiSection').classList.toggle('hidden', !isSlot);
   document.getElementById('lpContentBlockHelper').classList.toggle('hidden', isSlot);
   document.getElementById('lpInsertBlockBtn').classList.toggle('hidden', isSlot);
-  document.getElementById('lpContentJsonLabel').textContent = isSlot ? 'Content JSON (slotData object)' : 'Content JSON (blocks array)';
+  document.getElementById('lpContentJsonLabel').textContent = isSlot ? 'Tekst als code' : 'Tekst als code (oud formaat)';
   const value = isSlot ? (content.slotData || {}) : (content.blocks || []);
   document.getElementById('lpContentJson').value = JSON.stringify(value, null, 2);
 
@@ -719,8 +730,8 @@ document.getElementById('lpGenerateContentBtn').addEventListener('click', async 
     if (slotData.metaDescription) document.getElementById('lpMetaDescription').value = slotData.metaDescription;
     const waarschuwingen = [imageWarning, linkWarning, siteTekstWarning, iconWarning, faqWarning, zoekvragenWarning].filter(Boolean).join(' ');
     statusEl.textContent = waarschuwingen
-      ? `Voorstel gegenereerd — ${waarschuwingen} Controleer en klik daarna op "Content JSON opslaan".`
-      : `Voorstel gegenereerd (tekst, meta, afbeeldingen en interne links${zoekvragenAantal ? `, vragen uit ${zoekvragenAantal} echte zoekvragen` : ''}) — controleer en pas aan waar nodig (klik in het voorbeeldscherm op een afbeelding om te wisselen), klik daarna op "Content JSON opslaan".`;
+      ? `Voorstel gegenereerd — ${waarschuwingen} Controleer en klik daarna op "Opslaan" bij de tekst als code.`
+      : `Voorstel gegenereerd (tekst, meta, afbeeldingen en interne links${zoekvragenAantal ? `, vragen uit ${zoekvragenAantal} echte zoekvragen` : ''}) — controleer en pas aan waar nodig (klik in het voorbeeldscherm op een afbeelding om te wisselen), klik daarna op "Opslaan".`;
   } catch (err) {
     statusEl.textContent = '';
     alert(formatApiError(err));
@@ -1066,7 +1077,7 @@ async function applyImageSwap(item) {
   try {
     slotData = JSON.parse(textarea.value || '{}');
   } catch (err) {
-    errorEl.textContent = 'De huidige Content JSON is ongeldig, fix dat eerst op het Content JSON-tabblad: ' + err.message;
+    errorEl.textContent = 'De tekst als code is ongeldig, los dat eerst op bij de tekst als code (tabblad Tekst, onder Geavanceerd): ' + err.message;
     errorEl.classList.remove('hidden');
     return;
   }
@@ -1151,7 +1162,7 @@ function openTextEdit(path, linkPath) {
   try {
     slotData = JSON.parse(textarea.value || '{}');
   } catch (err) {
-    alert('De huidige Content JSON is ongeldig, fix dat eerst op het Content JSON-tabblad: ' + err.message);
+    alert('De tekst als code is ongeldig, los dat eerst op bij de tekst als code (tabblad Tekst, onder Geavanceerd): ' + err.message);
     return;
   }
   lpState.textEditPath = path || null;
@@ -1203,7 +1214,7 @@ document.getElementById('lpTextEditSaveBtn').addEventListener('click', async () 
   try {
     slotData = JSON.parse(textarea.value || '{}');
   } catch (err) {
-    errorEl.textContent = 'De huidige Content JSON is ongeldig, fix dat eerst op het Content JSON-tabblad: ' + err.message;
+    errorEl.textContent = 'De tekst als code is ongeldig, los dat eerst op bij de tekst als code (tabblad Tekst, onder Geavanceerd): ' + err.message;
     errorEl.classList.remove('hidden');
     return;
   }
@@ -1423,20 +1434,24 @@ async function loadTemplates() {
 }
 
 function renderTemplatesTable() {
-  const tbody = document.getElementById('lpTemplatesTableBody');
-  // Gearchiveerde sjablonen (bv. na opruimen van per ongeluk dubbel aangemaakte
-  // sjablonen) blijven in Notion staan maar rommelen deze lijst niet meer op.
+  const lijst = document.getElementById('lpTemplatesTableBody');
+  // Gearchiveerde sjablonen blijven in Notion staan maar rommelen deze lijst niet meer op.
   const zichtbaar = lpState.templates.filter((t) => t.status !== 'Gearchiveerd');
-  tbody.innerHTML = zichtbaar.map((t) => `
-    <tr class="lp-row" data-template-id="${t.id}">
-      <td>${t.naam || '(zonder naam)'}</td>
-      <td>${t.klant || ''}</td>
-      <td>${t.blueprintId || ''}</td>
-      <td><span class="${lpBadgeClass(LP_TEMPLATE_STATUS_BADGE, t.status)}">${t.status || ''}</span></td>
-      <td>${t.laatstGewijzigd ? new Date(t.laatstGewijzigd).toLocaleString('nl-NL') : ''}</td>
-    </tr>`).join('') || '<tr><td colspan="5">Nog geen sjablonen.</td></tr>';
-  tbody.querySelectorAll('tr.lp-row').forEach((row) => {
-    row.addEventListener('click', () => openTemplateDetail(row.dataset.templateId));
+  const klantNaam = (id) => ((lpState.clients || []).find((c) => c.id === id) || {}).naam || id || '';
+  const uitleg = { 'Actief': 'Bruikbaar', 'Concept': 'Nog niet bruikbaar' };
+  lijst.innerHTML = zichtbaar.map((t) => {
+    const datum = t.laatstGewijzigd ? new Date(t.laatstGewijzigd).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : '';
+    const klasse = t.status === 'Actief' ? 'wp-live' : 'wp-gepland';
+    return `<div class="wp-rij lp-row" data-template-id="${t.id}" tabindex="0" role="button">
+      <div class="wp-rij-hoofd"><strong>${t.naam || '(zonder naam)'}</strong><small class="wp-muted">${klantNaam(t.klant)}</small></div>
+      <span class="wp-pil ${klasse}"><span class="wp-stip"></span>${uitleg[t.status] || t.status || ''}</span>
+      <span class="wp-muted wp-rij-datum">${datum}</span>
+    </div>`;
+  }).join('') || '<p class="wp-muted">Nog geen sjablonen. Maak je eerste sjabloon met Nieuw sjabloon.</p>';
+  lijst.querySelectorAll('.lp-row').forEach((row) => {
+    const open = () => openTemplateDetail(row.dataset.templateId);
+    row.addEventListener('click', open);
+    row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
   });
 }
 
@@ -1615,7 +1630,7 @@ async function haalSjabloonPreviewOp(klant, blueprint, sample, voorbeeldTextarea
     if (statusEl) {
       statusEl.textContent = res.waarschuwing
         ? res.waarschuwing
-        : (res.voorbeeldSlotData ? 'Voorbeeld aangevuld. Vergeet niet op "Blueprint opslaan" te klikken om het te bewaren.' : '');
+        : (res.voorbeeldSlotData ? 'Voorbeeld aangevuld. Vergeet niet op "Sjabloon bewaren" te klikken om het te bewaren.' : '');
     }
     return res;
   } catch (err) {
@@ -1691,7 +1706,7 @@ document.getElementById('lpTplRefineBtn').addEventListener('click', async () => 
     huidigBlueprint = JSON.parse(document.getElementById('lpTplNewBlueprintJson').value || '{}');
     huidigeVoorbeeldSlotData = JSON.parse(document.getElementById('lpTplNewVoorbeeldJson').value || '{}');
   } catch (err) {
-    errorEl.textContent = 'Ongeldige JSON in Blueprint JSON of Voorbeeldcontent: ' + err.message;
+    errorEl.textContent = 'De opzet of de voorbeeldtekst is ongeldig: ' + err.message;
     errorEl.classList.remove('hidden');
     return;
   }
@@ -1726,10 +1741,11 @@ document.getElementById('lpTplCreateBtn').addEventListener('click', async () => 
   errorEl.classList.add('hidden');
   const naam = document.getElementById('lpTplNewNaam').value;
   const klant = document.getElementById('lpTplNewKlant').value;
-  const blueprintId = document.getElementById('lpTplNewBlueprintId').value;
+  let blueprintId = document.getElementById('lpTplNewBlueprintId').value;
+  if (!blueprintId && naam) blueprintId = naam.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
   const status = document.getElementById('lpTplNewStatus').value;
   if (!naam || !klant || !blueprintId) {
-    errorEl.textContent = 'Naam, Klant en BlueprintId zijn verplicht.';
+    errorEl.textContent = 'Vul een naam in en kies een klant.';
     errorEl.classList.remove('hidden');
     return;
   }
@@ -1737,7 +1753,7 @@ document.getElementById('lpTplCreateBtn').addEventListener('click', async () => 
   try {
     blueprint = JSON.parse(document.getElementById('lpTplNewBlueprintJson').value || '{}');
   } catch (err) {
-    errorEl.textContent = 'Ongeldige JSON in de Blueprint JSON: ' + err.message;
+    errorEl.textContent = 'De opzet van het sjabloon is ongeldig: ' + err.message;
     errorEl.classList.remove('hidden');
     return;
   }
@@ -1747,8 +1763,7 @@ document.getElementById('lpTplCreateBtn').addEventListener('click', async () => 
     : Array.isArray(blueprint.verplichteBlokken) && blueprint.verplichteBlokken.length > 0;
   if (!heeftInhoud) {
     const doorgaan = confirm(
-      'Deze Blueprint JSON lijkt nog het onaangepaste standaard-skelet (je hebt waarschijnlijk nog niet ' +
-      'op "Stap 1: genereer voorstel met AI" geklikt, of het genereren is niet gelukt). Toch zo opslaan?'
+      'Dit sjabloon is nog leeg. Je hebt waarschijnlijk nog geen voorstel laten maken, of het maken is niet gelukt. Toch zo opslaan?'
     );
     if (!doorgaan) return;
   }
@@ -1787,7 +1802,7 @@ async function openTemplateDetail(templateId) {
 
   document.getElementById('lpTplDetailNaam').textContent = template.naam;
   document.getElementById('lpTplDetailKlantPill').textContent = template.klant ? ('klant: ' + template.klant) : '';
-  document.getElementById('lpTplDetailBlueprintIdPill').textContent = template.blueprintId ? ('blueprintId: ' + template.blueprintId) : '';
+  document.getElementById('lpTplDetailBlueprintIdPill').textContent = template.blueprintId ? ('code: ' + template.blueprintId) : '';
   document.getElementById('lpTplDetailStatusBadge').textContent = template.status;
   document.getElementById('lpTplDetailStatusBadge').className = lpBadgeClass(LP_TEMPLATE_STATUS_BADGE, template.status);
   document.getElementById('lpTplStatusSelect').value = template.status;
@@ -1876,7 +1891,7 @@ document.getElementById('lpTplDetailRefineBtn').addEventListener('click', async 
     huidigBlueprint = JSON.parse(document.getElementById('lpTplDetailBlueprintJson').value || '{}');
     huidigeVoorbeeldSlotData = JSON.parse(document.getElementById('lpTplDetailVoorbeeldJson').value || '{}');
   } catch (err) {
-    errorEl.textContent = 'Ongeldige JSON in Blueprint JSON of Voorbeeldcontent: ' + err.message;
+    errorEl.textContent = 'De opzet of de voorbeeldtekst is ongeldig: ' + err.message;
     errorEl.classList.remove('hidden');
     return;
   }

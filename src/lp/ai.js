@@ -1072,6 +1072,7 @@ async function callOpenAiVision({ systemPrompt, contentParts }) {
 
 module.exports = {
   VASTE_ONDERDELEN_OPTIES,
+  VASTE_ONDERDELEN_LABELS,
   formatBrandingForPrompt,
   VISUELE_RICHTINGEN,
   ONTWERP_TOOLKIT,
