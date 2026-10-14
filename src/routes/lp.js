@@ -24,6 +24,7 @@ const { validatePage, validateTemplateStructure } = require('../lp/validator');
 const { pushDraft, deletePage: deleteWpPage, searchMedia, uploadMedia, listSitePages, haalPaginaStatussen } = require('../lp/wordpress');
 const { vindTekst, vervangTekst } = require('../lp/tekstVervangen');
 const { haalSiteTeksten, formatSiteTekstenVoorPrompt } = require('../lp/siteTeksten');
+const plan = require('../lp/plan');
 const { haalZoekvragen, dienstenUitTekst, vragenUitContent, vindDubbeleVragen } = require('../lp/zoekvragen');
 const { checkLpPassword, requireLpInternal } = require('../middleware/auth');
 
@@ -488,6 +489,41 @@ router.get('/pages', requireLpInternal, async (req, res) => {
     res.json({ pages });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Het plan (Pagr. stap 3): de AI stelt pagina's voor, Dylan keurt goed. Het voorstel zelf wordt niet opgeslagen.
+router.post('/plan/voorstel', requireLpInternal, async (req, res) => {
+  try {
+    const { klant, aantal, wens } = req.body || {};
+    getLpClient(klant);
+    const bestaandePaginas = await lpNotion.listPages({ klant });
+    const klantTekst = await ai.formatKlantBronnenVoorSjabloon(klant);
+    const uit = await plan.maakPlanVoorstel({ klant, aantal, wens, bestaandePaginas, klantTekst, aiFn: ai.callOpenAi });
+    res.json(uit);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/plan/goedkeuren', requireLpInternal, async (req, res) => {
+  try {
+    const { klant, blueprint, voorstellen } = req.body || {};
+    if (!klant || !blueprint || !Array.isArray(voorstellen) || !voorstellen.length) {
+      return res.status(400).json({ error: 'klant, blueprint en minstens een voorstel zijn verplicht.' });
+    }
+    if (voorstellen.length > plan.MAX_AANTAL) return res.status(400).json({ error: `Maximaal ${plan.MAX_AANTAL} pagina's tegelijk.` });
+    await templates.getActiveTemplateByBlueprintId(klant, blueprint);
+    const aangemaakt = [];
+    for (const v of voorstellen) {
+      if (!v || !v.titel) continue;
+      const page = await lpNotion.createPage({ klant, blueprint, titel: String(v.titel), invoer: plan.invoerVoorGoedgekeurd(v) });
+      await lpNotion.setStatus(page.id, 'Idee');
+      aangemaakt.push({ id: page.id, titel: v.titel });
+    }
+    res.json({ aangemaakt });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 

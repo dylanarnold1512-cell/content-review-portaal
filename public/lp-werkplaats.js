@@ -69,6 +69,7 @@ function wpTeken() {
   document.getElementById('wpStappen').innerHTML = wpStappen({ tellers: uit.tellers, actief: uit.actief, pages });
   document.querySelectorAll('#wpStappen .wp-stap').forEach((b) => b.addEventListener('click', () => switchLpTab(b.dataset.wpTab)));
 
+  wpTekenBulk();
   document.getElementById('wpTellers').innerHTML = WP_STANDEN.map((s) => `<span class="wp-pil ${WP_STAND_KLASSE[s]}"><span class="wp-stip"></span>${s} <b>${uit.tellers[s]}</b></span>`).join('');
 
   document.getElementById('wpPaginas').innerHTML = pages.map((p) => {
@@ -133,7 +134,112 @@ async function wpStart() {
     switchLpTab('sjablonen');
     document.getElementById('lpNewTemplateBtn')?.click();
   });
+  document.getElementById('wpPlanKnop').addEventListener('click', wpPlanVoorstel);
+  sel.addEventListener('change', () => {
+    document.getElementById('wpAantal').value = wpPlanOpslag(sel.value) || 4;
+    document.getElementById('wpPlanLijst').innerHTML = '';
+    document.getElementById('wpPlanStatus').textContent = '';
+  });
+  document.getElementById('wpAantal').value = wpPlanOpslag(sel.value) || 4;
   await wpLaad();
+}
+
+// ---- Plan (stap 3) ----
+function wpPlanOpslag(klant, waarde) {
+  try {
+    const sleutel = 'pagrAantal:' + klant;
+    if (waarde === undefined) return localStorage.getItem(sleutel);
+    localStorage.setItem(sleutel, String(waarde));
+  } catch (e) { /* zonder opslag werkt het ook */ }
+  return null;
+}
+
+function wpTekenPlan(uit) {
+  const lijst = document.getElementById('wpPlanLijst');
+  const actief = (lpState.wpTemplates || []).filter((t) => t.status === 'Actief');
+  if (!uit.voorstellen.length) {
+    lijst.innerHTML = '<p class="wp-muted">De AI vond geen nieuwe pagina\'s om voor te stellen. Probeer een wens of een ander aantal.</p>';
+    return;
+  }
+  const signaal = (n) => (n == null ? '<span class="wp-muted">geen zoeksignaal</span>' : n > 0 ? `<span class="wp-pil wp-live">${n} Google suggesties</span>` : '<span class="wp-pil wp-controle">geen Google suggesties</span>');
+  lijst.innerHTML = `<div class="wp-plan-items">${uit.voorstellen.map((v, i) => `
+    <label class="wp-plan-item"><input type="checkbox" checked data-i="${i}">
+      <span><strong>${wpEsc(v.titel)}</strong><small>${wpEsc(v.reden)}</small><span class="wp-plan-meta">${wpEsc(v.soort)} ${signaal(v.signaal)}</span></span>
+    </label>`).join('')}</div>
+    ${uit.dubbel.length ? `<p class="wp-muted">${uit.dubbel.length} voorstel${uit.dubbel.length === 1 ? '' : 'len'} weggelaten omdat de pagina al bestaat of dubbel was.</p>` : ''}
+    <div class="wp-plan-actie">
+      ${actief.length > 1 ? `<select id="wpPlanSjabloon">${actief.map((t) => `<option value="${wpEsc(t.blueprintId)}">${wpEsc(t.naam)}</option>`).join('')}</select>` : ''}
+      <button type="button" id="wpPlanKeur" class="btn btn-approve" ${actief.length ? '' : 'disabled'}>Keur geselecteerde goed</button>
+      ${actief.length ? '' : '<span class="wp-muted">Maak eerst een actief sjabloon.</span>'}
+    </div>`;
+  document.getElementById('wpPlanKeur')?.addEventListener('click', async (e) => {
+    const knop = e.currentTarget;
+    const gekozen = [...lijst.querySelectorAll('input[type=checkbox]:checked')].map((c) => uit.voorstellen[Number(c.dataset.i)]);
+    if (!gekozen.length) { document.getElementById('wpPlanStatus').textContent = 'Kies minstens een pagina.'; return; }
+    const blueprint = (document.getElementById('wpPlanSjabloon') || {}).value || actief[0].blueprintId;
+    knop.disabled = true;
+    try {
+      const r = await lpApi('/plan/goedkeuren', { method: 'POST', body: JSON.stringify({ klant: document.getElementById('wpKlant').value, blueprint, voorstellen: gekozen }) });
+      document.getElementById('wpPlanStatus').textContent = `${r.aangemaakt.length} pagina${r.aangemaakt.length === 1 ? '' : '\'s'} gepland.`;
+      lijst.innerHTML = '';
+      await wpLaad();
+    } catch (err) {
+      document.getElementById('wpPlanStatus').textContent = err.message;
+      knop.disabled = false;
+    }
+  });
+}
+
+async function wpPlanVoorstel() {
+  const klant = document.getElementById('wpKlant').value;
+  const aantal = Number(document.getElementById('wpAantal').value) || 4;
+  const wens = document.getElementById('wpWens').value.trim();
+  const status = document.getElementById('wpPlanStatus');
+  const knop = document.getElementById('wpPlanKnop');
+  wpPlanOpslag(klant, aantal);
+  knop.disabled = true;
+  status.textContent = 'De AI maakt een voorstel. Dit duurt even.';
+  document.getElementById('wpPlanLijst').innerHTML = '';
+  try {
+    const uit = await lpApi('/plan/voorstel', { method: 'POST', body: JSON.stringify({ klant, aantal, wens }) });
+    status.textContent = `${uit.voorstellen.length} voorstel${uit.voorstellen.length === 1 ? '' : 'len'}. Haal weg wat je niet wilt en keur de rest goed.`;
+    wpTekenPlan(uit);
+  } catch (err) {
+    status.textContent = err.message;
+  } finally {
+    knop.disabled = false;
+  }
+}
+
+// Bulk: laat alle geplande pagina's na elkaar maken. Een optie, geen standaard.
+function wpTekenBulk() {
+  const el = document.getElementById('wpBulk');
+  const gepland = (lpState.wpPages || []).filter((p) => wpStandVan(p.status) === 'Gepland');
+  if (!gepland.length) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+  el.classList.remove('hidden');
+  el.innerHTML = `<span>${gepland.length} gepland. Je kunt ze een voor een openen, of alle tekst in een keer laten maken.</span><button type="button" id="wpBulkKnop" class="btn btn-plain">Alles in bulk laten maken</button><span id="wpBulkStatus" class="wp-muted"></span>`;
+  document.getElementById('wpBulkKnop').addEventListener('click', async (e) => {
+    e.currentTarget.disabled = true;
+    const st = document.getElementById('wpBulkStatus');
+    let klaar = 0;
+    for (const p of gepland) {
+      st.textContent = `Bezig met ${klaar + 1} van ${gepland.length}: ${p.titel}`;
+      try {
+        const r = await lpApi(`/pages/${p.id}/generate-content`, { method: 'POST', body: JSON.stringify({}) });
+        const slotData = r.slotData || {};
+        const content = { meta: { metaTitle: slotData.metaTitle || '', metaDescription: slotData.metaDescription || '' }, slotData };
+        await lpApi(`/pages/${p.id}/content`, { method: 'PUT', body: JSON.stringify({ content }) });
+        await lpApi(`/pages/${p.id}/status`, { method: 'PUT', body: JSON.stringify({ status: 'Content klaar' }) });
+        klaar += 1;
+      } catch (err) {
+        st.textContent = `Gestopt bij ${p.titel}: ${err.message}`;
+        await wpLaad();
+        return;
+      }
+    }
+    st.textContent = `${klaar} pagina${klaar === 1 ? '' : '\'s'} gemaakt. Ze staan nu bij Ter controle.`;
+    await wpLaad();
+  });
 }
 
 if (typeof module !== 'undefined') module.exports = { wpStandVan, wpBouwAdvies, WP_STAND };
