@@ -121,3 +121,10 @@ html #lpKlantgegevensTab .kg-kleurrij input[type="text"] { min-width: 0; flex: 1
   .wp-rij { grid-template-columns: minmax(0, 1fr) auto; }
   .wp-rij-datum { display: none; }
 }
+
+/* Stap 13: selectie en verwijderen */
+.wp-rij { grid-template-columns: 26px minmax(0, 1fr) auto 70px; }
+.wp-vink { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; }
+.wp-vink input { width: 16px; height: 16px; margin: 0; }
+.wp-selbalk { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; padding: 6px 6px 10px; border-bottom: 1px solid #eceef5; margin-bottom: 4px; }
+@media (max-width: 700px) { .wp-rij { grid-template-columns: 26px minmax(0, 1fr) auto; } }

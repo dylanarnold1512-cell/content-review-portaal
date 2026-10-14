@@ -310,19 +310,37 @@ router.put('/templates/:templateId/status', requireLpInternal, async (req, res) 
 // dat per ongeluk het sjabloon onder bestaande of toekomstige pagina's
 // wordt weggehaald (zie besluiten.md, 03-09-2026: precies dit ging al
 // bijna mis toen een Actief sjabloon per ongeluk op Concept kwam te staan).
+async function verwijderSjabloon(id) {
+  const template = await templates.getTemplate(id);
+  if (template.status === 'Actief') {
+    throw new Error('Dit sjabloon staat op Actief en kan niet verwijderd worden. Zet de status eerst op Concept of Gearchiveerd.');
+  }
+  await templates.deleteTemplate(id);
+}
+
 router.delete('/templates/:templateId', requireLpInternal, async (req, res) => {
   try {
-    const template = await templates.getTemplate(req.params.templateId);
-    if (template.status === 'Actief') {
-      return res.status(400).json({
-        error: 'Dit sjabloon staat op Actief en kan niet verwijderd worden. Zet de status eerst op Concept of Gearchiveerd.'
-      });
-    }
-    await templates.deleteTemplate(req.params.templateId);
+    await verwijderSjabloon(req.params.templateId);
     res.json({ ok: true });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
+});
+
+// Meerdere tegelijk verwijderen (Pagr. stap 13). Een voor een, een fout bij een item stopt de rest niet.
+async function verwijderMeerdere(ids, doe, titelVan) {
+  const lijst = [...new Set(Array.isArray(ids) ? ids.map(String) : [])].slice(0, 100);
+  const verwijderd = [];
+  const fouten = [];
+  for (const id of lijst) {
+    try { await doe(id); verwijderd.push(id); } catch (err) { fouten.push({ id, titel: titelVan ? titelVan(id) : '', fout: err.message }); }
+  }
+  return { verwijderd, fouten };
+}
+
+router.post('/templates/verwijder-meerdere', requireLpInternal, async (req, res) => {
+  if (!Array.isArray(req.body?.ids) || !req.body.ids.length) return res.status(400).json({ error: 'Kies eerst minstens een sjabloon.' });
+  res.json(await verwijderMeerdere(req.body.ids, verwijderSjabloon));
 });
 
 // AI-gestuurde sjabloongeneratie (bouwvolgorde-stap 3, koerswijziging naar
@@ -1195,22 +1213,31 @@ router.post('/pages/:pageId/dupliceer-meerdere', requireLpInternal, async (req, 
 // Zet de pagina als CONCEPT in WordPress (nooit live, zie src/lp/wordpress.js
 // en het harde uitgangspunt "nooit automatisch publiceren" in besluiten.md).
 // Weigert als de validator fouten geeft.
+async function verwijderPagina(id) {
+  const page = await lpNotion.getPage(id);
+  // Als de pagina ooit naar WordPress gepusht is (concept of live), eerst
+  // daar verwijderen (naar de WordPress-prullenbak, zie wordpress.js). Lukt
+  // dat niet, dan stoppen we hier en laten we de Notion-pagina met rust,
+  // liever een duidelijke foutmelding dan een weespagina in WordPress.
+  if (page.wpPaginaId) {
+    const client = getLpClient(page.klant);
+    await deleteWpPage({ profile: client.profile, wpPaginaId: page.wpPaginaId });
+  }
+  await lpNotion.deletePage(id);
+}
+
 router.delete('/pages/:pageId', requireLpInternal, async (req, res) => {
   try {
-    const page = await lpNotion.getPage(req.params.pageId);
-    // Als de pagina ooit naar WordPress gepusht is (concept of live), eerst
-    // daar verwijderen (naar de WordPress-prullenbak, zie wordpress.js). Lukt
-    // dat niet, dan stoppen we hier en laten we de Notion-pagina met rust —
-    // liever een duidelijke foutmelding dan een weespagina in WordPress.
-    if (page.wpPaginaId) {
-      const client = getLpClient(page.klant);
-      await deleteWpPage({ profile: client.profile, wpPaginaId: page.wpPaginaId });
-    }
-    await lpNotion.deletePage(req.params.pageId);
+    await verwijderPagina(req.params.pageId);
     res.json({ ok: true });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
+});
+
+router.post('/pages/verwijder-meerdere', requireLpInternal, async (req, res) => {
+  if (!Array.isArray(req.body?.ids) || !req.body.ids.length) return res.status(400).json({ error: 'Kies eerst minstens een pagina.' });
+  res.json(await verwijderMeerdere(req.body.ids, verwijderPagina));
 });
 
 router.post('/pages/:pageId/publish', requireLpInternal, async (req, res) => {

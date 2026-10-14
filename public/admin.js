@@ -132,16 +132,23 @@ function toonScherm() {
     // De LP omgeving laadt pas bij het eerste bezoek, daarna blijft hij staan met zijn eigen stand.
     const frame = document.getElementById('pagrFrame');
     if (!frame.getAttribute('src')) frame.setAttribute('src', frame.dataset.src + '#' + tab);
-    else if (frame.contentWindow) frame.contentWindow.postMessage({ type: 'pagr-tab', tab }, window.location.origin);
+    else if (frame.contentWindow && pagrVanFrame !== tab) frame.contentWindow.postMessage({ type: 'pagr-tab', tab }, window.location.origin);
+    pagrVanFrame = null;
   }
   window.scrollTo(0, 0);
 }
+let pagrVanFrame = null;
 window.addEventListener('hashchange', toonScherm);
 
 // De ingebedde Pagr. omgeving meldt zijn hoogte, zodat de pagina als geheel scrolt.
 window.addEventListener('message', (e) => {
   if (e.origin !== window.location.origin) return;
   const d = e.data;
+  // De Pagr. omgeving wisselde zelf van tab (bijvoorbeeld via een knop in de Werkplaats): het menu links volgt.
+  if (d && d.type === 'pagr-tab-actief' && PAGR_TABS.includes(d.tab) && huidig && huidig.view === 'pagr' && huidig.tab !== d.tab) {
+    pagrVanFrame = d.tab;
+    window.location.hash = `#pagr/${d.tab}`;
+  }
   if (d && d.type === 'pagr-hoogte' && Number.isFinite(d.hoogte)) {
     const frame = document.getElementById('pagrFrame');
     if (frame) frame.style.height = Math.max(400, d.hoogte + 8) + 'px';
