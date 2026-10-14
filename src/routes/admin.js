@@ -209,13 +209,29 @@ router.post('/intake', requireAdmin, async (req, res) => {
       const producten = settingsService.normaliseerProducten(b.producten);
       const clientId = String(b.clientId || b.portaalSlug || '').trim();
       if ((producten === 'Pagr.' || producten === 'Beide') && clientId) {
-        await lpKlantgegevens.bewaar(clientId, { nieuw: true, feiten: [], profiel: { naam: klant.trim(), bedrijf: { naam: klant.trim(), url: String(b.website || '') }, toonNotitie: String(b.toneOfVoice || '') } });
-        klantgegevensMelding = 'De klant staat ook in Pagr. Klantgegevens. Vul daar adres, werkgebied en feiten aan.';
+        const adres = { straat: String(b.lpStraat || ''), postcode: String(b.lpPostcode || ''), plaats: String(b.lpPlaats || ''), land: 'NL' };
+        const werkgebied = String(b.lpWerkgebied || '').split(/[,\n]/).map((x) => x.trim()).filter(Boolean);
+        await lpKlantgegevens.bewaar(clientId, { nieuw: true, feiten: [], profiel: { naam: klant.trim(), bedrijf: { naam: klant.trim(), url: String(b.website || ''), telefoon: String(b.lpTelefoon || ''), email: String(b.lpEmail || ''), adres, werkgebied }, toonNotitie: String(b.toneOfVoice || '') } });
+        klantgegevensMelding = 'De klant staat ook in Pagr. Klantgegevens. Vul daar nog feiten en huisstijl aan.';
       }
     } catch (err) {
       if (!/bestaat al/i.test(err.message)) klantgegevensMelding = `De klant kon niet in Pagr. Klantgegevens worden gezet: ${err.message}`;
     }
-    res.json({ ok: true, id: result.id, onboardingMelding, klantgegevensMelding });
+    // Voor Pagr. en Beide zet de intake meteen het product en de pagina-instellingen in Portaal Instellingen, zodat het portaal van de klant direct klopt.
+    let instellingenMelding = '';
+    try {
+      const b = req.body || {};
+      const producten = settingsService.normaliseerProducten(b.producten);
+      const clientId = String(b.clientId || b.portaalSlug || '').trim();
+      if ((producten === 'Pagr.' || producten === 'Beide') && clientId) {
+        const velden = { producten, paginasPerMaand: b.paginasPerMaand, paginameting: Boolean(b.paginameting), searchConsoleSite: b.searchConsoleSite };
+        if (producten === 'Beide') Object.assign(velden, { reviewEnabled: b.reviewEnabled !== false, performanceEnabled: Boolean(b.performanceEnabled), ideaEnrichmentEnabled: Boolean(b.ideaEnrichmentEnabled) });
+        await settingsService.zetNieuweKlant(clientId, klant.trim(), velden);
+      }
+    } catch (err) {
+      instellingenMelding = `De instellingen (product en pagina's per maand) konden niet worden gezet: ${err.message}`;
+    }
+    res.json({ ok: true, id: result.id, onboardingMelding, klantgegevensMelding, instellingenMelding });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

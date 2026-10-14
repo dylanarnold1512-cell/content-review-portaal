@@ -230,7 +230,42 @@ async function updateClientSetting(clientId, field, value) {
   await getSettingsMap({ forceRefresh: true });
 }
 
+// Zet bij het aanmaken van een nieuwe klant meteen de instellingenrij: product, pagina's per maand, paginameting en
+// Search Console site. Werkt ook voor een klant die nog niet in clients.js staat (de n8n verwerking maakt die later aan).
+// Een bestaande rij wordt alleen aangevuld met wat is meegegeven, zodat nooit iets onbedoeld uitgaat.
+async function zetNieuweKlant(clientId, naam, velden = {}) {
+  const id = String(clientId || '').trim();
+  if (!id) throw new Error('Geen Client ID, dus geen instellingen aangemaakt.');
+  const producten = normaliseerProducten(velden.producten);
+  const props = { Producten: { select: { name: producten } }, Klantstatus: { select: { name: 'actief' } } };
+  const aantal = Number(velden.paginasPerMaand);
+  if (velden.paginasPerMaand !== undefined && velden.paginasPerMaand !== '' && Number.isInteger(aantal) && aantal >= 0 && aantal <= 100) {
+    props["Pagina's per maand"] = { number: aantal };
+  }
+  if (velden.paginameting !== undefined) props['Paginameting'] = { checkbox: Boolean(velden.paginameting) };
+  const site = String(velden.searchConsoleSite || '').trim().slice(0, 300);
+  if (site) props['Search Console site'] = { rich_text: [{ text: { content: site } }] };
+  const flags = { reviewEnabled: 'Review ingeschakeld', performanceEnabled: 'Prestaties ingeschakeld', ideaEnrichmentEnabled: 'Ideeën-verrijking ingeschakeld' };
+  for (const [veld, prop] of Object.entries(flags)) {
+    if (velden[veld] !== undefined) props[prop] = { checkbox: Boolean(velden[veld]) };
+  }
+  const client = getNotionClient();
+  const map = await getSettingsMap({ forceRefresh: true });
+  const bestaand = map.get(id);
+  if (bestaand) {
+    await client.pages.update({ page_id: bestaand.pageId, properties: props });
+  } else {
+    await client.pages.create({
+      parent: { database_id: SETTINGS_DATABASE_ID },
+      properties: { Klant: { title: [{ text: { content: String(naam || id).slice(0, 200) } }] }, 'Client ID': { rich_text: [{ text: { content: id } }] }, ...props }
+    });
+  }
+  await getSettingsMap({ forceRefresh: true });
+  return { aangemaakt: !bestaand };
+}
+
 module.exports = {
+  zetNieuweKlant,
   getClientSettings,
   listAllSettings,
   updateClientSetting,

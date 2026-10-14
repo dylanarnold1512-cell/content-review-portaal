@@ -85,18 +85,24 @@
 
     <div id="viewNieuw" class="tab-panel hidden">
       <div class="p-pagina">
-        <div class="p-ov-kop"><div><h1>Nieuwe klant</h1><p>Begin met de website van de klant. We vullen zoveel mogelijk zelf in en jij controleert het.</p></div></div>
+        <div class="p-ov-kop"><div><h1>Nieuwe klant</h1><p>Kies eerst wat de klant gebruikt. Daarna zie je alleen de vragen die erbij horen, en met een klik staat alles klaar.</p></div></div>
         <div id="intakeTab" class="admin-layout-breed">
           <div id="ikSucces" class="hidden"></div>
           <div id="intakeError" class="admin-error hidden"></div>
-            <p class="admin-footnote">
-        Rechts zie je wat er nog nodig is.
-        Grove input is genoeg: de contentclusters worden daarna verfijnd met DataForSEO onderzoek. De koppelingen met Search Console en GA4 blijven een handmatige stap.
-      </p>
       <div class="ik-layout">
         <form id="intakeForm" class="ik-form">
+          <section class="ik-kaart ik-product">
+            <header class="ik-kop"><span class="ik-nr"></span><div><h3>Wat gaat de klant gebruiken?</h3><p>Op basis hiervan stel ik alleen de vragen die erbij horen.</p></div></header>
+            <input type="hidden" id="intakeProducten" value="Blogr.">
+            <div class="ik-keuzes" role="radiogroup" aria-label="Product">
+              <label class="ik-keuze"><input type="radio" name="ikProduct" value="Blogr." checked><span class="ik-keuze-kaart"><b>Blogr.</b><small>Blogs die elke maand automatisch worden geschreven en gepubliceerd</small></span></label>
+              <label class="ik-keuze"><input type="radio" name="ikProduct" value="Pagr."><span class="ik-keuze-kaart"><b>Pagr.</b><small>Landingspagina's per dienst en plaats</small></span></label>
+              <label class="ik-keuze"><input type="radio" name="ikProduct" value="Beide"><span class="ik-keuze-kaart"><b>Beide</b><small>Blogs en landingspagina's</small></span></label>
+            </div>
+          </section>
+
           <section class="ik-kaart">
-            <header class="ik-kop"><span class="ik-nr">1</span><div><h3>Klant en website</h3><p>Vul de website in en klik op Analyseer.</p></div></header>
+            <header class="ik-kop"><span class="ik-nr"></span><div><h3>Klant en website</h3><p>Vul de website in en klik op Analyseer.</p></div></header>
             <label for="intakeWebsite">Website</label>
             <div class="ik-rij">
               <input type="text" id="intakeWebsite" placeholder="bijv. www.bedrijf.nl" autocomplete="off">
@@ -106,16 +112,47 @@
             <div class="ik-grid">
               <div><label for="intakeKlant">Klantnaam *</label><input type="text" id="intakeKlant" required autocomplete="off"></div>
               <div><label for="intakeClientId">Client ID</label><input type="text" id="intakeClientId" placeholder="wordt automatisch gemaakt" autocomplete="off"></div>
+            </div>
+            <label for="intakeBusiness">Omschrijving van de klant</label>
+            <textarea id="intakeBusiness" placeholder="Wat doet de klant, voor wie, waarin onderscheiden ze zich?"></textarea>
+            <div data-voor="Blogr. Beide">
+              <label class="ik-schakel"><input type="checkbox" id="intakeProfiel" checked><span class="ik-spoor"></span><span>Merkprofiel direct opbouwen vanaf de website</span></label>
+              <p class="ik-hint">Het concept staat na ongeveer 4 minuten klaar. De klant ziet het pas als jij Merkprofiel aanzet.</p>
+            </div>
+          </section>
+
+          <section class="ik-kaart" data-voor="Pagr. Beide">
+            <header class="ik-kop"><span class="ik-nr"></span><div><h3>Pagr. landingspagina's</h3><p>Bedrijfsgegevens voor op de pagina's en hoeveel er per maand komen.</p></div></header>
+            <div class="ik-grid">
+              <div><label for="intakePaginasPerMaand">Pagina's per maand</label>
+                <select id="intakePaginasPerMaand">
+                  <option value="">Nog niet bepaald</option>
+                  <option value="2">2</option><option value="4">4</option><option value="6">6</option><option value="8">8</option><option value="12">12</option>
+                </select></div>
+              <div><label for="intakeLpTelefoon">Telefoonnummer</label><input type="text" id="intakeLpTelefoon" placeholder="bijv. 023 123 45 67" autocomplete="off"></div>
+              <div><label for="intakeLpEmail">E-mailadres voor aanvragen</label><input type="text" id="intakeLpEmail" placeholder="info@bedrijf.nl" autocomplete="off"></div>
+              <div><label for="intakeLpStraat">Straat en huisnummer</label><input type="text" id="intakeLpStraat" autocomplete="off"></div>
+              <div><label for="intakeLpPostcode">Postcode</label><input type="text" id="intakeLpPostcode" autocomplete="off"></div>
+              <div><label for="intakeLpPlaats">Plaats</label><input type="text" id="intakeLpPlaats" autocomplete="off"></div>
+            </div>
+            <label for="intakeLpWerkgebied">Werkgebied</label>
+            <input type="text" id="intakeLpWerkgebied" placeholder="Plaatsen, gescheiden door komma's" autocomplete="off">
+            <label class="ik-schakel"><input type="checkbox" id="intakeLpMeting"><span class="ik-spoor"></span><span>Pagina's meten met Search Console</span></label>
+            <div class="ik-extra hidden" data-toon-bij="intakeLpMeting">
+              <label for="intakeLpSite">Search Console site</label>
+              <input type="text" id="intakeLpSite" placeholder="bijv. sc-domain:bedrijf.nl of https://www.bedrijf.nl/" autocomplete="off">
+              <p class="ik-hint">Zonder koppeling blijven de metingen leeg. De koppeling zelf blijft een handmatige stap.</p>
+            </div>
+            <p class="ik-hint">Feiten, huisstijl en lokale informatie vul je na het opslaan aan in Pagr. Klantgegevens.</p>
+          </section>
+
+          <section class="ik-kaart" data-voor="Blogr. Beide">
+            <header class="ik-kop"><span class="ik-nr"></span><div><h3>Blogr. inhoud</h3><p>Waar gaan de blogs over en hoe klinken ze.</p></div></header>
+            <div class="ik-grid">
               <div><label for="intakeTier">Tier</label>
                 <select id="intakeTier">
                   <option value="Volledig (DataForSEO + auto-topics)">Volledig (DataForSEO + auto-topics)</option>
                   <option value="Licht (alleen Search Console)">Licht (alleen Search Console)</option>
-                </select></div>
-              <div><label for="intakeProducten">Product</label>
-                <select id="intakeProducten">
-                  <option value="Blogr." selected>Blogr. (blogs)</option>
-                  <option value="Pagr.">Pagr. (landingspagina's)</option>
-                  <option value="Beide">Beide</option>
                 </select></div>
               <div><label for="intakeBlogsPerMaand">Blogs per maand</label>
                 <select id="intakeBlogsPerMaand">
@@ -125,14 +162,6 @@
                   <option value="10">10</option>
                 </select></div>
             </div>
-            <label for="intakeBusiness">Omschrijving van de klant</label>
-            <textarea id="intakeBusiness" placeholder="Wat doet de klant, voor wie, waarin onderscheiden ze zich?"></textarea>
-            <label class="ik-schakel"><input type="checkbox" id="intakeProfiel" checked><span class="ik-spoor"></span><span>Merkprofiel direct opbouwen vanaf de website</span></label>
-            <p class="ik-hint">Het concept staat na ongeveer 4 minuten klaar. De klant ziet het pas als jij Merkprofiel aanzet.</p>
-          </section>
-
-          <section class="ik-kaart">
-            <header class="ik-kop"><span class="ik-nr">2</span><div><h3>Inhoud</h3><p>Waar gaan de blogs over en hoe klinken ze.</p></div></header>
             <label for="intakeTopics">Onderwerpsrichtingen</label>
             <textarea id="intakeTopics" placeholder="2 tot 4 ruwe richtingen, één per regel"></textarea>
             <label for="intakeTone">Tone of voice (optioneel)</label>
@@ -141,8 +170,8 @@
             <input type="url" id="intakeDriveUrl" placeholder="https://drive.google.com/drive/folders/...">
           </section>
 
-          <section class="ik-kaart">
-            <header class="ik-kop"><span class="ik-nr">3</span><div><h3>WordPress</h3><p>Voor het klaarzetten van de blogs als concept.</p></div></header>
+          <section class="ik-kaart" data-voor="Blogr. Beide">
+            <header class="ik-kop"><span class="ik-nr"></span><div><h3>WordPress</h3><p>Voor het klaarzetten van de blogs als concept.</p></div></header>
             <label class="ik-schakel"><input type="checkbox" id="intakeWordpress"><span class="ik-spoor"></span><span>WordPress van toepassing</span></label>
             <div class="ik-extra hidden" data-toon-bij="intakeWordpress">
               <label for="intakeWordpressUrl">WordPress site URL</label>
@@ -160,8 +189,8 @@
             </div>
           </section>
 
-          <section class="ik-kaart">
-            <header class="ik-kop"><span class="ik-nr">4</span><div><h3>Meten</h3><p>Het tabblad Prestaties voor de klant.</p></div></header>
+          <section class="ik-kaart" data-voor="Blogr. Beide">
+            <header class="ik-kop"><span class="ik-nr"></span><div><h3>Meten van blogs</h3><p>Het tabblad Prestaties voor de klant.</p></div></header>
             <label class="ik-schakel"><input type="checkbox" id="intakePerformance"><span class="ik-spoor"></span><span>Prestaties meten en tonen</span></label>
             <div class="ik-extra hidden" data-toon-bij="intakePerformance">
               <div class="ik-grid">
@@ -176,25 +205,30 @@
             </div>
           </section>
 
-          <section class="ik-kaart">
-            <header class="ik-kop"><span class="ik-nr">5</span><div><h3>Review en meldingen</h3><p>Wie controleert de blogs en wat is aan.</p></div></header>
+          <section class="ik-kaart" data-voor="Blogr. Beide">
+            <header class="ik-kop"><span class="ik-nr"></span><div><h3>Review en meldingen</h3><p>Wie controleert de blogs en wat is aan.</p></div></header>
             <label class="ik-schakel"><input type="checkbox" id="intakeReview" checked><span class="ik-spoor"></span><span>Klant kan blogs goedkeuren in het portaal</span></label>
             <label class="ik-schakel"><input type="checkbox" id="intakeIdea"><span class="ik-spoor"></span><span>Klant kan ideeën aandragen</span></label>
             <label for="intakeNotificatieEmails">Notificatie e-mailadres(sen) (optioneel)</label>
             <input type="text" id="intakeNotificatieEmails" placeholder="Alleen invullen als de klant zelf blogs wil controleren, komma gescheiden">
             <p class="ik-hint">Laat dit leeg tot jij de eerste blog zelf hebt gecontroleerd.</p>
-            <label for="intakeNotes">Notities (optioneel)</label>
-            <textarea id="intakeNotes"></textarea>
+          </section>
+
+          <section class="ik-kaart">
+            <header class="ik-kop"><span class="ik-nr"></span><div><h3>Notities</h3><p>Alles wat verder van belang is.</p></div></header>
+            <textarea id="intakeNotes" aria-label="Notities"></textarea>
           </section>
         </form>
 
         <aside class="ik-zijbalk">
+          <div class="ik-zijbalk-kop">Wat gebeurt er bij opslaan</div>
+          <ul id="ikWatGebeurt" class="ik-gebeurt"></ul>
           <div class="ik-zijbalk-kop">Wat is er nog nodig</div>
           <div id="ikVoortgang" class="ik-voortgang-tekst"></div>
           <div class="ik-balk"><div id="ikBalk" class="ik-balk-vulling"></div></div>
           <ul id="ikCheck" class="ik-check"></ul>
-          <button type="submit" form="intakeForm" class="btn btn-approve ik-opslaan">Intake opslaan</button>
-          <p class="ik-hint">Na opslaan verwerkt n8n de intake binnen een uur. Bij een probleem zie je de status Fout met de reden.</p>
+          <button type="submit" form="intakeForm" class="btn btn-approve ik-opslaan">Klant aanmaken en onboarding starten</button>
+          <p class="ik-hint">Alles gebeurt in een keer. Bij Blogr. verwerkt n8n de intake daarna binnen een uur. Bij een probleem zie je de status Fout met de reden.</p>
         </aside>
       </div>
 

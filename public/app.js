@@ -146,6 +146,10 @@ function openBlogUitOverzicht(id) {
 // resultaten van wat al live staat — bewust gescheiden zodat het ene niet
 // het andere verdringt.
 function switchTab(tab) {
+  // Een tab van een product dat de klant niet heeft, openen we nooit (ook niet via een link met #paginas).
+  const pr = state.producten || { blogr: true, pagr: false };
+  if (['paginas', 'pagrOverzicht', 'pagrResultaten'].includes(tab) && !pr.pagr) tab = 'overzicht';
+  if (!pr.blogr && ['overzicht', 'blogs', 'prestaties', 'aiZichtbaarheid', 'rapportages', 'merkprofiel', 'kennisdocument'].includes(tab)) tab = 'pagrOverzicht';
   state.activeTab = tab;
   document.querySelectorAll('.tab-btn').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.tab === tab);

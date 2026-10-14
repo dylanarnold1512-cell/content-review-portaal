@@ -609,6 +609,20 @@ body {
   .ik-grid { grid-template-columns: 1fr; }
 }
 
+/* Intake: productkeuze en uitleg in de zijbalk */
+.ik-keuzes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+.ik-keuze { display: block; margin: 0 !important; cursor: pointer; }
+.ik-keuze input { position: absolute; opacity: 0; width: 0; height: 0; }
+.ik-keuze-kaart { display: flex; flex-direction: column; gap: 4px; height: 100%; box-sizing: border-box; padding: 12px 14px; border: 2px solid #e5e7eb; border-radius: 10px; background: #fff; transition: border-color .15s, background .15s; }
+.ik-keuze-kaart b { font-size: 15px; }
+.ik-keuze-kaart small { font-size: 12px; font-weight: 400; color: #6b7280; line-height: 1.35; }
+.ik-keuze input:checked + .ik-keuze-kaart { border-color: #2563eb; background: #eff6ff; }
+.ik-keuze input:focus-visible + .ik-keuze-kaart { outline: 2px solid #2563eb; outline-offset: 2px; }
+.ik-gebeurt { list-style: none; padding: 0; margin: 0 0 14px; font-size: 13px; color: #374151; display: flex; flex-direction: column; gap: 4px; }
+.ik-gebeurt li::before { content: '\2192'; color: #16a34a; margin-right: 6px; }
+.ik-zijbalk .ik-zijbalk-kop ~ .ik-zijbalk-kop { margin-top: 4px; }
+@media (max-width: 860px) { .ik-keuzes { grid-template-columns: 1fr; } }
+
 /* Merkprofiel opbouwen */
 .mp-bouw { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px 18px; margin-bottom: 18px; }
 .mp-bouw label { display: block; font-size: 13px; font-weight: 600; margin: 8px 0 4px; }
