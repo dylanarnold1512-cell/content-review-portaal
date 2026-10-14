@@ -24,6 +24,7 @@ const { validatePage, validateTemplateStructure } = require('../lp/validator');
 const { pushDraft, deletePage: deleteWpPage, searchMedia, uploadMedia, listSitePages, haalPaginaStatussen } = require('../lp/wordpress');
 const { vindTekst, vervangTekst } = require('../lp/tekstVervangen');
 const { haalSiteTeksten, formatSiteTekstenVoorPrompt } = require('../lp/siteTeksten');
+const { haalZoekvragen, dienstenUitTekst, vragenUitContent, vindDubbeleVragen } = require('../lp/zoekvragen');
 const { checkLpPassword, requireLpInternal } = require('../middleware/auth');
 
 const router = express.Router();
@@ -634,6 +635,18 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
   }
 
   const zusters = await haalZusterPaginas(page, allePaginas);
+
+  // Echte zoekvragen (Google suggesties) en de vragen van zusterpagina's, zodat de FAQ niet op elke pagina gelijk is
+  // (zoekvragen.js). Nooit blokkerend: zonder zoekvragen werkt de generatie gewoon door.
+  const dienstTekst = invoer.dienstFocus || invoer.dienst || invoer.onderwerp || '';
+  let zoekvragen = [];
+  try {
+    zoekvragen = await haalZoekvragen({ diensten: dienstenUitTekst(dienstTekst), plaats: invoer.plaatsnaam });
+  } catch (zoekErr) {
+    zoekvragen = [];
+  }
+  const zusterVragen = [...new Set(zusters.flatMap((z) => (z.content ? vragenUitContent(z.content) : [])))];
+
   const result = await ai.generatePageContent({
     klant: page.klant,
     template: blueprint,
@@ -643,6 +656,8 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
     ctaOverride,
     linkKandidaten,
     siteTeksten,
+    zoekvragen,
+    zusterVragen,
     zusterInhoud: zusters.filter((z) => z.content).map((z) => ({ titel: z.titel, tekst: verzamelTekst(z.content).join('\n').slice(0, 2500) }))
   });
 
@@ -669,7 +684,21 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
     imageWarning = `Automatisch afbeeldingen kiezen is niet gelukt (${imgErr.message}) — vul afbeeldingen zelf in via het voorbeeldscherm.`;
   }
 
-  return { ...result, imageWarning, linkWarning, siteTekstWarning };
+  // Controle op dubbele vragen: vragen die (zonder plaatsnaam) vrijwel gelijk zijn aan een vraag van een zusterpagina.
+  let faqWarning = null;
+  const eigenVragen = vragenUitContent({ slotData: result.slotData });
+  const plaatsen = [invoer.plaatsnaam, ...zusters.map((z) => (z.invoer || {}).plaatsnaam)].filter(Boolean);
+  const dubbel = vindDubbeleVragen({ vragen: eigenVragen, zusterVragen, plaatsen });
+  if (dubbel.length) {
+    faqWarning = `${dubbel.length === 1 ? 'Een veelgestelde vraag lijkt' : `${dubbel.length} veelgestelde vragen lijken`} sterk op een vraag van een zusterpagina (${dubbel.slice(0, 3).map((d) => `"${d.vraag}"`).join(', ')}). Pas ze aan zodat elke pagina eigen vragen heeft.`;
+  }
+  const zoekvragenAantal = zoekvragen.length;
+  // Zichtbaar maken als er geen echte zoekvragen waren, zodat dit niet stil misgaat (de bron is een publieke dienst).
+  const zoekvragenWarning = dienstTekst && !zoekvragenAantal
+    ? 'Er konden geen echte zoekvragen worden opgehaald, de vragen zijn alleen uit de site en de feiten opgesteld.'
+    : null;
+
+  return { ...result, imageWarning, linkWarning, siteTekstWarning, faqWarning, zoekvragenAantal, zoekvragenWarning };
 }
 
 router.post('/pages/:pageId/generate-content', requireLpInternal, async (req, res) => {
