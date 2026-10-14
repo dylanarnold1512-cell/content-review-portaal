@@ -210,7 +210,9 @@ async function wpPlanVoorstel() {
   document.getElementById('wpPlanLijst').innerHTML = '';
   try {
     const uit = await lpApi('/plan/voorstel', { method: 'POST', body: JSON.stringify({ klant, aantal, wens }) });
-    status.textContent = `${uit.voorstellen.length} voorstel${uit.voorstellen.length === 1 ? '' : 'len'}. Pas een titel aan, haal weg wat je niet wilt en keur de rest goed.${uit.volumeBeschikbaar ? '' : ' Zonder zoekvolume: zet DATAFORSEO_LOGIN en DATAFORSEO_PASSWORD op Render voor echte aantallen.'}`;
+    const meting = lpState.wpInst && lpState.wpInst.paginameting;
+    const volumeTip = uit.volumeBeschikbaar ? '' : (meting ? ' Zonder zoekvolume: de volume koppeling staat nog niet aan (zie het bouwstanddocument).' : ' Zonder zoekvolume: de Paginameting staat uit voor deze klant.');
+    status.textContent = `${uit.voorstellen.length} voorstel${uit.voorstellen.length === 1 ? '' : 'len'}. Pas een titel aan, haal weg wat je niet wilt en keur de rest goed.${volumeTip}`;
     wpTekenPlan(uit);
   } catch (err) {
     status.textContent = err.message;
@@ -286,8 +288,12 @@ function wpTekenBijhouden(data) {
   lpState.wpBijhouden = data;
   const el = document.getElementById('wpBijhouden');
   const meld = [];
-  if (!data.googleBeschikbaar) meld.push('Google meting per pagina staat nog niet aan (zie het bouwstanddocument).');
-  if (!data.aiBeschikbaar) meld.push('Geen AI meting voor deze klant.');
+  if (data.metingUit) {
+    meld.push('De Paginameting staat uit voor deze klant. Zet hem aan bij Instellingen in de admin om Google en AI cijfers te zien.');
+  } else {
+    if (!data.googleBeschikbaar) meld.push('Nog geen Google cijfers per pagina. De wekelijkse meting heeft nog niet gedraaid of de Search Console site ontbreekt.');
+    if (!data.aiBeschikbaar) meld.push('Geen AI meting voor deze klant.');
+  }
   el.innerHTML = (data.voorstellen || []).length
     ? data.voorstellen.map((v) => `<div class="wp-advies-item ${v.prioriteit === 1 ? 'fout' : 'plan'}"><p><strong>${wpEsc(v.titel)}</strong><br>${wpEsc(v.reden)} ${wpEsc(v.actie)}</p><button type="button" class="btn btn-plain" data-pagina="${wpEsc(v.paginaId)}">Pagina openen</button></div>`).join('')
     : `<p class="wp-muted">${meld.length ? wpEsc(meld.join(' ')) : 'Geen pagina heeft nu een update nodig.'}</p>`;

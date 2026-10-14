@@ -19,7 +19,8 @@ const PROPERTY_BY_FIELD = {
   ideaEnrichmentEnabled: 'Ideeën-verrijking ingeschakeld',
   merkprofiel: 'Merkprofiel ingeschakeld',
   merkprofielNaarKennisdocument: 'Merkprofiel naar Kennisdocument',
-  aiZichtbaarheid: 'AI zichtbaarheid ingeschakeld'
+  aiZichtbaarheid: 'AI zichtbaarheid ingeschakeld',
+  paginameting: 'Paginameting'
 };
 
 // Producten per klant (Pagr. stap 4). Leeg of onbekend telt als Blogr., zodat bestaande klanten niets merken.
@@ -89,6 +90,8 @@ async function fetchAllFromNotion() {
         klantstatus: normaliseerKlantstatus(props['Klantstatus']?.select?.name),
         producten: normaliseerProducten(props['Producten']?.select?.name),
         paginasPerMaand: typeof props["Pagina's per maand"]?.number === 'number' ? props["Pagina's per maand"].number : null,
+        paginameting: Boolean(props['Paginameting']?.checkbox),
+        searchConsoleSite: (props['Search Console site']?.rich_text || []).map((t) => t.plain_text).join('').trim(),
         productenIngesteld: PRODUCT_WAARDEN.includes(props['Producten']?.select?.name),
         klantstatusIngesteld: KLANTSTATUS_WAARDEN.includes(props['Klantstatus']?.select?.name)
       });
@@ -128,6 +131,8 @@ async function getClientSettings(clientId, fallback = {}) {
         aiZichtbaarheid: settings.aiZichtbaarheid,
         klantstatus: settings.klantstatus,
         paginasPerMaand: settings.paginasPerMaand,
+        paginameting: settings.paginameting,
+        searchConsoleSite: settings.searchConsoleSite,
         producten: settings.productenIngesteld ? settings.producten : normaliseerProducten(fallback.producten),
         ...productVlaggen(settings.productenIngesteld ? settings.producten : fallback.producten)
       };
@@ -144,6 +149,8 @@ async function getClientSettings(clientId, fallback = {}) {
     aiZichtbaarheid: Boolean(fallback.aiZichtbaarheid),
     klantstatus: normaliseerKlantstatus(fallback.klantstatus),
     paginasPerMaand: typeof fallback.paginasPerMaand === 'number' ? fallback.paginasPerMaand : null,
+    paginameting: Boolean(fallback.paginameting),
+    searchConsoleSite: '',
     producten: normaliseerProducten(fallback.producten),
     ...productVlaggen(fallback.producten)
   };
@@ -168,6 +175,8 @@ async function listAllSettings(clientsConfig) {
       aiZichtbaarheid: settings ? settings.aiZichtbaarheid : Boolean(c.aiZichtbaarheid),
       klantstatus: settings ? settings.klantstatus : normaliseerKlantstatus(c.klantstatus),
       paginasPerMaand: settings ? settings.paginasPerMaand : null,
+      paginameting: settings ? settings.paginameting : false,
+      searchConsoleSite: settings ? settings.searchConsoleSite : '',
       producten: settings && settings.productenIngesteld ? settings.producten : normaliseerProducten(c.producten),
       // Leeg in Notion telt voor het portaal als actief, maar de n8n sync ziet dan geen status.
       klantstatusIngesteld: settings ? settings.klantstatusIngesteld : false,
@@ -179,7 +188,8 @@ async function listAllSettings(clientsConfig) {
 async function updateClientSetting(clientId, field, value) {
   const isStatus = field === 'klantstatus';
   const isProducten = field === 'producten';
-  const propertyName = isStatus ? 'Klantstatus' : isProducten ? 'Producten' : field === 'paginasPerMaand' ? "Pagina's per maand" : PROPERTY_BY_FIELD[field];
+  const isSite = field === 'searchConsoleSite';
+  const propertyName = isStatus ? 'Klantstatus' : isProducten ? 'Producten' : field === 'paginasPerMaand' ? "Pagina's per maand" : isSite ? 'Search Console site' : PROPERTY_BY_FIELD[field];
   if (!propertyName) throw new Error(`Onbekend instellingveld: ${field}`);
   if (isStatus && !KLANTSTATUS_WAARDEN.includes(value)) throw new Error(`Onbekende klantstatus: ${value}`);
   if (isProducten && !PRODUCT_WAARDEN.includes(value)) throw new Error(`Onbekend product: ${value}`);
@@ -188,7 +198,10 @@ async function updateClientSetting(clientId, field, value) {
     const n = Number(value);
     if (!Number.isInteger(n) || n < 0 || n > 100) throw new Error('Pagina\'s per maand moet een geheel getal van 0 tot 100 zijn.');
   }
-  const waarde = isAantal ? { number: Number(value) } : (isStatus || isProducten) ? { select: { name: value } } : { checkbox: Boolean(value) };
+  if (isSite && String(value || '').length > 300) throw new Error('De Search Console site is te lang.');
+  const waarde = isAantal ? { number: Number(value) }
+    : isSite ? { rich_text: String(value || '').trim() ? [{ text: { content: String(value).trim() } }] : [] }
+    : (isStatus || isProducten) ? { select: { name: value } } : { checkbox: Boolean(value) };
 
   const client = getNotionClient();
   const map = await getSettingsMap();

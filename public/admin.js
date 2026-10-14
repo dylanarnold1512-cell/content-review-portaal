@@ -456,6 +456,16 @@ function renderInstellingen(c, inhoud) {
       <input type="number" min="0" max="100" class="admin-status" style="width:90px" data-client="${c.id}" data-aantalveld="paginasPerMaand" value="${c.paginasPerMaand == null ? '' : c.paginasPerMaand}" aria-label="Pagina's per maand van ${escapeHtmlAdmin(c.naam)}">
     </div>
   </section>` : ''}
+  ${(c.producten === 'Pagr.' || c.producten === 'Beide') ? `<section class="p-kaart ad-blok">
+    <div class="ad-regel">
+      <div class="ad-regel-tekst"><b>Paginameting</b><span>Aan: de klant ziet Google en AI cijfers per pagina, de wekelijkse meting draait en het plan haalt zoekvolumes op. Uit: geen cijfers en geen kosten voor volumes. Staat standaard uit.</span></div>
+      ${toggleSwitch('paginameting-' + c.id, c.id, 'paginameting', c.paginameting, false, '')}
+    </div>
+    <div class="ad-regel">
+      <div class="ad-regel-tekst"><b>Search Console site</b><span>Nodig voor de meting. Bijvoorbeeld sc-domain:voorbeeld.nl of https://www.voorbeeld.nl/ (precies zoals in Search Console).</span></div>
+      <input type="text" class="admin-status" style="width:260px" data-client="${c.id}" data-siteveld="searchConsoleSite" value="${escapeHtmlAdmin(c.searchConsoleSite || '')}" placeholder="sc-domain:voorbeeld.nl" aria-label="Search Console site van ${escapeHtmlAdmin(c.naam)}">
+    </div>
+  </section>` : ''}
   <section class="p-kaart ad-blok">
     <header class="ad-blok-kop"><h2>Wat de klant ziet</h2><p>Wijzigingen werken direct door, er is geen deploy nodig.</p></header>
     ${regels}
@@ -475,6 +485,21 @@ function bindInstellingen(root) {
         renderError('');
       } catch (err) {
         input.value = entry.paginasPerMaand == null ? '' : entry.paginasPerMaand;
+        renderError(err.message);
+      }
+    });
+  });
+
+  root.querySelectorAll('input[data-siteveld]').forEach((input) => {
+    input.addEventListener('change', async () => {
+      const client = input.dataset.client;
+      const entry = adminState.clients.find((c) => c.id === client) || {};
+      try {
+        await adminApi(`/settings/${encodeURIComponent(client)}`, { method: 'POST', body: JSON.stringify({ field: 'searchConsoleSite', value: input.value }) });
+        entry.searchConsoleSite = input.value.trim();
+        renderError('');
+      } catch (err) {
+        input.value = entry.searchConsoleSite || '';
         renderError(err.message);
       }
     });
