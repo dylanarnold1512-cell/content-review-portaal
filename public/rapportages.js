@@ -49,6 +49,16 @@
     return U().kaart({ titel: `Zoekwoorden in ${r.label}`, uitleg: 'Waar mensen op zochten toen ze jullie blogs in Google zagen. Een lage positie is beter.', inhoud: window.Zoekwoorden.html(lijst, { aantal: 8, alle: alleZoek }) });
   }
 
+  // Een zin met aantallen van wat er in de maand is gedaan. Leeg als er niets te melden is.
+  function gedaanKaart(g, label) {
+    if (!g) return '';
+    const delen = [];
+    if (g.nieuweBlogs) delen.push(g.nieuweBlogs + (g.nieuweBlogs === 1 ? ' nieuwe blog' : ' nieuwe blogs'));
+    if (g.aangevuld) delen.push(g.aangevuld + (g.aangevuld === 1 ? ' bestaande blog aangevuld' : ' bestaande blogs aangevuld'));
+    if (!delen.length) return '';
+    return U().kaart({ titel: `Wat we deden in ${label}`, inhoud: `<div class="rp-tekst"><p>${rpEsc(delen.join(' en '))}.</p></div>` });
+  }
+
   function effectenKaart(e, label) {
     if (!e || !e.items || !e.items.length) return '';
     return U().kaart({ titel: 'Wat hebben we gedaan en wat was het effect', uitleg: `Metingen die in ${label} zijn gedaan. Het zijn gemeten cijfers uit Google. Ze laten niet zien wat de oorzaak was.`,
@@ -147,6 +157,7 @@
           ${U().kaart({ titel: 'Blogs met de meeste vertoningen', inhoud: blogTabel(r.blogs) })}
         </div>
         <div class="p-ov-stapel">
+          ${gedaanKaart(r.gedaan, r.label)}
           ${U().kaart({ titel: `Nieuwe blogs in ${r.label}`, inhoud: nieuw })}
           ${effectenKaart(r.effecten, r.label)}
           ${U().kaart({ titel: 'Vooruitblik', inhoud: vooruitblik(r.vooruitblik) })}

@@ -47,3 +47,9 @@ test('stap 13: meerdere pagina\'s en sjablonen tegelijk verwijderen heeft endpoi
   const lp = fs.readFileSync(path.join(__dirname, '..', 'public', 'lp.js'), 'utf8');
   assert.ok(lp.includes('data-sel='));
 });
+
+test('de knop Pagina\'s in het klantmenu is standaard verborgen en verschijnt alleen bij Pagr.', () => {
+  // Anders toont de zijbalk de groep Landingspagina's voor elke klant (werkGroepenBij in portaal-shell.js).
+  assert.ok(/class="tab-btn p-nav-item hidden" data-tab="paginas" id="paginasTabBtn"/.test(lees('index.html')));
+  assert.ok(lees('app.js').includes("paginasKnop.classList.toggle('hidden', !producten.pagr)"));
+});
