@@ -2318,6 +2318,7 @@ document.getElementById('lpIntakeSubmitBtn').addEventListener('click', async () 
     if (isLpInternal) {
       showLpApp();
       await bootLpApp();
+      lpGaNaarTabUitHash();
     } else {
       showLpLogin();
     }
@@ -2325,6 +2326,22 @@ document.getElementById('lpIntakeSubmitBtn').addEventListener('click', async () 
     showLpLogin();
   }
 })();
+
+// Ingebed in de admin: de admin kiest het onderdeel via de zijbalk. Bij het laden staat het in de hash,
+// daarna komt er een bericht van de admin. Alleen berichten van dezelfde herkomst tellen.
+function lpGaNaarTab(tab) {
+  const knop = document.querySelector(`#lpTabNav .tab-btn[data-lp-tab="${tab}"]`);
+  if (knop) knop.click();
+}
+function lpGaNaarTabUitHash() {
+  const tab = String(window.location.hash || '').replace(/^#/, '');
+  if (tab) lpGaNaarTab(tab);
+}
+window.addEventListener('message', (e) => {
+  if (e.origin !== window.location.origin) return;
+  const d = e.data;
+  if (d && d.type === 'pagr-tab' && typeof d.tab === 'string') lpGaNaarTab(d.tab);
+});
 
 // Voorbeeldtekst opnieuw laten maken met de echte klantgegevens (naam, adres, telefoon, werkgebied).
 document.getElementById('lpTplDetailHervulBtn').addEventListener('click', () => {
@@ -2386,3 +2403,16 @@ window.addEventListener('message', (ev) => {
   noot.textContent = 'Dit is een voorbeeldformulier met onze opmaak. Controleer na publiceren altijd ook de echte pagina, want daar komt ook de opmaak van de klantsite bij.';
   balk.appendChild(noot);
 });
+
+// Ingebed: meld de hoogte van de pagina aan de admin, zodat er maar een scrollbalk is.
+if (document.documentElement.classList.contains('ingebed') && window.ResizeObserver) {
+  let laatste = 0;
+  const meld = () => {
+    const hoogte = Math.ceil(document.getElementById('lpApp').getBoundingClientRect().height);
+    if (hoogte && hoogte !== laatste) {
+      laatste = hoogte;
+      window.parent.postMessage({ type: 'pagr-hoogte', hoogte }, window.location.origin);
+    }
+  };
+  new ResizeObserver(meld).observe(document.getElementById('lpApp'));
+}

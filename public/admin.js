@@ -51,6 +51,7 @@ const KLANT_TABS = [
   { id: 'merkprofiel', titel: 'Merkprofiel opbouwen' }
 ];
 const VIEW_TITELS = { klanten: 'Alle klanten', nieuw: 'Nieuwe klant', ideeen: 'Ideeën', pagr: 'Pagr.', klant: 'Klant' };
+const PAGR_TABS = ['werkplaats', 'nieuw', 'sjablonen', 'paginas', 'kloon', 'vervang'];
 let huidig = { view: 'klanten', klantId: '', tab: 'instellingen' };
 
 function leesHash() {
@@ -59,7 +60,8 @@ function leesHash() {
     const tab = KLANT_TABS.some((t) => t.id === delen[2]) ? delen[2] : beginTab(delen[1]);
     return { view: 'klant', klantId: delen[1], tab };
   }
-  if (['klanten', 'nieuw', 'ideeen', 'pagr'].includes(delen[0])) return { view: delen[0], klantId: '', tab: 'instellingen' };
+  if (delen[0] === 'pagr') return { view: 'pagr', klantId: '', tab: PAGR_TABS.includes(delen[1]) ? delen[1] : 'werkplaats' };
+  if (['klanten', 'nieuw', 'ideeen'].includes(delen[0])) return { view: delen[0], klantId: '', tab: 'instellingen' };
   return { view: 'klanten', klantId: '', tab: 'instellingen' };
 }
 
@@ -70,7 +72,7 @@ function beginTab(klantId) {
 }
 
 function gaNaar(view, klantId, tab) {
-  const hash = view === 'klant' ? `#klant/${encodeURIComponent(klantId)}/${tab || beginTab(klantId)}` : `#${view}`;
+  const hash = view === 'pagr' ? `#pagr/${tab || 'werkplaats'}` : view === 'klant' ? `#klant/${encodeURIComponent(klantId)}/${tab || beginTab(klantId)}` : `#${view}`;
   if (window.location.hash === hash) toonScherm();
   else window.location.hash = hash;
 }
@@ -90,7 +92,7 @@ document.getElementById('pMenuknop').addEventListener('click', () => {
 document.getElementById('pScrim').addEventListener('click', sluitMenu);
 
 document.querySelectorAll('#adminNav [data-view]').forEach((btn) => {
-  btn.addEventListener('click', () => gaNaar(btn.dataset.view));
+  btn.addEventListener('click', () => gaNaar(btn.dataset.view, '', btn.dataset.pagrTab));
 });
 
 // Alle klanten: die uit het portaal, plus klanten die alleen in de onboarding staan (nog niet in clients.js).
@@ -115,11 +117,13 @@ function toonScherm() {
     document.getElementById('view' + naam).classList.toggle('hidden', naam.toLowerCase() !== (view === 'klant' ? 'klant' : view));
   });
   document.querySelectorAll('#adminNav [data-view]').forEach((btn) => {
-    const actief = btn.dataset.view === view || (view === 'klant' && btn.dataset.view === 'klanten');
+    const actief = view === 'pagr'
+      ? btn.dataset.view === 'pagr' && btn.dataset.pagrTab === tab
+      : btn.dataset.view === view || (view === 'klant' && btn.dataset.view === 'klanten');
     btn.classList.toggle('active', actief);
     if (actief) btn.setAttribute('aria-current', 'page'); else btn.removeAttribute('aria-current');
   });
-  document.getElementById('pMobielTab').textContent = view === 'klant' && klant ? klant.naam : VIEW_TITELS[view];
+  document.getElementById('pMobielTab').textContent = view === 'klant' && klant ? klant.naam : (view === 'pagr' ? 'Pagr.' : VIEW_TITELS[view]);
   if (view === 'klanten') renderKlanten();
   if (view === 'klant') renderKlant(klant, tab);
   if (view === 'ideeen') renderIdeeenScherm();
@@ -127,11 +131,22 @@ function toonScherm() {
   if (view === 'pagr') {
     // De LP omgeving laadt pas bij het eerste bezoek, daarna blijft hij staan met zijn eigen stand.
     const frame = document.getElementById('pagrFrame');
-    if (!frame.getAttribute('src')) frame.setAttribute('src', frame.dataset.src);
+    if (!frame.getAttribute('src')) frame.setAttribute('src', frame.dataset.src + '#' + tab);
+    else if (frame.contentWindow) frame.contentWindow.postMessage({ type: 'pagr-tab', tab }, window.location.origin);
   }
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', toonScherm);
+
+// De ingebedde Pagr. omgeving meldt zijn hoogte, zodat de pagina als geheel scrolt.
+window.addEventListener('message', (e) => {
+  if (e.origin !== window.location.origin) return;
+  const d = e.data;
+  if (d && d.type === 'pagr-hoogte' && Number.isFinite(d.hoogte)) {
+    const frame = document.getElementById('pagrFrame');
+    if (frame) frame.style.height = Math.max(400, d.hoogte + 8) + 'px';
+  }
+});
 
 function renderError(message) {
   const el = document.getElementById('adminError');
