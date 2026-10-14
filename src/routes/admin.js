@@ -119,7 +119,10 @@ router.get('/profiel/status', requireAdmin, async (req, res) => {
   try {
     const klant = String(req.query.klant || '').trim();
     if (!klant) return res.status(400).json({ error: 'Geef een klantnaam op.' });
-    res.json(await merkprofielService.getProfielStatus(klant));
+    const stand = await merkprofielService.getProfielStatus(klant);
+    // Stap 4 van de onboarding volgt het merkprofiel. Lukt dat niet, dan blijft het merkprofiel gewoon werken.
+    await onboardingService.synchroniseMerkprofiel(klant, stand.status).catch(() => {});
+    res.json(stand);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -129,6 +132,7 @@ router.post('/profiel/start', requireAdmin, async (req, res) => {
   try {
     const { klant, website, force } = req.body || {};
     await merkprofielService.startProfiel(klant, website, { force: Boolean(force) });
+    await onboardingService.synchroniseMerkprofiel(klant, 'bezig').catch(() => {});
     res.json({ ok: true });
   } catch (err) {
     res.status(err.code === 'BEVESTIGING_NODIG' ? 409 : 400).json({ error: err.message, code: err.code || '' });

@@ -331,6 +331,8 @@ async function kopieer(tekst) {
 
 async function renderOnboarding(c, inhoud) {
   inhoud.innerHTML = '<p class="admin-footnote">Onboarding laden…</p>';
+  // Stap 4 volgt het merkprofiel: even de status opvragen, dan werkt de server de stap bij.
+  if (adminState.onboarding[c.id] && !c.alleenOnboarding) await adminApi('/profiel/status?klant=' + encodeURIComponent(c.naam)).catch(() => {});
   let data;
   try {
     data = await adminApi(`/onboarding/${encodeURIComponent(c.id)}`);

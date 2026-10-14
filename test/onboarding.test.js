@@ -74,3 +74,17 @@ test('rijen zonder Client ID worden genegeerd en klanten worden gegroepeerd', ()
 test('de chatzin noemt de klant', () => {
   assert.strictEqual(chatZin('Hirs Installaties'), 'Onboarding Hirs Installaties, ga verder.');
 });
+
+const { bepaalMerkprofielStap } = require('../src/services/onboarding');
+
+test('stap 4 volgt de status van het merkprofiel', () => {
+  assert.deepStrictEqual(bepaalMerkprofielStap('Nog niet gestart', 'bezig').status, 'Bezig');
+  assert.strictEqual(bepaalMerkprofielStap('Bezig', 'definitief concept').status, 'Klaar');
+  assert.strictEqual(bepaalMerkprofielStap('Bezig', 'mislukt').status, 'Wacht op Dylan');
+});
+
+test('stap 4 verandert niet als er niets nieuws is', () => {
+  assert.strictEqual(bepaalMerkprofielStap('Klaar', 'bevestigd') && bepaalMerkprofielStap('Klaar', 'definitief concept'), null);
+  assert.strictEqual(bepaalMerkprofielStap('Bezig', 'geen'), null);
+  assert.strictEqual(bepaalMerkprofielStap('Overgeslagen', 'bezig'), null);
+});
