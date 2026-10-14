@@ -4,7 +4,7 @@
 // onder dezelfde pagina als Klant Intake en Portaal Instellingen, dus dat is normaal al zo.
 
 const { Client } = require('@notionhq/client');
-const { FASEN, STAPPEN, STATUSSEN } = require('../config/onboardingStappen');
+const { FASEN, STAPPEN, PAGR_STAPPEN, STATUSSEN, stappenVoor } = require('../config/onboardingStappen');
 
 const ONBOARDING_DATABASE_ID = process.env.NOTION_ONBOARDING_DATABASE_ID || 'b6cf624559ac4a448b80a8494aed5e9f';
 
@@ -31,7 +31,7 @@ function rich(waarde) {
 function normaliseerRij(page) {
   const p = page.properties || {};
   const nr = p.Nr && typeof p.Nr.number === 'number' ? p.Nr.number : null;
-  const sjabloon = STAPPEN.find((s) => s.nr === nr) || {};
+  const sjabloon = STAPPEN.find((s) => s.nr === nr) || PAGR_STAPPEN.find((s) => s.nr === nr) || {};
   return {
     id: page.id,
     nr,
@@ -112,15 +112,17 @@ async function voorKlant(clientId) {
 
 // Maakt de 21 stappen voor een klant aan. Bestaan er al stappen voor dit Client ID, dan gebeurt er niets.
 // klaar: stapnummers die al klaar zijn bij de start (bijvoorbeeld 1 na de websitescan).
-async function start({ klant, clientId, klaar = [], door = 'Portaal' }) {
+async function start({ klant, clientId, klaar = [], door = 'Portaal', producten = 'Blogr.' }) {
   if (!klant || !clientId) throw new Error('Klantnaam en Client ID zijn verplicht.');
   const bestaand = (await alleRijen()).filter((r) => r.clientId === clientId);
   if (bestaand.length) return { aangemaakt: 0, bestaand: bestaand.length };
   const client = getNotionClient();
   let aangemaakt = 0;
-  for (const s of STAPPEN) {
+  // Bij alleen Pagr. is de eerste stap nummer 101 in plaats van 1.
+  const klaarNrs = producten === 'Pagr.' ? klaar.map((n) => (n < 100 ? n + 100 : n)) : klaar;
+  for (const s of stappenVoor(producten)) {
     const fase = FASEN.find((f) => f.code === s.fase);
-    const isKlaar = klaar.includes(s.nr);
+    const isKlaar = klaarNrs.includes(s.nr);
     await client.pages.create({
       parent: { database_id: ONBOARDING_DATABASE_ID },
       properties: {
@@ -169,7 +171,7 @@ function bepaalMerkprofielStap(huidigeStatus, profielStatus) {
 async function synchroniseMerkprofiel(klantNaam, profielStatus) {
   const res = await getNotionClient().databases.query({
     database_id: ONBOARDING_DATABASE_ID,
-    filter: { and: [{ property: 'Klant', rich_text: { equals: String(klantNaam) } }, { property: 'Nr', number: { equals: 4 } }] },
+    filter: { and: [{ property: 'Klant', rich_text: { equals: String(klantNaam) } }, { or: [{ property: 'Nr', number: { equals: 4 } }, { property: 'Nr', number: { equals: 103 } }] }] },
     page_size: 1
   });
   if (!res.results.length) return false;

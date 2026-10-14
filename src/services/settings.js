@@ -22,6 +22,17 @@ const PROPERTY_BY_FIELD = {
   aiZichtbaarheid: 'AI zichtbaarheid ingeschakeld'
 };
 
+// Producten per klant (Pagr. stap 4). Leeg of onbekend telt als Blogr., zodat bestaande klanten niets merken.
+const PRODUCT_WAARDEN = ['Blogr.', 'Pagr.', 'Beide'];
+function normaliseerProducten(waarde) {
+  const w = String(waarde || '').trim();
+  return PRODUCT_WAARDEN.includes(w) ? w : 'Blogr.';
+}
+function productVlaggen(producten) {
+  const p = normaliseerProducten(producten);
+  return { blogr: p === 'Blogr.' || p === 'Beide', pagr: p === 'Pagr.' || p === 'Beide' };
+}
+
 const KLANTSTATUS_WAARDEN = ['actief', 'gepauzeerd', 'beëindigd'];
 
 // Leeg of onbekend telt als actief, zodat een klant nooit per ongeluk
@@ -76,6 +87,7 @@ async function fetchAllFromNotion() {
         merkprofielNaarKennisdocument: Boolean(props['Merkprofiel naar Kennisdocument']?.checkbox),
         aiZichtbaarheid: Boolean(props['AI zichtbaarheid ingeschakeld']?.checkbox),
         klantstatus: normaliseerKlantstatus(props['Klantstatus']?.select?.name),
+        producten: normaliseerProducten(props['Producten']?.select?.name),
         klantstatusIngesteld: KLANTSTATUS_WAARDEN.includes(props['Klantstatus']?.select?.name)
       });
     }
@@ -112,7 +124,9 @@ async function getClientSettings(clientId, fallback = {}) {
         merkprofiel: settings.merkprofiel,
         merkprofielNaarKennisdocument: settings.merkprofielNaarKennisdocument,
         aiZichtbaarheid: settings.aiZichtbaarheid,
-        klantstatus: settings.klantstatus
+        klantstatus: settings.klantstatus,
+        producten: settings.producten,
+        ...productVlaggen(settings.producten)
       };
     }
   } catch (err) {
@@ -125,7 +139,9 @@ async function getClientSettings(clientId, fallback = {}) {
     merkprofiel: Boolean(fallback.merkprofiel),
     merkprofielNaarKennisdocument: Boolean(fallback.merkprofielNaarKennisdocument),
     aiZichtbaarheid: Boolean(fallback.aiZichtbaarheid),
-    klantstatus: normaliseerKlantstatus(fallback.klantstatus)
+    klantstatus: normaliseerKlantstatus(fallback.klantstatus),
+    producten: normaliseerProducten(fallback.producten),
+    ...productVlaggen(fallback.producten)
   };
 }
 
@@ -147,6 +163,7 @@ async function listAllSettings(clientsConfig) {
       merkprofielNaarKennisdocument: settings ? settings.merkprofielNaarKennisdocument : Boolean(c.merkprofielNaarKennisdocument),
       aiZichtbaarheid: settings ? settings.aiZichtbaarheid : Boolean(c.aiZichtbaarheid),
       klantstatus: settings ? settings.klantstatus : normaliseerKlantstatus(c.klantstatus),
+      producten: settings ? settings.producten : normaliseerProducten(c.producten),
       // Leeg in Notion telt voor het portaal als actief, maar de n8n sync ziet dan geen status.
       klantstatusIngesteld: settings ? settings.klantstatusIngesteld : false,
       inNotion: Boolean(settings)
@@ -156,10 +173,12 @@ async function listAllSettings(clientsConfig) {
 
 async function updateClientSetting(clientId, field, value) {
   const isStatus = field === 'klantstatus';
-  const propertyName = isStatus ? 'Klantstatus' : PROPERTY_BY_FIELD[field];
+  const isProducten = field === 'producten';
+  const propertyName = isStatus ? 'Klantstatus' : isProducten ? 'Producten' : PROPERTY_BY_FIELD[field];
   if (!propertyName) throw new Error(`Onbekend instellingveld: ${field}`);
   if (isStatus && !KLANTSTATUS_WAARDEN.includes(value)) throw new Error(`Onbekende klantstatus: ${value}`);
-  const waarde = isStatus ? { select: { name: value } } : { checkbox: Boolean(value) };
+  if (isProducten && !PRODUCT_WAARDEN.includes(value)) throw new Error(`Onbekend product: ${value}`);
+  const waarde = (isStatus || isProducten) ? { select: { name: value } } : { checkbox: Boolean(value) };
 
   const client = getNotionClient();
   const map = await getSettingsMap();
@@ -194,5 +213,8 @@ module.exports = {
   updateClientSetting,
   normaliseerKlantstatus,
   klantstatusMelding,
+  normaliseerProducten,
+  productVlaggen,
+  PRODUCT_WAARDEN,
   KLANTSTATUS_WAARDEN
 };

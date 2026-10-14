@@ -116,7 +116,7 @@ async function createIntake(input) {
     'Ideeen-verrijking inschakelen': { checkbox: Boolean(input.ideaEnrichmentEnabled) },
     'Content Drive-map URL': urlProp(input.driveMapUrl),
     'Notificatie e-mailadres(sen)': richText(input.notificatieEmails),
-    Notities: richText(input.notities)
+    Notities: richText([input.producten && input.producten !== 'Blogr.' ? `Producten: ${input.producten}.` : '', input.notities].filter(Boolean).join(' '))
   };
   if (input.tier) {
     properties.Tier = { select: { name: input.tier } };
