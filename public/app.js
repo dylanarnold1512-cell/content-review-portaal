@@ -114,7 +114,7 @@ async function enterApp(clientId, clientMeta) {
   const productNaam = producten.blogr && producten.pagr ? 'Blogr. en Pagr.' : (producten.pagr ? 'Pagr.' : 'Blogr.');
   const naamEl = document.getElementById('pProductNaam');
   if (naamEl) {
-    naamEl.textContent = productNaam;
+    naamEl.innerHTML = productNaam.replace(/\./g, '<span class="p-punt">.</span>');
     naamEl.classList.remove('hidden');
     document.querySelector('#pDoor .p-door-tekst').classList.remove('hidden');
     document.title = `${productNaam} door Advertisr.`;
