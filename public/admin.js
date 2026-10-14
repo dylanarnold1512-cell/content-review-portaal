@@ -751,16 +751,25 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
   const payload = {
     klant: document.getElementById('intakeKlant').value.trim(),
     clientId: document.getElementById('intakeClientId').value.trim(),
-    tier: document.getElementById('intakeTier').value,
+    tier: ikBlogr() ? document.getElementById('intakeTier').value : '',
     website: document.getElementById('intakeWebsite').value.trim(),
     businessOmschrijving: document.getElementById('intakeBusiness').value.trim(),
     toneOfVoice: document.getElementById('intakeTone').value.trim(),
     onderwerpsrichtingen: document.getElementById('intakeTopics').value.trim(),
-    producten: document.getElementById('intakeProducten').value,
-    blogsPerMaand: document.getElementById('intakeBlogsPerMaand').value,
+    producten: ikProduct(),
+    blogsPerMaand: ikBlogr() ? document.getElementById('intakeBlogsPerMaand').value : '',
+    paginasPerMaand: ikPagr() ? document.getElementById('intakePaginasPerMaand').value : '',
+    paginameting: ikPagr() && ikEl('intakeLpMeting').checked,
+    lpTelefoon: ikEl('intakeLpTelefoon').value.trim(),
+    lpEmail: ikEl('intakeLpEmail').value.trim(),
+    lpStraat: ikEl('intakeLpStraat').value.trim(),
+    lpPostcode: ikEl('intakeLpPostcode').value.trim(),
+    lpPlaats: ikEl('intakeLpPlaats').value.trim(),
+    lpWerkgebied: ikEl('intakeLpWerkgebied').value.trim(),
+    searchConsoleSite: ikPagr() ? ikEl('intakeLpSite').value.trim() : '',
     driveMapUrl: document.getElementById('intakeDriveUrl').value.trim(),
     notificatieEmails: document.getElementById('intakeNotificatieEmails').value.trim(),
-    wordpressVanToepassing: document.getElementById('intakeWordpress').checked,
+    wordpressVanToepassing: ikBlogr() && document.getElementById('intakeWordpress').checked,
     wordpressUrl: document.getElementById('intakeWordpressUrl').value.trim(),
     wpGebruikersnaam: document.getElementById('intakeWpGebruikersnaam').value.trim(),
     wpAppPassword: document.getElementById('intakeWpAppPassword').value.trim(),
@@ -774,15 +783,15 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
     contactPaden: document.getElementById('intakeContactPaden').value.trim(),
     boekPaden: document.getElementById('intakeBoekPaden').value.trim(),
     portalWachtwoord: '',
-    reviewEnabled: document.getElementById('intakeReview').checked,
-    performanceEnabled: document.getElementById('intakePerformance').checked,
-    ideaEnrichmentEnabled: document.getElementById('intakeIdea').checked,
+    reviewEnabled: ikBlogr() && document.getElementById('intakeReview').checked,
+    performanceEnabled: ikBlogr() && document.getElementById('intakePerformance').checked,
+    ideaEnrichmentEnabled: ikBlogr() && document.getElementById('intakeIdea').checked,
     notities: document.getElementById('intakeNotes').value.trim()
   };
   try {
     const intakeAntwoord = await adminApi('/intake', { method: 'POST', body: JSON.stringify(payload) });
     let profiel = { gestart: false, fout: '' };
-    if (ikEl('intakeProfiel').checked && payload.website) {
+    if (ikBlogr() && ikEl('intakeProfiel').checked && payload.website) {
       try {
         await adminApi('/profiel/start', { method: 'POST', body: JSON.stringify({ klant: payload.klant, website: payload.website, force: false }) });
         profiel.gestart = true;
@@ -792,12 +801,13 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
     }
     document.getElementById('intakeForm').reset();
     document.getElementById('intakeReview').checked = true;
+    ikEl('intakeProducten').value = 'Blogr.';
     clientIdHandmatig = false;
     ikMelding('');
     ikUpdate();
     await loadIntakes();
     await loadOnboarding();
-    toonIntakeSucces({ klant: payload.klant, clientId: payload.clientId, onboardingFout: intakeAntwoord.onboardingMelding, klantgegevens: intakeAntwoord.klantgegevensMelding, profiel });
+    toonIntakeSucces({ klant: payload.klant, clientId: payload.clientId, onboardingFout: intakeAntwoord.onboardingMelding, klantgegevens: intakeAntwoord.klantgegevensMelding, instellingen: intakeAntwoord.instellingenMelding, producten: payload.producten, profiel });
     window.scrollTo(0, 0);
   } catch (err) {
     renderIntakeError(err.message);
@@ -805,16 +815,17 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
 });
 
 // Na het opslaan: bevestiging en de zin die Dylan in een nieuwe chat plakt om de onboarding samen af te lopen.
-function toonIntakeSucces({ klant, clientId, onboardingFout, klantgegevens, profiel }) {
+function toonIntakeSucces({ klant, clientId, onboardingFout, klantgegevens, instellingen, producten, profiel }) {
   const el = ikEl('ikSucces');
   const zin = `Onboarding ${klant}, ga verder.`;
   const regel = (ok, tekst) => `<li class="${ok ? 'ok' : 'let-op'}"><span aria-hidden="true">${ok ? '&#10003;' : '!'}</span>${escapeHtmlAdmin(tekst)}</li>`;
   const regels = [
-    regel(true, 'De intake staat in Notion. n8n verwerkt hem binnen een uur.'),
+    regel(true, producten === 'Pagr.' ? 'De intake staat in Notion.' : 'De intake staat in Notion. n8n verwerkt hem binnen een uur.'),
     onboardingFout || !clientId
       ? regel(false, onboardingFout || 'Er is geen Client ID, dus de onboardingstappen zijn niet aangemaakt.')
       : regel(true, 'De onboardingstappen zijn aangemaakt. Stap 1 (websitescan en nieuwe klant) staat op Klaar.'),
     klantgegevens ? regel(!/kon niet/i.test(klantgegevens), klantgegevens) : '',
+    instellingen ? regel(false, instellingen) : (producten !== 'Blogr.' ? regel(true, "Product en pagina's per maand staan ingesteld.") : ''),
     profiel.gestart ? regel(true, 'Het merkprofiel wordt opgebouwd, ongeveer 4 minuten.') : '',
     profiel.fout ? regel(false, 'Het merkprofiel kon niet starten: ' + profiel.fout) : ''
   ].join('');
@@ -858,11 +869,36 @@ function ikSlug(tekst) {
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
+function ikProduct() { return ikEl('intakeProducten').value || 'Blogr.'; }
+function ikBlogr() { return ikProduct() !== 'Pagr.'; }
+function ikPagr() { return ikProduct() !== 'Blogr.'; }
+
 function ikToonSecties() {
+  const product = ikProduct();
+  // Eerst de secties die bij een ander product horen, dan de schakelaars binnen de zichtbare secties.
+  document.querySelectorAll('[data-voor]').forEach((blok) => {
+    blok.classList.toggle('hidden', !blok.dataset.voor.split(' ').includes(product));
+  });
   document.querySelectorAll('[data-toon-bij]').forEach((blok) => {
     const schakel = ikEl(blok.dataset.toonBij);
     blok.classList.toggle('hidden', !(schakel && schakel.checked));
   });
+  // Nummering van de zichtbare kaarten.
+  let n = 0;
+  document.querySelectorAll('#intakeForm .ik-kaart').forEach((kaart) => {
+    if (kaart.classList.contains('hidden')) return;
+    const nr = kaart.querySelector('.ik-nr');
+    if (nr) nr.textContent = String(++n);
+  });
+}
+
+// Zijbalk: wat er bij opslaan wordt aangemaakt, afhankelijk van het gekozen product.
+function ikWatGebeurt() {
+  const regels = ['De intake komt in Notion', 'De onboardingstappen worden aangemaakt'];
+  if (ikBlogr()) regels.push('n8n bouwt de blogkant binnen een uur');
+  if (ikBlogr() && ikEl('intakeProfiel').checked) regels.push('Het merkprofiel wordt opgebouwd');
+  if (ikPagr()) { regels.push('De klant komt in Pagr. Klantgegevens'); regels.push("Product en pagina's per maand worden ingesteld"); }
+  return regels;
 }
 
 function ikCheckItems() {
@@ -871,14 +907,20 @@ function ikCheckItems() {
     { tekst: 'Website', ok: !!waarde('intakeWebsite'), verplicht: true },
     { tekst: 'Klantnaam', ok: !!waarde('intakeKlant'), verplicht: true },
     { tekst: 'Client ID', ok: !!waarde('intakeClientId'), verplicht: true },
-    { tekst: 'Omschrijving van de klant', ok: !!waarde('intakeBusiness'), verplicht: false },
-    { tekst: 'Onderwerpsrichtingen', ok: !!waarde('intakeTopics'), verplicht: false }
+    { tekst: 'Omschrijving van de klant', ok: !!waarde('intakeBusiness'), verplicht: false }
   ];
-  if (ikEl('intakeWordpress').checked) {
+  if (ikBlogr()) items.push({ tekst: 'Onderwerpsrichtingen', ok: !!waarde('intakeTopics'), verplicht: false });
+  if (ikPagr()) {
+    items.push({ tekst: "Pagina's per maand", ok: !!waarde('intakePaginasPerMaand'), verplicht: false });
+    items.push({ tekst: 'Telefoonnummer', ok: !!waarde('intakeLpTelefoon'), verplicht: false });
+    items.push({ tekst: 'Plaats en werkgebied', ok: !!waarde('intakeLpPlaats') && !!waarde('intakeLpWerkgebied'), verplicht: false });
+    if (ikEl('intakeLpMeting').checked) items.push({ tekst: 'Search Console site', ok: !!waarde('intakeLpSite'), verplicht: true });
+  }
+  if (ikBlogr() && ikEl('intakeWordpress').checked) {
     items.push({ tekst: 'WordPress URL', ok: !!waarde('intakeWordpressUrl'), verplicht: true });
     items.push({ tekst: 'WordPress gebruikersnaam en application password', ok: !!waarde('intakeWpGebruikersnaam') && !!waarde('intakeWpAppPassword'), verplicht: true });
   }
-  if (ikEl('intakePerformance').checked) {
+  if (ikBlogr() && ikEl('intakePerformance').checked) {
     items.push({ tekst: 'Search Console property', ok: !!waarde('intakeGsc'), verplicht: true });
     items.push({ tekst: 'GA4 property ID', ok: !!waarde('intakeGa4'), verplicht: false });
     items.push({ tekst: 'Lead event', ok: !!waarde('intakeLeadEvent'), verplicht: false });
@@ -894,6 +936,7 @@ function ikUpdate() {
   ikEl('ikVoortgang').textContent = verplichtOpen
     ? `${verplichtOpen} verplicht nog open, ${klaar} van ${items.length} ingevuld`
     : `Alles verplicht is ingevuld, ${klaar} van ${items.length} ingevuld`;
+  ikEl('ikWatGebeurt').innerHTML = ikWatGebeurt().map((t) => `<li>${escapeHtmlAdmin(t)}</li>`).join('');
   ikEl('ikBalk').style.width = `${Math.round((klaar / items.length) * 100)}%`;
   ikEl('ikCheck').innerHTML = items.map((i) =>
     `<li class="${i.ok ? 'ik-ok' : (i.verplicht ? 'ik-open' : 'ik-optioneel')}"><span class="ik-vink">${i.ok ? '✓' : ''}</span>${escapeHtmlAdmin(i.tekst)}${!i.ok && !i.verplicht ? ' <em>(handig)</em>' : ''}</li>`
@@ -926,6 +969,7 @@ async function ikAnalyseer() {
       ingevuld.push('WordPress');
     }
     if (ikEl('intakePerformance').checked) ikVulAlsLeeg('intakeGsc', r.searchConsoleUrl);
+    if (ikEl('intakeLpMeting').checked) ikVulAlsLeeg('intakeLpSite', r.searchConsoleUrl);
     ikMelding(ingevuld.length
       ? `Ingevuld: ${ingevuld.join(', ')}. Controleer even of dit klopt, het is afgeleid van de homepage.`
       : 'De website is gelezen, maar er was niets nieuws om in te vullen.');
@@ -944,6 +988,10 @@ ikEl('intakeClientId').addEventListener('input', () => { clientIdHandmatig = !!i
 ikEl('intakeKlant').addEventListener('input', () => {
   if (!clientIdHandmatig) ikEl('intakeClientId').value = ikSlug(ikEl('intakeKlant').value);
 });
+document.querySelectorAll('input[name="ikProduct"]').forEach((r) => r.addEventListener('change', () => {
+  ikEl('intakeProducten').value = r.value;
+  ikUpdate();
+}));
 ikEl('intakeForm').addEventListener('input', ikUpdate);
 ikEl('intakeForm').addEventListener('change', ikUpdate);
 ikUpdate();
