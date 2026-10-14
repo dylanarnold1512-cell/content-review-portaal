@@ -150,4 +150,34 @@ async function zetStap(pageId, { status, uitkomst, door = 'Portaal' }) {
   await getNotionClient().pages.update({ page_id: pageId, properties });
 }
 
-module.exports = { normaliseerRij, samenvat, chatZin, groepeerPerKlant, overzicht, voorKlant, start, zetStap };
+// Stap 4 (merkprofiel) volgt de status van het merkprofiel in n8n. Geeft de nieuwe status en uitkomst, of null als er niets verandert.
+function bepaalMerkprofielStap(huidigeStatus, profielStatus) {
+  if (huidigeStatus === 'Overgeslagen') return null;
+  const kandidaat = {
+    bezig: { status: 'Bezig', uitkomst: 'Het concept wordt opgebouwd, ongeveer 4 minuten.' },
+    'definitief concept': { status: 'Klaar', uitkomst: 'Concept merkprofiel staat klaar in het portaal. Nog niet aan voor de klant.' },
+    bevestigd: { status: 'Klaar', uitkomst: 'Het merkprofiel is bevestigd door de klant.' },
+    leeg: { status: 'Wacht op Dylan', uitkomst: 'De workflow gaf een leeg profiel. Controleer de website en bouw opnieuw op.' },
+    mislukt: { status: 'Wacht op Dylan', uitkomst: 'Het opbouwen van het merkprofiel is mislukt. Probeer opnieuw.' }
+  }[profielStatus];
+  if (!kandidaat) return null;
+  if (kandidaat.status === huidigeStatus) return null;
+  return kandidaat;
+}
+
+// Zoekt stap 4 van de klant op naam en past die aan. Best effort: een fout hier mag het merkprofiel niet blokkeren.
+async function synchroniseMerkprofiel(klantNaam, profielStatus) {
+  const res = await getNotionClient().databases.query({
+    database_id: ONBOARDING_DATABASE_ID,
+    filter: { and: [{ property: 'Klant', rich_text: { equals: String(klantNaam) } }, { property: 'Nr', number: { equals: 4 } }] },
+    page_size: 1
+  });
+  if (!res.results.length) return false;
+  const rij = normaliseerRij(res.results[0]);
+  const nieuw = bepaalMerkprofielStap(rij.status, profielStatus);
+  if (!nieuw) return false;
+  await zetStap(rij.id, { ...nieuw, door: 'Workflow' });
+  return true;
+}
+
+module.exports = { bepaalMerkprofielStap, synchroniseMerkprofiel, normaliseerRij, samenvat, chatZin, groepeerPerKlant, overzicht, voorKlant, start, zetStap };

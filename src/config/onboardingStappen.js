@@ -25,7 +25,7 @@ const STAPPEN = [
   { nr: 11, fase: 'C', titel: 'WordPress', uitleg: 'REST test, post type, Yoast snippet, Cloudflare, opbouw check, schrijftest, fotomap delen met het n8n Google account.', aanZet: 'Claude' },
   { nr: 12, fase: 'C', titel: 'Databronnen en topics', uitleg: 'Seeds over de clusters, Search Console rij, eerste Topic Generator run, zoekwoorden naar natuurlijke taal, Akkoord in Telegram.', aanZet: 'Claude' },
   { nr: 13, fase: 'C', titel: 'Prestaties', uitleg: 'GA4 property ID en conversiedoelen, contact en boekpaden, portaalvlag performanceV2.', aanZet: 'Dylan' },
-  { nr: 14, fase: 'C', titel: 'AI zichtbaarheid', uitleg: 'Meting aan, eigen merken, meetvragen laten maken en de voorbeelden controleren.', aanZet: 'Knop' },
+  { nr: 14, fase: 'C', titel: 'AI zichtbaarheid', uitleg: 'Meting aan, eigen merken, meetvragen laten maken (Claude start BA - AI Vragen Onderhoud) en de voorbeelden controleren.', aanZet: 'Claude' },
   { nr: 15, fase: 'C', titel: 'Portaal en login', uitleg: 'clients.js, Render variabelen, login voor de klant, modules aan.', aanZet: 'Claude' },
   { nr: 16, fase: 'D', titel: 'Controles vooraf', uitleg: 'Lussen versie 3, OpenAI parameters, Interne Linking, credentials gekoppeld.', aanZet: 'Claude' },
   { nr: 17, fase: 'D', titel: 'Testblog', uitleg: 'Genereren, QA Gate, WordPress draft, Yoast, afbeelding, interne links, tekst in het portaal, Feedback Revisie, Publicatie Sync.', aanZet: 'Claude' },

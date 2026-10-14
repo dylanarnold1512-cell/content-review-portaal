@@ -97,3 +97,16 @@
   .ad-stap { grid-template-columns: 28px minmax(0, 1fr); }
   .ad-stap-rechts { grid-column: 2; flex-direction: row; flex-wrap: wrap; align-items: center; }
 }
+
+/* Bevestiging na de intake */
+.ad-succes { padding: 20px 22px; border-left: 4px solid var(--p-goed); display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px; }
+.ad-succes h2 { margin: 0; font-size: 18px; letter-spacing: -0.01em; }
+.ad-succes-lijst { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.ad-succes-lijst li { display: flex; gap: 10px; align-items: flex-start; }
+.ad-succes-lijst li span { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; flex: none; font-size: 12px; font-weight: 700; }
+.ad-succes-lijst li.ok span { background: var(--p-goed-zacht); color: var(--p-goed); }
+.ad-succes-lijst li.let-op span { background: var(--p-let-op-zacht); color: var(--p-let-op); }
+.ad-succes-prompt { background: var(--p-ai-zacht); border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.ad-succes-prompt span { font-size: 13px; color: var(--p-tekst-zacht); }
+.ad-succes-prompt code { background: var(--panel); border-radius: 8px; padding: 6px 10px; font-size: 14px; overflow-wrap: anywhere; }
+.ad-succes-acties { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
