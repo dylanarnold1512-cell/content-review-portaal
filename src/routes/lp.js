@@ -26,6 +26,7 @@ const { pushDraft, deletePage: deleteWpPage, searchMedia, uploadMedia, listSiteP
 const { vindTekst, vervangTekst } = require('../lp/tekstVervangen');
 const { haalSiteTeksten, formatSiteTekstenVoorPrompt } = require('../lp/siteTeksten');
 const plan = require('../lp/plan');
+const begeleiding = require('../lp/begeleiding');
 const meting = require('../lp/meting');
 const { maakUpdateVoorstellen } = require('../lp/bijhouden');
 const { maakKlantLijst } = require('../lp/klantPaginas');
@@ -746,6 +747,79 @@ router.post('/plan/goedkeuren', requireLpInternal, async (req, res) => {
       aangemaakt.push({ id: page.id, titel: v.titel });
     }
     res.json({ aangemaakt });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// AI begeleiding (Pagr. stap 12): de beheerder beschrijft in gewone woorden wat hij wil, de AI kiest sjabloon, titel en
+// invoer en legt uit waarom. Er wordt niets opgeslagen; de beheerder past aan en maakt de pagina zelf aan.
+router.post('/pages/begeleiding', requireLpInternal, async (req, res) => {
+  try {
+    const klant = String(req.body?.klant || '');
+    const onderwerp = String(req.body?.onderwerp || '').slice(0, 1500);
+    const client = getLpClient(klant);
+    const actief = await templates.listTemplates({ klant, status: 'Actief' });
+    const sjablonen = [];
+    for (const t of actief.slice(0, 12)) {
+      try {
+        const bp = await templates.getActiveTemplateByBlueprintId(klant, t.blueprintId);
+        sjablonen.push({ blueprintId: t.blueprintId, naam: t.naam, invoerVelden: bp.invoerVelden || [] });
+      } catch (e) { /* sjabloon zonder bruikbare blueprint overslaan */ }
+    }
+    const paginas = await lpNotion.listPages({ klant });
+    const klantTekst = await ai.formatKlantBronnenVoorSjabloon(klant);
+    const advies = await begeleiding.adviesNieuwePagina({
+      klantNaam: client.profile.naam,
+      klantTekst,
+      onderwerp,
+      sjablonen,
+      bestaandeTitels: paginas.map((p) => p.titel).filter(Boolean),
+      gepland: paginas.filter((p) => p.status === 'Idee').map((p) => p.titel).filter(Boolean).slice(0, 15),
+      aiFn: ai.callOpenAi
+    });
+    res.json({ advies });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/templates/verbeterpunten', requireLpInternal, async (req, res) => {
+  try {
+    const klant = String(req.body?.klant || '');
+    const client = getLpClient(klant);
+    const blueprint = req.body?.blueprint;
+    if (!blueprint || typeof blueprint !== 'object') return res.status(400).json({ error: 'Er is geen sjabloon om te beoordelen.' });
+    const punten = await begeleiding.adviesVerbeterpunten({
+      klantNaam: client.profile.naam,
+      naam: String(req.body?.naam || ''),
+      blueprint,
+      conversiedoel: String(req.body?.conversiedoel || '').slice(0, 200),
+      aiFn: ai.callOpenAi
+    });
+    res.json({ punten });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/templates/begeleiding', requireLpInternal, async (req, res) => {
+  try {
+    const klant = String(req.body?.klant || '');
+    const doel = String(req.body?.doel || '').slice(0, 1500);
+    const client = getLpClient(klant);
+    const bestaand = await templates.listTemplates({ klant });
+    const klantTekst = await ai.formatKlantBronnenVoorSjabloon(klant);
+    const onderdelen = ai.VASTE_ONDERDELEN_OPTIES.map((key) => ({ key, label: ai.VASTE_ONDERDELEN_LABELS[key] || key }));
+    const advies = await begeleiding.adviesNieuwSjabloon({
+      klantNaam: client.profile.naam,
+      klantTekst,
+      doel,
+      onderdelen,
+      bestaandeSjablonen: bestaand.filter((t) => t.status !== 'Gearchiveerd').map((t) => t.naam).filter(Boolean),
+      aiFn: ai.callOpenAi
+    });
+    res.json({ advies });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

@@ -315,55 +315,90 @@
   <div id="lpPaginasTab" class="tab-panel hidden">
     <div class="lp-shell">
       <div id="lpListError" class="admin-error hidden"></div>
-      <div class="lp-page-header">
+      <div class="wp-kop">
         <div>
-          <h1 class="lp-h1">Landingspagina's</h1>
-          <p>Overzicht van alle pagina's, gefilterd op klant.</p>
+          <h1 class="lp-h1">Alle pagina's</h1>
+          <p class="wp-sub">Per pagina zie je in welke fase hij zit. Klik op een pagina om verder te gaan.</p>
         </div>
-        <button type="button" id="lpNieuwePaginaBtn" class="btn btn-approve">+ Nieuwe pagina</button>
+        <div class="wp-kop-acties">
+          <div class="wp-kies">
+            <label for="lpFilterKlant">Klant</label>
+            <select id="lpFilterKlant"><option value="">Alle klanten</option></select>
+          </div>
+          <button type="button" id="lpNieuwePaginaBtn" class="btn btn-approve">+ Nieuwe pagina</button>
+        </div>
       </div>
-      <div class="lp-field-row" style="max-width:240px;">
-        <label for="lpFilterKlant">Filter op klant</label>
-        <select id="lpFilterKlant"><option value="">Alle klanten</option></select>
-      </div>
-      <div class="lp-table-card">
-        <table class="lp-table">
-          <thead><tr><th>Titel</th><th>Klant</th><th>Sjabloon</th><th>Status</th><th>Laatst gewijzigd</th></tr></thead>
-          <tbody id="lpPagesTableBody"></tbody>
-        </table>
-      </div>
+      <section class="wp-kaart">
+        <div id="lpPaginaTellers" class="wp-tellers"></div>
+        <div id="lpPagesTableBody" class="wp-lijst"></div>
+      </section>
     </div>
   </div>
 
   <div id="lpNieuwTab" class="tab-panel hidden">
     <div class="lp-shell">
       <div id="lpNewError" class="admin-error hidden"></div>
-      <div class="lp-h1">Nieuwe landingspagina</div>
-      <form id="lpNewForm">
-        <div class="lp-field-row">
-          <label for="lpNewKlant">Klant</label>
-          <select id="lpNewKlant" required></select>
-          <span class="lp-field-hint">Bepaalt welke klantgegevens en tokens gebruikt worden.</span>
+      <div class="wp-kop">
+        <div>
+          <h1 class="lp-h1">Nieuwe pagina</h1>
+          <p class="wp-sub">Vertel in je eigen woorden welke pagina je wilt. De AI kiest het sjabloon, bedenkt de titel en vult de gegevens in. Jij past aan wat je anders wilt.</p>
         </div>
-        <div class="lp-field-row">
-          <label for="lpNewBlueprint">Sjabloon</label>
-          <select id="lpNewBlueprint" required></select>
-          <span class="lp-field-hint">Bepaalt welke velden hieronder relevant zijn.</span>
-        </div>
-        <div class="lp-field-row">
-          <label for="lpNewTitel">Titel (Notion / werktitel)</label>
-          <input type="text" id="lpNewTitel" required autocomplete="off" placeholder="bv. Testival Tilburg 2026">
-          <span class="lp-field-hint">Titel zoals die in Notion en dit portaal getoond wordt.</span>
-        </div>
-        <div class="lp-field-row">
-          <label for="lpNewSlug">Slug (optioneel, wordt anders afgeleid van de titel)</label>
-          <input type="text" id="lpNewSlug" autocomplete="off" placeholder="bv. testival-tilburg-2026">
-          <span class="lp-field-hint">Leeg laten om automatisch van de titel af te leiden.</span>
-        </div>
-        <div id="lpNewInvoerFields"></div>
-        <div class="modal-actions">
-          <button type="submit" class="btn btn-approve">Aanmaken</button>
-        </div>
+      </div>
+      <form id="lpNewForm" class="wp-links">
+        <section class="wp-kaart">
+          <div class="wp-kaart-kop"><h2>1. Voor wie en waarover</h2></div>
+          <div class="wp-planvorm">
+            <div class="wp-veld wp-veld-breed">
+              <label for="lpNewKlant">Klant</label>
+              <select id="lpNewKlant" required></select>
+            </div>
+          </div>
+          <div class="wp-veld wp-veld-breed">
+            <label for="npOnderwerp">Wat voor pagina wil je?</label>
+            <textarea id="npOnderwerp" rows="3" placeholder="Bijvoorbeeld: een pagina over dakkapellen plaatsen in Zandvoort, of een pagina voor het Testival in Tilburg"></textarea>
+          </div>
+          <div id="npGepland" class="hidden">
+            <p class="wp-muted np-klein">Of kies iets uit het plan:</p>
+            <div id="npGeplandLijst" class="np-chips"></div>
+          </div>
+          <div class="wp-plan-actie">
+            <button type="button" id="npAdviesKnop" class="btn btn-approve">Laat de AI meedenken</button>
+            <span id="npAdviesStatus" class="wp-muted"></span>
+          </div>
+        </section>
+
+        <section class="wp-kaart hidden" id="npAdviesKaart">
+          <div class="wp-kaart-kop"><h2>Advies van de AI</h2></div>
+          <p id="npWaarom" class="wp-uitleg"></p>
+          <p id="npTip" class="wp-uitleg wp-muted hidden"></p>
+          <p id="npWaarschuwing" class="np-waarschuwing hidden"></p>
+        </section>
+
+        <section class="wp-kaart">
+          <div class="wp-kaart-kop"><h2>2. Controleer en pas aan</h2></div>
+          <div class="wp-veld wp-veld-breed">
+            <label for="lpNewBlueprint">Sjabloon</label>
+            <select id="lpNewBlueprint" required></select>
+            <span class="wp-muted np-klein">De opzet van de pagina. De AI kiest er een, maar je kunt zelf wisselen.</span>
+          </div>
+          <div class="wp-veld wp-veld-breed">
+            <label for="lpNewTitel">Titel van de pagina</label>
+            <input type="text" id="lpNewTitel" required autocomplete="off" placeholder="bv. Dakkapel plaatsen in Zandvoort">
+          </div>
+          <div id="lpNewInvoerFields" class="np-velden"></div>
+          <details class="np-meer">
+            <summary>Webadres aanpassen</summary>
+            <div class="wp-veld wp-veld-breed">
+              <label for="lpNewSlug">Webadres van de pagina</label>
+              <input type="text" id="lpNewSlug" autocomplete="off" placeholder="bv. dakkapel-zandvoort">
+              <span class="wp-muted np-klein">Leeg laten: dan wordt het webadres van de titel afgeleid.</span>
+            </div>
+          </details>
+          <div class="wp-plan-actie">
+            <button type="submit" class="btn btn-approve">Pagina aanmaken</button>
+            <span class="wp-muted">Daarna schrijft de AI de tekst en controleer jij het resultaat.</span>
+          </div>
+        </section>
       </form>
     </div>
   </div>
@@ -371,20 +406,16 @@
   <div id="lpSjablonenTab" class="tab-panel hidden">
     <div class="lp-shell">
       <div id="lpTemplatesError" class="admin-error hidden"></div>
-      <div class="lp-detail-header">
-        <div class="lp-h1">Sjablonen</div>
+      <div class="wp-kop">
+        <div>
+          <h1 class="lp-h1">Sjablonen</h1>
+          <p class="wp-sub">Een sjabloon is de opzet voor een soort pagina, bijvoorbeeld een dienstpagina of een eventpagina. Je maakt het een keer, daarna maak je er zo veel pagina's van als je wilt. Alleen een sjabloon dat Actief is kun je gebruiken voor een nieuwe pagina.</p>
+        </div>
         <button type="button" id="lpNewTemplateBtn" class="btn btn-approve">+ Nieuw sjabloon</button>
       </div>
-      <p class="admin-footnote">
-        Eenmalig per klant/paginatype (bouwstap 6, stap 1 van het tweestappenproces, zie besluiten.md).
-        Alleen een sjabloon met status "Actief" is bruikbaar bij het aanmaken van een nieuwe pagina.
-      </p>
-      <div class="lp-table-card">
-        <table class="lp-table">
-          <thead><tr><th>Naam</th><th>Klant</th><th>Sjabloon-code</th><th>Status</th><th>Laatst gewijzigd</th></tr></thead>
-          <tbody id="lpTemplatesTableBody"></tbody>
-        </table>
-      </div>
+      <section class="wp-kaart">
+        <div id="lpTemplatesTableBody" class="wp-lijst"></div>
+      </section>
     </div>
   </div>
 
@@ -631,11 +662,11 @@
   <div id="lpVervangTab" class="tab-panel hidden">
     <div class="lp-shell">
       <div id="lpVervangError" class="admin-error hidden"></div>
-      <div class="lp-h1">Tekst vervangen bij alle pagina's van een klant</div>
-      <p class="admin-footnote">
-        Heeft de AI ergens een foute zin gezet? Zoek hem hier op, bekijk op welke pagina's hij staat en pas ze in een keer aan.
-        Er wordt niets aangepast voordat je bevestigt. Een pagina die in WordPress live staat, blijft live.
-      </p>
+      <div class="wp-kop"><div>
+        <h1 class="lp-h1">Tekst vervangen</h1>
+        <p class="wp-sub">Heeft de AI ergens een foute zin gezet? Zoek hem hier op, zie op welke pagina's hij staat en pas ze in een keer aan. Er wordt niets aangepast voordat je bevestigt. Een pagina die in WordPress live staat, blijft live.</p>
+      </div></div>
+      <section class="wp-kaart wp-links" style="margin-bottom:18px;">
       <div class="lp-field-row">
         <label for="lpVervangKlant">Klant</label>
         <select id="lpVervangKlant"></select>
@@ -646,9 +677,9 @@
         <span class="lp-field-hint">Exact zoals de tekst op de pagina staat (hoofdlettergevoelig), minstens 4 tekens. Een stuk van de zin is genoeg.</span>
       </div>
       <div class="lp-field-row">
-        <label for="lpVervangVeld">Alleen in dit veld (optioneel)</label>
+        <label for="lpVervangVeld">Alleen op deze plek in de pagina (optioneel)</label>
         <input type="text" id="lpVervangVeld" autocomplete="off" placeholder="bv. projectsIntro">
-        <span class="lp-field-hint">De naam van het veld in het sjabloon. Leeg laten betekent: overal zoeken.</span>
+        <span class="lp-field-hint">De naam van het onderdeel in het sjabloon. Leeg laten betekent: overal zoeken.</span>
       </div>
       <div class="lp-field-row">
         <label for="lpVervangNieuw">Vervangen door</label>
@@ -660,8 +691,9 @@
       <div class="modal-actions" style="justify-content:flex-start;gap:10px;">
         <button type="button" id="lpVervangZoekBtn" class="btn btn-approve">Zoek pagina's</button>
       </div>
+      </section>
 
-      <div id="lpVervangResultaat" class="hidden" style="margin-top:18px;">
+      <div id="lpVervangResultaat" class="hidden wp-kaart" style="margin-top:18px;">
         <p id="lpVervangSamenvatting" class="admin-footnote"></p>
         <p id="lpVervangWaarschuwing" class="admin-footnote hidden"></p>
         <div class="lp-table-card">
@@ -685,18 +717,19 @@
   <div id="lpKloonTab" class="tab-panel hidden">
     <div class="lp-shell">
       <div id="lpKloonError" class="admin-error hidden"></div>
-      <div class="lp-h1">WordPress kloon</div>
-      <p class="admin-footnote">
-        Kloont een bestaande pagina van de klantsite 1 op 1 (zelfde layout en opmaak) en vervangt alleen de inhoud.
-        Het resultaat is altijd een concept in WordPress. Niets gaat live zonder dat je het zelf doet.
-      </p>
-      <div class="admin-section-title">Eerder gemaakte klonen</div>
+      <div class="wp-kop"><div>
+        <h1 class="lp-h1">Kopie van WordPress</h1>
+        <p class="wp-sub">Neem een bestaande pagina van de klantsite als voorbeeld: dezelfde opmaak, alleen de inhoud wordt nieuw. Het resultaat is altijd een concept in WordPress. Niets gaat live zonder dat je het zelf doet.</p>
+      </div></div>
+      <section class="wp-kaart" style="margin-bottom:18px;">
+      <div class="wp-kaart-kop"><h2>Eerder gemaakte kopieen</h2></div>
       <div id="lpKloonLijst" class="admin-footnote">Laden...</div>
-      <button type="button" id="lpKloonLijstBtn" class="btn-plain" style="margin:8px 0 20px;">Lijst vernieuwen</button>
+      <button type="button" id="lpKloonLijstBtn" class="btn-plain" style="margin:8px 0 0;">Lijst vernieuwen</button>
+      </section>
 
-      <details style="margin:0 0 20px;">
-        <summary><strong>Bronpagina omzetten naar een portaalsjabloon (HTML)</strong></summary>
-        <p class="admin-footnote">Zet de gekozen bronpagina (de Beaver Builder pagina, zie "Bronpagina" hieronder) om naar een sjabloon met invulvelden. Alle teksten, foto's en links worden velden, de opmaak blijft die van de pagina. Daarna kun je er pagina's van maken met "Nieuwe pagina" en feedback geven zoals bij elk sjabloon. Het sjabloon wordt als Concept opgeslagen en staat dus niet live.</p>
+      <details class="wp-kaart np-meer" style="margin:0 0 18px;">
+        <summary><strong>Een bronpagina omzetten naar een sjabloon</strong></summary>
+        <p class="admin-footnote">Zet de gekozen bronpagina (zie "Bronpagina" hieronder) om naar een sjabloon met invulvelden. Alle teksten, foto's en links worden invulvelden, de opmaak blijft die van de pagina. Daarna maak je er pagina's van via Nieuwe pagina. Het sjabloon wordt als concept bewaard en staat dus niet live.</p>
         <div class="modal-actions" style="justify-content:flex-start;gap:10px;">
           <button type="button" id="lpSjabVoorstelBtn" class="btn btn-approve">Omzetten en bekijken</button>
         </div>
@@ -704,7 +737,7 @@
           <p id="lpSjabInfo" class="admin-footnote"></p>
           <ul id="lpSjabWaarschuwingen" class="admin-footnote"></ul>
           <div class="lp-field-row"><label for="lpSjabNaam">Naam van het sjabloon</label><input type="text" id="lpSjabNaam" autocomplete="off"></div>
-          <div class="lp-field-row"><label for="lpSjabId">BlueprintId (kort, kleine letters en streepjes)</label><input type="text" id="lpSjabId" autocomplete="off"></div>
+          <div class="lp-field-row"><label for="lpSjabId">Korte code (kleine letters en streepjes)</label><input type="text" id="lpSjabId" autocomplete="off"></div>
           <iframe id="lpSjabFrame" sandbox="" style="width:100%;height:60vh;border:1px solid #ddd;border-radius:10px;background:#fff;"></iframe>
           <div class="modal-actions" style="justify-content:flex-start;gap:10px;margin-top:8px;">
             <button type="button" id="lpSjabOpslaanBtn" class="btn btn-approve">Sla op als Concept sjabloon</button>
@@ -713,8 +746,9 @@
         </div>
       </details>
 
-      <div class="admin-section-title">Festivalpagina maken</div>
-      <p class="admin-footnote">Geef een festival op. Het portaal haalt de gegevens op, schrijft de teksten van de bronpagina opnieuw, en je ziet meteen de echte pagina. Pas daarna gaat er een concept naar WordPress.</p>
+      <section class="wp-kaart wp-links">
+      <div class="wp-kaart-kop"><h2>Festivalpagina maken</h2></div>
+      <p class="wp-uitleg">Geef een festival op. Het portaal haalt de gegevens op, schrijft de teksten van de bronpagina opnieuw en je ziet meteen de echte pagina. Pas daarna gaat er een concept naar WordPress.</p>
       <div class="lp-field-row">
         <label for="lpKloonKlant">Klant</label>
         <select id="lpKloonKlant"></select>
@@ -742,8 +776,9 @@
         <textarea id="lpFestWensen" class="lp-json-textarea" style="min-height:80px;" placeholder="bv. 12 t/m 14 oktober 2026, focus op festivalgangers die eerder willen inchecken"></textarea>
       </div>
       <button type="button" id="lpFestStartBtn" class="btn btn-approve">Maak voorbeeld</button>
+      </section>
 
-      <div id="lpFestWerk" class="hidden" style="margin-top:24px;">
+      <div id="lpFestWerk" class="hidden wp-kaart" style="margin-top:18px;">
         <div class="lp-h1">Voorbeeld</div>
         <p class="admin-footnote">Klik in het voorbeeld op een kop of tekst om hem direct aan te passen. Beweeg over een onderdeel en kies "+ blok boven" of "+ blok onder" om een blok uit het portaal toe te voegen, bijvoorbeeld de drie blokjes. Of typ hieronder in gewone taal wat anders moet.</p>
         <p id="lpFestInfo" class="admin-footnote"></p>
@@ -799,7 +834,7 @@
       </div>
 
       <details style="margin-top:36px;">
-        <summary>Geavanceerd: alle velden zelf aanpassen</summary>
+        <summary>Geavanceerd: alle velden van de kopie zelf aanpassen</summary>
       <button type="button" id="lpKloonVeldenBtn" class="btn btn-approve" style="margin-top:12px;">Velden ophalen</button>
 
       <div id="lpKloonEditor" class="hidden">
@@ -865,130 +900,143 @@
     <div class="lp-shell">
       <button type="button" id="lpTemplateNewBackBtn" class="btn-plain">&larr; Terug naar sjablonen</button>
       <div id="lpTemplateNewError" class="admin-error hidden"></div>
-      <div class="lp-h1">Nieuw sjabloon</div>
-
-      <div class="lp-field-row">
-        <label for="lpTplNewNaam">Naam</label>
-        <input type="text" id="lpTplNewNaam" required autocomplete="off">
-      </div>
-      <div class="lp-field-row">
-        <label for="lpTplNewKlant">Klant</label>
-        <select id="lpTplNewKlant" required></select>
-      </div>
-
-      <div class="admin-section-title" style="margin-top:20px;">Voorstel laten genereren met AI</div>
-      <p class="admin-footnote">
-        De AI ontwerpt een compleet, op maat gemaakt HTML/CSS-sjabloon (geen vast blokkenpalet meer) —
-        geinformeerd door de branding van de klant (automatisch, geen aparte vraag) en de onderstaande
-        vijf korte vragen. Bekijk daarna het voorbeeld en verfijn met feedback tot het goed is, pas dan
-        klik je op "Aanmaken".
-      </p>
-      <div class="lp-field-row">
-        <label for="lpTplNewReferentieUrl">1. Referentie-URL (aanbevolen)</label>
-        <input type="url" id="lpTplNewReferentieUrl" placeholder="https://... een bestaande pagina die qua structuur/stijl als basis moet dienen" autocomplete="off">
-      </div>
-      <div class="lp-field-row">
-        <label for="lpTplNewScreenshot">1b. Screenshot van de referentiepagina (optioneel, geeft het beste resultaat)</label>
-        <input type="file" id="lpTplNewScreenshot" accept="image/png,image/jpeg,image/webp" multiple>
-        <p class="admin-footnote" style="margin-top:4px;">Eén screenshot van de hele pagina is genoeg (in Chrome: ontwikkelaarstools, Cmd+Shift+P, "Capture full size screenshot"). Wordt automatisch in stukken geknipt, zodat de AI de opzet echt kan zien. Je kunt ook meerdere afbeeldingen kiezen.</p>
-        <p id="lpTplNewScreenshotStatus" class="admin-footnote" style="margin-top:4px;"></p>
-      </div>
-      <div class="lp-field-row">
-        <label for="lpTplNewPaginatype">2. Paginatype / doel</label>
-        <input type="text" id="lpTplNewPaginatype" placeholder="bv. festivalpagina, dienstpagina per bouwstap" autocomplete="off">
-      </div>
-      <div class="lp-field-row">
-        <label>3. Vaste onderdelen (vink aan wat VERPLICHT moet zijn op elke pagina van dit type)</label>
-        <div class="lp-checklist" id="lpTplOnderdelenChecklist"></div>
-      </div>
-      <div class="lp-field-row">
-        <label for="lpTplNewVisueleRichting">4. Visuele richting</label>
-        <select id="lpTplNewVisueleRichting">
-          <option value="">(geen voorkeur, AI kiest zelf iets passends)</option>
-          <option value="dynamisch-modern">Dynamisch en modern (animaties, verlopen, golven)</option>
-          <option value="fotografie-gedreven">Fotografie-gedreven</option>
-          <option value="icoon-gedreven-zakelijk">Icoon-gedreven, zakelijk</option>
-          <option value="minimalistisch-tekstueel">Minimalistisch, tekstueel</option>
-        </select>
-      </div>
-      <div class="lp-field-row">
-        <label for="lpTplNewConversiedoel">5. Belangrijkste conversiedoel</label>
-        <input type="text" id="lpTplNewConversiedoel" placeholder="bv. boeken, offerte aanvragen, contact opnemen" autocomplete="off">
-      </div>
-      <div class="lp-field-row">
-        <label for="lpTplNewWens">Overige wensen (optioneel)</label>
-        <textarea id="lpTplNewWens" rows="2" placeholder="alles wat hierboven nog niet aan bod kwam"></textarea>
-      </div>
-      <button type="button" id="lpTplGenerateBtn" class="btn btn-approve">Stap 1: genereer voorstel met AI</button>
-      <span id="lpTplGenerateStatus" class="admin-footnote"></span>
-
-      <div class="admin-section-title" style="margin-top:20px;">Feedback verwerken (na een eerste voorstel)</div>
-      <p class="admin-footnote">
-        Niet tevreden met het voorstel? Beschrijf hieronder wat er anders moet en klik op "Verwerk
-        feedback" &mdash; de AI past het HUIDIGE voorstel aan (de Blueprint JSON en Voorbeeldcontent
-        hieronder) in plaats van opnieuw vanaf nul te beginnen. Dit kan zo vaak als nodig.
-      </p>
-      <div class="lp-field-row">
-        <label for="lpTplSectieSelect">Waar geldt de feedback voor?</label>
-        <select id="lpTplSectieSelect"><option value="">Hele sjabloon</option></select>
-        <p class="admin-footnote" style="margin-top:4px;">Kies een onderdeel: dan past de AI alleen dat onderdeel aan. Dat is sneller en raakt de rest niet. Kies "Nieuw onderdeel toevoegen na..." om een sectie (bijvoorbeeld een galerij) toe te voegen.</p>
-      </div>
-      <div class="lp-field-row">
-        <label for="lpTplFeedback">Feedback / aanpassing</label>
-        <textarea id="lpTplFeedback" rows="3" placeholder="bv. maak de hero groter, voeg een reviews-sectie toe, minder tekst in de intro"></textarea>
-      </div>
-      <button type="button" id="lpTplRefineBtn" class="btn-plain">Verwerk feedback in voorstel</button>
-      <button type="button" id="lpTplUndoBtn" class="btn-plain hidden">Laatste wijziging ongedaan maken</button>
-      <span id="lpTplRefineStatus" class="admin-footnote"></span>
-
-      <div class="lp-field-row" style="margin-top:16px; max-width:280px;">
-        <label for="lpTplNewStatus">Status</label>
-        <select id="lpTplNewStatus">
-          <option>Concept</option>
-          <option>Actief</option>
-          <option>Gearchiveerd</option>
-        </select>
-      </div>
-      <div class="lp-field-row" style="max-width:280px;">
-        <label for="lpTplNewBlueprintId">Sjabloon-code (bv. roots-event)</label>
-        <input type="text" id="lpTplNewBlueprintId" required autocomplete="off">
-      </div>
-
-      <details class="lp-advanced">
-        <summary>Geavanceerd: ruwe Blueprint JSON en voorbeeldcontent</summary>
-        <p class="lp-advanced-hint">
-          Meestal vul je dit niet handmatig in maar laat je 'm hierboven genereren en verfijn je met
-          feedback. Nieuwe sjablonen gebruiken het slot-formaat: templateFormat, htmlTemplate,
-          cssTemplate, slots, invoerVelden, uniciteitsbudget, linkRegels, ctaRegel, seoRegels.
-        </p>
-        <div class="lp-columns">
-          <div class="lp-col">
-            <div class="lp-field-row">
-              <label for="lpTplNewBlueprintJson">Blueprint JSON</label>
-              <textarea id="lpTplNewBlueprintJson" class="lp-json-textarea" spellcheck="false"></textarea>
-            </div>
-          </div>
-          <div class="lp-col">
-            <div class="lp-field-row">
-              <label for="lpTplNewVoorbeeldJson">Voorbeeldcontent / voorbeeldSlotData (voor het voorbeeld hieronder, wordt niet opgeslagen)</label>
-              <textarea id="lpTplNewVoorbeeldJson" class="lp-json-textarea" spellcheck="false"></textarea>
-            </div>
-          </div>
+      <div class="wp-kop">
+        <div>
+          <h1 class="lp-h1">Nieuw sjabloon</h1>
+          <p class="wp-sub">Zeg in gewone woorden voor welk soort pagina je een sjabloon wilt. De AI stelt de onderdelen en de stijl voor, maakt een voorbeeld met de echte gegevens van de klant en past het aan tot jij tevreden bent.</p>
         </div>
-      </details>
+      </div>
+      <div class="wp-links">
+        <section class="wp-kaart">
+          <div class="wp-kaart-kop"><h2>1. Voor wie en waarvoor</h2></div>
+          <div class="wp-veld wp-veld-breed">
+            <label for="lpTplNewKlant">Klant</label>
+            <select id="lpTplNewKlant" required></select>
+          </div>
+          <div class="wp-veld wp-veld-breed">
+            <label for="tnDoel">Voor welk soort pagina is dit sjabloon?</label>
+            <textarea id="tnDoel" rows="3" placeholder="Bijvoorbeeld: een pagina per dienst in een plaats, waar bezoekers een offerte kunnen aanvragen"></textarea>
+          </div>
+          <div class="wp-plan-actie">
+            <button type="button" id="tnAdviesKnop" class="btn btn-approve">Laat de AI meedenken</button>
+            <span id="tnAdviesStatus" class="wp-muted"></span>
+          </div>
+        </section>
 
-      <div class="admin-section-title" style="margin-top:20px;">Voorbeeld</div>
-      <p class="admin-footnote">
-        Groot voorbeeld, met de echte klant-kleuren. Gebruik "Open in nieuw tabblad" voor een volledig
-        schermvullende weergave.
-      </p>
-      <button type="button" id="lpTplPreviewBtn" class="btn-plain">Ververs voorbeeld</button>
-      <button type="button" id="lpTplHervulBtn" class="btn-plain">Voorbeeldtekst opnieuw maken met klantgegevens</button>
-      <button type="button" id="lpTplPreviewOpenBtn" class="btn-plain">Open in nieuw tabblad</button>
-      <iframe id="lpTplPreviewFrame"></iframe>
+        <section class="wp-kaart">
+          <div class="wp-kaart-kop"><h2>2. Wat het sjabloon moet bevatten</h2></div>
+          <p id="tnWaarom" class="wp-uitleg np-advies hidden"></p>
+          <div class="wp-veld wp-veld-breed">
+            <label for="lpTplNewNaam">Naam van het sjabloon</label>
+            <input type="text" id="lpTplNewNaam" required autocomplete="off" placeholder="bv. Dienst in plaats">
+          </div>
+          <div class="wp-veld wp-veld-breed">
+            <label for="lpTplNewPaginatype">Soort pagina</label>
+            <input type="text" id="lpTplNewPaginatype" placeholder="bv. dienstpagina per plaats, festivalpagina" autocomplete="off">
+          </div>
+          <div class="wp-veld wp-veld-breed">
+            <label>Onderdelen die op elke pagina moeten staan</label>
+            <div class="lp-checklist" id="lpTplOnderdelenChecklist"></div>
+          </div>
+          <div class="wp-veld wp-veld-breed">
+            <label for="lpTplNewVisueleRichting">Stijl</label>
+            <select id="lpTplNewVisueleRichting">
+              <option value="">Laat de AI kiezen</option>
+              <option value="dynamisch-modern">Dynamisch en modern (beweging, verlopen, golven)</option>
+              <option value="fotografie-gedreven">Veel foto's</option>
+              <option value="icoon-gedreven-zakelijk">Zakelijk, met iconen</option>
+              <option value="minimalistisch-tekstueel">Rustig en met veel tekst</option>
+            </select>
+          </div>
+          <div class="wp-veld wp-veld-breed">
+            <label for="lpTplNewConversiedoel">Wat moet de bezoeker doen?</label>
+            <input type="text" id="lpTplNewConversiedoel" placeholder="bv. een offerte aanvragen, boeken, contact opnemen" autocomplete="off">
+          </div>
+          <details class="np-meer">
+            <summary>Een voorbeeldpagina meegeven (aanbevolen als je iets specifieks wilt)</summary>
+            <div class="wp-veld wp-veld-breed">
+              <label for="lpTplNewReferentieUrl">Link naar een voorbeeldpagina</label>
+              <input type="url" id="lpTplNewReferentieUrl" placeholder="https://... een pagina waarvan je de opzet mooi vindt" autocomplete="off">
+            </div>
+            <div class="wp-veld wp-veld-breed">
+              <label for="lpTplNewScreenshot">Screenshot van die pagina (optioneel, geeft het beste resultaat)</label>
+              <input type="file" id="lpTplNewScreenshot" accept="image/png,image/jpeg,image/webp" multiple>
+              <span class="wp-muted np-klein">Een screenshot van de hele pagina is genoeg. Hij wordt automatisch in stukken geknipt zodat de AI de opzet echt kan zien.</span>
+              <span id="lpTplNewScreenshotStatus" class="wp-muted np-klein"></span>
+            </div>
+          </details>
+          <div class="wp-veld wp-veld-breed">
+            <label for="lpTplNewWens">Overige wensen (optioneel)</label>
+            <textarea id="lpTplNewWens" rows="2" placeholder="Alles wat hierboven nog niet aan bod kwam"></textarea>
+          </div>
+          <div class="wp-plan-actie">
+            <button type="button" id="lpTplGenerateBtn" class="btn btn-approve">Maak een voorstel met voorbeeld</button>
+            <span id="lpTplGenerateStatus" class="wp-muted"></span>
+          </div>
+        </section>
 
-      <div class="modal-actions">
-        <button type="button" id="lpTplCreateBtn" class="btn btn-approve">Stap 2: sjabloon opslaan (Aanmaken)</button>
+        <section class="wp-kaart">
+          <div class="wp-kaart-kop"><h2>3. Voorbeeld en bijstellen</h2></div>
+          <p class="wp-uitleg">Het voorbeeld gebruikt de echte kleuren en gegevens van de klant. Vind je iets niet goed, zeg dan wat er anders moet. De AI past het huidige voorstel aan en begint niet opnieuw.</p>
+          <div class="wp-plan-actie" style="margin:0 0 10px;">
+            <button type="button" id="lpTplPreviewBtn" class="btn-plain">Ververs voorbeeld</button>
+            <button type="button" id="lpTplHervulBtn" class="btn-plain">Voorbeeldtekst opnieuw maken met klantgegevens</button>
+            <button type="button" id="lpTplPreviewOpenBtn" class="btn-plain">Open in nieuw tabblad</button>
+          </div>
+          <iframe id="lpTplPreviewFrame"></iframe>
+          <div class="wp-veld wp-veld-breed" style="margin-top:14px;">
+            <label for="lpTplSectieSelect">Waar gaat je opmerking over?</label>
+            <select id="lpTplSectieSelect"><option value="">Het hele sjabloon</option></select>
+            <span class="wp-muted np-klein">Kies een onderdeel: dan past de AI alleen dat onderdeel aan. Dat gaat sneller en laat de rest met rust. Kies "Nieuw onderdeel toevoegen na..." om bijvoorbeeld een galerij toe te voegen.</span>
+          </div>
+          <div class="wp-veld wp-veld-breed">
+            <label for="lpTplFeedback">Wat moet er anders?</label>
+            <textarea id="lpTplFeedback" rows="3" placeholder="bv. maak de bovenkant groter, voeg een reviewblok toe, minder tekst in de intro"></textarea>
+          </div>
+          <div class="wp-plan-actie">
+            <button type="button" id="lpTplRefineBtn" class="btn btn-approve">Pas het voorstel aan</button>
+            <button type="button" id="lpTplUndoBtn" class="btn-plain hidden">Laatste wijziging ongedaan maken</button>
+            <span id="lpTplRefineStatus" class="wp-muted"></span>
+          </div>
+        </section>
+
+        <section class="wp-kaart">
+          <div class="wp-kaart-kop"><h2>4. Opslaan</h2></div>
+          <div class="wp-veld wp-veld-breed">
+            <label for="lpTplNewStatus">Direct bruikbaar?</label>
+            <select id="lpTplNewStatus">
+              <option value="Concept">Nee, bewaar als concept</option>
+              <option value="Actief">Ja, maak actief (te kiezen bij een nieuwe pagina)</option>
+              <option value="Gearchiveerd">Gearchiveerd</option>
+            </select>
+          </div>
+          <details class="np-meer">
+            <summary>Geavanceerd</summary>
+            <div class="wp-veld wp-veld-breed">
+              <label for="lpTplNewBlueprintId">Korte code van het sjabloon</label>
+              <input type="text" id="lpTplNewBlueprintId" autocomplete="off" placeholder="wordt automatisch van de naam gemaakt">
+              <span class="wp-muted np-klein">Kleine letters en streepjes, bijvoorbeeld roots-event.</span>
+            </div>
+            <p class="wp-muted np-klein">Het sjabloon wordt opgeslagen als HTML en CSS met invulvelden. Normaal pas je het aan met opmerkingen hierboven en hoef je dit niet te bekijken.</p>
+            <div class="lp-columns">
+              <div class="lp-col">
+                <div class="wp-veld wp-veld-breed">
+                  <label for="lpTplNewBlueprintJson">Opzet van het sjabloon</label>
+                  <textarea id="lpTplNewBlueprintJson" class="lp-json-textarea" spellcheck="false"></textarea>
+                </div>
+              </div>
+              <div class="lp-col">
+                <div class="wp-veld wp-veld-breed">
+                  <label for="lpTplNewVoorbeeldJson">Voorbeeldtekst voor het voorbeeld (wordt niet opgeslagen)</label>
+                  <textarea id="lpTplNewVoorbeeldJson" class="lp-json-textarea" spellcheck="false"></textarea>
+                </div>
+              </div>
+            </div>
+          </details>
+          <div class="wp-plan-actie">
+            <button type="button" id="lpTplCreateBtn" class="btn btn-approve">Sjabloon opslaan</button>
+          </div>
+        </section>
       </div>
     </div>
   </div>
@@ -996,78 +1044,92 @@
   <div id="lpTemplateDetailSection" class="tab-panel hidden">
     <div class="lp-shell">
       <button type="button" id="lpTemplateBackBtn" class="btn-plain">&larr; Terug naar sjablonen</button>
-      <div class="lp-detail-header">
+      <div class="wp-kop">
         <div>
-          <div class="lp-h1" id="lpTplDetailNaam">&mdash;</div>
+          <h1 class="lp-h1" id="lpTplDetailNaam">&mdash;</h1>
           <div class="lp-meta-pills">
             <span class="lp-meta-pill" id="lpTplDetailKlantPill"></span>
             <span class="lp-meta-pill" id="lpTplDetailBlueprintIdPill"></span>
             <span class="badge" id="lpTplDetailStatusBadge">&mdash;</span>
           </div>
         </div>
-        <div class="lp-field-row" style="max-width:220px;margin:0;">
-          <label for="lpTplStatusSelect">Status</label>
-          <select id="lpTplStatusSelect">
-            <option>Concept</option>
-            <option>Actief</option>
-            <option>Gearchiveerd</option>
-          </select>
+        <div class="wp-kop-acties">
+          <div class="wp-kies">
+            <label for="lpTplStatusSelect">Status</label>
+            <select id="lpTplStatusSelect">
+              <option value="Concept">Concept (nog niet bruikbaar)</option>
+              <option value="Actief">Actief (bruikbaar voor nieuwe pagina's)</option>
+              <option value="Gearchiveerd">Gearchiveerd</option>
+            </select>
+          </div>
+          <button type="button" id="lpTplDeleteBtn" class="btn-plain lp-btn-danger">Sjabloon verwijderen</button>
         </div>
-        <button type="button" id="lpTplDeleteBtn" class="btn-plain lp-btn-danger">Sjabloon verwijderen</button>
       </div>
       <div id="lpTplDeleteError" class="admin-error hidden"></div>
-      <p class="admin-footnote">
-        Naam, klant en BlueprintId zijn hier alleen-lezen &mdash; pas die zo nodig rechtstreeks in Notion aan
-        via de pagina-eigenschappen (niet de body, zie besluiten.md).
-      </p>
       <div id="lpTemplateDetailError" class="admin-error hidden"></div>
-      <div class="lp-field-row"><label>Klant</label><input type="text" id="lpTplDetailKlant" disabled></div>
-      <div class="lp-field-row"><label>BlueprintId</label><input type="text" id="lpTplDetailBlueprintId" disabled></div>
+      <input type="hidden" id="lpTplDetailKlant"><input type="hidden" id="lpTplDetailBlueprintId">
 
-      <div id="lpTplDetailAiSection">
-        <div class="admin-section-title" style="margin-top:24px;">Verder finetunen met AI<span class="lp-recommended-badge">Aanbevolen manier</span></div>
-        <p class="admin-footnote">
-          Pas dit BESTAANDE sjabloon aan via een prompt, zonder een nieuw sjabloon aan te hoeven maken.
-          Wordt pas opgeslagen als je zelf op "Blueprint opslaan" klikt hieronder bij "Geavanceerd" &mdash;
-          zo kun je hier net zo vaak op testen zonder dat er telkens een nieuw sjabloon in Notion bijkomt.
-        </p>
-        <div class="lp-field-row">
-          <label for="lpTplDetailSectieSelect">Waar geldt de feedback voor?</label>
-          <select id="lpTplDetailSectieSelect"><option value="">Hele sjabloon</option></select>
-          <p class="admin-footnote" style="margin-top:4px;">Kies een onderdeel: dan past de AI alleen dat onderdeel aan. Dat is sneller en raakt de rest niet. Kies "Nieuw onderdeel toevoegen na..." om een sectie (bijvoorbeeld een galerij) toe te voegen.</p>
-        </div>
-        <div class="lp-field-row">
-          <label for="lpTplDetailFeedback">Feedback / aanpassing</label>
-          <textarea id="lpTplDetailFeedback" rows="3" placeholder="bv. maak de hero groter, voeg een reviews-sectie toe, minder tekst in de intro"></textarea>
-        </div>
-        <button type="button" id="lpTplDetailRefineBtn" class="btn-plain">Verwerk feedback in voorstel</button>
-        <button type="button" id="lpTplDetailUndoBtn" class="btn-plain hidden">Laatste wijziging ongedaan maken</button>
-        <span id="lpTplDetailRefineStatus" class="admin-footnote"></span>
+      <div id="lpTplDetailAiSection" class="wp-links">
+        <section class="wp-kaart">
+          <div class="wp-kaart-kop"><h2>Voorbeeld</h2></div>
+          <p class="wp-uitleg">Zo ziet een pagina van dit sjabloon eruit met de echte kleuren en gegevens van de klant.</p>
+          <div class="wp-plan-actie" style="margin:0 0 10px;">
+            <button type="button" id="lpTplDetailPreviewBtn" class="btn-plain">Ververs voorbeeld</button>
+            <button type="button" id="lpTplDetailHervulBtn" class="btn-plain">Voorbeeldtekst opnieuw maken met klantgegevens</button>
+            <button type="button" id="lpTplDetailPreviewOpenBtn" class="btn-plain">Open in nieuw tabblad</button>
+          </div>
+          <iframe id="lpTplDetailPreviewFrame"></iframe>
+        </section>
 
-        <div class="admin-section-title" style="margin-top:16px;">Voorbeeld</div>
-        <button type="button" id="lpTplDetailPreviewBtn" class="btn-plain">Ververs voorbeeld</button>
-        <button type="button" id="lpTplDetailHervulBtn" class="btn-plain">Voorbeeldtekst opnieuw maken met klantgegevens</button>
-        <button type="button" id="lpTplDetailPreviewOpenBtn" class="btn-plain">Open in nieuw tabblad</button>
-        <iframe id="lpTplDetailPreviewFrame"></iframe>
+        <section class="wp-kaart">
+          <div class="wp-kaart-kop"><h2>Tips van de AI</h2></div>
+          <p class="wp-uitleg">De AI kijkt mee naar dit sjabloon en geeft hooguit drie concrete verbeterpunten. Met een klik voer je een punt door in het voorbeeld.</p>
+          <div class="wp-plan-actie" style="margin-top:0;">
+            <button type="button" id="tdTipsKnop" class="btn btn-approve">Vraag de AI om tips</button>
+            <span id="tdTipsStatus" class="wp-muted"></span>
+          </div>
+          <div id="tdTipsLijst" class="np-tips"></div>
+        </section>
+
+        <section class="wp-kaart">
+          <div class="wp-kaart-kop"><h2>Zelf iets aanpassen</h2></div>
+          <p class="wp-uitleg">Zeg wat er anders moet. Het resultaat zie je in het voorbeeld. Het wordt pas bewaard als je zelf op "Sjabloon bewaren" klikt, dus je kunt vrij proberen.</p>
+          <div class="wp-veld wp-veld-breed">
+            <label for="lpTplDetailSectieSelect">Waar gaat je opmerking over?</label>
+            <select id="lpTplDetailSectieSelect"><option value="">Het hele sjabloon</option></select>
+            <span class="wp-muted np-klein">Kies een onderdeel: dan past de AI alleen dat onderdeel aan. Dat gaat sneller en laat de rest met rust. Kies "Nieuw onderdeel toevoegen na..." om bijvoorbeeld een galerij toe te voegen.</span>
+          </div>
+          <div class="wp-veld wp-veld-breed">
+            <label for="lpTplDetailFeedback">Wat moet er anders?</label>
+            <textarea id="lpTplDetailFeedback" rows="3" placeholder="bv. maak de bovenkant groter, voeg een reviewblok toe, minder tekst in de intro"></textarea>
+          </div>
+          <div class="wp-plan-actie">
+            <button type="button" id="lpTplDetailRefineBtn" class="btn btn-approve">Pas het voorbeeld aan</button>
+            <button type="button" id="lpTplDetailUndoBtn" class="btn-plain hidden">Laatste wijziging ongedaan maken</button>
+            <span id="lpTplDetailRefineStatus" class="wp-muted"></span>
+          </div>
+          <div class="wp-plan-actie">
+            <button type="button" id="tdBewaarKnop" class="btn btn-approve">Sjabloon bewaren</button>
+            <span id="lpTplSaved" class="wp-muted"></span>
+          </div>
+        </section>
       </div>
-      <p id="lpTplDetailLegacyNote" class="admin-footnote hidden">
-        Dit is een sjabloon in het oude blokken-formaat — AI-verfijning is hier niet beschikbaar, pas de
-        Blueprint JSON hieronder bij "Geavanceerd" zo nodig handmatig aan.
+      <p id="lpTplDetailLegacyNote" class="wp-muted hidden">
+        Dit sjabloon heeft een oud formaat. Aanpassen met de AI kan hier niet, maar je kunt de opzet hieronder bij Geavanceerd zelf aanpassen.
       </p>
 
-      <details class="lp-advanced" id="lpTplAdvancedDetails">
-        <summary>Geavanceerd: ruwe Blueprint JSON (HTML/CSS)</summary>
-        <p class="lp-advanced-hint">Alleen aanpassen als je weet wat je doet — normaal gebruik je de AI-finetuning hierboven.</p>
-        <div class="lp-field-row">
-          <label for="lpTplDetailVoorbeeldJson">Voorbeeldcontent / voorbeeldSlotData (voor het voorbeeld hierboven bij "Voorbeeld", wordt niet opgeslagen)</label>
+      <details class="lp-advanced np-meer" id="lpTplAdvancedDetails">
+        <summary>Geavanceerd: de opzet van het sjabloon zelf aanpassen</summary>
+        <p class="wp-muted np-klein">Alleen aanpassen als je weet wat je doet. Normaal gebruik je de opmerkingen hierboven. Naam en klant pas je aan in Notion.</p>
+        <div class="wp-veld wp-veld-breed">
+          <label for="lpTplDetailVoorbeeldJson">Voorbeeldtekst voor het voorbeeld (wordt niet opgeslagen)</label>
           <textarea id="lpTplDetailVoorbeeldJson" class="lp-json-textarea" spellcheck="false">{}</textarea>
         </div>
-        <div class="lp-field-row">
-          <label for="lpTplDetailBlueprintJson">Blueprint JSON</label>
+        <div class="wp-veld wp-veld-breed">
+          <label for="lpTplDetailBlueprintJson">Opzet van het sjabloon (HTML en CSS)</label>
           <textarea id="lpTplDetailBlueprintJson" class="lp-json-textarea" spellcheck="false"></textarea>
         </div>
-        <button type="button" id="lpTplSaveBlueprintBtn" class="btn btn-approve">Blueprint opslaan</button>
-        <span id="lpTplSaved" class="admin-footnote"></span>
+        <button type="button" id="lpTplSaveBlueprintBtn" class="btn btn-approve">Opzet opslaan</button>
       </details>
     </div>
   </div>
@@ -1075,7 +1137,7 @@
   <div id="lpDetailSection" class="tab-panel hidden">
     <div class="lp-shell">
       <button type="button" id="lpBackBtn" class="btn-plain">&larr; Terug naar overzicht</button>
-      <div class="lp-detail-header">
+      <div class="lp-detail-header wp-kaart pd-kop">
         <div>
           <div class="lp-h1" id="lpDetailTitel">—</div>
           <div class="lp-meta-pills">
@@ -1086,26 +1148,26 @@
           </div>
         </div>
         <div class="lp-field-row" style="max-width:220px;margin:0;">
-          <label for="lpStatusSelect">Status handmatig zetten</label>
+          <label for="lpStatusSelect">Fase van de pagina</label>
           <select id="lpStatusSelect">
-            <option>Idee</option>
-            <option>Formulier ingevuld</option>
-            <option>Feitensheet ter review</option>
-            <option>Content klaar</option>
-            <option>Ter review</option>
-            <option>Goedgekeurd</option>
-            <option>Afgewezen</option>
-            <option>Gepubliceerd</option>
-            <option>Fout</option>
+            <option value="Idee">Gepland</option>
+            <option value="Formulier ingevuld">In de maak: gegevens ingevuld</option>
+            <option value="Feitensheet ter review">Ter controle: feiten</option>
+            <option value="Content klaar">Ter controle: tekst klaar</option>
+            <option value="Ter review">Ter controle</option>
+            <option value="Goedgekeurd">Ter controle: goedgekeurd</option>
+            <option value="Afgewezen">In de maak: afgewezen</option>
+            <option value="Gepubliceerd">Live</option>
+            <option value="Fout">In de maak: er ging iets mis</option>
           </select>
         </div>
-        <button type="button" id="lpDupBtn" class="btn-plain">Dupliceer pagina</button>
+        <button type="button" id="lpDupBtn" class="btn-plain">Kopie maken</button>
         <button type="button" id="lpPageDeleteBtn" class="btn-plain lp-btn-danger">Verwijder pagina</button>
       </div>
       <p id="lpPageDeleteError" class="admin-error hidden"></p>
       <div id="lpDupPanel" class="hidden" style="border:1px solid #ccc;border-radius:8px;padding:16px;margin:12px 0;">
-        <h3 style="margin-top:0;">Dupliceer pagina</h3>
-        <p class="admin-footnote">De kopie start als nieuwe pagina met status "Formulier ingevuld". De WordPress link, de deellink en de status worden niet overgenomen.</p>
+        <h3 style="margin-top:0;">Kopie maken van deze pagina</h3>
+        <p class="admin-footnote">De kopie start als nieuwe pagina in de fase In de maak. De WordPress link, de deellink en de fase worden niet overgenomen.</p>
         <label>Titel van de nieuwe pagina <input type="text" id="lpDupTitel" style="width:100%;"></label>
         <div id="lpDupInvoer" style="margin-top:8px;"></div>
         <label style="display:block;margin-top:8px;">Lokale gegevens (een per regel, alleen feiten die kloppen)
@@ -1116,7 +1178,7 @@
           <label style="display:block;"><input type="radio" name="lpDupModus" value="opzet" checked> Alleen de opzet kopieren, de AI schrijft de tekst opnieuw (aanbevolen, foto's worden opnieuw gekozen)</label>
           <label style="display:block;"><input type="radio" name="lpDupModus" value="kopieer"> Ook de tekst kopieren, met de oude plaatsnaam vervangen (bedoeld voor events)</label>
         </fieldset>
-        <button type="button" id="lpDupMaakBtn" class="btn-plain">Maak kopie</button>
+        <button type="button" id="lpDupMaakBtn" class="btn btn-approve">Maak kopie</button>
         <hr>
         <h4>Meerdere plaatsen tegelijk</h4>
         <label>Plaatsen, een per regel
@@ -1127,77 +1189,77 @@
         <p id="lpDupStatus" class="admin-footnote"></p>
         <ul id="lpDupResultaat"></ul>
       </div>
-      <p class="admin-footnote">
-        Let op: deze status-schakelaar raakt WordPress niet aan. "Gepubliceerd" hier betekent dat
-        Dylan/Marc de pagina zelf live hebben gezet in WordPress — dat blijft altijd een bewuste,
-        handmatige stap (zie besluiten.md).
+      <p class="wp-muted np-klein">
+        De fase hierboven verandert alleen het portaal, niet WordPress. Een pagina live zetten blijft altijd een bewuste stap die je zelf doet.
       </p>
+
+      <section class="wp-kaart pd-advies" id="pdAdviesKaart">
+        <div class="wp-kaart-kop"><h2>Wat nu</h2></div>
+        <div id="pdAdvies"></div>
+      </section>
 
       <div class="lp-steps" id="lpSteps"></div>
 
       <div class="lp-subtabs" id="lpSubtabs">
-        <button type="button" class="lp-subtab-btn active" data-lp-subtab="invoer">Invoer</button>
+        <button type="button" class="lp-subtab-btn active" data-lp-subtab="invoer">Onderwerp</button>
         <button type="button" class="lp-subtab-btn" data-lp-subtab="feitensheet">Feiten</button>
         <button type="button" class="lp-subtab-btn" data-lp-subtab="content">Tekst</button>
-        <button type="button" class="lp-subtab-btn" data-lp-subtab="publiceren">Voorbeeld &amp; publiceren</button>
+        <button type="button" class="lp-subtab-btn" data-lp-subtab="publiceren">Controleren en live zetten</button>
       </div>
 
       <div id="lpSub-invoer" class="lp-subpanel">
         <div class="lp-field-row">
           <label for="lpInvoerOnderwerp">Waar gaat deze pagina over?</label>
+          <span class="wp-muted np-klein">Hoe specifieker, hoe beter de AI de tekst schrijft. Noem wat deze pagina anders maakt dan vergelijkbare pagina's.</span>
           <textarea id="lpInvoerOnderwerp" rows="4" placeholder="- Onderwerp (bv. festivalnaam, dienst, bouwstap)&#10;- Wat is er aan dit specifieke geval anders dan vergelijkbare pagina's (datum, thema, doelgroep, aanbod)?&#10;- Iets dat zeker genoemd moet worden?"></textarea>
         </div>
         <div class="lp-field-row">
-          <label for="lpInvoerCtaOverride">CTA voor deze pagina (optioneel, anders sjabloon-default)</label>
+          <label for="lpInvoerCtaOverride">Tekst van de knop (optioneel, anders de standaard van het sjabloon)</label>
           <input type="text" id="lpInvoerCtaOverride" placeholder="bv. Schrijf je nu in voor de wachtlijst">
         </div>
         <div id="lpInvoerFields"></div>
-        <button type="button" id="lpSaveInvoerBtn" class="btn btn-approve">Invoer opslaan</button>
+        <button type="button" id="lpSaveInvoerBtn" class="btn btn-approve">Opslaan</button>
         <span id="lpInvoerSaved" class="admin-footnote"></span>
       </div>
 
       <div id="lpSub-feitensheet" class="lp-subpanel hidden">
-        <p class="admin-footnote">Vink de feiten aan die in deze pagina gebruikt worden. Elk feit heeft een bron (bronprincipe, zie besluiten.md).</p>
+        <p class="admin-footnote">Vink de feiten aan die op deze pagina mogen staan. Elk feit heeft een bron, zodat je kunt nagaan of het klopt.</p>
         <div id="lpFeitenList"></div>
-        <div class="admin-section-title" style="margin-top:16px;">Extra feit toevoegen (met bron verplicht)</div>
-        <div class="lp-field-row"><label>Label</label><input type="text" id="lpExtraFeitLabel"></div>
-        <div class="lp-field-row"><label>Waarde</label><input type="text" id="lpExtraFeitWaarde"></div>
-        <div class="lp-field-row"><label>Bron</label><input type="text" id="lpExtraFeitBron"></div>
-        <button type="button" id="lpAddExtraFeitBtn" class="btn-plain">+ Toevoegen aan lijst</button>
+        <div class="admin-section-title" style="margin-top:16px;">Extra feit toevoegen (met bron)</div>
+        <div class="lp-field-row"><label>Naam van het feit</label><input type="text" id="lpExtraFeitLabel"></div>
+        <div class="lp-field-row"><label>Wat is het feit</label><input type="text" id="lpExtraFeitWaarde"></div>
+        <div class="lp-field-row"><label>Bron en datum</label><input type="text" id="lpExtraFeitBron"></div>
+        <button type="button" id="lpAddExtraFeitBtn" class="btn-plain">+ Feit toevoegen</button>
         <ul id="lpExtraFeitenList"></ul>
-        <button type="button" id="lpSaveFeitensheetBtn" class="btn btn-approve">Feitensheet opslaan</button>
+        <button type="button" id="lpSaveFeitensheetBtn" class="btn btn-approve">Feiten opslaan</button>
         <span id="lpFeitensheetSaved" class="admin-footnote"></span>
       </div>
 
       <div id="lpSub-content" class="lp-subpanel hidden">
-        <div class="lp-field-row"><label for="lpMetaTitle">Meta title</label><input type="text" id="lpMetaTitle"></div>
-        <div class="lp-field-row"><label for="lpMetaDescription">Meta description</label><textarea id="lpMetaDescription" rows="2"></textarea></div>
+        <div class="lp-field-row"><label for="lpMetaTitle">SEO titel (zo ziet Google de pagina)</label><input type="text" id="lpMetaTitle"></div>
+        <div class="lp-field-row"><label for="lpMetaDescription">SEO beschrijving</label><textarea id="lpMetaDescription" rows="2"></textarea></div>
 
         <div id="lpContentAiSection" class="hidden">
-          <p class="admin-footnote">
-            Genereert in één keer een voorstel voor alle tekst-slots van dit sjabloon (op basis van "Waar
-            gaat deze pagina over" op de Invoer-tab, de feitensheet, en zelfgekozen zusterpagina's voor
-            interne links) én kiest zelf een passende foto uit de mediabibliotheek van de klant voor elke
-            afbeelding-slot. Vul de tabs Invoer en Feiten eerst in voor het beste resultaat. Wijst
-            een afbeelding-slot af als er geen goede match in de mediabibliotheek staat — die vul je dan
-            zelf in door in het voorbeeldscherm op de afbeelding te klikken. Controleer het hele
-            resultaat altijd voordat je opslaat.
+          <p class="wp-uitleg">
+            De AI schrijft in een keer alle teksten voor deze pagina. Hij gebruikt wat je bij Onderwerp invulde, de feiten en de andere pagina's van de klant voor interne links, en kiest zelf passende foto's uit de mediabibliotheek. Vul Onderwerp en Feiten eerst in voor het beste resultaat. Controleer het resultaat altijd voordat je verder gaat. Past er geen goede foto, klik dan in het voorbeeld op de afbeelding om hem te wisselen.
           </p>
-          <button type="button" id="lpGenerateContentBtn" class="btn btn-approve">Genereer content met AI</button>
+          <button type="button" id="lpGenerateContentBtn" class="btn btn-approve">Laat de AI de tekst schrijven</button>
           <span id="lpGenerateContentStatus" class="admin-footnote"></span>
         </div>
 
+        <details class="np-meer"><summary>Geavanceerd: de tekst als code bekijken en aanpassen</summary>
         <div id="lpContentBlockHelper" class="lp-field-row" style="max-width:320px;">
           <label for="lpBlockTemplateSelect">Blokvoorbeeld invoegen</label>
           <select id="lpBlockTemplateSelect"></select>
         </div>
         <button type="button" id="lpInsertBlockBtn" class="btn-plain">+ Invoegen in JSON hieronder</button>
         <div class="lp-field-row" style="margin-top:8px;">
-          <label for="lpContentJson" id="lpContentJsonLabel">Content JSON (blocks array)</label>
+          <label for="lpContentJson" id="lpContentJsonLabel">Tekst als code</label>
           <textarea id="lpContentJson" spellcheck="false"></textarea>
         </div>
-        <button type="button" id="lpSaveContentBtn" class="btn btn-approve">Content JSON opslaan</button>
+        <button type="button" id="lpSaveContentBtn" class="btn btn-approve">Opslaan</button>
         <span id="lpContentSaved" class="admin-footnote"></span>
+        </details>
       </div>
 
       <div id="lpSub-publiceren" class="lp-subpanel hidden">
@@ -1205,17 +1267,13 @@
           <button type="button" id="lpPreviewBtn" class="btn-plain">Ververs voorbeeld</button>
           <button type="button" id="lpPreviewFullscreenBtn" class="btn-plain">Volledig scherm</button>
         </div>
-        <p class="admin-footnote">
-          Klik in het voorbeeld op een afbeelding om 'm te wisselen, of op een tekst (groen gestippeld
-          bij hover) om die aan te passen — dat wordt meteen opgeslagen. Gebruik "Volledig scherm" voor
-          een groter beeld.
+        <p class="wp-uitleg">
+          Klik in het voorbeeld op een afbeelding om hem te wisselen, of op een tekst om die aan te passen. Wijzigingen worden meteen bewaard.
         </p>
         <div id="lpShareBox" style="margin:12px 0; padding:12px; border:1px solid #e3e1dc;">
-          <strong>Deellink voor de klant</strong>
+          <strong>Deellink om de klant mee te laten meekijken</strong>
           <p class="admin-footnote">
-            Een link naar dit voorbeeld, zonder inlog. De klant ziet altijd de laatste versie. Header en
-            menu van de klantsite staan er niet op, dat staat ook in een balk bovenaan de pagina.
-            Een nieuwe link vervangt de oude.
+            Een link naar dit voorbeeld, zonder inlog. De klant ziet altijd de laatste versie. Het menu van de klantsite staat er niet op, dat staat ook in een balk bovenaan. Een nieuwe link vervangt de oude.
           </p>
           <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
             <select id="lpShareDagen">
@@ -1279,14 +1337,14 @@
         </div>
         <div class="lp-columns" style="margin-top:20px;">
           <div class="lp-col">
-            <button type="button" id="lpValidateBtn" class="btn-plain">Valideer</button>
+            <button type="button" id="lpValidateBtn" class="btn-plain">Controleer de pagina</button>
             <div id="lpValidationResult"></div>
           </div>
           <div class="lp-col">
             <p class="admin-footnote">
-              Zet de pagina als CONCEPT in WordPress (nooit direct live). Weigert als de validator fouten geeft.
+              Zet de pagina als concept in WordPress. Hij gaat nooit direct live. Lukt dit niet als de controle fouten vindt.
             </p>
-            <button type="button" id="lpPublishBtn" class="btn btn-approve">Publiceer als concept naar WordPress</button>
+            <button type="button" id="lpPublishBtn" class="btn btn-approve">Zet als concept in WordPress</button>
             <div id="lpPublishResult"></div>
           </div>
         </div>
@@ -1298,6 +1356,7 @@
 <script src="/lp.js"></script>
 <script src="/lp-werkplaats.js"></script>
 <script src="/lp-kloon.js"></script>
+<script src="/lp-begeleiding.js"></script>
 <script src="/lp-vervang.js"></script>
 <script src="/lp-klantgegevens.js"></script>
 <script src="/lp-festival.js"></script>
