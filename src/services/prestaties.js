@@ -153,7 +153,11 @@ function parseTalen(tekst) {
       taal: taalNaam(t.taal),
       vertoningen: Number(t.i) || 0,
       clicks: Number(t.c) || 0,
-      paginaweergaven: t.gv === null || t.gv === undefined ? null : Number(t.gv) || 0
+      paginaweergaven: t.gv === null || t.gv === undefined ? null : Number(t.gv) || 0,
+      // Zoekwoorden van de pagina in deze taal. Ontbreekt bij oudere sync rijen (dan undefined).
+      zoekwoorden: Array.isArray(t.z)
+        ? t.z.slice(0, 5).map((z) => ({ q: z.q, c: z.c || 0, i: z.i || 0, p: z.p, label: positieLabel(z.p) }))
+        : undefined
     }));
   } catch (err) {
     return [];

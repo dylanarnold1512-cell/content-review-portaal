@@ -664,3 +664,11 @@ body {
 .pv-effecten .pv-effect-item:first-of-type { border-top: 0; }
 .pv-effect-kop { font-size: 12px; margin-bottom: 2px; }
 .pv-effect-soort { font-weight: 700; color: var(--blue); }
+
+/* Inklapbare kaarten op Prestaties */
+.pv-kaart-h2 { margin: 0; font: inherit; }
+.pv-kaart-knop { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: 0; padding: 18px 20px; cursor: pointer; text-align: left; color: inherit; font: inherit; }
+.pv-kaart-knop .p-kaart-titel { margin: 0; flex: 1; }
+.pv-kaart-aantal { font-size: 12px; font-weight: 600; background: var(--surface-2, #f1f2f4); border-radius: 999px; padding: 2px 9px; }
+.pv-kaart-knop .pv-pijl { font-size: 18px; line-height: 1; }
+.pv-kaart-h2 + .p-kaart-inhoud[hidden] { display: none; }

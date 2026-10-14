@@ -158,3 +158,19 @@ test('zonder kansen in de tabel blijven de oude regels gelden', () => {
   assert.equal(r.inzichten.kansen.length, 1);
   assert.equal(r.periodeType, '28d');
 });
+
+test('talen nemen de zoekwoorden per taal mee', () => {
+  const { bouwPrestaties } = require('../src/services/prestaties');
+  const talen = JSON.stringify([
+    { taal: 'hoofd', pad: '/a', c: 1, i: 10, p: 5, gv: null, z: [{ q: 'bloemen', c: 1, i: 10, p: 5 }] },
+    { taal: 'de', pad: '/de/a', c: 0, i: 20, p: 8, gv: null, z: [{ q: 'trockenblumen', c: 0, i: 20, p: 8 }] }
+  ]);
+  const r = bouwPrestaties({
+    overzicht: { periode_eind: '2026-10-10' },
+    blogs: [{ blog_pad: '/a', titel: 'A', vertoningen: 30, clicks: 1, talen, zoekwoorden: JSON.stringify([{ q: 'bloemen', c: 1, i: 10, p: 5 }]) }],
+    weken: [], indexatie: [], conversies: [], kansenRijen: []
+  }, '2026-10-12');
+  const de = r.blogs[0].talen.find((t) => t.code === 'de');
+  assert.strictEqual(de.zoekwoorden[0].q, 'trockenblumen');
+  assert.strictEqual(de.zoekwoorden[0].label, 'Pagina 1');
+});
