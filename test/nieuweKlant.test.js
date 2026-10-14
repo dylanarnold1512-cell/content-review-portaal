@@ -44,3 +44,9 @@ test('werkplaats heeft vinkjes en verwijderen voor pagina\'s en sjablonen', () =
 test('eerdere intakes zijn uitklapbaar', () => {
   assert.match(lees('public/admin.js'), /<details class="ikl-rij"/);
 });
+
+test('klantportaal toont productnaam met door Advertisr.', () => {
+  assert.match(lees('public/index.html'), /id="pProductNaam"/);
+  assert.match(lees('public/app.js'), /Blogr\. en Pagr\./);
+  assert.match(lees('public/lp.html'), /door <img class="brand-logo-klein"/);
+});

@@ -564,3 +564,10 @@ body.alleen-pagr #tabNav .p-nav-groep:not(#paginasGroep) { display: none; }
 .pg-regel:first-of-type { border-top: none; }
 @media (max-width: 800px) { .pg-twee { grid-template-columns: minmax(0, 1fr); } }
 .pg-regel a { color: var(--p-merk, #c4142c); text-decoration: none; } .pg-regel a:hover { text-decoration: underline; }
+
+/* Merkregel: productnaam met "door Advertisr." */
+.p-productnaam { font-size: 22px; font-weight: 700; letter-spacing: -.01em; line-height: 1.1; margin-bottom: 4px; }
+.p-productnaam.hidden, .p-door-tekst.hidden { display: none; }
+.p-door { display: flex; align-items: center; gap: 6px; }
+.p-door-tekst { font-size: 12px; color: var(--p-tekst-zacht, #6b7280); }
+.p-door .p-logo { height: 15px; }
