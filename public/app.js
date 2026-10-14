@@ -114,7 +114,8 @@ async function enterApp(clientId, clientMeta) {
   if (paginasGroep) paginasGroep.classList.toggle('hidden', !producten.pagr);
   if (!producten.blogr) {
     document.body.classList.add('alleen-pagr');
-    switchTab('paginas');
+    ['pagrOverzichtBtn', 'pagrResultatenBtn'].forEach((id) => { const b = document.getElementById(id); if (b) b.classList.remove('hidden'); });
+    switchTab('pagrOverzicht');
     return;
   }
   const komtUitDeepLink = Boolean(deepLinkItemId);
@@ -154,6 +155,12 @@ function switchTab(tab) {
   const paginasTab = document.getElementById('paginasTab');
   if (paginasTab) paginasTab.classList.toggle('hidden', tab !== 'paginas');
   if (tab === 'paginas' && window.loadPaginas) window.loadPaginas();
+  const pagrOverzichtTab = document.getElementById('pagrOverzichtTab');
+  if (pagrOverzichtTab) pagrOverzichtTab.classList.toggle('hidden', tab !== 'pagrOverzicht');
+  const pagrResultatenTab = document.getElementById('pagrResultatenTab');
+  if (pagrResultatenTab) pagrResultatenTab.classList.toggle('hidden', tab !== 'pagrResultaten');
+  if (tab === 'pagrOverzicht' && window.loadPagrOverzicht) window.loadPagrOverzicht();
+  if (tab === 'pagrResultaten' && window.loadPagrResultaten) window.loadPagrResultaten();
   document.getElementById('blogsTab').classList.toggle('hidden', tab !== 'blogs');
   if (tab === 'overzicht' && window.renderOverzicht) window.renderOverzicht(state, badgeClass, openBlogUitOverzicht);
   document.getElementById('prestatiesTab').classList.toggle('hidden', tab !== 'prestaties');

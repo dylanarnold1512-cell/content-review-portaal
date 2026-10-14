@@ -557,3 +557,10 @@ button, input, textarea, select { font-family: inherit; }
 .pg-idee input, .pg-idee textarea { width: 100%; box-sizing: border-box; }
 body.alleen-pagr #tabNav .p-nav-groep:not(#paginasGroep) { display: none; }
 .pg-tabel a { color: var(--p-merk, #c4142c); text-decoration: none; } .pg-tabel a:hover { text-decoration: underline; }
+.pg-twee { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+.pg-blok { padding: 18px 20px; }
+.pg-blok h2 { margin: 0 0 10px; font-size: 16px; }
+.pg-regel { padding: 10px 0; border-top: 1px solid var(--p-lijn, #eceef5); font-size: 14px; }
+.pg-regel:first-of-type { border-top: none; }
+@media (max-width: 800px) { .pg-twee { grid-template-columns: minmax(0, 1fr); } }
+.pg-regel a { color: var(--p-merk, #c4142c); text-decoration: none; } .pg-regel a:hover { text-decoration: underline; }
