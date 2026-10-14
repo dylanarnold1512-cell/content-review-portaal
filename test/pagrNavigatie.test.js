@@ -30,3 +30,20 @@ test('de LP verwerkt alleen berichten van dezelfde herkomst', () => {
 test('ingebed verbergt de eigen kopbalk van de LP', () => {
   assert.ok(lees('lp.html').includes('html.ingebed #lpApp .top { display: none; }'));
 });
+
+test('stap 13: de LP meldt zijn tab aan de admin en de admin volgt', () => {
+  const lp = fs.readFileSync(path.join(__dirname, '..', 'public', 'lp.js'), 'utf8');
+  const admin = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin.js'), 'utf8');
+  assert.ok(lp.includes("type: 'pagr-tab-actief'"));
+  assert.ok(admin.includes("d.type === 'pagr-tab-actief'"));
+  // De speciale panelen (kloon, vervang, klantgegevens) worden ook bij een programmatische tabwissel getoond.
+  assert.ok(lp.includes("const speciaal = ['kloon', 'vervang', 'klantgegevens']"));
+});
+
+test('stap 13: meerdere pagina\'s en sjablonen tegelijk verwijderen heeft endpoints en keuzevakjes', () => {
+  const routes = fs.readFileSync(path.join(__dirname, '..', 'src', 'routes', 'lp.js'), 'utf8');
+  assert.ok(routes.includes("'/pages/verwijder-meerdere'"));
+  assert.ok(routes.includes("'/templates/verwijder-meerdere'"));
+  const lp = fs.readFileSync(path.join(__dirname, '..', 'public', 'lp.js'), 'utf8');
+  assert.ok(lp.includes('data-sel='));
+});

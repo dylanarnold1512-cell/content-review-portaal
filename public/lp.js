@@ -114,26 +114,14 @@ function showLpLogin() {
   document.getElementById('lpLoginScreen').classList.remove('hidden');
 }
 
-document.getElementById('lpLoginForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const password = document.getElementById('lpPasswordInput').value;
-  const errorEl = document.getElementById('lpLoginError');
-  errorEl.textContent = '';
-  try {
-    await lpApi('/login', { method: 'POST', body: JSON.stringify({ password }) });
-    showLpApp();
-    await bootLpApp();
-  } catch (err) {
-    errorEl.textContent = err.message;
-  }
-});
-
-document.getElementById('lpLogoutBtn').addEventListener('click', async () => {
-  await lpApi('/logout', { method: 'POST' });
-  showLpLogin();
-});
-
 // ---- Tab-navigatie (hoofdtabs) ----
+let lpDoorKlik = false;
+// Meldt de gekozen tab aan de admin, zodat het menu links meebeweegt (alleen als we ingebed zijn).
+function lpMeldTabAanAdmin(tab) {
+  try {
+    if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'pagr-tab-actief', tab }, window.location.origin);
+  } catch (e) { /* niet ingebed */ }
+}
 function switchLpTab(tab) {
   document.querySelectorAll('#lpTabNav .tab-btn').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.lpTab === tab);
@@ -144,6 +132,17 @@ function switchLpTab(tab) {
   document.getElementById('lpNieuwTab').classList.toggle('hidden', tab !== 'nieuw');
   document.getElementById('lpSjablonenTab').classList.toggle('hidden', tab !== 'sjablonen');
   document.getElementById('lpIntakeTab').classList.toggle('hidden', tab !== 'intake');
+  // Kopie van WordPress, Tekst vervangen en Klantgegevens schakelen zichzelf via een klik op hun tabknop. Bij een
+  // programmatische aanroep (bijvoorbeeld de knop "Kopie van een bestaande pagina") doen we die klik hier.
+  const speciaal = ['kloon', 'vervang', 'klantgegevens'];
+  if (speciaal.includes(tab) && !lpDoorKlik) {
+    const knop = document.querySelector(`#lpTabNav .tab-btn[data-lp-tab="${tab}"]`);
+    lpDoorKlik = true;
+    try { if (knop) knop.click(); } finally { lpDoorKlik = false; }
+  } else if (!speciaal.includes(tab)) {
+    ['lpKloonTab', 'lpVervangTab', 'lpKlantgegevensTab'].forEach((id) => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); });
+  }
+  lpMeldTabAanAdmin(tab);
   document.getElementById('lpDetailSection').classList.add('hidden');
   document.getElementById('lpTemplateNewSection').classList.add('hidden');
   document.getElementById('lpTemplateDetailSection').classList.add('hidden');
@@ -325,16 +324,63 @@ function renderPagesTable() {
     const stand = standVan(p.status);
     const datum = p.laatstGewijzigd ? new Date(p.laatstGewijzigd).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : '';
     return `<div class="wp-rij lp-row" data-page-id="${p.id}" tabindex="0" role="button">
+      <label class="wp-vink"><input type="checkbox" data-sel="${p.id}" aria-label="Selecteer ${(p.titel || '').replace(/"/g, '&quot;')}"></label>
       <div class="wp-rij-hoofd"><strong>${p.titel || '(zonder titel)'}</strong><small class="wp-muted">${klantNaam(p.klant)}</small></div>
       <span class="wp-pil ${klasse(stand)}"><span class="wp-stip"></span>${stand}</span>
       <span class="wp-muted wp-rij-datum">${datum}</span>
     </div>`;
   }).join('') || '<p class="wp-muted">Nog geen pagina\'s. Maak je eerste pagina met Nieuwe pagina.</p>';
+  lpKoppelSelectie('lpPagina', lijst);
   lijst.querySelectorAll('.lp-row').forEach((row) => {
     const open = () => openPageDetail(row.dataset.pageId);
-    row.addEventListener('click', open);
-    row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+    row.addEventListener('click', (e) => { if (e.target.closest('.wp-vink')) return; open(); });
+    row.addEventListener('keydown', (e) => { if (e.target.closest('.wp-vink')) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
   });
+}
+
+
+// ---- Meerdere tegelijk selecteren en verwijderen (Pagr. stap 13) ----
+// De balk boven de lijst heeft "Alles selecteren", een teller en de verwijderknop. De uitvoering gaat via een
+// endpoint dat per item verwijdert en fouten per item teruggeeft.
+const LP_SELECTIE = {
+  lpPagina: { eenheid: 'pagina', meervoud: "pagina's", url: '/pages/verwijder-meerdere', ververs: () => loadPages(), extra: ' Pagina\'s die al in WordPress staan gaan daar naar de prullenbak.' },
+  lpTemplate: { eenheid: 'sjabloon', meervoud: 'sjablonen', url: '/templates/verwijder-meerdere', ververs: () => loadTemplates(), extra: ' Een sjabloon dat Actief is kan niet verwijderd worden, zet het eerst op Concept.' }
+};
+function lpKoppelSelectie(pre, lijst) {
+  const cfg = LP_SELECTIE[pre];
+  const alles = document.getElementById(pre + 'SelAlles');
+  const tel = document.getElementById(pre + 'SelTel');
+  const knop = document.getElementById(pre + 'VerwijderBtn');
+  const vinkjes = () => [...lijst.querySelectorAll('input[data-sel]')];
+  const werkBij = () => {
+    const gekozen = vinkjes().filter((c) => c.checked);
+    tel.textContent = gekozen.length ? `${gekozen.length} geselecteerd` : '';
+    knop.classList.toggle('hidden', !gekozen.length);
+    alles.checked = gekozen.length > 0 && gekozen.length === vinkjes().length;
+    alles.indeterminate = gekozen.length > 0 && gekozen.length < vinkjes().length;
+  };
+  vinkjes().forEach((c) => c.addEventListener('change', werkBij));
+  alles.onchange = () => { vinkjes().forEach((c) => { c.checked = alles.checked; }); werkBij(); };
+  knop.onclick = async () => {
+    const ids = vinkjes().filter((c) => c.checked).map((c) => c.dataset.sel);
+    if (!ids.length || knop.disabled) return;
+    const naam = ids.length === 1 ? cfg.eenheid : cfg.meervoud;
+    if (!confirm(`Weet je zeker dat je ${ids.length} ${naam} wilt verwijderen?${cfg.extra}`)) return;
+    const melding = document.getElementById(pre + 'SelMelding');
+    knop.disabled = true;
+    melding.classList.remove('hidden');
+    melding.textContent = 'Bezig met verwijderen...';
+    try {
+      const r = await lpApi(cfg.url, { method: 'POST', body: JSON.stringify({ ids }) });
+      await cfg.ververs();
+      const m = document.getElementById(pre + 'SelMelding');
+      m.classList.remove('hidden');
+      m.textContent = `${r.verwijderd.length} verwijderd.` + (r.fouten.length ? ` Niet gelukt: ${r.fouten.map((f) => f.fout).join(' | ')}` : '');
+    } catch (err) {
+      melding.textContent = err.message;
+    } finally { knop.disabled = false; }
+  };
+  werkBij();
 }
 
 // ---- Voortgangsbalk (Invoer / Feiten controleren / Content / Voorbeeld & publiceren) ----
@@ -1443,15 +1489,17 @@ function renderTemplatesTable() {
     const datum = t.laatstGewijzigd ? new Date(t.laatstGewijzigd).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : '';
     const klasse = t.status === 'Actief' ? 'wp-live' : 'wp-gepland';
     return `<div class="wp-rij lp-row" data-template-id="${t.id}" tabindex="0" role="button">
+      <label class="wp-vink"><input type="checkbox" data-sel="${t.id}" aria-label="Selecteer ${(t.naam || '').replace(/"/g, '&quot;')}"></label>
       <div class="wp-rij-hoofd"><strong>${t.naam || '(zonder naam)'}</strong><small class="wp-muted">${klantNaam(t.klant)}</small></div>
       <span class="wp-pil ${klasse}"><span class="wp-stip"></span>${uitleg[t.status] || t.status || ''}</span>
       <span class="wp-muted wp-rij-datum">${datum}</span>
     </div>`;
   }).join('') || '<p class="wp-muted">Nog geen sjablonen. Maak je eerste sjabloon met Nieuw sjabloon.</p>';
+  lpKoppelSelectie('lpTemplate', lijst);
   lijst.querySelectorAll('.lp-row').forEach((row) => {
     const open = () => openTemplateDetail(row.dataset.templateId);
-    row.addEventListener('click', open);
-    row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+    row.addEventListener('click', (e) => { if (e.target.closest('.wp-vink')) return; open(); });
+    row.addEventListener('keydown', (e) => { if (e.target.closest('.wp-vink')) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
   });
 }
 

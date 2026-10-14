@@ -7,7 +7,6 @@ const http = require('node:http');
 const express = require('express');
 const cookieSession = require('cookie-session');
 
-process.env.LP_PASSWORD = 'test-wachtwoord';
 process.env.SESSION_SECRET = 'test-geheim';
 process.env.WP_URL_MACBOUW = 'https://klant.test';
 process.env.WP_USERNAME_MACBOUW = 'u';
@@ -70,6 +69,7 @@ async function startApp() {
   const app = express();
   app.use(express.json());
   app.use(cookieSession({ name: 'portal_session', keys: ['test-geheim'] }));
+  app.post('/test-login', (req, res) => { req.session.isAdmin = true; res.json({ ok: true }); });
   app.use('/api/lp', lpRoutes);
   const server = http.createServer(app);
   await new Promise((resolve) => server.listen(0, resolve));
@@ -81,7 +81,7 @@ test('tekst vervangen: zoeken, per pagina vervangen en een live pagina blijft li
   try {
     // Zonder inlog mag het niet.
     assert.equal((await fetch(`${base}/api/lp/clients/macbouw/tekst-vervangen/zoek`, { method: 'POST' })).status, 401);
-    const login = await fetch(`${base}/api/lp/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: 'test-wachtwoord' }) });
+    const login = await fetch(`${base}/test-login`, { method: 'POST' });
     const cookie = login.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ');
     const post = (pad, body) => fetch(`${base}/api/lp${pad}`, { method: 'POST', headers: { 'Content-Type': 'application/json', cookie }, body: JSON.stringify(body) });
 

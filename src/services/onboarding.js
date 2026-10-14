@@ -110,17 +110,27 @@ async function voorKlant(clientId) {
   return { clientId, klant, rijen, samenvatting: samenvat(rijen), chatZin: chatZin(klant || clientId) };
 }
 
+// Welke stappen ontbreken nog bij een klant die al stappen heeft. Heeft een klant al Blogr. stappen en komt Pagr. erbij,
+// dan telt dat als Beide, zodat de gedeelde stappen niet dubbel komen.
+function ontbrekendeStappen(producten, bestaandeNrs) {
+  const nrs = new Set(bestaandeNrs || []);
+  const effectief = producten === 'Pagr.' && [...nrs].some((n) => n < 100) ? 'Beide' : producten;
+  return stappenVoor(effectief).filter((s) => !nrs.has(s.nr));
+}
+
 // Maakt de 21 stappen voor een klant aan. Bestaan er al stappen voor dit Client ID, dan gebeurt er niets.
 // klaar: stapnummers die al klaar zijn bij de start (bijvoorbeeld 1 na de websitescan).
 async function start({ klant, clientId, klaar = [], door = 'Portaal', producten = 'Blogr.' }) {
   if (!klant || !clientId) throw new Error('Klantnaam en Client ID zijn verplicht.');
   const bestaand = (await alleRijen()).filter((r) => r.clientId === clientId);
-  if (bestaand.length) return { aangemaakt: 0, bestaand: bestaand.length };
+  // Heeft de klant al stappen, dan vullen we alleen aan wat er nog mist (bijvoorbeeld de Pagr. stappen als Pagr. erbij komt).
+  const nieuweStappen = bestaand.length ? ontbrekendeStappen(producten, bestaand.map((r) => r.nr)) : stappenVoor(producten);
+  if (bestaand.length && !nieuweStappen.length) return { aangemaakt: 0, bestaand: bestaand.length };
   const client = getNotionClient();
   let aangemaakt = 0;
   // Bij alleen Pagr. is de eerste stap nummer 101 in plaats van 1.
   const klaarNrs = producten === 'Pagr.' ? klaar.map((n) => (n < 100 ? n + 100 : n)) : klaar;
-  for (const s of stappenVoor(producten)) {
+  for (const s of nieuweStappen) {
     const fase = FASEN.find((f) => f.code === s.fase);
     const isKlaar = klaarNrs.includes(s.nr);
     await client.pages.create({
@@ -182,4 +192,4 @@ async function synchroniseMerkprofiel(klantNaam, profielStatus) {
   return true;
 }
 
-module.exports = { bepaalMerkprofielStap, synchroniseMerkprofiel, normaliseerRij, samenvat, chatZin, groepeerPerKlant, overzicht, voorKlant, start, zetStap };
+module.exports = { bepaalMerkprofielStap, synchroniseMerkprofiel, normaliseerRij, samenvat, chatZin, groepeerPerKlant, overzicht, voorKlant, start, zetStap, ontbrekendeStappen };
