@@ -359,7 +359,9 @@ async function kopieer(tekst) {
 async function renderOnboarding(c, inhoud) {
   inhoud.innerHTML = '<p class="admin-footnote">Onboarding laden…</p>';
   // Stap 4 volgt het merkprofiel: even de status opvragen, dan werkt de server de stap bij.
-  if (adminState.onboarding[c.id] && !c.alleenOnboarding) await adminApi('/profiel/status?klant=' + encodeURIComponent(c.naam)).catch(() => {});
+  if (adminState.onboarding[c.id]) await adminApi('/profiel/status?klant=' + encodeURIComponent(c.naam)).catch(() => {});
+  mpVorige = '';
+  mpInline = null;
   let data;
   try {
     data = await adminApi(`/onboarding/${encodeURIComponent(c.id)}`);
@@ -368,6 +370,15 @@ async function renderOnboarding(c, inhoud) {
     return;
   }
   if (huidig.klantId !== c.id || huidig.tab !== 'onboarding') return; // intussen weggeklikt
+  let websiteVoorKlant = '';
+  if (data.rijen.some((r) => r.nr === 4 || r.nr === 103)) {
+    try {
+      const intakes = (await adminApi('/intake')).intakes || [];
+      const i = intakes.find((x) => x.clientId === c.id) || intakes.find((x) => String(x.klant || '').toLowerCase() === String(c.naam || '').toLowerCase());
+      websiteVoorKlant = (i && i.website) || '';
+    } catch (err) { websiteVoorKlant = ''; }
+    if (huidig.klantId !== c.id || huidig.tab !== 'onboarding') return;
+  }
   if (!data.rijen.length) {
     inhoud.innerHTML = `
     <section class="p-kaart ad-blok ad-leeg">
@@ -404,11 +415,11 @@ async function renderOnboarding(c, inhoud) {
           <h4>${escapeHtmlAdmin(r.titel)}</h4>
           <p>${escapeHtmlAdmin(r.uitleg)}</p>
           <input type="text" class="ad-uitkomst" value="${escapeHtmlAdmin(r.uitkomst)}" placeholder="Uitkomst of notitie" aria-label="Uitkomst van stap ${r.nr}" maxlength="500">
+          ${(r.nr === 4 || r.nr === 103) ? mpInlineHtml(c, websiteVoorKlant) : ''}
         </div>
         <div class="ad-stap-rechts">
           <select class="ad-statusselect ${ONB_PIL[r.status] || ''}" aria-label="Status van stap ${r.nr}">${ONB_STATUSSEN.map((st) => `<option${st === r.status ? ' selected' : ''}>${st}</option>`).join('')}</select>
           <small>Aan zet: ${ONB_AAN_ZET[r.aanZet] || escapeHtmlAdmin(r.aanZet)}</small>
-          ${r.nr === 4 && !c.alleenOnboarding ? '<button type="button" class="p-link" data-naar-merkprofiel>Merkprofiel opbouwen</button>' : ''}
         </div>
       </div>`).join('');
     return `<section class="p-kaart ad-fase"><div class="ad-fase-kop"><h3>Fase ${code}. ${ONB_FASEN[code]}</h3><span>${klaar} van ${rijen.length} klaar</span></div>${stappen}</section>`;
@@ -431,7 +442,11 @@ async function renderOnboarding(c, inhoud) {
     e.target.textContent = ok ? 'Gekopieerd' : 'Kopiëren lukt niet, selecteer de zin';
     setTimeout(() => { e.target.textContent = 'Kopieer zin'; }, 2000);
   });
-  inhoud.querySelectorAll('[data-naar-merkprofiel]').forEach((b) => b.addEventListener('click', () => gaNaar('klant', c.id, 'merkprofiel')));
+  if (ikEl('mpStart')) {
+    mpInline = { c, inhoud };
+    ikEl('mpStart').addEventListener('click', () => mpStart(false));
+    mpToonStatus();
+  }
   inhoud.querySelectorAll('.ad-stap').forEach((rij) => {
     const pageId = rij.dataset.page;
     const sla = async (veld) => {
@@ -791,7 +806,7 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
   try {
     const intakeAntwoord = await adminApi('/intake', { method: 'POST', body: JSON.stringify(payload) });
     let profiel = { gestart: false, fout: '' };
-    if (ikBlogr() && ikEl('intakeProfiel').checked && payload.website) {
+    if (ikEl('intakeProfiel').checked && payload.website) {
       try {
         await adminApi('/profiel/start', { method: 'POST', body: JSON.stringify({ klant: payload.klant, website: payload.website, force: false }) });
         profiel.gestart = true;
@@ -897,7 +912,7 @@ function ikToonSecties() {
 function ikWatGebeurt() {
   const regels = ['De intake komt in Notion', 'De onboardingstappen worden aangemaakt'];
   if (ikBlogr()) regels.push('n8n bouwt de blogkant binnen een uur');
-  if (ikBlogr() && ikEl('intakeProfiel').checked) regels.push('Het merkprofiel wordt opgebouwd');
+  if (ikEl('intakeProfiel').checked) regels.push('Het merkprofiel wordt opgebouwd');
   if (ikPagr()) { regels.push('De klant komt in Pagr. Klantgegevens'); regels.push("Product en pagina's per maand worden ingesteld"); }
   return regels;
 }
@@ -1082,6 +1097,21 @@ document.querySelectorAll('input[name="ikProduct"]').forEach((r) => r.addEventLi
 
 // ---- Merkprofiel opbouwen ----
 let mpTimer = null;
+let mpVorige = '';
+let mpInline = null; // gevuld als het opbouwen in de onboarding staat (stap 4 of 103)
+
+// Kleine variant van het opbouwen, direct in de onboarding bij de merkprofielstap.
+function mpInlineHtml(c, website) {
+  return `
+          <div class="ad-stap-actie">
+            <input type="hidden" id="mpKlant" value="${escapeHtmlAdmin(c.naam)}">
+            <input type="text" id="mpWebsite" class="ad-uitkomst" value="${escapeHtmlAdmin(website || '')}" placeholder="Website, bijv. www.bedrijf.nl" aria-label="Website van de klant" autocomplete="off">
+            <div class="ad-form-rij">
+              <button type="button" id="mpStart" class="p-knop p-knop-hoofd">Merkprofiel opbouwen</button>
+              <span id="mpStatus" class="mp-bouw-status"></span>
+            </div>
+          </div>`;
+}
 
 const MP_STATUSTEKST = {
   geen: 'Nog geen profiel gemaakt.',
@@ -1093,6 +1123,8 @@ const MP_STATUSTEKST = {
 };
 
 function renderMerkprofielBouw(c, inhoud) {
+  mpInline = null;
+  mpVorige = '';
   inhoud.innerHTML = `
   <section class="p-kaart ad-blok">
     <header class="ad-blok-kop">
@@ -1120,6 +1152,14 @@ async function mpToonStatus() {
   try {
     const stand = await adminApi('/profiel/status?klant=' + encodeURIComponent(klant));
     if (!ikEl('mpStatus')) return;
+    const vorige = mpVorige;
+    mpVorige = stand.status;
+    // Klaar of mislukt in de onboarding: de stap is op de server bijgewerkt, dus de lijst opnieuw tonen.
+    if (mpInline && vorige === 'bezig' && stand.status !== 'bezig' && huidig && huidig.tab === 'onboarding') {
+      clearTimeout(mpTimer);
+      renderOnboarding(mpInline.c, mpInline.inhoud);
+      return;
+    }
     let tekst = MP_STATUSTEKST[stand.status] || '';
     if (stand.aangemaakt && stand.status !== 'geen' && stand.status !== 'bezig') tekst += ' (' + String(stand.aangemaakt).slice(0, 10) + ')';
     if (stand.status === 'mislukt' && stand.verslag) tekst += ' ' + stand.verslag;
