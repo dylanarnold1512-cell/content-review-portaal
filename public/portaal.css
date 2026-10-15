@@ -339,12 +339,14 @@ button, input, textarea, select { font-family: inherit; }
 
 /* Eén breedte en één marge voor elk tabblad. Staat hier zodat de oude regels per tabblad in styles.css niet meer winnen. */
 .p-main > #overzichtTab, .p-main > #blogsTab, .p-main > #prestatiesTab, .p-main > #rapportagesTab,
-.p-main > #aiZichtbaarheidTab, .p-main > #merkprofielTab, .p-main > #kennisdocumentTab, .p-main > #hulpTab, .p-main > #meldingTab {
+.p-main > #aiZichtbaarheidTab, .p-main > #merkprofielTab, .p-main > #kennisdocumentTab, .p-main > #hulpTab, .p-main > #meldingTab,
+.p-main > #paginasTab, .p-main > #pagrOverzichtTab, .p-main > #pagrResultatenTab {
   max-width: 1244px; margin: 0 auto; padding: 24px 32px 56px;
 }
 @media (max-width: 900px) {
   .p-main > #overzichtTab, .p-main > #blogsTab, .p-main > #prestatiesTab, .p-main > #rapportagesTab,
-  .p-main > #aiZichtbaarheidTab, .p-main > #merkprofielTab, .p-main > #kennisdocumentTab, .p-main > #hulpTab, .p-main > #meldingTab { padding: 16px 16px 40px; }
+  .p-main > #aiZichtbaarheidTab, .p-main > #merkprofielTab, .p-main > #kennisdocumentTab, .p-main > #hulpTab, .p-main > #meldingTab,
+.p-main > #paginasTab, .p-main > #pagrOverzichtTab, .p-main > #pagrResultatenTab { padding: 16px 16px 40px; }
 }
 .p-bl-lijst { max-height: none; overflow: visible; }
 .p-bl-layout { padding: 0; max-width: none; margin: 0; }
