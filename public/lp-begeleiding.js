@@ -28,14 +28,67 @@
       kaart.classList.toggle('hidden', !gepland.length);
       $('npGeplandLijst').querySelectorAll('.np-chip').forEach((b) => b.addEventListener('click', () => {
         $('npOnderwerp').value = 'Een pagina met de titel: ' + b.dataset.titel;
-        $('npAdviesKnop').click();
+        $('npMaakKnop').click();
       }));
     } catch (e) { kaart.classList.add('hidden'); }
   }
-  $('lpNewKlant').addEventListener('change', () => { laadGepland(); $('npAdviesKaart').classList.add('hidden'); });
+  $('lpNewKlant').addEventListener('change', () => { laadGepland(); $('npAdviesKaart').classList.add('hidden'); $('npResultaat').classList.add('hidden'); });
   document.querySelectorAll('#lpTabNav .tab-btn').forEach((b) => b.addEventListener('click', () => { if (b.dataset.lpTab === 'nieuw') laadGepland(); }));
   const nieuweKnop = $('lpNieuwePaginaBtn');
   if (nieuweKnop) nieuweKnop.addEventListener('click', laadGepland);
+
+  // Maak pagina: de AI kiest alles en de pagina wordt meteen aangemaakt.
+  $('npMaakKnop').addEventListener('click', async () => {
+    fout('lpNewError', '');
+    const knop = $('npMaakKnop');
+    const klant = $('lpNewKlant').value;
+    const onderwerp = $('npOnderwerp').value.trim();
+    if (!onderwerp) { fout('lpNewError', 'Typ eerst in een zin welke pagina je wilt.'); return; }
+    knop.disabled = true;
+    $('npAdviesStatus').textContent = 'De pagina wordt gemaakt... Dit duurt ongeveer 15 seconden.';
+    try {
+      const r = await lpApi('/pages/snel', { method: 'POST', body: JSON.stringify({ klant, onderwerp }) });
+      if (!r.page) {
+        // Niet netjes gelukt: vul het formulier voor zodat jij kiest.
+        await vulFormulier(r.advies);
+        $('npAdviesStatus').textContent = 'De AI weet het niet zeker. Controleer hieronder wat is ingevuld.';
+        return;
+      }
+      lpState.npPagina = r.page;
+      const keuze = (k, w) => `<div class="keuze"><span class="wp-muted">${k}</span> <strong>${esc(w)}</strong></div>`;
+      $('npResultaatTekst').textContent = r.automatisch
+        ? `${r.page.titel} is aangemaakt. De AI schrijft nu de tekst met alle feiten van de klant. Je hoeft niet te wachten.`
+        : `${r.page.titel} is aangemaakt. Deze klant heeft Pagr. niet aan, dus de tekst schrijf je zelf via de knop op het paginascherm.`;
+      $('npResultaatKeuzes').innerHTML = keuze('Sjabloon', r.sjabloonNaam || r.advies.blueprintId) + keuze('Titel', r.page.titel) + keuze('Webadres', '/' + (r.page.slug || r.advies.slug || '')) + (r.advies.waarom ? keuze('Waarom', r.advies.waarom) : '');
+      $('npResultaat').classList.remove('hidden');
+      $('npAdviesStatus').textContent = '';
+      $('npOnderwerp').value = '';
+      if (typeof loadPages === 'function') loadPages();
+    } catch (err) {
+      $('npAdviesStatus').textContent = '';
+      fout('lpNewError', err.message);
+    } finally { knop.disabled = false; }
+  });
+  $('npOpenPagina').addEventListener('click', () => { if (lpState.npPagina) { switchLpTab('paginas'); openPageDetail(lpState.npPagina.id); } });
+  $('npNogEen').addEventListener('click', () => { $('npResultaat').classList.add('hidden'); $('npOnderwerp').focus(); });
+
+  async function vulFormulier(advies) {
+    if (advies.blueprintId) {
+      $('lpNewBlueprint').value = advies.blueprintId;
+      await loadNewFormInvoerFields();
+    }
+    $('lpNewTitel').value = advies.titel || '';
+    $('lpNewSlug').value = advies.slug || '';
+    Object.entries(advies.invoer || {}).forEach(([k, v]) => {
+      const el = document.querySelector(`#lpNewInvoerFields [data-veld-key="${k}"]`);
+      if (el) el.value = v;
+    });
+    toon('npWaarom', advies.waarom);
+    toon('npTip', advies.tip ? 'Tip: ' + advies.tip : '');
+    toon('npWaarschuwing', advies.waarschuwing);
+    $('npAdviesKaart').classList.remove('hidden');
+    $('npHandmatig').classList.remove('hidden');
+  }
 
   $('npAdviesKnop').addEventListener('click', async () => {
     fout('lpNewError', '');
@@ -47,20 +100,7 @@
     $('npAdviesStatus').textContent = 'De AI denkt mee... Dit duurt ongeveer 15 seconden.';
     try {
       const { advies } = await lpApi('/pages/begeleiding', { method: 'POST', body: JSON.stringify({ klant, onderwerp }) });
-      if (advies.blueprintId) {
-        $('lpNewBlueprint').value = advies.blueprintId;
-        await loadNewFormInvoerFields();
-      }
-      $('lpNewTitel').value = advies.titel || '';
-      $('lpNewSlug').value = advies.slug || '';
-      Object.entries(advies.invoer || {}).forEach(([k, v]) => {
-        const el = document.querySelector(`#lpNewInvoerFields [data-veld-key="${k}"]`);
-        if (el) el.value = v;
-      });
-      toon('npWaarom', advies.waarom);
-      toon('npTip', advies.tip ? 'Tip: ' + advies.tip : '');
-      toon('npWaarschuwing', advies.waarschuwing);
-      $('npAdviesKaart').classList.remove('hidden');
+      await vulFormulier(advies);
       $('npAdviesStatus').textContent = 'Controleer hieronder wat de AI heeft ingevuld en pas aan.';
     } catch (err) {
       $('npAdviesStatus').textContent = '';

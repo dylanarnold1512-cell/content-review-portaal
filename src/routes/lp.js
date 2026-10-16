@@ -867,31 +867,55 @@ router.post('/plan/goedkeuren', requireLpInternal, async (req, res) => {
 
 // AI begeleiding (Pagr. stap 12): de beheerder beschrijft in gewone woorden wat hij wil, de AI kiest sjabloon, titel en
 // invoer en legt uit waarom. Er wordt niets opgeslagen; de beheerder past aan en maakt de pagina zelf aan.
+async function maakPaginaAdvies(klant, onderwerp) {
+  const client = getLpClient(klant);
+  const actief = await templates.listTemplates({ klant, status: 'Actief' });
+  const sjablonen = [];
+  for (const t of actief.slice(0, 12)) {
+    try {
+      const bp = await templates.getActiveTemplateByBlueprintId(klant, t.blueprintId);
+      sjablonen.push({ blueprintId: t.blueprintId, naam: t.naam, invoerVelden: bp.invoerVelden || [] });
+    } catch (e) { /* sjabloon zonder bruikbare blueprint overslaan */ }
+  }
+  const paginas = await lpNotion.listPages({ klant });
+  const klantTekst = await ai.formatKlantBronnenVoorSjabloon(klant);
+  const advies = await begeleiding.adviesNieuwePagina({
+    klantNaam: client.profile.naam,
+    klantTekst,
+    onderwerp,
+    sjablonen,
+    bestaandeTitels: paginas.map((p) => p.titel).filter(Boolean),
+    gepland: paginas.filter((p) => p.status === 'Idee').map((p) => p.titel).filter(Boolean).slice(0, 15),
+    aiFn: ai.callOpenAi
+  });
+  return { advies, sjablonen };
+}
+
 router.post('/pages/begeleiding', requireLpInternal, async (req, res) => {
   try {
     const klant = String(req.body?.klant || '');
     const onderwerp = String(req.body?.onderwerp || '').slice(0, 1500);
-    const client = getLpClient(klant);
-    const actief = await templates.listTemplates({ klant, status: 'Actief' });
-    const sjablonen = [];
-    for (const t of actief.slice(0, 12)) {
-      try {
-        const bp = await templates.getActiveTemplateByBlueprintId(klant, t.blueprintId);
-        sjablonen.push({ blueprintId: t.blueprintId, naam: t.naam, invoerVelden: bp.invoerVelden || [] });
-      } catch (e) { /* sjabloon zonder bruikbare blueprint overslaan */ }
-    }
-    const paginas = await lpNotion.listPages({ klant });
-    const klantTekst = await ai.formatKlantBronnenVoorSjabloon(klant);
-    const advies = await begeleiding.adviesNieuwePagina({
-      klantNaam: client.profile.naam,
-      klantTekst,
-      onderwerp,
-      sjablonen,
-      bestaandeTitels: paginas.map((p) => p.titel).filter(Boolean),
-      gepland: paginas.filter((p) => p.status === 'Idee').map((p) => p.titel).filter(Boolean).slice(0, 15),
-      aiFn: ai.callOpenAi
-    });
+    const { advies } = await maakPaginaAdvies(klant, onderwerp);
     res.json({ advies });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Nieuwe pagina in een stap (Pagr., 16-10-2026): de AI kiest sjabloon, titel en webadres en de pagina wordt meteen
+// aangemaakt. Lukt dat niet netjes (geen sjabloon, titel bestaat al), dan komt het advies terug zonder pagina, zodat
+// het scherm het formulier kan voorinvullen.
+router.post('/pages/snel', requireLpInternal, async (req, res) => {
+  try {
+    const klant = String(req.body?.klant || '');
+    const onderwerp = String(req.body?.onderwerp || '').slice(0, 1500);
+    const { advies } = await maakPaginaAdvies(klant, onderwerp);
+    if (!advies.blueprintId || !advies.titel || advies.waarschuwing) return res.json({ advies, page: null });
+    const template = await templates.getActiveTemplateByBlueprintId(klant, advies.blueprintId);
+    const page = await lpNotion.createPage({ klant, blueprint: advies.blueprintId, titel: advies.titel, slug: advies.slug, invoer: metOnderwerp({ ...advies.invoer, _watGaatDezePaginaOver: onderwerp }, advies.titel) });
+    const automatisch = template && template.templateFormat === 'slots' && await pagrModuleAan(klant);
+    if (automatisch) startAutoTekst(page.id);
+    res.json({ advies, page, automatisch: Boolean(automatisch), sjabloonNaam: template && template.naam });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
