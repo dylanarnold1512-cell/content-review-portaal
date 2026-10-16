@@ -23,6 +23,7 @@ const { INLINE_LINK_RE, forEachTextLeaf, ICON_NAMES, findUnknownIcons } = requir
 // De optionele "vaste onderdelen"-checklist in het sjabloon-formulier (Stap
 // 1, vraag 3). Hero, CTA en interne links zijn altijd al verplicht via de
 // vaste slot-namen/regels hieronder, dus die staan hier expres niet in.
+const { verwijderReviewAanhalingstekens } = require('./aanhalingstekens');
 const VASTE_ONDERDELEN_OPTIES = ['usps', 'stappen', 'aanbod', 'praktisch', 'reviews', 'faq', 'doelgroep', 'galerij'];
 
 const VASTE_ONDERDELEN_LABELS = {
@@ -872,6 +873,7 @@ ${JSON.stringify(linkKandidaten || [], null, 2)}${bouwZusterBlok(zusterInhoud)}$
   verwijderVerzonnenAfbeeldingen(slotData, template);
   verwijderVerzonnenLinks(slotData, linkKandidaten);
   verwijderPlaceholderWaarden(slotData);
+  verwijderReviewAanhalingstekens(slotData);
   const iconProblemen = findUnknownIcons(slotData);
   const iconWarning = iconProblemen.length
     ? `Niet-herkende icoonwaarde(n) gevonden (${iconProblemen

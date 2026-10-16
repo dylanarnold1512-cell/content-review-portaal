@@ -4,11 +4,13 @@
 // dezelfde logica gebruiken en er nooit een verschil kan ontstaan tussen wat je in het portaal
 // ziet en wat de klant via de deellink ziet.
 
+const { verwijderReviewAanhalingstekens } = require('./aanhalingstekens');
+
 // Bouwt de juiste render-invoer op basis van het sjabloonformaat.
 function buildRenderPage({ blueprint, content, clientId, slug, invoer }) {
   if (blueprint.templateFormat === 'slots') {
     // invoer (bv. de plaatsnaam) is nodig voor het dienst-schema, zie seoSchema.js.
-    const pagina = { clientId, slug, template: blueprint, slotData: (content && content.slotData) || {}, invoer: invoer || {} };
+    const pagina = { clientId, slug, template: blueprint, slotData: verwijderReviewAanhalingstekens(JSON.parse(JSON.stringify((content && content.slotData) || {}))), invoer: invoer || {} };
     // Aanpassingen per pagina (onderdelen verbergen, zie overrides.js). Alleen meegeven als ze er zijn.
     if (content && content.overrides) pagina.overrides = content.overrides;
     return pagina;
