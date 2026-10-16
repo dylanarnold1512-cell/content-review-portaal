@@ -24,7 +24,10 @@ const gelijk = require('../lp/gelijkenis');
 const { verzamelTekst } = gelijk;
 const share = require('../lp/share');
 const { validatePage, validateTemplateStructure } = require('../lp/validator');
-const { pushDraft, deletePage: deleteWpPage, searchMedia, uploadMedia, listSitePages, haalPaginaStatussen } = require('../lp/wordpress');
+const { maakControle } = require('../lp/controle');
+const { wachtOpJou } = require('../lp/wachtOpJou');
+const maandplan = require('../lp/maandplan');
+const { pushDraft, deletePage: deleteWpPage, searchMedia, uploadMedia, listSitePages, haalPaginaStatussen, siteNaam } = require('../lp/wordpress');
 const { vindTekst, vervangTekst } = require('../lp/tekstVervangen');
 const { haalSiteTeksten, formatSiteTekstenVoorPrompt } = require('../lp/siteTeksten');
 const plan = require('../lp/plan');
@@ -626,9 +629,13 @@ router.get('/pages', requireLpInternal, async (req, res) => {
 });
 
 // Instellingen van de klant voor de werkplaats: aantal pagina's per maand en product (uit Portaal Instellingen).
-// Heeft de klant de Pagr. module (Producten Pagr. of Beide)? Alle automatisering draait alleen dan.
+// Draait de automatisering voor deze klant? Ja bij de Pagr. module (Producten Pagr. of Beide), en ook als Dylan de
+// schakelaar Automatisering intern aanzette voor een klant die geen Pagr. betaalt (eigen werk sneller maken).
 async function pagrModuleAan(klant) {
-  try { return Boolean((await klantInstellingen(klant)).pagr); } catch (e) { return false; }
+  try {
+    const inst = await klantInstellingen(klant);
+    return Boolean(inst.pagr || inst.internAutomatisering);
+  } catch (e) { return false; }
 }
 
 async function klantInstellingen(klant) {
@@ -645,11 +652,146 @@ router.get('/plan/instellingen', requireLpInternal, async (req, res) => {
       paginasPerMaand: inst.paginasPerMaand,
       producten: inst.producten,
       pagr: Boolean(inst.pagr),
+      intern: Boolean(inst.internAutomatisering),
+      automatisering: Boolean(inst.pagr || inst.internAutomatisering),
       paginameting: Boolean(inst.paginameting),
       volumeBeschikbaar: Boolean(inst.paginameting) && require('../lp/zoekvolume').beschikbaar()
     });
   } catch (err) {
     res.json({ paginasPerMaand: null, producten: null, pagr: false, paginameting: false, volumeBeschikbaar: false });
+  }
+});
+
+// Wat wacht er op Dylan, per klant met de Pagr. module. Voor de teller in het menu van de admin.
+router.get('/wacht-op-jou', requireLpInternal, async (req, res) => {
+  try {
+    const resultaat = [];
+    for (const klant of Object.keys(lpClients)) {
+      if (!(await pagrModuleAan(klant))) continue;
+      const pages = await lpNotion.listPages({ klant });
+      const ideeen = pages.filter((p) => p.status === 'Idee').length ? await telKlantIdeeen(klant) : 0;
+      const w = wachtOpJou(pages, ideeen);
+      if (w.totaal) resultaat.push({ klant, naam: lpClients[klant].profile.naam, ...w });
+    }
+    res.json({ klanten: resultaat, totaal: resultaat.reduce((n, k) => n + k.totaal, 0) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+async function telKlantIdeeen(klant) {
+  const paginas = (await lpNotion.listPages({ klant, status: 'Idee' })).slice(0, 25);
+  let n = 0;
+  for (const p of paginas) {
+    const inv = (await lpNotion.getPage(p.id)).invoer || {};
+    if (inv.plan && (inv.plan.status === 'idee van klant' || inv.plan.status === 'voorgesteld')) n += 1;
+  }
+  return n;
+}
+
+// ---- Maandplan (Pagr., 16-10-2026) ----
+// Op de 1e van de maand zet de server voor klanten met Pagr. en een vast aantal pagina's per maand een plan klaar als
+// pagina's met stand Idee en plan.status 'voorgesteld'. Er wordt nog geen tekst geschreven: dat gebeurt pas als Dylan
+// goedkeurt. Het plan verschijnt bij Wacht op jou.
+const maandplanGedaan = new Set();
+
+async function planBestaatDezeMaand(klant, maand) {
+  const start = maandplan.maandStart(maand).getTime() - 24 * 3600 * 1000;
+  const paginas = (await lpNotion.listPages({ klant })).filter((p) => p.aangemaakt && new Date(p.aangemaakt).getTime() >= start).slice(0, 40);
+  for (const p of paginas) {
+    if (maandplan.isPlanVanMaand(await lpNotion.getPage(p.id), maand)) return true;
+  }
+  return false;
+}
+
+async function maakMaandPlan(klant, { forceer } = {}) {
+  const maand = maandplan.huidigeMaand();
+  const inst = await klantInstellingen(klant);
+  const sleutel = `${klant}:${maand}`;
+  const bestaat = forceer ? false : await planBestaatDezeMaand(klant, maand);
+  if (!forceer && !maandplan.moetPlannen({ pagr: inst.pagr || inst.internAutomatisering, paginasPerMaand: inst.paginasPerMaand, planBestaat: bestaat, gedaan: maandplanGedaan.has(sleutel) })) return { overgeslagen: true };
+  if (forceer && !inst.pagr && !inst.internAutomatisering) throw new Error('Voor deze klant staat de automatisering niet aan.');
+  const actief = (await templates.listTemplates({ klant, status: 'Actief' }))[0];
+  if (!actief) return { overgeslagen: true, reden: 'Geen actief sjabloon.' };
+  const bestaandePaginas = await lpNotion.listPages({ klant });
+  const klantTekst = await ai.formatKlantBronnenVoorSjabloon(klant);
+  let aiVragen = [];
+  if (inst.paginameting) { try { aiVragen = await meting.haalAiVragen(getLpClient(klant).profile.naam); } catch (e) { aiVragen = []; } }
+  const aantal = Number(inst.paginasPerMaand) > 0 ? Number(inst.paginasPerMaand) : 4;
+  const uit = await plan.maakPlanVoorstel({ klant, aantal, wens: '', bestaandePaginas, klantTekst, aiVragen, aiFn: ai.callOpenAi, volumeAan: Boolean(inst.paginameting) });
+  let n = 0;
+  for (const v of uit.voorstellen) {
+    const page = await lpNotion.createPage({ klant, blueprint: actief.blueprintId, titel: String(v.titel), invoer: maandplan.invoerVoorVoorgesteld(v, maand) });
+    await lpNotion.setStatus(page.id, 'Idee');
+    n += 1;
+  }
+  maandplanGedaan.add(sleutel);
+  return { aantal: n, maand };
+}
+
+async function maandPlanRonde() {
+  for (const klant of Object.keys(lpClients)) {
+    try { await maakMaandPlan(klant); } catch (e) { console.warn(`Maandplan voor ${klant} mislukt:`, e.message); }
+  }
+}
+
+// Wordt vanuit server.js gestart: een eerste ronde kort na het opstarten en daarna elke 6 uur.
+router.startMaandPlan = function () {
+  const eerste = setTimeout(maandPlanRonde, 2 * 60 * 1000);
+  const timer = setInterval(maandPlanRonde, 6 * 3600 * 1000);
+  if (eerste.unref) eerste.unref();
+  if (timer.unref) timer.unref();
+};
+
+router.post('/plan/maandplan/nu', requireLpInternal, async (req, res) => {
+  try {
+    const klant = String((req.body || {}).klant || '');
+    getLpClient(klant);
+    res.json(await maakMaandPlan(klant, { forceer: true }));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Het voorgestelde plan van de klant, voor de kaart Wacht op jou.
+router.get('/plan/voorgesteld', requireLpInternal, async (req, res) => {
+  try {
+    const klant = String(req.query.klant || '');
+    const paginas = (await lpNotion.listPages({ klant, status: 'Idee' })).slice(0, 40);
+    const voorstellen = [];
+    for (const p of paginas) {
+      const inv = (await lpNotion.getPage(p.id)).invoer || {};
+      if (inv.plan && inv.plan.status === 'voorgesteld') voorstellen.push({ id: p.id, titel: p.titel, reden: inv.plan.reden || '', maand: inv.plan.maand || '', volume: inv.plan.volume, signaal: inv.plan.signaal });
+    }
+    res.json({ voorstellen, maand: voorstellen[0] ? maandplan.maandNaam(voorstellen[0].maand) : '' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Keurt gekozen voorstellen goed en haalt de rest weg. De tekst start vanzelf bij klanten met Pagr.
+router.post('/plan/voorgesteld/keur', requireLpInternal, async (req, res) => {
+  try {
+    const { klant, goedkeuren, afwijzen } = req.body || {};
+    const automatisch = await pagrModuleAan(klant);
+    let goed = 0;
+    for (const id of Array.isArray(goedkeuren) ? goedkeuren : []) {
+      const page = await lpNotion.getPage(id);
+      const inv = page.invoer || {};
+      if (!inv.plan || inv.plan.status !== 'voorgesteld') continue;
+      await lpNotion.updateSection(id, 'invoer', { ...inv, plan: { ...inv.plan, status: 'goedgekeurd', goedgekeurdOp: new Date().toISOString().slice(0, 10) } });
+      const tpl = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint).catch(() => null);
+      if (automatisch && tpl && tpl.templateFormat === 'slots') startAutoTekst(id);
+      goed += 1;
+    }
+    let weg = 0;
+    for (const id of Array.isArray(afwijzen) ? afwijzen : []) {
+      const inv = (await lpNotion.getPage(id)).invoer || {};
+      if (inv.plan && inv.plan.status === 'voorgesteld') { await lpNotion.deletePage(id); weg += 1; }
+    }
+    res.json({ goedgekeurd: goed, weggehaald: weg });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 
@@ -838,31 +980,78 @@ router.post('/plan/goedkeuren', requireLpInternal, async (req, res) => {
 
 // AI begeleiding (Pagr. stap 12): de beheerder beschrijft in gewone woorden wat hij wil, de AI kiest sjabloon, titel en
 // invoer en legt uit waarom. Er wordt niets opgeslagen; de beheerder past aan en maakt de pagina zelf aan.
+async function maakPaginaAdvies(klant, onderwerp) {
+  const client = getLpClient(klant);
+  const actief = await templates.listTemplates({ klant, status: 'Actief' });
+  const sjablonen = [];
+  for (const t of actief.slice(0, 12)) {
+    try {
+      const bp = await templates.getActiveTemplateByBlueprintId(klant, t.blueprintId);
+      sjablonen.push({ blueprintId: t.blueprintId, naam: t.naam, invoerVelden: bp.invoerVelden || [] });
+    } catch (e) { /* sjabloon zonder bruikbare blueprint overslaan */ }
+  }
+  const paginas = await lpNotion.listPages({ klant });
+  const klantTekst = await ai.formatKlantBronnenVoorSjabloon(klant);
+  const advies = await begeleiding.adviesNieuwePagina({
+    klantNaam: client.profile.naam,
+    klantTekst,
+    onderwerp,
+    sjablonen,
+    bestaandeTitels: paginas.map((p) => p.titel).filter(Boolean),
+    gepland: paginas.filter((p) => p.status === 'Idee').map((p) => p.titel).filter(Boolean).slice(0, 15),
+    aiFn: ai.callOpenAi
+  });
+  return { advies, sjablonen };
+}
+
 router.post('/pages/begeleiding', requireLpInternal, async (req, res) => {
   try {
     const klant = String(req.body?.klant || '');
     const onderwerp = String(req.body?.onderwerp || '').slice(0, 1500);
-    const client = getLpClient(klant);
-    const actief = await templates.listTemplates({ klant, status: 'Actief' });
-    const sjablonen = [];
-    for (const t of actief.slice(0, 12)) {
-      try {
-        const bp = await templates.getActiveTemplateByBlueprintId(klant, t.blueprintId);
-        sjablonen.push({ blueprintId: t.blueprintId, naam: t.naam, invoerVelden: bp.invoerVelden || [] });
-      } catch (e) { /* sjabloon zonder bruikbare blueprint overslaan */ }
-    }
-    const paginas = await lpNotion.listPages({ klant });
-    const klantTekst = await ai.formatKlantBronnenVoorSjabloon(klant);
-    const advies = await begeleiding.adviesNieuwePagina({
-      klantNaam: client.profile.naam,
-      klantTekst,
-      onderwerp,
-      sjablonen,
-      bestaandeTitels: paginas.map((p) => p.titel).filter(Boolean),
-      gepland: paginas.filter((p) => p.status === 'Idee').map((p) => p.titel).filter(Boolean).slice(0, 15),
-      aiFn: ai.callOpenAi
-    });
+    const { advies } = await maakPaginaAdvies(klant, onderwerp);
     res.json({ advies });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Dezelfde pagina voor meer plaatsen: per plaats een kopie van de opzet, de tekst start vanzelf bij klanten met Pagr.
+async function kopieerNaarPlaatsen(pageId, plaatsen, automatisch) {
+  const namen = [...new Set((Array.isArray(plaatsen) ? plaatsen : String(plaatsen || '').split(/[\n,]+/)).map((n) => String(n).trim()).filter(Boolean))].slice(0, 15);
+  if (!namen.length) return [];
+  const origineel = await lpNotion.getPage(pageId);
+  const sleutel = Object.keys(origineel.invoer || {}).find((k) => !k.startsWith('_') && gelijk.PLAATS_SLEUTEL_RE.test(k));
+  if (!sleutel) return [{ fout: 'Deze pagina heeft geen invoerveld voor een plaats, de extra plaatsen zijn niet gemaakt.' }];
+  const oudePlaats = gelijk.plaatsWaarde(origineel.invoer);
+  const { titelVoorPlaats } = require('../lp/dupliceer');
+  const uit = [];
+  for (const naam of namen) {
+    try {
+      const { id } = await maakKopie(origineel, { titel: titelVoorPlaats(origineel.titel, oudePlaats, naam), invoer: { [sleutel]: naam }, modus: 'opzet', lokaleGegevens: '' });
+      if (automatisch) startAutoTekst(id);
+      uit.push({ plaats: naam, id });
+    } catch (e) {
+      uit.push({ plaats: naam, fout: e.message });
+    }
+  }
+  return uit;
+}
+
+// Nieuwe pagina in een stap (Pagr., 16-10-2026): de AI kiest sjabloon, titel en webadres en de pagina wordt meteen
+// aangemaakt. Lukt dat niet netjes (geen sjabloon, titel bestaat al), dan komt het advies terug zonder pagina, zodat
+// het scherm het formulier kan voorinvullen.
+router.post('/pages/snel', requireLpInternal, async (req, res) => {
+  try {
+    const klant = String(req.body?.klant || '');
+    const onderwerp = String(req.body?.onderwerp || '').slice(0, 1500);
+    const { advies } = await maakPaginaAdvies(klant, onderwerp);
+    if (!advies.blueprintId || !advies.titel || advies.waarschuwing) return res.json({ advies, page: null });
+    const template = await templates.getActiveTemplateByBlueprintId(klant, advies.blueprintId);
+    const page = await lpNotion.createPage({ klant, blueprint: advies.blueprintId, titel: advies.titel, slug: advies.slug, invoer: metOnderwerp({ ...advies.invoer, _watGaatDezePaginaOver: onderwerp }, advies.titel) });
+    const automatisch = template && template.templateFormat === 'slots' && await pagrModuleAan(klant);
+    if (automatisch) startAutoTekst(page.id);
+    const extra = await kopieerNaarPlaatsen(page.id, req.body?.plaatsen, automatisch);
+    res.json({ advies, page, automatisch: Boolean(automatisch), sjabloonNaam: template && template.naam, extraPlaatsen: extra });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -931,7 +1120,7 @@ router.post('/pages', requireLpInternal, async (req, res) => {
 router.get('/pages/:pageId', requireLpInternal, async (req, res) => {
   try {
     const page = await lpNotion.getPage(req.params.pageId);
-    res.json({ page, tekstStatus: autoTekstRij.status(req.params.pageId) });
+    res.json({ page, tekstStatus: autoTekstRij.status(req.params.pageId), pagr: await pagrModuleAan(page.klant) });
   } catch (err) {
     res.status(404).json({ error: err.message });
   }
@@ -1001,10 +1190,11 @@ async function haalZusterPaginas(page, allePaginas) {
 
 // Tekst op de achtergrond schrijven na het aanmaken van een pagina (een taak tegelijk, in het geheugen).
 const autoTekstRij = maakWachtrij();
-function startAutoTekst(pageId) {
+function startAutoTekst(pageId, opties) {
+  const opnieuw = Boolean(opties && opties.opnieuw);
   return autoTekstRij.zet(pageId, async () => {
     const page = await lpNotion.getPage(pageId);
-    if (isContentIngevuld(page.content)) return;
+    if (!opnieuw && isContentIngevuld(page.content)) return;
     const r = await maakContentVoorstel(page, {});
     const slotData = r.slotData || {};
     await lpNotion.updateSection(pageId, 'content', { meta: { metaTitle: slotData.metaTitle || '', metaDescription: slotData.metaDescription || '' }, slotData });
@@ -1145,7 +1335,7 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
 router.post('/pages/:pageId/auto-tekst', requireLpInternal, async (req, res) => {
   try {
     await lpNotion.getPage(req.params.pageId);
-    startAutoTekst(req.params.pageId);
+    startAutoTekst(req.params.pageId, { opnieuw: Boolean((req.body || {}).opnieuw) });
     res.json({ tekstStatus: autoTekstRij.status(req.params.pageId) });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -1213,6 +1403,47 @@ router.get('/pages/:pageId/validate', requireLpInternal, async (req, res) => {
       result.warnings = [...(result.warnings || []), ...extra];
     } catch (e) { /* een fout in deze extra controle mag de validatie nooit blokkeren */ }
     res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// De controle in een keer, met een oplossing per punt. Het scherm roept dit vanzelf aan zodra de tekst klaar is.
+router.get('/pages/:pageId/controle', requireLpInternal, async (req, res) => {
+  try {
+    const page = await lpNotion.getPage(req.params.pageId);
+    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const result = validatePage({ blueprint, contentJson: page.content || {} });
+    try {
+      result.warnings = [...(result.warnings || []), ...(await seoWaarschuwingen(page))];
+    } catch (e) { /* extra controle mag de rest nooit blokkeren */ }
+    res.json({ ...maakControle(result), site: siteNaam(getLpClient(page.klant).profile) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Zet pagina's op Gepubliceerd als WordPress ze echt live heeft, ook als je daar zelf hebt gepubliceerd.
+async function syncLiveStatus(klant) {
+  const client = getLpClient(klant);
+  const lijst = (await lpNotion.listPages({ klant })).filter((p) => p.wpPaginaId && p.status !== 'Gepubliceerd');
+  if (!lijst.length) return { gecontroleerd: 0, nieuwLive: [] };
+  const statussen = await haalPaginaStatussen({ profile: client.profile, ids: lijst.map((p) => p.wpPaginaId) });
+  const nieuwLive = [];
+  for (const p of lijst) {
+    if (statussen[p.wpPaginaId] === 'publish') {
+      await lpNotion.setStatus(p.id, 'Gepubliceerd');
+      nieuwLive.push({ id: p.id, titel: p.titel });
+    }
+  }
+  return { gecontroleerd: lijst.length, nieuwLive };
+}
+
+router.post('/plan/live-sync', requireLpInternal, async (req, res) => {
+  try {
+    const klant = String((req.body || {}).klant || '');
+    if (!klant) return res.status(400).json({ error: 'klant is verplicht.' });
+    res.json(await syncLiveStatus(klant));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -1367,6 +1598,41 @@ router.post('/pages/:pageId/publish', requireLpInternal, async (req, res) => {
     await lpNotion.setStatus(req.params.pageId, 'Ter review');
     const updated = await lpNotion.getPage(req.params.pageId);
     res.json({ page: updated, validation, seo: result.seo });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Zet de pagina live in WordPress. Alleen na een bewuste klik: bevestigd moet true zijn, de pagina moet de
+// controle halen (geen fouten). Nieuw besluit 16-10-2026: live zetten kan vanuit het portaal, nooit automatisch.
+router.post('/pages/:pageId/zet-live', requireLpInternal, async (req, res) => {
+  try {
+    if ((req.body || {}).bevestigd !== true) return res.status(400).json({ error: 'Live zetten kan alleen met een bewuste klik.' });
+    const page = await lpNotion.getPage(req.params.pageId);
+    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const content = page.content;
+    if (contentIsEmpty(blueprint, content)) return res.status(400).json({ error: 'Geen content om live te zetten.' });
+    const validation = validatePage({ blueprint, contentJson: content });
+    if (!validation.ok) return res.status(400).json({ error: 'De controle heeft nog fouten, de pagina is niet live gezet.', validation });
+    const client = getLpClient(page.klant);
+    const html = renderPageHtml(buildRenderPage({ blueprint, content, clientId: page.klant, slug: page.slug, invoer: page.invoer }), { forWordPress: true });
+    const slotData = (content && content.slotData) || {};
+    const result = await pushDraft({
+      profile: client.profile,
+      wpPaginaId: page.wpPaginaId || undefined,
+      titel: page.titel,
+      html,
+      slug: page.slug,
+      metaTitel: slotData.metaTitle,
+      metaBeschrijving: slotData.metaDescription,
+      status: 'publish'
+    });
+    await lpNotion.setWordpressInfo(req.params.pageId, { wpPaginaId: result.id, wpUrl: result.link });
+    if (result.status !== 'publish') {
+      return res.status(400).json({ error: `WordPress zette de pagina niet live (status: ${result.status || 'onbekend'}). Controleer in WordPress.` });
+    }
+    await lpNotion.setStatus(req.params.pageId, 'Gepubliceerd');
+    res.json({ page: await lpNotion.getPage(req.params.pageId), seo: result.seo });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

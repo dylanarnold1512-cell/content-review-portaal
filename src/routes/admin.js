@@ -80,7 +80,7 @@ router.post('/settings/:clientId', requireAdmin, async (req, res) => {
       }
       return res.json({ ok: true, melding });
     }
-    if (!['reviewEnabled', 'performanceEnabled', 'ideaEnrichmentEnabled', 'merkprofiel', 'merkprofielNaarKennisdocument', 'aiZichtbaarheid', 'paginameting'].includes(field)) {
+    if (!['reviewEnabled', 'performanceEnabled', 'ideaEnrichmentEnabled', 'merkprofiel', 'merkprofielNaarKennisdocument', 'aiZichtbaarheid', 'paginameting', 'internAutomatisering'].includes(field)) {
       return res.status(400).json({ error: `Onbekend instellingveld: ${field}` });
     }
     let melding = '';

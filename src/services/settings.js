@@ -20,7 +20,8 @@ const PROPERTY_BY_FIELD = {
   merkprofiel: 'Merkprofiel ingeschakeld',
   merkprofielNaarKennisdocument: 'Merkprofiel naar Kennisdocument',
   aiZichtbaarheid: 'AI zichtbaarheid ingeschakeld',
-  paginameting: 'Paginameting'
+  paginameting: 'Paginameting',
+  internAutomatisering: 'Automatisering intern'
 };
 
 // Producten per klant (Pagr. stap 4). Leeg of onbekend telt als Blogr., zodat bestaande klanten niets merken.
@@ -91,6 +92,7 @@ async function fetchAllFromNotion() {
         producten: normaliseerProducten(props['Producten']?.select?.name),
         paginasPerMaand: typeof props["Pagina's per maand"]?.number === 'number' ? props["Pagina's per maand"].number : null,
         paginameting: Boolean(props['Paginameting']?.checkbox),
+        internAutomatisering: Boolean(props['Automatisering intern']?.checkbox),
         searchConsoleSite: (props['Search Console site']?.rich_text || []).map((t) => t.plain_text).join('').trim(),
         productenIngesteld: PRODUCT_WAARDEN.includes(props['Producten']?.select?.name),
         klantstatusIngesteld: KLANTSTATUS_WAARDEN.includes(props['Klantstatus']?.select?.name)
@@ -132,6 +134,7 @@ async function getClientSettings(clientId, fallback = {}) {
         klantstatus: settings.klantstatus,
         paginasPerMaand: settings.paginasPerMaand,
         paginameting: settings.paginameting,
+        internAutomatisering: settings.internAutomatisering,
         searchConsoleSite: settings.searchConsoleSite,
         producten: settings.productenIngesteld ? settings.producten : normaliseerProducten(fallback.producten),
         ...productVlaggen(settings.productenIngesteld ? settings.producten : fallback.producten)
@@ -150,6 +153,7 @@ async function getClientSettings(clientId, fallback = {}) {
     klantstatus: normaliseerKlantstatus(fallback.klantstatus),
     paginasPerMaand: typeof fallback.paginasPerMaand === 'number' ? fallback.paginasPerMaand : null,
     paginameting: Boolean(fallback.paginameting),
+    internAutomatisering: Boolean(fallback.internAutomatisering),
     searchConsoleSite: '',
     producten: normaliseerProducten(fallback.producten),
     ...productVlaggen(fallback.producten)
@@ -176,6 +180,7 @@ async function listAllSettings(clientsConfig) {
       klantstatus: settings ? settings.klantstatus : normaliseerKlantstatus(c.klantstatus),
       paginasPerMaand: settings ? settings.paginasPerMaand : null,
       paginameting: settings ? settings.paginameting : false,
+      internAutomatisering: settings ? settings.internAutomatisering : false,
       searchConsoleSite: settings ? settings.searchConsoleSite : '',
       producten: settings && settings.productenIngesteld ? settings.producten : normaliseerProducten(c.producten),
       // Leeg in Notion telt voor het portaal als actief, maar de n8n sync ziet dan geen status.

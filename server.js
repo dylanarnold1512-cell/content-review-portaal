@@ -83,4 +83,5 @@ app.listen(PORT, () => {
   console.log(`Content review portaal draait op poort ${PORT}`);
   // LP klantgegevens uit Notion over de code heen leggen; bij een storing geldt de code.
   require('./src/lp/klantgegevens').start();
+  if (typeof lpRoutes.startMaandPlan === 'function') lpRoutes.startMaandPlan();
 });

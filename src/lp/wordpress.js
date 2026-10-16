@@ -55,7 +55,7 @@ function seoSleutels(profile) {
 // is geregistreerd, en de meeste SEO plugins (ook Yoast) doen dat standaard NIET. Daarom lezen we de
 // pagina na het opslaan terug en melden we eerlijk of de SEO velden echt zijn opgeslagen. Zie
 // SEO_REST_SNIPPET hieronder voor de code die de klantsite daarvoor nodig heeft.
-async function pushDraft({ profile, wpPaginaId, titel, html, slug, metaTitel, metaBeschrijving, behoudStatus }) {
+async function pushDraft({ profile, wpPaginaId, titel, html, slug, metaTitel, metaBeschrijving, behoudStatus, status }) {
   const { url, username, appPassword } = getWpConfig(profile);
   const endpoint = wpPaginaId
     ? `${url}/wp-json/wp/v2/pages/${wpPaginaId}`
@@ -69,7 +69,8 @@ async function pushDraft({ profile, wpPaginaId, titel, html, slug, metaTitel, me
   const body = { title: titel, content: wrapForWordPress(html) };
   // Bestaande pagina + behoudStatus: geen status meesturen, WordPress laat hem dan ongemoeid.
   // Een nieuwe pagina (ook het 404 herstel hieronder) wordt altijd een concept.
-  if (!(behoudStatus && wpPaginaId)) body.status = 'draft';
+  if (status === 'publish') body.status = 'publish';
+  else if (!(behoudStatus && wpPaginaId)) body.status = 'draft';
   if (slug) body.slug = slug;
   if (Object.keys(gewenstMeta).length) body.meta = gewenstMeta;
 
@@ -88,7 +89,7 @@ async function pushDraft({ profile, wpPaginaId, titel, html, slug, metaTitel, me
   // dan maken we een nieuwe conceptpagina aan in plaats van te blijven falen met "Ongeldig bericht ID".
   let opnieuwAangemaakt = false;
   if (!res.ok && wpPaginaId && res.status === 404 && (data.code === 'rest_post_invalid_id' || /bericht ID/i.test(data.message || ''))) {
-    body.status = 'draft';
+    body.status = status === 'publish' ? 'publish' : 'draft';
     res = await stuur(`${url}/wp-json/wp/v2/pages`);
     data = await res.json().catch(() => ({}));
     opnieuwAangemaakt = true;
@@ -302,7 +303,13 @@ async function haalPaginaStatussen({ profile, ids }) {
   return uitkomst;
 }
 
+// Alleen de site (hostnaam) van de klant, voor de tekst op de knop Zet live.
+function siteNaam(profile) {
+  try { return new URL(getWpConfig(profile).url).hostname.replace(/^www\./, ''); } catch (e) { return ''; }
+}
+
 module.exports = {
+  siteNaam,
   haalPaginaStatussen,
   SEO_META_SLEUTELS,
   SEO_REST_SNIPPET,

@@ -28,14 +28,73 @@
       kaart.classList.toggle('hidden', !gepland.length);
       $('npGeplandLijst').querySelectorAll('.np-chip').forEach((b) => b.addEventListener('click', () => {
         $('npOnderwerp').value = 'Een pagina met de titel: ' + b.dataset.titel;
-        $('npAdviesKnop').click();
+        $('npMaakKnop').click();
       }));
     } catch (e) { kaart.classList.add('hidden'); }
   }
-  $('lpNewKlant').addEventListener('change', () => { laadGepland(); $('npAdviesKaart').classList.add('hidden'); });
+  $('lpNewKlant').addEventListener('change', () => { laadGepland(); $('npAdviesKaart').classList.add('hidden'); $('npResultaat').classList.add('hidden'); });
   document.querySelectorAll('#lpTabNav .tab-btn').forEach((b) => b.addEventListener('click', () => { if (b.dataset.lpTab === 'nieuw') laadGepland(); }));
   const nieuweKnop = $('lpNieuwePaginaBtn');
   if (nieuweKnop) nieuweKnop.addEventListener('click', laadGepland);
+
+  // Maak pagina: de AI kiest alles en de pagina wordt meteen aangemaakt.
+  $('npMaakKnop').addEventListener('click', async () => {
+    fout('lpNewError', '');
+    const knop = $('npMaakKnop');
+    const klant = $('lpNewKlant').value;
+    const onderwerp = $('npOnderwerp').value.trim();
+    if (!onderwerp) { fout('lpNewError', 'Typ eerst in een zin welke pagina je wilt.'); return; }
+    knop.disabled = true;
+    $('npAdviesStatus').textContent = 'De pagina wordt gemaakt... Dit duurt ongeveer 15 seconden.';
+    try {
+      const r = await lpApi('/pages/snel', { method: 'POST', body: JSON.stringify({ klant, onderwerp, plaatsen: ($('npPlaatsen') || {}).value || '' }) });
+      if (!r.page) {
+        // Niet netjes gelukt: vul het formulier voor zodat jij kiest.
+        await vulFormulier(r.advies);
+        $('npAdviesStatus').textContent = 'De AI weet het niet zeker. Controleer hieronder wat is ingevuld.';
+        return;
+      }
+      lpState.npPagina = r.page;
+      const keuze = (k, w) => `<div class="keuze"><span class="wp-muted">${k}</span> <strong>${esc(w)}</strong></div>`;
+      $('npResultaatTekst').textContent = r.automatisch
+        ? `${r.page.titel} is aangemaakt. De AI schrijft nu de tekst met alle feiten van de klant. Je hoeft niet te wachten.`
+        : `${r.page.titel} is aangemaakt. Deze klant heeft Pagr. niet aan, dus de tekst schrijf je zelf via de knop op het paginascherm.`;
+      $('npResultaatKeuzes').innerHTML = keuze('Sjabloon', r.sjabloonNaam || r.advies.blueprintId) + keuze('Titel', r.page.titel) + keuze('Webadres', '/' + (r.page.slug || r.advies.slug || '')) + (r.advies.waarom ? keuze('Waarom', r.advies.waarom) : '');
+      const extra = r.extraPlaatsen || [];
+      const gelukt = extra.filter((x) => x.id).length;
+      const mislukt = extra.filter((x) => x.fout);
+      if (gelukt) $('npResultaatTekst').textContent += ` Er ${gelukt === 1 ? 'is ook 1 pagina' : 'zijn ook ' + gelukt + ' pagina\'s'} gemaakt voor ${extra.filter((x) => x.id).map((x) => x.plaats).join(', ')}.`;
+      if (mislukt.length) $('npResultaatTekst').textContent += ` Niet gelukt: ${mislukt.map((x) => (x.plaats ? x.plaats + ': ' : '') + x.fout).join(' ')}`;
+      if ($('npPlaatsen')) $('npPlaatsen').value = '';
+      $('npResultaat').classList.remove('hidden');
+      $('npAdviesStatus').textContent = '';
+      $('npOnderwerp').value = '';
+      if (typeof loadPages === 'function') loadPages();
+    } catch (err) {
+      $('npAdviesStatus').textContent = '';
+      fout('lpNewError', err.message);
+    } finally { knop.disabled = false; }
+  });
+  $('npOpenPagina').addEventListener('click', () => { if (lpState.npPagina) { switchLpTab('paginas'); openPageDetail(lpState.npPagina.id); } });
+  $('npNogEen').addEventListener('click', () => { $('npResultaat').classList.add('hidden'); $('npOnderwerp').focus(); });
+
+  async function vulFormulier(advies) {
+    if (advies.blueprintId) {
+      $('lpNewBlueprint').value = advies.blueprintId;
+      await loadNewFormInvoerFields();
+    }
+    $('lpNewTitel').value = advies.titel || '';
+    $('lpNewSlug').value = advies.slug || '';
+    Object.entries(advies.invoer || {}).forEach(([k, v]) => {
+      const el = document.querySelector(`#lpNewInvoerFields [data-veld-key="${k}"]`);
+      if (el) el.value = v;
+    });
+    toon('npWaarom', advies.waarom);
+    toon('npTip', advies.tip ? 'Tip: ' + advies.tip : '');
+    toon('npWaarschuwing', advies.waarschuwing);
+    $('npAdviesKaart').classList.remove('hidden');
+    $('npHandmatig').classList.remove('hidden');
+  }
 
   $('npAdviesKnop').addEventListener('click', async () => {
     fout('lpNewError', '');
@@ -47,20 +106,7 @@
     $('npAdviesStatus').textContent = 'De AI denkt mee... Dit duurt ongeveer 15 seconden.';
     try {
       const { advies } = await lpApi('/pages/begeleiding', { method: 'POST', body: JSON.stringify({ klant, onderwerp }) });
-      if (advies.blueprintId) {
-        $('lpNewBlueprint').value = advies.blueprintId;
-        await loadNewFormInvoerFields();
-      }
-      $('lpNewTitel').value = advies.titel || '';
-      $('lpNewSlug').value = advies.slug || '';
-      Object.entries(advies.invoer || {}).forEach(([k, v]) => {
-        const el = document.querySelector(`#lpNewInvoerFields [data-veld-key="${k}"]`);
-        if (el) el.value = v;
-      });
-      toon('npWaarom', advies.waarom);
-      toon('npTip', advies.tip ? 'Tip: ' + advies.tip : '');
-      toon('npWaarschuwing', advies.waarschuwing);
-      $('npAdviesKaart').classList.remove('hidden');
+      await vulFormulier(advies);
       $('npAdviesStatus').textContent = 'Controleer hieronder wat de AI heeft ingevuld en pas aan.';
     } catch (err) {
       $('npAdviesStatus').textContent = '';
@@ -208,7 +254,66 @@
         const v = $('lpValidateBtn'); if (v) v.click();
       });
     }
+    const toonControle = !st.gepubliceerd && st.contentKlaar && !(ts && (ts.status === 'bezig' || ts.status === 'wacht'));
+    if (toonControle && !(typeof lpState !== 'undefined' && lpState.pagrModule)) {
+      // Zonder Pagr. module draait de controle niet vanzelf: de knop doet het met een klik.
+      items[items.length - 1] = { tekst: 'De tekst is klaar. Laat de pagina controleren voordat je hem live zet.', knop: 'Controleer de pagina', soort: 'plan', actie: () => lpToonControle(page) };
+    }
     box.innerHTML = items.map((it, i) => `<div class="wp-advies-item ${it.soort}"><p>${esc(it.tekst)}</p>${it.knop ? `<button type="button" class="btn btn-approve" data-adv="${i}">${esc(it.knop)}</button>` : ''}</div>`).join('');
     box.querySelectorAll('[data-adv]').forEach((b) => b.addEventListener('click', () => items[Number(b.dataset.adv)].actie()));
+    if (toonControle && typeof lpState !== 'undefined' && lpState.pagrModule) lpToonControle(page);
+  };
+
+  // Automatische controle: haalt de controle op en toont per punt een oplosknop.
+  window.lpToonControle = async function (page) {
+    const box = $('pdAdvies');
+    if (!box) return;
+    let kaart = $('pdControle');
+    if (!kaart) { kaart = document.createElement('div'); kaart.id = 'pdControle'; box.appendChild(kaart); }
+    kaart.innerHTML = '<p class="wp-muted">De pagina wordt gecontroleerd...</p>';
+    try {
+      const c = await lpApi(`/pages/${page.id}/controle`);
+      const punt = (p, soort, i) => `<div class="wp-advies-item ${soort}"><p>${esc(p.tekst)}</p>${p.knop ? `<button type="button" class="btn btn-plain" data-oplos="${soort}-${i}">${esc(p.knop)}</button>` : ''}</div>`;
+      kaart.innerHTML = `<div class="wp-advies-item ${c.ok ? 'goed' : 'fout'}"><p><strong>${esc(c.samenvatting)}</strong></p></div>`
+        + c.fouten.map((p, i) => punt(p, 'fout', i)).join('') + c.letOp.map((p, i) => punt(p, 'let-op', i)).join('');
+      kaart.insertAdjacentHTML('beforeend', `<div class="wp-advies-item ${c.ok ? 'plan' : 'let-op'}">
+        <p><strong>Live zetten</strong><br>${c.ok ? 'Je zet de pagina zelf live. Er gaat niets live zonder jouw klik.' : 'Los eerst de fouten op, dan kun je hem live zetten.'}</p>
+        <div class="wp-idee-knoppen">
+          <button type="button" class="btn btn-approve" id="pdZetLive"${c.ok ? '' : ' disabled'}>Zet live${c.site ? ' op ' + esc(c.site) : ''}</button>
+          <button type="button" class="btn btn-plain" id="pdAlsConcept">Alleen als concept in WordPress</button>
+        </div><p id="pdLiveMelding" class="wp-muted"></p></div>`);
+      const melding = (t, fout) => { const m = $('pdLiveMelding'); if (m) { m.textContent = t; m.className = fout ? 'admin-error' : 'wp-muted'; } };
+      const zetLive = $('pdZetLive');
+      if (zetLive) zetLive.addEventListener('click', async () => {
+        if (!confirm('Deze pagina nu live zetten' + (c.site ? ' op ' + c.site : '') + '?')) return;
+        zetLive.disabled = true;
+        melding('Bezig met live zetten...');
+        try {
+          const r = await lpApi(`/pages/${page.id}/zet-live`, { method: 'POST', body: JSON.stringify({ bevestigd: true }) });
+          melding('De pagina staat live: ' + (r.page.wpUrl || ''));
+          openPageDetail(page.id);
+        } catch (err) { zetLive.disabled = false; melding(err.message, true); }
+      });
+      const alsConcept = $('pdAlsConcept');
+      if (alsConcept) alsConcept.addEventListener('click', async () => {
+        alsConcept.disabled = true;
+        melding('Bezig...');
+        try {
+          const r = await lpApi(`/pages/${page.id}/publish`, { method: 'POST' });
+          melding('Concept gezet in WordPress: ' + (r.page.wpUrl || ''));
+        } catch (err) { melding(err.message, true); }
+        alsConcept.disabled = false;
+      });
+      kaart.querySelectorAll('[data-oplos]').forEach((b) => b.addEventListener('click', async () => {
+        b.disabled = true;
+        b.textContent = 'Bezig...';
+        try {
+          await lpApi(`/pages/${page.id}/auto-tekst`, { method: 'POST', body: JSON.stringify({ opnieuw: true }) });
+          openPageDetail(page.id);
+        } catch (err) { b.textContent = err.message; }
+      }));
+    } catch (err) {
+      kaart.innerHTML = `<p class="admin-error">${esc(err.message)}</p>`;
+    }
   };
 })();

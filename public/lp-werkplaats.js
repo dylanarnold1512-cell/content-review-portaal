@@ -69,6 +69,7 @@ function wpTeken() {
   document.getElementById('wpStappen').innerHTML = wpStappen({ tellers: uit.tellers, actief: uit.actief, pages });
   document.querySelectorAll('#wpStappen .wp-stap').forEach((b) => b.addEventListener('click', () => switchLpTab(b.dataset.wpTab)));
 
+  wpTekenWacht(pages);
   wpTekenBulk();
   document.getElementById('wpTellers').innerHTML = WP_STANDEN.map((s) => `<span class="wp-pil ${WP_STAND_KLASSE[s]}"><span class="wp-stip"></span>${s} <b>${uit.tellers[s]}</b></span>`).join('');
 
@@ -116,6 +117,7 @@ async function wpLaad() {
       lpApi('/templates?klant=' + encodeURIComponent(klantId))
     ]);
     lpState.wpPages = pages;
+    try { window.parent.postMessage({ type: 'pagr-gewijzigd' }, window.location.origin); } catch (e) { /* niet in een frame */ }
     lpState.wpTemplates = (templates || []).filter((t) => t.status !== 'Gearchiveerd');
     wpTeken();
     wpLaadExtra();
@@ -262,21 +264,105 @@ async function wpLaadExtra() {
   ]);
   lpState.wpInst = inst;
   wpTekenModule(inst);
+  if (inst.automatisering) wpSyncLive(klant);
   if (inst.paginasPerMaand && !wpPlanOpslag(klant)) document.getElementById('wpAantal').value = inst.paginasPerMaand;
   wpTekenIdeeen(ideeen.ideeen || []);
+  wpLaadMaandplan(klant, Boolean(inst.automatisering));
   wpTekenBijhouden(bijhouden);
   wpTekenAdvies();
+}
+
+// Bovenaan: alles wat op jou wacht, met een knop per pagina.
+function wpTekenWacht(pages) {
+  const kaart = document.getElementById('wpWachtKaart');
+  if (!kaart) return;
+  const items = [];
+  pages.forEach((p) => {
+    if (p.status === 'Fout' || p.status === 'Afgewezen') items.push({ p, tekst: 'Mislukt of afgewezen', knop: 'Bekijk', soort: 'fout' });
+    else if (wpStandVan(p.status) === 'Ter controle') items.push({ p, tekst: p.status === 'Ter review' ? 'Staat als concept in WordPress, klaar om live te zetten' : 'Tekst is klaar, controleren', knop: 'Controleren', soort: 'plan' });
+  });
+  kaart.classList.toggle('hidden', !items.length);
+  document.getElementById('wpWacht').innerHTML = items.map((it, i) => `<div class="wp-advies-item ${it.soort}"><p><strong>${wpEsc(it.p.titel || '(zonder titel)')}</strong><br><span class="wp-muted">${wpEsc(it.tekst)}</span></p><button type="button" class="btn btn-approve" data-wacht="${i}">${it.knop}</button></div>`).join('');
+  document.querySelectorAll('#wpWacht [data-wacht]').forEach((b) => b.addEventListener('click', () => {
+    lpState.laatsteLijst = 'werkplaats';
+    openPageDetail(items[Number(b.dataset.wacht)].p.id);
+  }));
+}
+
+// Het plan dat de server op de 1e klaarzette. Aanvinken, goedkeuren, de rest gaat weg.
+async function wpLaadMaandplan(klant, pagr) {
+  const kaart = document.getElementById('wpMaandplanKaart');
+  const nu = document.getElementById('wpMaandplanNu');
+  if (nu) {
+    nu.classList.toggle('hidden', !pagr);
+    nu.onclick = async () => {
+      nu.disabled = true;
+      document.getElementById('wpPlanStatus').textContent = 'Het maandplan wordt klaargezet. Dit duurt even.';
+      try {
+        const r = await lpApi('/plan/maandplan/nu', { method: 'POST', body: JSON.stringify({ klant }) });
+        document.getElementById('wpPlanStatus').textContent = r.overgeslagen ? (r.reden || 'Er is niets klaargezet.') : `${r.aantal} voorstellen klaargezet. Je ziet ze bij Wacht op jou.`;
+        await wpLaadMaandplan(klant, pagr);
+      } catch (err) { document.getElementById('wpPlanStatus').textContent = err.message; }
+      nu.disabled = false;
+    };
+  }
+  if (!kaart) return;
+  let data = { voorstellen: [] };
+  try { data = await lpApi('/plan/voorgesteld?klant=' + encodeURIComponent(klant)); } catch (e) { /* kaart blijft dicht */ }
+  const v = data.voorstellen || [];
+  kaart.classList.toggle('hidden', !v.length);
+  if (!v.length) return;
+  document.getElementById('wpMaandplanTitel').textContent = 'Plan voor ' + (data.maand || 'deze maand');
+  document.getElementById('wpMaandplan').innerHTML = `<div class="wp-plan-items">${v.map((x) => `<label class="wp-plan-item"><input type="checkbox" checked data-id="${wpEsc(x.id)}"><span class="wp-plan-tekst"><strong>${wpEsc(x.titel)}</strong><small>${wpEsc(x.reden)}</small>${typeof x.volume === 'number' ? `<span class="wp-plan-meta"><span class="wp-pil wp-live">${x.volume.toLocaleString('nl-NL')} zoekopdrachten per maand</span></span>` : ''}</span></label>`).join('')}</div>`;
+  const keur = document.getElementById('wpMaandplanKeur');
+  keur.onclick = async () => {
+    const vinkjes = [...document.querySelectorAll('#wpMaandplan input[type=checkbox]')];
+    const goed = vinkjes.filter((c) => c.checked).map((c) => c.dataset.id);
+    const weg = vinkjes.filter((c) => !c.checked).map((c) => c.dataset.id);
+    if (weg.length && !confirm(`${weg.length} voorstel${weg.length === 1 ? '' : 'len'} zonder vinkje worden weggehaald. Doorgaan?`)) return;
+    keur.disabled = true;
+    try {
+      const r = await lpApi('/plan/voorgesteld/keur', { method: 'POST', body: JSON.stringify({ klant, goedkeuren: goed, afwijzen: weg }) });
+      document.getElementById('wpMaandplanStatus').textContent = `${r.goedgekeurd} goedgekeurd, ${r.weggehaald} weggehaald.`;
+      await wpLaad();
+    } catch (err) { document.getElementById('wpMaandplanStatus').textContent = err.message; }
+    keur.disabled = false;
+  };
 }
 
 // Laat zien of de klant de Pagr. module heeft. Zonder module draait er geen automatisering.
 function wpTekenModule(inst) {
   const el = document.getElementById('wpModule');
   if (!el) return;
-  const aan = Boolean(inst && inst.pagr);
+  const aan = Boolean(inst && inst.automatisering);
+  const intern = Boolean(inst && inst.intern && !inst.pagr);
   el.className = 'wp-module ' + (aan ? 'aan' : 'uit');
   el.innerHTML = aan
-    ? '<strong>Pagr. aan</strong><span>De AI schrijft de tekst vanzelf en de rest van de automatisering draait.</span>'
-    : '<strong>Pagr. uit</strong><span>Je maakt pagina\'s zelf met knoppen. Zet Pagr. aan bij Instellingen in de admin voor automatisch schrijven en controleren.</span>';
+    ? (intern
+      ? '<strong>Automatisering aan voor eigen werk</strong><span>De AI schrijft de tekst vanzelf en de rest van de automatisering draait. De klant heeft Pagr. niet en ziet het niet in zijn portaal.</span>'
+      : '<strong>Pagr. aan</strong><span>De AI schrijft de tekst vanzelf en de rest van de automatisering draait.</span>')
+    : '<strong>Pagr. uit</strong><span>Je maakt pagina\'s zelf met knoppen. Zet Pagr. of Automatisering intern aan bij Instellingen in de admin voor automatisch schrijven en controleren.</span><span><button type="button" class="btn btn-plain" id="wpLiveKnop">Haal live status op</button> <span id="wpLiveMelding"></span></span>';
+  const knop = document.getElementById('wpLiveKnop');
+  if (knop) knop.addEventListener('click', () => wpSyncLive(document.getElementById('wpKlant').value, true));
+}
+
+// Haalt de echte WordPress status op en zet pagina's op Live als ze daar gepubliceerd zijn.
+async function wpSyncLive(klant, handmatig) {
+  try {
+    const r = await lpApi('/plan/live-sync', { method: 'POST', body: JSON.stringify({ klant }) });
+    if (r.nieuwLive && r.nieuwLive.length && document.getElementById('wpKlant').value === klant) {
+      const { pages } = await lpApi('/pages?klant=' + encodeURIComponent(klant));
+      lpState.wpPages = pages;
+      wpTeken();
+    }
+    if (handmatig) {
+      const el = document.getElementById('wpLiveMelding');
+      if (el) el.textContent = r.nieuwLive.length ? `${r.nieuwLive.length} pagina('s) staan nu op Live.` : 'Er is niets nieuws live gegaan.';
+    }
+  } catch (err) {
+    const el = document.getElementById('wpLiveMelding');
+    if (el) el.textContent = err.message;
+  }
 }
 
 function wpTekenIdeeen(ideeen) {

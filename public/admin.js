@@ -149,6 +149,7 @@ window.addEventListener('message', (e) => {
     pagrVanFrame = d.tab;
     window.location.hash = `#pagr/${d.tab}`;
   }
+  if (d && d.type === 'pagr-gewijzigd') ververWachtTeller();
   if (d && d.type === 'pagr-hoogte' && Number.isFinite(d.hoogte)) {
     const frame = document.getElementById('pagrFrame');
     if (frame) frame.style.height = Math.max(400, d.hoogte + 8) + 'px';
@@ -492,7 +493,13 @@ function renderInstellingen(c, inhoud) {
       </select>
     </div>
   </section>
-  ${(c.producten === 'Pagr.' || c.producten === 'Beide') ? `<section class="p-kaart ad-blok">
+  ${(c.producten === 'Pagr.' || c.producten === 'Beide') ? '' : `<section class="p-kaart ad-blok">
+    <div class="ad-regel">
+      <div class="ad-regel-tekst"><b>Automatisering intern</b><span>Voor een klant die Pagr. niet betaalt maar waarvoor jij wel landingspagina's maakt. De AI schrijft de tekst, controleert en zet het maandplan klaar, zodat jij sneller werkt. De klant ziet Pagr. niet in zijn portaal.</span></div>
+      ${toggleSwitch('internAutomatisering-' + c.id, c.id, 'internAutomatisering', c.internAutomatisering, false, '')}
+    </div>
+  </section>`}
+  ${(c.producten === 'Pagr.' || c.producten === 'Beide' || c.internAutomatisering) ? `<section class="p-kaart ad-blok">
     <div class="ad-regel">
       <div class="ad-regel-tekst"><b>Pagina's per maand</b><span>Het plan in de Werkplaats stelt elke maand dit aantal voor. Leeg betekent geen vast aantal.</span></div>
       <input type="number" min="0" max="100" class="admin-status" style="width:90px" data-client="${c.id}" data-aantalveld="paginasPerMaand" value="${c.paginasPerMaand == null ? '' : c.paginasPerMaand}" aria-label="Pagina's per maand van ${escapeHtmlAdmin(c.naam)}">
@@ -741,7 +748,23 @@ async function loadSettings() {
   }
 }
 
+// Teller bij Werkplaats in het menu: hoeveel pagina's wachten er op jou (alleen klanten met de Pagr. module).
+async function ververWachtTeller() {
+  const el = document.getElementById('wachtTeller');
+  if (!el) return;
+  try {
+    const res = await fetch('/api/lp/wacht-op-jou');
+    const data = await res.json().catch(() => ({}));
+    const n = res.ok ? Number(data.totaal) || 0 : 0;
+    el.textContent = String(n);
+    el.classList.toggle('hidden', !n);
+    el.title = (data.klanten || []).map((k) => `${k.naam}: ${k.totaal}`).join(', ');
+  } catch (e) { el.classList.add('hidden'); }
+}
+setInterval(ververWachtTeller, 5 * 60 * 1000);
+
 async function startAdmin() {
+  ververWachtTeller();
   await loadOnboarding();
   await loadSettings();
   await loadIdeaProposals();
