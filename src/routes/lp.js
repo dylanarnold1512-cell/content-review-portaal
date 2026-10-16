@@ -26,6 +26,7 @@ const share = require('../lp/share');
 const { validatePage, validateTemplateStructure } = require('../lp/validator');
 const { maakControle } = require('../lp/controle');
 const { wachtOpJou } = require('../lp/wachtOpJou');
+const maandplan = require('../lp/maandplan');
 const { pushDraft, deletePage: deleteWpPage, searchMedia, uploadMedia, listSitePages, haalPaginaStatussen, siteNaam } = require('../lp/wordpress');
 const { vindTekst, vervangTekst } = require('../lp/tekstVervangen');
 const { haalSiteTeksten, formatSiteTekstenVoorPrompt } = require('../lp/siteTeksten');
@@ -677,10 +678,116 @@ async function telKlantIdeeen(klant) {
   let n = 0;
   for (const p of paginas) {
     const inv = (await lpNotion.getPage(p.id)).invoer || {};
-    if (inv.plan && inv.plan.status === 'idee van klant') n += 1;
+    if (inv.plan && (inv.plan.status === 'idee van klant' || inv.plan.status === 'voorgesteld')) n += 1;
   }
   return n;
 }
+
+// ---- Maandplan (Pagr., 16-10-2026) ----
+// Op de 1e van de maand zet de server voor klanten met Pagr. en een vast aantal pagina's per maand een plan klaar als
+// pagina's met stand Idee en plan.status 'voorgesteld'. Er wordt nog geen tekst geschreven: dat gebeurt pas als Dylan
+// goedkeurt. Het plan verschijnt bij Wacht op jou.
+const maandplanGedaan = new Set();
+
+async function planBestaatDezeMaand(klant, maand) {
+  const start = maandplan.maandStart(maand).getTime() - 24 * 3600 * 1000;
+  const paginas = (await lpNotion.listPages({ klant })).filter((p) => p.aangemaakt && new Date(p.aangemaakt).getTime() >= start).slice(0, 40);
+  for (const p of paginas) {
+    if (maandplan.isPlanVanMaand(await lpNotion.getPage(p.id), maand)) return true;
+  }
+  return false;
+}
+
+async function maakMaandPlan(klant, { forceer } = {}) {
+  const maand = maandplan.huidigeMaand();
+  const inst = await klantInstellingen(klant);
+  const sleutel = `${klant}:${maand}`;
+  const bestaat = forceer ? false : await planBestaatDezeMaand(klant, maand);
+  if (!forceer && !maandplan.moetPlannen({ pagr: inst.pagr, paginasPerMaand: inst.paginasPerMaand, planBestaat: bestaat, gedaan: maandplanGedaan.has(sleutel) })) return { overgeslagen: true };
+  if (forceer && !inst.pagr) throw new Error('Deze klant heeft de Pagr. module niet.');
+  const actief = (await templates.listTemplates({ klant, status: 'Actief' }))[0];
+  if (!actief) return { overgeslagen: true, reden: 'Geen actief sjabloon.' };
+  const bestaandePaginas = await lpNotion.listPages({ klant });
+  const klantTekst = await ai.formatKlantBronnenVoorSjabloon(klant);
+  let aiVragen = [];
+  if (inst.paginameting) { try { aiVragen = await meting.haalAiVragen(getLpClient(klant).profile.naam); } catch (e) { aiVragen = []; } }
+  const aantal = Number(inst.paginasPerMaand) > 0 ? Number(inst.paginasPerMaand) : 4;
+  const uit = await plan.maakPlanVoorstel({ klant, aantal, wens: '', bestaandePaginas, klantTekst, aiVragen, aiFn: ai.callOpenAi, volumeAan: Boolean(inst.paginameting) });
+  let n = 0;
+  for (const v of uit.voorstellen) {
+    const page = await lpNotion.createPage({ klant, blueprint: actief.blueprintId, titel: String(v.titel), invoer: maandplan.invoerVoorVoorgesteld(v, maand) });
+    await lpNotion.setStatus(page.id, 'Idee');
+    n += 1;
+  }
+  maandplanGedaan.add(sleutel);
+  return { aantal: n, maand };
+}
+
+async function maandPlanRonde() {
+  for (const klant of Object.keys(lpClients)) {
+    try { await maakMaandPlan(klant); } catch (e) { console.warn(`Maandplan voor ${klant} mislukt:`, e.message); }
+  }
+}
+
+// Wordt vanuit server.js gestart: een eerste ronde kort na het opstarten en daarna elke 6 uur.
+router.startMaandPlan = function () {
+  const eerste = setTimeout(maandPlanRonde, 2 * 60 * 1000);
+  const timer = setInterval(maandPlanRonde, 6 * 3600 * 1000);
+  if (eerste.unref) eerste.unref();
+  if (timer.unref) timer.unref();
+};
+
+router.post('/plan/maandplan/nu', requireLpInternal, async (req, res) => {
+  try {
+    const klant = String((req.body || {}).klant || '');
+    getLpClient(klant);
+    res.json(await maakMaandPlan(klant, { forceer: true }));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Het voorgestelde plan van de klant, voor de kaart Wacht op jou.
+router.get('/plan/voorgesteld', requireLpInternal, async (req, res) => {
+  try {
+    const klant = String(req.query.klant || '');
+    const paginas = (await lpNotion.listPages({ klant, status: 'Idee' })).slice(0, 40);
+    const voorstellen = [];
+    for (const p of paginas) {
+      const inv = (await lpNotion.getPage(p.id)).invoer || {};
+      if (inv.plan && inv.plan.status === 'voorgesteld') voorstellen.push({ id: p.id, titel: p.titel, reden: inv.plan.reden || '', maand: inv.plan.maand || '', volume: inv.plan.volume, signaal: inv.plan.signaal });
+    }
+    res.json({ voorstellen, maand: voorstellen[0] ? maandplan.maandNaam(voorstellen[0].maand) : '' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Keurt gekozen voorstellen goed en haalt de rest weg. De tekst start vanzelf bij klanten met Pagr.
+router.post('/plan/voorgesteld/keur', requireLpInternal, async (req, res) => {
+  try {
+    const { klant, goedkeuren, afwijzen } = req.body || {};
+    const automatisch = await pagrModuleAan(klant);
+    let goed = 0;
+    for (const id of Array.isArray(goedkeuren) ? goedkeuren : []) {
+      const page = await lpNotion.getPage(id);
+      const inv = page.invoer || {};
+      if (!inv.plan || inv.plan.status !== 'voorgesteld') continue;
+      await lpNotion.updateSection(id, 'invoer', { ...inv, plan: { ...inv.plan, status: 'goedgekeurd', goedgekeurdOp: new Date().toISOString().slice(0, 10) } });
+      const tpl = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint).catch(() => null);
+      if (automatisch && tpl && tpl.templateFormat === 'slots') startAutoTekst(id);
+      goed += 1;
+    }
+    let weg = 0;
+    for (const id of Array.isArray(afwijzen) ? afwijzen : []) {
+      const inv = (await lpNotion.getPage(id)).invoer || {};
+      if (inv.plan && inv.plan.status === 'voorgesteld') { await lpNotion.deletePage(id); weg += 1; }
+    }
+    res.json({ goedgekeurd: goed, weggehaald: weg });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
 
 // Klantideeen: pagina's met stand Idee die de klant zelf aandroeg en die nog beoordeeld moeten worden.
 router.get('/plan/ideeen', requireLpInternal, async (req, res) => {
@@ -902,6 +1009,28 @@ router.post('/pages/begeleiding', requireLpInternal, async (req, res) => {
   }
 });
 
+// Dezelfde pagina voor meer plaatsen: per plaats een kopie van de opzet, de tekst start vanzelf bij klanten met Pagr.
+async function kopieerNaarPlaatsen(pageId, plaatsen, automatisch) {
+  const namen = [...new Set((Array.isArray(plaatsen) ? plaatsen : String(plaatsen || '').split(/[\n,]+/)).map((n) => String(n).trim()).filter(Boolean))].slice(0, 15);
+  if (!namen.length) return [];
+  const origineel = await lpNotion.getPage(pageId);
+  const sleutel = Object.keys(origineel.invoer || {}).find((k) => !k.startsWith('_') && gelijk.PLAATS_SLEUTEL_RE.test(k));
+  if (!sleutel) return [{ fout: 'Deze pagina heeft geen invoerveld voor een plaats, de extra plaatsen zijn niet gemaakt.' }];
+  const oudePlaats = gelijk.plaatsWaarde(origineel.invoer);
+  const { titelVoorPlaats } = require('../lp/dupliceer');
+  const uit = [];
+  for (const naam of namen) {
+    try {
+      const { id } = await maakKopie(origineel, { titel: titelVoorPlaats(origineel.titel, oudePlaats, naam), invoer: { [sleutel]: naam }, modus: 'opzet', lokaleGegevens: '' });
+      if (automatisch) startAutoTekst(id);
+      uit.push({ plaats: naam, id });
+    } catch (e) {
+      uit.push({ plaats: naam, fout: e.message });
+    }
+  }
+  return uit;
+}
+
 // Nieuwe pagina in een stap (Pagr., 16-10-2026): de AI kiest sjabloon, titel en webadres en de pagina wordt meteen
 // aangemaakt. Lukt dat niet netjes (geen sjabloon, titel bestaat al), dan komt het advies terug zonder pagina, zodat
 // het scherm het formulier kan voorinvullen.
@@ -915,7 +1044,8 @@ router.post('/pages/snel', requireLpInternal, async (req, res) => {
     const page = await lpNotion.createPage({ klant, blueprint: advies.blueprintId, titel: advies.titel, slug: advies.slug, invoer: metOnderwerp({ ...advies.invoer, _watGaatDezePaginaOver: onderwerp }, advies.titel) });
     const automatisch = template && template.templateFormat === 'slots' && await pagrModuleAan(klant);
     if (automatisch) startAutoTekst(page.id);
-    res.json({ advies, page, automatisch: Boolean(automatisch), sjabloonNaam: template && template.naam });
+    const extra = await kopieerNaarPlaatsen(page.id, req.body?.plaatsen, automatisch);
+    res.json({ advies, page, automatisch: Boolean(automatisch), sjabloonNaam: template && template.naam, extraPlaatsen: extra });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
