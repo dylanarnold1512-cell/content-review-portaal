@@ -261,10 +261,22 @@ async function wpLaadExtra() {
     lpApi('/plan/bijhouden?klant=' + encodeURIComponent(klant)).catch(() => ({ voorstellen: [], googleBeschikbaar: false, aiBeschikbaar: false }))
   ]);
   lpState.wpInst = inst;
+  wpTekenModule(inst);
   if (inst.paginasPerMaand && !wpPlanOpslag(klant)) document.getElementById('wpAantal').value = inst.paginasPerMaand;
   wpTekenIdeeen(ideeen.ideeen || []);
   wpTekenBijhouden(bijhouden);
   wpTekenAdvies();
+}
+
+// Laat zien of de klant de Pagr. module heeft. Zonder module draait er geen automatisering.
+function wpTekenModule(inst) {
+  const el = document.getElementById('wpModule');
+  if (!el) return;
+  const aan = Boolean(inst && inst.pagr);
+  el.className = 'wp-module ' + (aan ? 'aan' : 'uit');
+  el.innerHTML = aan
+    ? '<strong>Pagr. aan</strong><span>De AI schrijft de tekst vanzelf en de rest van de automatisering draait.</span>'
+    : '<strong>Pagr. uit</strong><span>Deze klant heeft de Pagr. module niet. Er draait geen automatisering. Zet het product op Pagr. of Beide bij Instellingen in de admin.</span>';
 }
 
 function wpTekenIdeeen(ideeen) {
