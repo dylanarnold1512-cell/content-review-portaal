@@ -47,7 +47,7 @@
     knop.disabled = true;
     $('npAdviesStatus').textContent = 'De pagina wordt gemaakt... Dit duurt ongeveer 15 seconden.';
     try {
-      const r = await lpApi('/pages/snel', { method: 'POST', body: JSON.stringify({ klant, onderwerp }) });
+      const r = await lpApi('/pages/snel', { method: 'POST', body: JSON.stringify({ klant, onderwerp, plaatsen: ($('npPlaatsen') || {}).value || '' }) });
       if (!r.page) {
         // Niet netjes gelukt: vul het formulier voor zodat jij kiest.
         await vulFormulier(r.advies);
@@ -60,6 +60,12 @@
         ? `${r.page.titel} is aangemaakt. De AI schrijft nu de tekst met alle feiten van de klant. Je hoeft niet te wachten.`
         : `${r.page.titel} is aangemaakt. Deze klant heeft Pagr. niet aan, dus de tekst schrijf je zelf via de knop op het paginascherm.`;
       $('npResultaatKeuzes').innerHTML = keuze('Sjabloon', r.sjabloonNaam || r.advies.blueprintId) + keuze('Titel', r.page.titel) + keuze('Webadres', '/' + (r.page.slug || r.advies.slug || '')) + (r.advies.waarom ? keuze('Waarom', r.advies.waarom) : '');
+      const extra = r.extraPlaatsen || [];
+      const gelukt = extra.filter((x) => x.id).length;
+      const mislukt = extra.filter((x) => x.fout);
+      if (gelukt) $('npResultaatTekst').textContent += ` Er ${gelukt === 1 ? 'is ook 1 pagina' : 'zijn ook ' + gelukt + ' pagina\'s'} gemaakt voor ${extra.filter((x) => x.id).map((x) => x.plaats).join(', ')}.`;
+      if (mislukt.length) $('npResultaatTekst').textContent += ` Niet gelukt: ${mislukt.map((x) => (x.plaats ? x.plaats + ': ' : '') + x.fout).join(' ')}`;
+      if ($('npPlaatsen')) $('npPlaatsen').value = '';
       $('npResultaat').classList.remove('hidden');
       $('npAdviesStatus').textContent = '';
       $('npOnderwerp').value = '';

@@ -265,6 +265,12 @@
             <div class="wp-kaart-kop"><h2>Wacht op jou</h2></div>
             <div id="wpWacht"></div>
           </section>
+          <section class="wp-kaart hidden" id="wpMaandplanKaart">
+            <div class="wp-kaart-kop"><h2 id="wpMaandplanTitel">Plan voor deze maand</h2></div>
+            <p class="wp-muted wp-uitleg">De AI heeft dit plan klaargezet. Pagina's die je niet aanvinkt worden weggehaald. Bij goedkeuren begint de AI meteen met schrijven.</p>
+            <div id="wpMaandplan"></div>
+            <div class="wp-plan-actie"><button type="button" id="wpMaandplanKeur" class="btn btn-approve">Keur geselecteerde goed</button><span id="wpMaandplanStatus" class="wp-muted"></span></div>
+          </section>
           <section class="wp-kaart hidden" id="wpIdeeenKaart">
             <div class="wp-kaart-kop"><h2>Ideeën van de klant</h2></div>
             <div id="wpIdeeen"></div>
@@ -276,6 +282,7 @@
               <div class="wp-veld"><label for="wpAantal">Aantal deze maand</label><input id="wpAantal" type="number" min="1" max="20" value="4"></div>
               <div class="wp-veld wp-veld-breed"><label for="wpWens">Wens (optioneel)</label><input id="wpWens" type="text" placeholder="Bijvoorbeeld: meer plaatsen rond Haarlem"></div>
               <button type="button" id="wpPlanKnop" class="btn btn-approve">Stel pagina's voor</button>
+              <button type="button" id="wpMaandplanNu" class="btn btn-plain hidden">Maandplan nu klaarzetten</button>
             </div>
             <div id="wpPlanStatus" class="wp-muted"></div>
             <div id="wpPlanLijst"></div>
@@ -374,6 +381,14 @@
             <label for="npOnderwerp">Wat voor pagina wil je?</label>
             <textarea id="npOnderwerp" rows="3" placeholder="Bijvoorbeeld: een pagina over dakkapellen plaatsen in Zandvoort, of een pagina voor het Testival in Tilburg"></textarea>
           </div>
+          <details class="np-meer">
+            <summary>Meer opties</summary>
+            <div class="wp-veld wp-veld-breed">
+              <label for="npPlaatsen">Dezelfde pagina ook voor deze plaatsen</label>
+              <input type="text" id="npPlaatsen" autocomplete="off" placeholder="Bijvoorbeeld: Lisse, Sassenheim, Bennebroek">
+              <span class="wp-muted np-klein">Per plaats komt er een eigen pagina met dezelfde opzet.</span>
+            </div>
+          </details>
           <div id="npGepland" class="hidden">
             <p class="wp-muted np-klein">Of kies iets uit het plan:</p>
             <div id="npGeplandLijst" class="np-chips"></div>

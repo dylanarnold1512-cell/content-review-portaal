@@ -267,6 +267,7 @@ async function wpLaadExtra() {
   if (inst.pagr) wpSyncLive(klant);
   if (inst.paginasPerMaand && !wpPlanOpslag(klant)) document.getElementById('wpAantal').value = inst.paginasPerMaand;
   wpTekenIdeeen(ideeen.ideeen || []);
+  wpLaadMaandplan(klant, Boolean(inst.pagr));
   wpTekenBijhouden(bijhouden);
   wpTekenAdvies();
 }
@@ -286,6 +287,47 @@ function wpTekenWacht(pages) {
     lpState.laatsteLijst = 'werkplaats';
     openPageDetail(items[Number(b.dataset.wacht)].p.id);
   }));
+}
+
+// Het plan dat de server op de 1e klaarzette. Aanvinken, goedkeuren, de rest gaat weg.
+async function wpLaadMaandplan(klant, pagr) {
+  const kaart = document.getElementById('wpMaandplanKaart');
+  const nu = document.getElementById('wpMaandplanNu');
+  if (nu) {
+    nu.classList.toggle('hidden', !pagr);
+    nu.onclick = async () => {
+      nu.disabled = true;
+      document.getElementById('wpPlanStatus').textContent = 'Het maandplan wordt klaargezet. Dit duurt even.';
+      try {
+        const r = await lpApi('/plan/maandplan/nu', { method: 'POST', body: JSON.stringify({ klant }) });
+        document.getElementById('wpPlanStatus').textContent = r.overgeslagen ? (r.reden || 'Er is niets klaargezet.') : `${r.aantal} voorstellen klaargezet. Je ziet ze bij Wacht op jou.`;
+        await wpLaadMaandplan(klant, pagr);
+      } catch (err) { document.getElementById('wpPlanStatus').textContent = err.message; }
+      nu.disabled = false;
+    };
+  }
+  if (!kaart) return;
+  let data = { voorstellen: [] };
+  try { data = await lpApi('/plan/voorgesteld?klant=' + encodeURIComponent(klant)); } catch (e) { /* kaart blijft dicht */ }
+  const v = data.voorstellen || [];
+  kaart.classList.toggle('hidden', !v.length);
+  if (!v.length) return;
+  document.getElementById('wpMaandplanTitel').textContent = 'Plan voor ' + (data.maand || 'deze maand');
+  document.getElementById('wpMaandplan').innerHTML = `<div class="wp-plan-items">${v.map((x) => `<label class="wp-plan-item"><input type="checkbox" checked data-id="${wpEsc(x.id)}"><span class="wp-plan-tekst"><strong>${wpEsc(x.titel)}</strong><small>${wpEsc(x.reden)}</small>${typeof x.volume === 'number' ? `<span class="wp-plan-meta"><span class="wp-pil wp-live">${x.volume.toLocaleString('nl-NL')} zoekopdrachten per maand</span></span>` : ''}</span></label>`).join('')}</div>`;
+  const keur = document.getElementById('wpMaandplanKeur');
+  keur.onclick = async () => {
+    const vinkjes = [...document.querySelectorAll('#wpMaandplan input[type=checkbox]')];
+    const goed = vinkjes.filter((c) => c.checked).map((c) => c.dataset.id);
+    const weg = vinkjes.filter((c) => !c.checked).map((c) => c.dataset.id);
+    if (weg.length && !confirm(`${weg.length} voorstel${weg.length === 1 ? '' : 'len'} zonder vinkje worden weggehaald. Doorgaan?`)) return;
+    keur.disabled = true;
+    try {
+      const r = await lpApi('/plan/voorgesteld/keur', { method: 'POST', body: JSON.stringify({ klant, goedkeuren: goed, afwijzen: weg }) });
+      document.getElementById('wpMaandplanStatus').textContent = `${r.goedgekeurd} goedgekeurd, ${r.weggehaald} weggehaald.`;
+      await wpLaad();
+    } catch (err) { document.getElementById('wpMaandplanStatus').textContent = err.message; }
+    keur.disabled = false;
+  };
 }
 
 // Laat zien of de klant de Pagr. module heeft. Zonder module draait er geen automatisering.
