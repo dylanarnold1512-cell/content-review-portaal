@@ -304,10 +304,23 @@ router.post('/templates/:templateId/dupliceer', requireLpInternal, async (req, r
       } catch (err) { aiOpmerking = 'De instructie kon niet automatisch worden ingevuld.'; }
     }
     const kopie = bouwSjabloonKopie(origineel, { naam: req.body?.naam || onderwerp, onderwerp, instructie, bestaandeSjablonen });
+    // Het voorbeeld van het origineel gaat over iets anders: voor de kopie maken we direct een voorbeeld over het nieuwe
+    // onderwerp (tekst via AI, foto's uit de mediabibliotheek), zodat je meteen de aangepaste pagina ziet.
+    let voorbeeldWaarschuwing = '';
+    if (kopie.blueprint.focus && kopie.blueprint.templateFormat === 'slots') {
+      const { voorbeeldSlotData: oudVoorbeeld, ...zonderVoorbeeld } = kopie.blueprint;
+      delete kopie.blueprint.voorbeeldSlotData;
+      try {
+        const { data, waarschuwingen, aangevuld } = await vulVoorbeeldAan({ klant: origineel.klant, blueprint: zorgVoorGalerijSlot(zonderVoorbeeld), slotData: {}, hervulTekst: false });
+        if (aangevuld) kopie.blueprint.voorbeeldSlotData = data;
+        if (waarschuwingen.length) voorbeeldWaarschuwing = waarschuwingen.join(' ');
+        if (!aangevuld && !voorbeeldWaarschuwing) voorbeeldWaarschuwing = 'Het voorbeeld kon niet worden gemaakt, klik op "Ververs voorbeeld".';
+      } catch (err) { voorbeeldWaarschuwing = `Het voorbeeld kon niet worden gemaakt (${err.message}), klik op "Ververs voorbeeld".`; }
+    }
     const structuur = validateTemplateStructure(kopie.blueprint);
     if (!structuur.ok) return res.status(400).json({ error: 'Het originele sjabloon voldoet niet aan de structuur-eisen, daarom is er geen kopie gemaakt.', structuurFouten: structuur.errors });
     const template = await templates.createTemplate(kopie);
-    res.json({ template, structuurWaarschuwingen: structuur.warnings, instructieDoorAi: Boolean(aiOpmerking !== undefined && instructie && !String(req.body?.instructie || '').trim()), aiOpmerking });
+    res.json({ template, structuurWaarschuwingen: structuur.warnings, instructieDoorAi: Boolean(instructie && !String(req.body?.instructie || '').trim()), aiOpmerking: [aiOpmerking, voorbeeldWaarschuwing].filter(Boolean).join(' ') });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -469,6 +482,12 @@ router.post('/templates/preview', requireLpInternal, async (req, res) => {
 
 // Voorbeeldtekst hoort de ECHTE gegevens van de klant te gebruiken (naam, adres, telefoon, werkgebied,
 // diensten), niet een verzonnen plaats of "Placeholder"-nummer. Bron: de feitenbibliotheek van de klant.
+// Heeft het sjabloon een onderwerp (gedupliceerd sjabloon), dan gaat de voorbeeldtekst daarover.
+function focusInstructie(focus) {
+  if (!focus || (!focus.onderwerp && !focus.instructie)) return '';
+  return ` De pagina's van dit sjabloon gaan over: ${focus.onderwerp || ''}. ${focus.instructie || ''} Schrijf alle voorbeeldtekst over dit onderwerp (kop, intro, onderdelen, voordelen, stappen, veelgestelde vragen) en gebruik uitsluitend wat in de klantgegevens en deze instructie staat.`;
+}
+
 function feitenInstructie(klant) {
   let regels = '';
   try {
@@ -534,7 +553,7 @@ async function vulVoorbeeldAan({ klant, blueprint, slotData, hervulTekst }) {
         naam: blueprint.naam || blueprint.blueprintId || 'sjabloon',
         huidigBlueprint: blueprint,
         huidigeVoorbeeldSlotData: hervulTekst ? data : {},
-        feedback: feitenInstructie(klant) + ' Pas het sjabloon (HTML, CSS, slots) NIET aan, geef de blueprint ongewijzigd terug. Vul alleen voorbeeldSlotData volledig in met realistische, nette voorbeeldteksten voor deze klant, voor elk tekst-slot en elke lijst. Afbeelding-slots laat je leeg.'
+        feedback: feitenInstructie(klant) + focusInstructie(blueprint.focus) + ' Pas het sjabloon (HTML, CSS, slots) NIET aan, geef de blueprint ongewijzigd terug. Vul alleen voorbeeldSlotData volledig in met realistische, nette voorbeeldteksten voor deze klant, voor elk tekst-slot en elke lijst. Afbeelding-slots laat je leeg.'
       });
       if (voorbeeldSlotData && typeof voorbeeldSlotData === 'object') {
         for (const s of tekstSlots) {

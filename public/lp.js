@@ -2042,7 +2042,7 @@ document.getElementById('tdDupMaak').addEventListener('click', async () => {
   if (onderwerp.length < 3) { document.getElementById('tdDupStatus').textContent = 'Vul eerst in waar de pagina\'s over gaan, bijvoorbeeld "Dakkapellen".'; return; }
   const btn = document.getElementById('tdDupMaak');
   btn.disabled = true;
-  document.getElementById('tdDupStatus').textContent = document.getElementById('tdDupInstructie').value.trim() ? 'Bezig met kopieren...' : 'Bezig met kopieren. De AI leest de website van de klant, dit duurt ongeveer 30 seconden.';
+  document.getElementById('tdDupStatus').textContent = document.getElementById('tdDupInstructie').value.trim() ? 'Bezig met kopieren...' : 'Bezig met kopieren. De AI leest de website van de klant en maakt het voorbeeld, dit duurt 1 tot 2 minuten.';
   try {
     const { template: kopie, instructieDoorAi, aiOpmerking } = await lpApi(`/templates/${bron.id}/dupliceer`, {
       method: 'POST',

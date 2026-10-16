@@ -53,6 +53,7 @@ test('sjabloon dupliceren via de route: kopie als Concept met dezelfde opzet', a
     assert.equal(opgeslagen[0].blueprint.cssTemplate, blueprint.cssTemplate);
     assert.equal(opgeslagen[0].blueprint.htmlTemplate, blueprint.htmlTemplate);
     assert.equal(opgeslagen[0].blueprint.focus.onderwerp, 'Dakkapellen');
+    assert.equal(opgeslagen[0].blueprint.voorbeeldSlotData, undefined, 'het voorbeeld van het origineel gaat niet mee naar een kopie met ander onderwerp');
     assert.ok(opgeslagen[0].blueprint.focus.trefwoorden.includes('dakkapel'));
 
     const dubbel = await post('Locatiegericht');
