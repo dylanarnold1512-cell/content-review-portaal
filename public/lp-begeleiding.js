@@ -230,6 +230,34 @@
       const punt = (p, soort, i) => `<div class="wp-advies-item ${soort}"><p>${esc(p.tekst)}</p>${p.knop ? `<button type="button" class="btn btn-plain" data-oplos="${soort}-${i}">${esc(p.knop)}</button>` : ''}</div>`;
       kaart.innerHTML = `<div class="wp-advies-item ${c.ok ? 'goed' : 'fout'}"><p><strong>${esc(c.samenvatting)}</strong></p></div>`
         + c.fouten.map((p, i) => punt(p, 'fout', i)).join('') + c.letOp.map((p, i) => punt(p, 'let-op', i)).join('');
+      kaart.insertAdjacentHTML('beforeend', `<div class="wp-advies-item ${c.ok ? 'plan' : 'let-op'}">
+        <p><strong>Live zetten</strong><br>${c.ok ? 'Je zet de pagina zelf live. Er gaat niets live zonder jouw klik.' : 'Los eerst de fouten op, dan kun je hem live zetten.'}</p>
+        <div class="wp-idee-knoppen">
+          <button type="button" class="btn btn-approve" id="pdZetLive"${c.ok ? '' : ' disabled'}>Zet live${c.site ? ' op ' + esc(c.site) : ''}</button>
+          <button type="button" class="btn btn-plain" id="pdAlsConcept">Alleen als concept in WordPress</button>
+        </div><p id="pdLiveMelding" class="wp-muted"></p></div>`);
+      const melding = (t, fout) => { const m = $('pdLiveMelding'); if (m) { m.textContent = t; m.className = fout ? 'admin-error' : 'wp-muted'; } };
+      const zetLive = $('pdZetLive');
+      if (zetLive) zetLive.addEventListener('click', async () => {
+        if (!confirm('Deze pagina nu live zetten' + (c.site ? ' op ' + c.site : '') + '?')) return;
+        zetLive.disabled = true;
+        melding('Bezig met live zetten...');
+        try {
+          const r = await lpApi(`/pages/${page.id}/zet-live`, { method: 'POST', body: JSON.stringify({ bevestigd: true }) });
+          melding('De pagina staat live: ' + (r.page.wpUrl || ''));
+          openPageDetail(page.id);
+        } catch (err) { zetLive.disabled = false; melding(err.message, true); }
+      });
+      const alsConcept = $('pdAlsConcept');
+      if (alsConcept) alsConcept.addEventListener('click', async () => {
+        alsConcept.disabled = true;
+        melding('Bezig...');
+        try {
+          const r = await lpApi(`/pages/${page.id}/publish`, { method: 'POST' });
+          melding('Concept gezet in WordPress: ' + (r.page.wpUrl || ''));
+        } catch (err) { melding(err.message, true); }
+        alsConcept.disabled = false;
+      });
       kaart.querySelectorAll('[data-oplos]').forEach((b) => b.addEventListener('click', async () => {
         b.disabled = true;
         b.textContent = 'Bezig...';
