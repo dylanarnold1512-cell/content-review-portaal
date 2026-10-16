@@ -24,6 +24,7 @@ const gelijk = require('../lp/gelijkenis');
 const { verzamelTekst } = gelijk;
 const share = require('../lp/share');
 const { validatePage, validateTemplateStructure } = require('../lp/validator');
+const { maakControle } = require('../lp/controle');
 const { pushDraft, deletePage: deleteWpPage, searchMedia, uploadMedia, listSitePages, haalPaginaStatussen } = require('../lp/wordpress');
 const { vindTekst, vervangTekst } = require('../lp/tekstVervangen');
 const { haalSiteTeksten, formatSiteTekstenVoorPrompt } = require('../lp/siteTeksten');
@@ -931,7 +932,7 @@ router.post('/pages', requireLpInternal, async (req, res) => {
 router.get('/pages/:pageId', requireLpInternal, async (req, res) => {
   try {
     const page = await lpNotion.getPage(req.params.pageId);
-    res.json({ page, tekstStatus: autoTekstRij.status(req.params.pageId) });
+    res.json({ page, tekstStatus: autoTekstRij.status(req.params.pageId), pagr: await pagrModuleAan(page.klant) });
   } catch (err) {
     res.status(404).json({ error: err.message });
   }
@@ -1001,10 +1002,11 @@ async function haalZusterPaginas(page, allePaginas) {
 
 // Tekst op de achtergrond schrijven na het aanmaken van een pagina (een taak tegelijk, in het geheugen).
 const autoTekstRij = maakWachtrij();
-function startAutoTekst(pageId) {
+function startAutoTekst(pageId, opties) {
+  const opnieuw = Boolean(opties && opties.opnieuw);
   return autoTekstRij.zet(pageId, async () => {
     const page = await lpNotion.getPage(pageId);
-    if (isContentIngevuld(page.content)) return;
+    if (!opnieuw && isContentIngevuld(page.content)) return;
     const r = await maakContentVoorstel(page, {});
     const slotData = r.slotData || {};
     await lpNotion.updateSection(pageId, 'content', { meta: { metaTitle: slotData.metaTitle || '', metaDescription: slotData.metaDescription || '' }, slotData });
@@ -1145,7 +1147,7 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
 router.post('/pages/:pageId/auto-tekst', requireLpInternal, async (req, res) => {
   try {
     await lpNotion.getPage(req.params.pageId);
-    startAutoTekst(req.params.pageId);
+    startAutoTekst(req.params.pageId, { opnieuw: Boolean((req.body || {}).opnieuw) });
     res.json({ tekstStatus: autoTekstRij.status(req.params.pageId) });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -1213,6 +1215,47 @@ router.get('/pages/:pageId/validate', requireLpInternal, async (req, res) => {
       result.warnings = [...(result.warnings || []), ...extra];
     } catch (e) { /* een fout in deze extra controle mag de validatie nooit blokkeren */ }
     res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// De controle in een keer, met een oplossing per punt. Het scherm roept dit vanzelf aan zodra de tekst klaar is.
+router.get('/pages/:pageId/controle', requireLpInternal, async (req, res) => {
+  try {
+    const page = await lpNotion.getPage(req.params.pageId);
+    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const result = validatePage({ blueprint, contentJson: page.content || {} });
+    try {
+      result.warnings = [...(result.warnings || []), ...(await seoWaarschuwingen(page))];
+    } catch (e) { /* extra controle mag de rest nooit blokkeren */ }
+    res.json(maakControle(result));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Zet pagina's op Gepubliceerd als WordPress ze echt live heeft, ook als je daar zelf hebt gepubliceerd.
+async function syncLiveStatus(klant) {
+  const client = getLpClient(klant);
+  const lijst = (await lpNotion.listPages({ klant })).filter((p) => p.wpPaginaId && p.status !== 'Gepubliceerd');
+  if (!lijst.length) return { gecontroleerd: 0, nieuwLive: [] };
+  const statussen = await haalPaginaStatussen({ profile: client.profile, ids: lijst.map((p) => p.wpPaginaId) });
+  const nieuwLive = [];
+  for (const p of lijst) {
+    if (statussen[p.wpPaginaId] === 'publish') {
+      await lpNotion.setStatus(p.id, 'Gepubliceerd');
+      nieuwLive.push({ id: p.id, titel: p.titel });
+    }
+  }
+  return { gecontroleerd: lijst.length, nieuwLive };
+}
+
+router.post('/plan/live-sync', requireLpInternal, async (req, res) => {
+  try {
+    const klant = String((req.body || {}).klant || '');
+    if (!klant) return res.status(400).json({ error: 'klant is verplicht.' });
+    res.json(await syncLiveStatus(klant));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

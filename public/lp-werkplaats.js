@@ -262,6 +262,7 @@ async function wpLaadExtra() {
   ]);
   lpState.wpInst = inst;
   wpTekenModule(inst);
+  if (inst.pagr) wpSyncLive(klant);
   if (inst.paginasPerMaand && !wpPlanOpslag(klant)) document.getElementById('wpAantal').value = inst.paginasPerMaand;
   wpTekenIdeeen(ideeen.ideeen || []);
   wpTekenBijhouden(bijhouden);
@@ -276,7 +277,28 @@ function wpTekenModule(inst) {
   el.className = 'wp-module ' + (aan ? 'aan' : 'uit');
   el.innerHTML = aan
     ? '<strong>Pagr. aan</strong><span>De AI schrijft de tekst vanzelf en de rest van de automatisering draait.</span>'
-    : '<strong>Pagr. uit</strong><span>Je maakt pagina\'s zelf met knoppen. Zet Pagr. aan bij Instellingen in de admin voor automatisch schrijven en controleren.</span>';
+    : '<strong>Pagr. uit</strong><span>Je maakt pagina\'s zelf met knoppen. Zet Pagr. aan bij Instellingen in de admin voor automatisch schrijven en controleren.</span><span><button type="button" class="btn btn-plain" id="wpLiveKnop">Haal live status op</button> <span id="wpLiveMelding"></span></span>';
+  const knop = document.getElementById('wpLiveKnop');
+  if (knop) knop.addEventListener('click', () => wpSyncLive(document.getElementById('wpKlant').value, true));
+}
+
+// Haalt de echte WordPress status op en zet pagina's op Live als ze daar gepubliceerd zijn.
+async function wpSyncLive(klant, handmatig) {
+  try {
+    const r = await lpApi('/plan/live-sync', { method: 'POST', body: JSON.stringify({ klant }) });
+    if (r.nieuwLive && r.nieuwLive.length && document.getElementById('wpKlant').value === klant) {
+      const { pages } = await lpApi('/pages?klant=' + encodeURIComponent(klant));
+      lpState.wpPages = pages;
+      wpTeken();
+    }
+    if (handmatig) {
+      const el = document.getElementById('wpLiveMelding');
+      if (el) el.textContent = r.nieuwLive.length ? `${r.nieuwLive.length} pagina('s) staan nu op Live.` : 'Er is niets nieuws live gegaan.';
+    }
+  } catch (err) {
+    const el = document.getElementById('wpLiveMelding');
+    if (el) el.textContent = err.message;
+  }
 }
 
 function wpTekenIdeeen(ideeen) {

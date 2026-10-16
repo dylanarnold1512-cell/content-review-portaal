@@ -449,7 +449,8 @@ function lpOnderwerpTekst(invoer, titel) {
 
 // ---- Detailscherm ----
 async function openPageDetail(pageId) {
-  const { page, tekstStatus } = await lpApi(`/pages/${pageId}`);
+  const { page, tekstStatus, pagr } = await lpApi(`/pages/${pageId}`);
+  lpState.pagrModule = Boolean(pagr);
   lpState.currentPage = page;
   lpState.tekstStatus = tekstStatus || null;
   clearTimeout(lpState.tekstPoll);
