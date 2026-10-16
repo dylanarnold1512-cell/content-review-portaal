@@ -487,9 +487,9 @@ function renderInstellingen(c, inhoud) {
   </section>
   <section class="p-kaart ad-blok">
     <div class="ad-regel">
-      <div class="ad-regel-tekst"><b>Product</b><span>Blogr. toont het blogportaal, Pagr. de landingspagina's. Bij Beide staat er een extra onderdeel in het menu van de klant.</span></div>
+      <div class="ad-regel-tekst"><b>Product</b><span>Blogr. toont het blogportaal, Pagr. de landingspagina's. Bij Beide staat er een extra onderdeel in het menu van de klant. Geen van beide: de klant heeft geen product, maar je kunt hieronder Automatisering intern aanzetten voor eigen werk.</span></div>
       <select class="admin-status" data-client="${c.id}" data-productveld="producten" aria-label="Product van ${escapeHtmlAdmin(c.naam)}">
-        ${['Blogr.', 'Pagr.', 'Beide'].map((p) => `<option value="${p}"${(c.producten || 'Blogr.') === p ? ' selected' : ''}>${p}</option>`).join('')}
+        ${['Blogr.', 'Pagr.', 'Beide', 'Geen van beide'].map((p) => `<option value="${p}"${(c.producten || 'Blogr.') === p ? ' selected' : ''}>${p}</option>`).join('')}
       </select>
     </div>
   </section>

@@ -25,7 +25,7 @@ const PROPERTY_BY_FIELD = {
 };
 
 // Producten per klant (Pagr. stap 4). Leeg of onbekend telt als Blogr., zodat bestaande klanten niets merken.
-const PRODUCT_WAARDEN = ['Blogr.', 'Pagr.', 'Beide'];
+const PRODUCT_WAARDEN = ['Blogr.', 'Pagr.', 'Beide', 'Geen van beide'];
 function normaliseerProducten(waarde) {
   const w = String(waarde || '').trim();
   return PRODUCT_WAARDEN.includes(w) ? w : 'Blogr.';
