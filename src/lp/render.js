@@ -146,7 +146,7 @@ function renderSlotPageHtml(paginaRuw, opts) {
   // CTA's springen naar het formulier op de pagina zelf, plus een CTA-balk halverwege (zie formulierCta.js).
   // Alleen als het formulier ook echt getoond wordt: op WordPress dus alleen als de klant er een heeft ingesteld.
   const formulierActief = !(opts && opts.forWordPress) || !!getFormulierConfig(page.clientId);
-  const cta = pasFormulierCtaToe(naSecties.html, { actief: formulierActief, rootClass, slotData });
+  const cta = pasFormulierCtaToe(naSecties.html, { actief: formulierActief, rootClass, slotData, aantalBalken: ((clients[page.clientId] || {}).profile || {}).ctaBalken?.aantal });
   // Galerij / slideshow: de marker {{galerij}} wordt gewone sjabloon-HTML (zie galerij.js), vóór het taggen
   // en invullen van de slots, zodat foto's klikbaar en verbergbaar zijn zoals elke andere lijst.
   const galerij = pasGalerijToe(cta.html, { rootClass });

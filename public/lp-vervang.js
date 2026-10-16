@@ -166,4 +166,96 @@
     btn.textContent = 'Aanpassen...';
     $('lpVervangSamenvatting').textContent = `Klaar: ${gelukt} pagina's aangepast${mislukt ? `, ${mislukt} mislukt (zie de tabel)` : ''}.`;
   });
+  // ---- Pagina's opnieuw naar WordPress sturen (zonder tekst te veranderen) ----
+  const opnieuw = { paginas: [], bezig: false };
+
+  function opnieuwGeselecteerd() {
+    return [...document.querySelectorAll('#lpOpnieuwBody input[type=checkbox]')].filter((c) => c.checked).map((c) => opnieuw.paginas.find((p) => p.id === c.dataset.id)).filter(Boolean);
+  }
+  function opnieuwReset() {
+    $('lpOpnieuwBevestig').classList.add('hidden');
+    $('lpOpnieuwAnnuleerBtn').classList.add('hidden');
+    $('lpOpnieuwUitvoerBtn').textContent = 'Opnieuw sturen...';
+    $('lpOpnieuwUitvoerBtn').dataset.stap = '';
+  }
+
+  $('lpOpnieuwLijstBtn').addEventListener('click', async () => {
+    toonFout('');
+    const btn = $('lpOpnieuwLijstBtn');
+    setBtnLoading(btn, true, 'Laden...');
+    try {
+      const data = await lpApi(`/clients/${encodeURIComponent($('lpVervangKlant').value)}/opnieuw-publiceren/lijst`, { method: 'POST', body: '{}' });
+      opnieuw.paginas = data.paginas;
+      $('lpOpnieuwResultaat').classList.remove('hidden');
+      const w = $('lpOpnieuwWaarschuwing');
+      w.textContent = data.statusWaarschuwing || (data.paginas.length ? `${data.paginas.length} pagina's staan in WordPress.` : 'Deze klant heeft nog geen pagina\'s in WordPress.');
+      w.classList.remove('hidden');
+      const body = $('lpOpnieuwBody');
+      body.innerHTML = '';
+      data.paginas.forEach((p) => {
+        const cb = el('input', { type: 'checkbox', 'data-id': p.id });
+        body.appendChild(el('tr', {}, [
+          el('td', {}, [cb]),
+          el('td', {}, [p.wpUrl ? el('a', { href: p.wpUrl, target: '_blank', rel: 'noopener', text: p.titel }) : document.createTextNode(p.titel)]),
+          el('td', { text: wpNaam(p.wpStatus) }),
+          el('td', { 'data-opnieuw-uitkomst': p.id, text: '' })
+        ]));
+      });
+      $('lpOpnieuwAlles').checked = false;
+      $('lpOpnieuwUitvoerBtn').disabled = !data.paginas.length;
+      opnieuwReset();
+    } catch (err) { toonFout(formatApiError(err)); } finally { setBtnLoading(btn, false); }
+  });
+
+  $('lpOpnieuwAlles').addEventListener('change', (e) => {
+    document.querySelectorAll('#lpOpnieuwBody input[type=checkbox]').forEach((c) => { c.checked = e.target.checked; });
+    opnieuwReset();
+  });
+  $('lpOpnieuwBody').addEventListener('change', opnieuwReset);
+  $('lpOpnieuwAnnuleerBtn').addEventListener('click', opnieuwReset);
+
+  $('lpOpnieuwUitvoerBtn').addEventListener('click', async () => {
+    const btn = $('lpOpnieuwUitvoerBtn');
+    const gekozen = opnieuwGeselecteerd();
+    if (!gekozen.length || opnieuw.bezig) return;
+    if (btn.dataset.stap !== 'bevestig') {
+      const live = gekozen.filter((p) => p.wpStatus === 'publish').length;
+      let tekst = `${gekozen.length} pagina's worden opnieuw naar WordPress gestuurd, met dezelfde tekst.`;
+      if (live) tekst += live === 1 ? ' 1 daarvan staat live: die blijft live, maar toont meteen de nieuwe opbouw.' : ` ${live} daarvan staan live: die blijven live, maar tonen meteen de nieuwe opbouw.`;
+      $('lpOpnieuwBevestig').textContent = tekst;
+      $('lpOpnieuwBevestig').classList.remove('hidden');
+      $('lpOpnieuwAnnuleerBtn').classList.remove('hidden');
+      btn.textContent = 'Ja, versturen';
+      btn.dataset.stap = 'bevestig';
+      return;
+    }
+    opnieuw.bezig = true;
+    toonFout('');
+    $('lpOpnieuwAnnuleerBtn').classList.add('hidden');
+    $('lpOpnieuwBevestig').classList.add('hidden');
+    btn.disabled = true;
+    btn.dataset.stap = '';
+    let gelukt = 0;
+    let mislukt = 0;
+    for (let i = 0; i < gekozen.length; i++) {
+      const p = gekozen[i];
+      const cel = document.querySelector(`[data-opnieuw-uitkomst="${p.id}"]`);
+      btn.textContent = `Bezig (${i + 1} van ${gekozen.length})...`;
+      cel.textContent = 'Bezig...';
+      try {
+        const r = await lpApi(`/pages/${encodeURIComponent(p.id)}/opnieuw-publiceren`, { method: 'POST', body: '{}' });
+        gelukt += 1;
+        const delen = [`Bijgewerkt in WordPress (${wpNaam(r.wpStatus || p.wpStatus)})`, `${r.ctaBalken} offertebalk${r.ctaBalken === 1 ? '' : 'en'} op de pagina`];
+        if (r.melding) delen.push(r.melding);
+        cel.textContent = delen.join(', ') + '.';
+      } catch (err) {
+        mislukt += 1;
+        cel.textContent = `Mislukt: ${err.message}`;
+      }
+    }
+    opnieuw.bezig = false;
+    btn.disabled = false;
+    btn.textContent = 'Opnieuw sturen...';
+    $('lpOpnieuwWaarschuwing').textContent = `Klaar: ${gelukt} pagina's bijgewerkt${mislukt ? `, ${mislukt} mislukt (zie de tabel)` : ''}.`;
+  });
 })();

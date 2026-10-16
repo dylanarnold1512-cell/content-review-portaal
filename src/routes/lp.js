@@ -1367,6 +1367,63 @@ router.post('/pages/:pageId/tekst-vervangen', requireLpInternal, async (req, res
   }
 });
 
+// ---- Pagina's opnieuw naar WordPress sturen, zonder tekst te veranderen (16-10-2026) ----
+// Voor als een sjabloon of een vaste bouwsteen (bijvoorbeeld een extra CTA-balk, zie formulierCta.js) is veranderd en
+// de bestaande pagina's dat ook moeten krijgen. Rendert de pagina opnieuw met de huidige code en stuurt hem naar
+// WordPress met behoud van de status: live blijft live, een concept blijft een concept. Notion verandert niet.
+router.post('/clients/:clientId/opnieuw-publiceren/lijst', requireLpInternal, async (req, res) => {
+  try {
+    const client = getLpClient(req.params.clientId);
+    const lijst = (await lpNotion.listPages({ klant: req.params.clientId })).filter((p) => p.wpPaginaId);
+    let statussen = {};
+    let statusWaarschuwing = null;
+    try {
+      statussen = await haalPaginaStatussen({ profile: client.profile, ids: lijst.map((p) => p.wpPaginaId) });
+    } catch (err) {
+      statusWaarschuwing = `De WordPress status kon niet worden opgehaald (${err.message}). Controleer zelf welke pagina's live staan.`;
+    }
+    const paginas = lijst
+      .map((p) => ({ id: p.id, titel: p.titel, wpUrl: p.wpUrl || null, notionStatus: p.status, wpStatus: statussen[p.wpPaginaId] || 'onbekend' }))
+      .sort((a, b) => String(a.titel).localeCompare(String(b.titel), 'nl'));
+    res.json({ paginas, statusWaarschuwing });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/pages/:pageId/opnieuw-publiceren', requireLpInternal, async (req, res) => {
+  try {
+    const page = await lpNotion.getPage(req.params.pageId);
+    if (!page.wpPaginaId) return res.status(400).json({ error: 'Deze pagina staat nog niet in WordPress. Publiceer hem eerst via het gewone scherm.' });
+    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const content = page.content;
+    if (contentIsEmpty(blueprint, content)) return res.status(400).json({ error: 'Deze pagina heeft nog geen content.' });
+    const validation = validatePage({ blueprint, contentJson: content });
+    if (!validation.ok) return res.status(400).json({ error: `Niet verstuurd, de pagina is niet geldig: ${validation.errors.join('; ')}` });
+    const client = getLpClient(page.klant);
+    const html = renderPageHtml(buildRenderPage({ blueprint, content, clientId: page.klant, slug: page.slug, invoer: page.invoer }), { forWordPress: true });
+    const slotData = (content && content.slotData) || {};
+    const result = await pushDraft({
+      profile: client.profile,
+      wpPaginaId: page.wpPaginaId,
+      titel: page.titel,
+      html,
+      slug: page.slug,
+      metaTitel: slotData.metaTitle,
+      metaBeschrijving: slotData.metaDescription,
+      behoudStatus: true
+    });
+    let melding = null;
+    if (result.opnieuwAangemaakt) {
+      await lpNotion.setWordpressInfo(req.params.pageId, { wpPaginaId: result.id, wpUrl: result.link });
+      melding = 'De WordPress pagina bestond niet meer, er is een nieuw concept gemaakt.';
+    }
+    res.json({ gepubliceerd: true, wpStatus: result.status || null, ctaBalken: (html.match(/data-lp-cta-balk/g) || []).length, melding });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // ---- Deellink voor de klant ----
 // Publieke kant staat in src/routes/share.js (/voorbeeld/:token). Hier de interne beheer-routes.
 function shareResponse(req, raw) {

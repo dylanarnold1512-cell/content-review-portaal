@@ -729,6 +729,29 @@
         </div>
         <p id="lpVervangBevestig" class="admin-footnote hidden" style="font-weight:600;"></p>
       </div>
+
+      <div class="admin-section-title" style="margin-top:34px;">Pagina's opnieuw naar WordPress sturen</div>
+      <p class="admin-footnote">
+        Is er iets aan de opbouw van de pagina's veranderd, bijvoorbeeld een extra offertebalk? Dan stuurt de tool de pagina's hier opnieuw naar WordPress,
+        met dezelfde tekst. De status blijft zoals die is: een pagina die live staat blijft live. Controleer eerst een pagina, bijvoorbeeld door er maar een aan te vinken.
+      </p>
+      <div class="modal-actions" style="justify-content:flex-start;gap:10px;">
+        <button type="button" id="lpOpnieuwLijstBtn" class="btn btn-approve">Toon pagina's van deze klant</button>
+      </div>
+      <div id="lpOpnieuwResultaat" class="hidden" style="margin-top:14px;">
+        <p id="lpOpnieuwWaarschuwing" class="admin-footnote hidden"></p>
+        <div class="lp-table-card">
+          <table class="lp-table">
+            <thead><tr><th><input type="checkbox" id="lpOpnieuwAlles" aria-label="Alles selecteren"></th><th>Pagina</th><th>WordPress</th><th>Uitkomst</th></tr></thead>
+            <tbody id="lpOpnieuwBody"></tbody>
+          </table>
+        </div>
+        <div class="modal-actions" style="justify-content:flex-start;gap:10px;margin-top:10px;">
+          <button type="button" id="lpOpnieuwUitvoerBtn" class="btn btn-approve">Opnieuw sturen...</button>
+          <button type="button" id="lpOpnieuwAnnuleerBtn" class="btn-plain hidden">Annuleren</button>
+        </div>
+        <p id="lpOpnieuwBevestig" class="admin-footnote hidden" style="font-weight:600;"></p>
+      </div>
     </div>
   </div>
 
