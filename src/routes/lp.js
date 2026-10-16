@@ -6,6 +6,7 @@ const express = require('express');
 const { getLpClient, clients: lpClients } = require('../lp/clients');
 const klantgegevens = require('../lp/klantgegevens');
 const { schoonScreenshots } = require('../lp/screenshots');
+const { bouwSjabloonKopie } = require('../lp/sjabloonKopie');
 const lpNotion = require('../lp/notion');
 const templates = require('../lp/templates');
 const clientIntake = require('../lp/clientIntake');
@@ -259,6 +260,21 @@ router.get('/templates/:templateId', requireLpInternal, async (req, res) => {
     res.json({ template });
   } catch (err) {
     res.status(404).json({ error: err.message });
+  }
+});
+
+// Sjabloon dupliceren: zelfde opzet en opmaak onder een nieuwe naam, als Concept. Zie src/lp/sjabloonKopie.js.
+router.post('/templates/:templateId/dupliceer', requireLpInternal, async (req, res) => {
+  try {
+    const origineel = await templates.getTemplate(req.params.templateId);
+    const bestaandeSjablonen = await templates.listTemplates({ klant: origineel.klant });
+    const kopie = bouwSjabloonKopie(origineel, { naam: req.body?.naam, bestaandeSjablonen });
+    const structuur = validateTemplateStructure(kopie.blueprint);
+    if (!structuur.ok) return res.status(400).json({ error: 'Het originele sjabloon voldoet niet aan de structuur-eisen, daarom is er geen kopie gemaakt.', structuurFouten: structuur.errors });
+    const template = await templates.createTemplate(kopie);
+    res.json({ template, structuurWaarschuwingen: structuur.warnings });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 

@@ -2010,6 +2010,29 @@ document.getElementById('lpTplStatusSelect').addEventListener('change', async (e
   document.getElementById('lpTplDetailStatusBadge').className = lpBadgeClass(LP_TEMPLATE_STATUS_BADGE, updated.status);
 });
 
+document.getElementById('lpTplDupliceerBtn').addEventListener('click', async () => {
+  const template = lpState.currentTemplate;
+  if (!template) return;
+  const errorEl = document.getElementById('lpTplDeleteError');
+  errorEl.classList.add('hidden');
+  const naam = prompt(`Naam van de kopie van "${template.naam}"? De opmaak blijft gelijk, de kopie start als Concept.`, `${template.naam} kopie`);
+  if (!naam) return;
+  const btn = document.getElementById('lpTplDupliceerBtn');
+  btn.disabled = true;
+  try {
+    const { template: kopie } = await lpApi(`/templates/${template.id}/dupliceer`, { method: 'POST', body: JSON.stringify({ naam }) });
+    await loadTemplates();
+    await openTemplateDetail(kopie.id);
+    const savedEl = document.getElementById('lpTplSaved');
+    if (savedEl) savedEl.textContent = `Kopie "${kopie.naam}" gemaakt van "${template.naam}". Pas hem aan en zet hem daarna op Actief.`;
+  } catch (err) {
+    errorEl.textContent = formatApiError(err);
+    errorEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 document.getElementById('lpTplDeleteBtn').addEventListener('click', async () => {
   const template = lpState.currentTemplate;
   if (!template) return;
