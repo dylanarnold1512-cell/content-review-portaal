@@ -198,6 +198,13 @@ const MODULES = [
   { veld: 'aiZichtbaarheid', naam: 'AI zichtbaarheid', kort: 'AI', tip: 'Toont het tabblad AI zichtbaarheid. De klant ziet hoe vaak ChatGPT en Gemini het eigen merk noemen. Concurrenten en bronnen van anderen blijven alleen hier zichtbaar. Zet aan zodra er minstens twee volledige weken meting zijn.' }
 ];
 
+// Heeft de klant het blogproduct? Bij Pagr. en Geen van beide horen de blogopties niet in beeld.
+function heeftBlogr(c) {
+  const p = c.producten || 'Blogr.';
+  return p === 'Blogr.' || p === 'Beide';
+}
+const BLOG_MODULES = ['reviewEnabled', 'performanceEnabled', 'ideaEnrichmentEnabled', 'merkprofielNaarKennisdocument'];
+
 function statusVanKlant(c) {
   if (c.klantstatusIngesteld === false) return { tekst: 'Status kiezen', klasse: 'p-pil-let-op' };
   const s = c.klantstatus || 'actief';
@@ -289,8 +296,9 @@ function renderKlant(c, tab) {
     return;
   }
   const st = c.alleenOnboarding ? { tekst: 'Onboarding', klasse: 'p-pil-plan' } : statusVanKlant(c);
-  const zichtbareTabs = c.alleenOnboarding ? KLANT_TABS.filter((t) => t.id === 'onboarding') : KLANT_TABS;
+  const zichtbareTabs = c.alleenOnboarding ? KLANT_TABS.filter((t) => t.id === 'onboarding') : KLANT_TABS.filter((t) => t.id !== 'ideeen' || heeftBlogr(c));
   if (c.alleenOnboarding && tab !== 'onboarding') tab = 'onboarding';
+  if (tab === 'ideeen' && !heeftBlogr(c)) tab = 'instellingen';
   const tabs = zichtbareTabs.map((t) => {
     const teller = t.id === 'ideeen' && wachtendeIdeeen(c.id) ? `<span class="p-teller">${wachtendeIdeeen(c.id)}</span>` : '';
     return `<button type="button" class="ad-tab${t.id === tab ? ' active' : ''}" data-tab="${t.id}">${t.titel}${teller}</button>`;
@@ -470,7 +478,7 @@ async function renderOnboarding(c, inhoud) {
 function renderInstellingen(c, inhoud) {
   const ingesteld = c.klantstatusIngesteld !== false;
   const statusTip = 'Actief: alles werkt. Gepauzeerd of beëindigd: de klant kan niet meer inloggen op het portaal en ziet een melding. De workflows in n8n volgen deze status.';
-  const regels = MODULES.map((m) => `
+  const regels = MODULES.filter((m) => heeftBlogr(c) || !BLOG_MODULES.includes(m.veld)).map((m) => `
     <div class="ad-regel">
       <div class="ad-regel-tekst"><b>${m.naam}</b><span>${m.tip}</span></div>
       ${toggleSwitch(m.veld + '-' + c.id, c.id, m.veld, c[m.veld], m.alleenAlsKoppeling && !c.heeftPrestaties, 'Geen prestatiekoppeling ingesteld voor deze klant')}
