@@ -2068,6 +2068,28 @@ document.getElementById('tdDupMaak').addEventListener('click', async () => {
   }
 });
 
+// De AI vult onderwerp en instructie in op basis van de website van de klant (alleen een voorstel, er wordt niets bewaard).
+async function laatAiFocusInvullen(onderwerpId, instructieId, statusId, knopId, bron) {
+  const template = bron();
+  if (!template) return;
+  const status = document.getElementById(statusId);
+  const onderwerp = document.getElementById(onderwerpId).value.trim();
+  if (onderwerp.length < 3) { status.textContent = 'Vul eerst in waar de pagina\'s over gaan, bijvoorbeeld "Dakkapellen".'; return; }
+  const knop = document.getElementById(knopId);
+  knop.disabled = true;
+  status.textContent = 'De AI leest de website van de klant... Dit duurt ongeveer 30 seconden.';
+  try {
+    const { voorstel } = await lpApi('/templates/focus-voorstel', { method: 'POST', body: JSON.stringify({ klant: template.klant, onderwerp }) });
+    if (voorstel.onderwerp) document.getElementById(onderwerpId).value = voorstel.onderwerp;
+    document.getElementById(instructieId).value = voorstel.instructie;
+    status.textContent = 'Ingevuld op basis van de website. Controleer en pas aan waar nodig.' + (voorstel.opmerking ? ' ' + voorstel.opmerking : '');
+  } catch (err) {
+    status.textContent = formatApiError(err);
+  } finally { knop.disabled = false; }
+}
+document.getElementById('tdDupAiVul').addEventListener('click', () => laatAiFocusInvullen('tdDupOnderwerp', 'tdDupInstructie', 'tdDupStatus', 'tdDupAiVul', () => dupBron));
+document.getElementById('tdFocusAiVul').addEventListener('click', () => laatAiFocusInvullen('tdFocusOnderwerp', 'tdFocusInstructie', 'tdFocusStatus', 'tdFocusAiVul', () => lpState.currentTemplate));
+
 document.getElementById('tdFocusBewaar').addEventListener('click', () => {
   let blueprint;
   try { blueprint = JSON.parse(document.getElementById('lpTplDetailBlueprintJson').value || '{}'); } catch (err) {
