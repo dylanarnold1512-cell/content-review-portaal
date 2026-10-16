@@ -333,8 +333,8 @@ function renderPagesTable() {
   lpKoppelSelectie('lpPagina', lijst);
   lijst.querySelectorAll('.lp-row').forEach((row) => {
     const open = () => openPageDetail(row.dataset.pageId);
-    row.addEventListener('click', (e) => { if (e.target.closest('.wp-vink')) return; open(); });
-    row.addEventListener('keydown', (e) => { if (e.target.closest('.wp-vink')) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+    row.addEventListener('click', (e) => { if (e.target.closest('.wp-vink') || e.target.closest('[data-dup]')) return; open(); });
+    row.addEventListener('keydown', (e) => { if (e.target.closest('.wp-vink') || e.target.closest('[data-dup]')) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
   });
 }
 
@@ -1495,9 +1495,14 @@ function renderTemplatesTable() {
       <div class="wp-rij-hoofd"><strong>${t.naam || '(zonder naam)'}</strong><small class="wp-muted">${klantNaam(t.klant)}</small></div>
       <span class="wp-pil ${klasse}"><span class="wp-stip"></span>${uitleg[t.status] || t.status || ''}</span>
       <span class="wp-muted wp-rij-datum">${datum}</span>
+      <button type="button" class="btn-plain td-rij-dup" data-dup="${t.id}">Dupliceren</button>
     </div>`;
   }).join('') || '<p class="wp-muted">Nog geen sjablonen. Maak je eerste sjabloon met Nieuw sjabloon.</p>';
   lpKoppelSelectie('lpTemplate', lijst);
+  lijst.querySelectorAll('[data-dup]').forEach((b) => b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openDupliceer(lpState.templates.find((t) => t.id === b.dataset.dup));
+  }));
   lijst.querySelectorAll('.lp-row').forEach((row) => {
     const open = () => openTemplateDetail(row.dataset.templateId);
     row.addEventListener('click', (e) => { if (e.target.closest('.wp-vink')) return; open(); });
@@ -1868,7 +1873,7 @@ async function openTemplateDetail(templateId) {
   document.getElementById('lpTplDetailVoorbeeldJson').value = isSlot ? JSON.stringify(heeftBewaardVoorbeeld ? bewaardVoorbeeld : {}, null, 2) : '[]';
   document.getElementById('tdFocusOnderwerp').value = (template.blueprint && template.blueprint.focus && template.blueprint.focus.onderwerp) || '';
   document.getElementById('tdFocusInstructie').value = (template.blueprint && template.blueprint.focus && template.blueprint.focus.instructie) || '';
-  document.getElementById('tdDupliceerKaart').classList.add('hidden');
+  document.getElementById('tdFocusKaart').classList.toggle('hidden', !(template.blueprint && template.blueprint.focus));
   document.getElementById('lpTplDetailFeedback').value = '';
   document.getElementById('lpTplDetailRefineStatus').textContent = '';
   delete lpTplUndo.detail;
@@ -2013,63 +2018,49 @@ document.getElementById('lpTplStatusSelect').addEventListener('change', async (e
   document.getElementById('lpTplDetailStatusBadge').className = lpBadgeClass(LP_TEMPLATE_STATUS_BADGE, updated.status);
 });
 
-document.getElementById('lpTplDupliceerBtn').addEventListener('click', () => {
-  const template = lpState.currentTemplate;
+// Sjabloon dupliceren: vanuit de lijst met sjablonen en vanuit het sjabloonscherm, in een venster boven de pagina.
+let dupBron = null;
+function openDupliceer(template) {
   if (!template) return;
+  dupBron = { id: template.id, klant: template.klant, naam: template.naam };
+  document.getElementById('tdDupBron').textContent = `Kopie van "${template.naam}"`;
   document.getElementById('tdDupNaam').value = '';
   document.getElementById('tdDupOnderwerp').value = '';
   document.getElementById('tdDupInstructie').value = '';
   document.getElementById('tdDupStatus').textContent = '';
-  document.getElementById('tdDupliceerKaart').classList.remove('hidden');
+  document.getElementById('tdDupOverlay').classList.remove('hidden');
   document.getElementById('tdDupOnderwerp').focus();
-});
-document.getElementById('tdDupAnnuleer').addEventListener('click', () => document.getElementById('tdDupliceerKaart').classList.add('hidden'));
+}
+function sluitDupliceer() { document.getElementById('tdDupOverlay').classList.add('hidden'); dupBron = null; }
+document.getElementById('lpTplDupliceerBtn').addEventListener('click', () => openDupliceer(lpState.currentTemplate));
+document.getElementById('tdDupAnnuleer').addEventListener('click', sluitDupliceer);
+document.getElementById('tdDupOverlay').addEventListener('click', (e) => { if (e.target.id === 'tdDupOverlay') sluitDupliceer(); });
 document.getElementById('tdDupMaak').addEventListener('click', async () => {
-  const template = lpState.currentTemplate;
-  if (!template) return;
-  const errorEl = document.getElementById('lpTemplateDetailError');
-  errorEl.classList.add('hidden');
+  const bron = dupBron;
+  if (!bron) return;
+  const onderwerp = document.getElementById('tdDupOnderwerp').value.trim();
+  if (onderwerp.length < 3) { document.getElementById('tdDupStatus').textContent = 'Vul eerst in waar de pagina\'s over gaan, bijvoorbeeld "Dakkapellen".'; return; }
   const btn = document.getElementById('tdDupMaak');
   btn.disabled = true;
   document.getElementById('tdDupStatus').textContent = document.getElementById('tdDupInstructie').value.trim() ? 'Bezig met kopieren...' : 'Bezig met kopieren. De AI leest de website van de klant, dit duurt ongeveer 30 seconden.';
   try {
-    const { template: kopie, instructieDoorAi, aiOpmerking } = await lpApi(`/templates/${template.id}/dupliceer`, {
+    const { template: kopie, instructieDoorAi, aiOpmerking } = await lpApi(`/templates/${bron.id}/dupliceer`, {
       method: 'POST',
-      body: JSON.stringify({ naam: document.getElementById('tdDupNaam').value.trim(), onderwerp: document.getElementById('tdDupOnderwerp').value, instructie: document.getElementById('tdDupInstructie').value })
+      body: JSON.stringify({ naam: document.getElementById('tdDupNaam').value.trim(), onderwerp, instructie: document.getElementById('tdDupInstructie').value })
     });
-    document.getElementById('tdDupliceerKaart').classList.add('hidden');
+    sluitDupliceer();
+    document.getElementById('lpTemplateDetailSection').classList.add('hidden');
+    document.getElementById('lpSjablonenTab').classList.remove('hidden');
     await loadTemplates();
     await openTemplateDetail(kopie.id);
     const savedEl = document.getElementById('lpTplSaved');
-    if (savedEl) savedEl.textContent = `Kopie "${kopie.naam}" gemaakt van "${template.naam}".${instructieDoorAi ? ' De AI heeft de instructie ingevuld op basis van de website, controleer die hieronder.' : ''}${aiOpmerking ? ' ' + aiOpmerking : ''} Zet hem op Actief als hij klaar is.`;
+    if (savedEl) savedEl.textContent = `Kopie "${kopie.naam}" gemaakt van "${bron.naam}".${instructieDoorAi ? ' De AI heeft de instructie ingevuld op basis van de website, controleer die bovenaan.' : ''}${aiOpmerking ? ' ' + aiOpmerking : ''} Zet hem op Actief als hij klaar is.`;
   } catch (err) {
-    document.getElementById('tdDupStatus').textContent = '';
-    errorEl.textContent = formatApiError(err);
-    errorEl.classList.remove('hidden');
+    document.getElementById('tdDupStatus').textContent = formatApiError(err);
   } finally {
     btn.disabled = false;
   }
 });
-
-async function laatAiFocusInvullen(onderwerpId, instructieId, statusId, knopId) {
-  const template = lpState.currentTemplate;
-  if (!template) return;
-  const onderwerp = document.getElementById(onderwerpId).value.trim();
-  const status = document.getElementById(statusId);
-  const knop = document.getElementById(knopId);
-  knop.disabled = true;
-  status.textContent = 'De AI leest de website van de klant... Dit duurt ongeveer 30 seconden.';
-  try {
-    const { voorstel } = await lpApi('/templates/focus-voorstel', { method: 'POST', body: JSON.stringify({ klant: template.klant, onderwerp }) });
-    if (voorstel.onderwerp) document.getElementById(onderwerpId).value = voorstel.onderwerp;
-    document.getElementById(instructieId).value = voorstel.instructie;
-    status.textContent = 'Ingevuld op basis van de website. Controleer en pas aan waar nodig.' + (voorstel.opmerking ? ' ' + voorstel.opmerking : '');
-  } catch (err) {
-    status.textContent = formatApiError(err);
-  } finally { knop.disabled = false; }
-}
-document.getElementById('tdDupAiVul').addEventListener('click', () => laatAiFocusInvullen('tdDupOnderwerp', 'tdDupInstructie', 'tdDupStatus', 'tdDupAiVul'));
-document.getElementById('tdFocusAiVul').addEventListener('click', () => laatAiFocusInvullen('tdFocusOnderwerp', 'tdFocusInstructie', 'tdFocusStatus', 'tdFocusAiVul'));
 
 document.getElementById('tdFocusBewaar').addEventListener('click', () => {
   let blueprint;
