@@ -28,3 +28,18 @@ test('lege invoer geeft geen fout', () => {
   assert.equal(maakControle().ok, true);
   assert.equal(oplossingVoor('x').knop, null);
 });
+
+test('pushDraft stuurt status publish alleen als erom gevraagd wordt', async () => {
+  const verstuurd = [];
+  process.env.T_URL = 'https://x.nl'; process.env.T_USER = 'u'; process.env.T_PW = 'p';
+  const orig = global.fetch;
+  global.fetch = async (url, opt) => { verstuurd.push(JSON.parse(opt.body)); return { ok: true, status: 200, json: async () => ({ id: 1, link: 'https://x.nl/a', status: 'publish', meta: {} }) }; };
+  try {
+    const { pushDraft } = require('../src/lp/wordpress');
+    const profile = { id: 't', wordpress: { urlEnv: 'T_URL', usernameEnv: 'T_USER', appPasswordEnv: 'T_PW' } };
+    await pushDraft({ profile, titel: 'a', html: '<p>x</p>' });
+    await pushDraft({ profile, titel: 'a', html: '<p>x</p>', status: 'publish' });
+    assert.equal(verstuurd[0].status, 'draft');
+    assert.equal(verstuurd[1].status, 'publish');
+  } finally { global.fetch = orig; }
+});

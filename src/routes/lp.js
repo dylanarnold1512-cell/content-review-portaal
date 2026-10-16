@@ -25,7 +25,7 @@ const { verzamelTekst } = gelijk;
 const share = require('../lp/share');
 const { validatePage, validateTemplateStructure } = require('../lp/validator');
 const { maakControle } = require('../lp/controle');
-const { pushDraft, deletePage: deleteWpPage, searchMedia, uploadMedia, listSitePages, haalPaginaStatussen } = require('../lp/wordpress');
+const { pushDraft, deletePage: deleteWpPage, searchMedia, uploadMedia, listSitePages, haalPaginaStatussen, siteNaam } = require('../lp/wordpress');
 const { vindTekst, vervangTekst } = require('../lp/tekstVervangen');
 const { haalSiteTeksten, formatSiteTekstenVoorPrompt } = require('../lp/siteTeksten');
 const plan = require('../lp/plan');
@@ -1229,7 +1229,7 @@ router.get('/pages/:pageId/controle', requireLpInternal, async (req, res) => {
     try {
       result.warnings = [...(result.warnings || []), ...(await seoWaarschuwingen(page))];
     } catch (e) { /* extra controle mag de rest nooit blokkeren */ }
-    res.json(maakControle(result));
+    res.json({ ...maakControle(result), site: siteNaam(getLpClient(page.klant).profile) });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -1410,6 +1410,41 @@ router.post('/pages/:pageId/publish', requireLpInternal, async (req, res) => {
     await lpNotion.setStatus(req.params.pageId, 'Ter review');
     const updated = await lpNotion.getPage(req.params.pageId);
     res.json({ page: updated, validation, seo: result.seo });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Zet de pagina live in WordPress. Alleen na een bewuste klik: bevestigd moet true zijn, de pagina moet de
+// controle halen (geen fouten). Nieuw besluit 16-10-2026: live zetten kan vanuit het portaal, nooit automatisch.
+router.post('/pages/:pageId/zet-live', requireLpInternal, async (req, res) => {
+  try {
+    if ((req.body || {}).bevestigd !== true) return res.status(400).json({ error: 'Live zetten kan alleen met een bewuste klik.' });
+    const page = await lpNotion.getPage(req.params.pageId);
+    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const content = page.content;
+    if (contentIsEmpty(blueprint, content)) return res.status(400).json({ error: 'Geen content om live te zetten.' });
+    const validation = validatePage({ blueprint, contentJson: content });
+    if (!validation.ok) return res.status(400).json({ error: 'De controle heeft nog fouten, de pagina is niet live gezet.', validation });
+    const client = getLpClient(page.klant);
+    const html = renderPageHtml(buildRenderPage({ blueprint, content, clientId: page.klant, slug: page.slug, invoer: page.invoer }), { forWordPress: true });
+    const slotData = (content && content.slotData) || {};
+    const result = await pushDraft({
+      profile: client.profile,
+      wpPaginaId: page.wpPaginaId || undefined,
+      titel: page.titel,
+      html,
+      slug: page.slug,
+      metaTitel: slotData.metaTitle,
+      metaBeschrijving: slotData.metaDescription,
+      status: 'publish'
+    });
+    await lpNotion.setWordpressInfo(req.params.pageId, { wpPaginaId: result.id, wpUrl: result.link });
+    if (result.status !== 'publish') {
+      return res.status(400).json({ error: `WordPress zette de pagina niet live (status: ${result.status || 'onbekend'}). Controleer in WordPress.` });
+    }
+    await lpNotion.setStatus(req.params.pageId, 'Gepubliceerd');
+    res.json({ page: await lpNotion.getPage(req.params.pageId), seo: result.seo });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
