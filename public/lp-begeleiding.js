@@ -186,15 +186,19 @@
     const box = $('pdAdvies');
     if (!box) return;
     const items = [];
+    const ts = (typeof lpState !== 'undefined' && lpState.tekstStatus) || null;
     const stap = (tekst, knop, actie, soort) => items.push({ tekst, knop, actie, soort: soort || 'plan' });
     if (page.status === 'Afgewezen') items.push({ soort: 'let-op', tekst: 'Deze pagina is afgewezen. Pas de tekst aan of laat de AI hem opnieuw schrijven.' });
     if (page.status === 'Fout') items.push({ soort: 'fout', tekst: 'Er ging iets mis bij deze pagina. Controleer de tekst en probeer het opnieuw.' });
     if (st.gepubliceerd) {
       stap('Deze pagina staat live. Wil je hem verbeteren, kijk dan in de Werkplaats bij Bijhouden of er een voorstel staat.', null, null, 'goed');
+    } else if (!st.contentKlaar && ts && (ts.status === 'bezig' || ts.status === 'wacht')) {
+      stap('De AI schrijft de tekst voor deze pagina. Dit duurt ongeveer een minuut. Je hoeft niets te doen, dit scherm ververst vanzelf.', null, null, 'goed');
+    } else if (!st.contentKlaar && ts && ts.status === 'fout') {
+      items.push({ soort: 'fout', tekst: `Het schrijven van de tekst is niet gelukt: ${ts.fout}` });
+      stap('Probeer het nog een keer.', 'Laat de AI opnieuw schrijven', async () => { await lpApi(`/pages/${page.id}/auto-tekst`, { method: 'POST', body: '{}' }); openPageDetail(page.id); });
     } else if (!st.invoerIngevuld) {
-      stap('Begin met het onderwerp. Beschrijf waar de pagina over gaat en wat hem anders maakt dan vergelijkbare pagina\'s. Hoe specifieker, hoe beter de tekst.', 'Naar Onderwerp', () => switchLpSubtab('invoer'));
-    } else if (st.total > 0 && !st.feitenKlaar) {
-      stap(`Controleer de feiten. ${st.gebruikt} van ${st.total} zijn bevestigd. Alleen bevestigde feiten komen op de pagina.`, 'Naar Feiten', () => switchLpSubtab('feitensheet'));
+      stap('Beschrijf kort waar de pagina over gaat en wat hem anders maakt dan vergelijkbare pagina\'s. Daarna schrijft de AI de tekst.', 'Naar Onderwerp', () => switchLpSubtab('invoer'));
     } else if (!st.contentKlaar) {
       stap('Alles staat klaar. De AI kan nu de tekst schrijven en passende foto\'s kiezen.', 'Laat de AI de tekst schrijven', () => { switchLpSubtab('content'); const k = $('lpGenerateContentBtn'); if (k && !k.disabled) k.click(); });
     } else {

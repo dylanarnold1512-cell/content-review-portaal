@@ -28,6 +28,7 @@ const { pushDraft, deletePage: deleteWpPage, searchMedia, uploadMedia, listSiteP
 const { vindTekst, vervangTekst } = require('../lp/tekstVervangen');
 const { haalSiteTeksten, formatSiteTekstenVoorPrompt } = require('../lp/siteTeksten');
 const plan = require('../lp/plan');
+const { onderwerpTekst, metOnderwerp, maakWachtrij } = require('../lp/autoPagina');
 const begeleiding = require('../lp/begeleiding');
 const meting = require('../lp/meting');
 const { maakUpdateVoorstellen } = require('../lp/bijhouden');
@@ -813,12 +814,13 @@ router.post('/plan/goedkeuren', requireLpInternal, async (req, res) => {
       return res.status(400).json({ error: 'klant, blueprint en minstens een voorstel zijn verplicht.' });
     }
     if (voorstellen.length > plan.MAX_AANTAL) return res.status(400).json({ error: `Maximaal ${plan.MAX_AANTAL} pagina's tegelijk.` });
-    await templates.getActiveTemplateByBlueprintId(klant, blueprint);
+    const gekozenSjabloon = await templates.getActiveTemplateByBlueprintId(klant, blueprint);
     const aangemaakt = [];
     for (const v of voorstellen) {
       if (!v || !v.titel) continue;
       const page = await lpNotion.createPage({ klant, blueprint, titel: String(v.titel), invoer: plan.invoerVoorGoedgekeurd(v) });
       await lpNotion.setStatus(page.id, 'Idee');
+      if (gekozenSjabloon && gekozenSjabloon.templateFormat === 'slots') startAutoTekst(page.id);
       aangemaakt.push({ id: page.id, titel: v.titel });
     }
     res.json({ aangemaakt });
@@ -909,8 +911,10 @@ router.post('/pages', requireLpInternal, async (req, res) => {
       return res.status(400).json({ error: 'klant, blueprint en titel zijn verplicht.' });
     }
     // Valideer dat klant/blueprint bestaan voordat we een Notion-pagina aanmaken.
-    await templates.getActiveTemplateByBlueprintId(klant, blueprint);
-    const page = await lpNotion.createPage({ klant, blueprint, titel, slug, invoer });
+    const template = await templates.getActiveTemplateByBlueprintId(klant, blueprint);
+    const page = await lpNotion.createPage({ klant, blueprint, titel, slug, invoer: metOnderwerp(invoer, titel) });
+    // De AI schrijft de tekst vanzelf (alleen voor sjablonen in het slot formaat). Uit te zetten met automatisch: false.
+    if (req.body.automatisch !== false && template && template.templateFormat === 'slots') startAutoTekst(page.id);
     res.json({ page });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -920,7 +924,7 @@ router.post('/pages', requireLpInternal, async (req, res) => {
 router.get('/pages/:pageId', requireLpInternal, async (req, res) => {
   try {
     const page = await lpNotion.getPage(req.params.pageId);
-    res.json({ page });
+    res.json({ page, tekstStatus: autoTekstRij.status(req.params.pageId) });
   } catch (err) {
     res.status(404).json({ error: err.message });
   }
@@ -986,6 +990,24 @@ async function haalZusterPaginas(page, allePaginas) {
     .slice(0, MAX_ZUSTERS);
   const geladen = await Promise.allSettled(lijst.map((p) => lpNotion.getPage(p.id)));
   return geladen.filter((r) => r.status === 'fulfilled').map((r) => r.value);
+}
+
+// Tekst op de achtergrond schrijven na het aanmaken van een pagina (een taak tegelijk, in het geheugen).
+const autoTekstRij = maakWachtrij();
+function startAutoTekst(pageId) {
+  return autoTekstRij.zet(pageId, async () => {
+    const page = await lpNotion.getPage(pageId);
+    if (isContentIngevuld(page.content)) return;
+    const r = await maakContentVoorstel(page, {});
+    const slotData = r.slotData || {};
+    await lpNotion.updateSection(pageId, 'content', { meta: { metaTitle: slotData.metaTitle || '', metaDescription: slotData.metaDescription || '' }, slotData });
+    await lpNotion.setStatus(pageId, 'Content klaar');
+  });
+}
+function isContentIngevuld(content) {
+  const c = content || {};
+  if (c.slotData) return Object.values(c.slotData).some((v) => (Array.isArray(v) ? v.length > 0 : Boolean((v || '').toString().trim())));
+  return Array.isArray(c.blocks) && c.blocks.length > 0;
 }
 
 // Maakt een content voorstel voor een pagina (AI, links, foto's). Slaat niets op.
@@ -1058,6 +1080,7 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
   }
   const zusterVragen = [...new Set(zusters.flatMap((z) => (z.content ? vragenUitContent(z.content) : [])))];
 
+  watGaatDezePaginaOver = watGaatDezePaginaOver || onderwerpTekst(invoer, page.titel);
   const result = await ai.generatePageContent({
     klant: page.klant,
     template: blueprint,
@@ -1111,6 +1134,16 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
 
   return { ...result, imageWarning, linkWarning, siteTekstWarning, faqWarning, zoekvragenAantal, zoekvragenWarning };
 }
+
+router.post('/pages/:pageId/auto-tekst', requireLpInternal, async (req, res) => {
+  try {
+    await lpNotion.getPage(req.params.pageId);
+    startAutoTekst(req.params.pageId);
+    res.json({ tekstStatus: autoTekstRij.status(req.params.pageId) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
 
 router.post('/pages/:pageId/generate-content', requireLpInternal, async (req, res) => {
   try {
