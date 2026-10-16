@@ -101,6 +101,46 @@
 
   // ---- Sjabloon bekijken: tips van de AI ----
   $('tdBewaarKnop').addEventListener('click', () => $('lpTplSaveBlueprintBtn').click());
+  // Schermafbeeldingen van het voorbeeld voor de AI: desktop (breed, in stukken) en het begin van de mobiele versie.
+  // Alles gebeurt in de browser met html2canvas; lukt dat niet, dan geeft de AI tips op basis van de code alleen.
+  async function maakVoorbeeldBeelden(html) {
+    if (typeof window.html2canvas !== 'function') return [];
+    const STUK = 1400;
+    const maak = async (breedte, maxHoogte) => {
+      const frame = document.createElement('iframe');
+      frame.style.cssText = `position:fixed;left:-10000px;top:0;width:${breedte}px;height:900px;border:0;`;
+      document.body.appendChild(frame);
+      try {
+        await new Promise((resolve) => { frame.onload = resolve; frame.srcdoc = html; });
+        const doc = frame.contentDocument;
+        try { if (doc.fonts && doc.fonts.ready) await Promise.race([doc.fonts.ready, new Promise((r) => setTimeout(r, 2500))]); } catch (e) { /* lettertypen niet af te wachten */ }
+        await new Promise((r) => setTimeout(r, 600));
+        const hoogte = Math.min(Math.max(doc.documentElement.scrollHeight, 400), maxHoogte);
+        const canvas = await window.html2canvas(doc.documentElement, { width: breedte, height: hoogte, windowWidth: breedte, windowHeight: hoogte, scale: 1, useCORS: true, logging: false, backgroundColor: '#ffffff' });
+        const stukken = [];
+        for (let y = 0; y < canvas.height; y += STUK) {
+          const h = Math.min(STUK, canvas.height - y);
+          if (h < 40) continue;
+          const stuk = document.createElement('canvas');
+          stuk.width = canvas.width;
+          stuk.height = h;
+          const ctx = stuk.getContext('2d');
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(0, 0, stuk.width, h);
+          ctx.drawImage(canvas, 0, y, canvas.width, h, 0, 0, canvas.width, h);
+          stukken.push(stuk.toDataURL('image/jpeg', 0.8));
+        }
+        return stukken;
+      } finally { frame.remove(); }
+    };
+    try {
+      const desktop = (await maak(1200, 6 * STUK)).slice(0, 6);
+      let mobiel = [];
+      try { mobiel = (await maak(390, 2 * STUK)).slice(0, 2); } catch (e) { mobiel = []; }
+      return [...desktop, ...mobiel];
+    } catch (e) { return []; }
+  }
+
   $('tdTipsKnop').addEventListener('click', async () => {
     const template = lpState.currentTemplate;
     if (!template) return;
@@ -109,13 +149,24 @@
     try { blueprint = JSON.parse($('lpTplDetailBlueprintJson').value || '{}'); } catch (err) { fout('lpTemplateDetailError', 'De opzet van het sjabloon is ongeldig: ' + err.message); return; }
     const knop = $('tdTipsKnop');
     knop.disabled = true;
-    $('tdTipsStatus').textContent = 'De AI kijkt mee... Dit duurt ongeveer 20 seconden.';
+    $('tdTipsStatus').textContent = 'Er wordt een schermafbeelding van het voorbeeld gemaakt...';
     $('tdTipsLijst').innerHTML = '';
     try {
-      const { punten } = await lpApi('/templates/verbeterpunten', { method: 'POST', body: JSON.stringify({ klant: template.klant, naam: template.naam, blueprint }) });
+      let screenshots = [];
+      try {
+        await refreshTemplateDetailPreview();
+        const html = $('lpTplDetailPreviewFrame').srcdoc;
+        if (html) screenshots = await maakVoorbeeldBeelden(html);
+      } catch (e) { screenshots = []; }
+      $('tdTipsStatus').textContent = screenshots.length
+        ? 'De AI bekijkt het voorbeeld... Dit duurt ongeveer 30 seconden.'
+        : 'De schermafbeelding is niet gelukt, de AI geeft nu tips op basis van de code (dus niet over de uitstraling)... Dit duurt ongeveer 20 seconden.';
+      const body = { klant: template.klant, naam: template.naam, blueprint };
+      if (screenshots.length) body.screenshots = screenshots;
+      const { punten } = await lpApi('/templates/verbeterpunten', { method: 'POST', body: JSON.stringify(body) });
       $('tdTipsStatus').textContent = punten.length ? '' : 'De AI vindt dit sjabloon al goed. Er zijn geen verbeterpunten.';
       $('tdTipsLijst').innerHTML = punten.map((p, i) => `<div class="wp-advies-item plan">
-        <p><strong>${esc(p.titel)}</strong><br>${esc(p.uitleg)}</p>
+        <p><span class="wp-muted">${p.soort === 'ontwerp' ? 'Uitstraling' : 'Inhoud'}</span><br><strong>${esc(p.titel)}</strong><br>${esc(p.uitleg)}</p>
         <button type="button" class="btn btn-approve" data-tip="${i}">Voer dit door</button></div>`).join('');
       $('tdTipsLijst').querySelectorAll('[data-tip]').forEach((b) => b.addEventListener('click', () => {
         $('lpTplDetailSectieSelect').value = '';

@@ -55,13 +55,13 @@ test('adviesNieuwSjabloon roept de AI aan en eist een doel', async () => {
   await assert.rejects(adviesNieuwSjabloon({ klantNaam: 'X', doel: '', onderdelen: [], aiFn }), /Beschrijf/);
 });
 
-test('schoonVerbeterpunten houdt maximaal drie bruikbare punten', () => {
+test('schoonVerbeterpunten houdt maximaal vier bruikbare punten', () => {
   const { schoonVerbeterpunten } = require('../src/lp/begeleiding');
   const punten = schoonVerbeterpunten({ punten: [
     { titel: 'A', uitleg: 'u', opdracht: 'doe a' }, { titel: '', opdracht: 'x' }, { titel: 'B', opdracht: 'doe b' },
     { titel: 'C', opdracht: 'doe c' }, { titel: 'D', opdracht: 'doe d' }
   ] });
-  assert.deepEqual(punten.map((p) => p.titel), ['A', 'B', 'C']);
+  assert.deepEqual(punten.map((p) => p.titel), ['A', 'B', 'C', 'D']);
   assert.deepEqual(schoonVerbeterpunten(null), []);
 });
 
@@ -70,4 +70,19 @@ test('adviesVerbeterpunten eist een sjabloon met HTML', async () => {
   await assert.rejects(adviesVerbeterpunten({ klantNaam: 'X', blueprint: {}, aiFn: async () => ({}) }), /geen opzet/);
   const p = await adviesVerbeterpunten({ klantNaam: 'X', naam: 'N', blueprint: { htmlTemplate: '<h1>x</h1>' }, aiFn: async () => ({ punten: [{ titel: 'T', opdracht: 'O' }] }) });
   assert.equal(p.length, 1);
+});
+
+test('verbeterpunten: met afbeeldingen gaan ze mee en telt ontwerp mee, zonder afbeeldingen geen oordeel over uitstraling', async () => {
+  const { adviesVerbeterpunten, bouwVerbeterPrompt } = require('../src/lp/begeleiding');
+  let gezien;
+  const aiFn = async (a) => { gezien = a; return { punten: [{ soort: 'ontwerp', titel: 'T', uitleg: 'U', opdracht: 'O' }, { soort: 'raar', titel: 'T2', opdracht: 'O2' }, { titel: 'T3', opdracht: 'O3' }, { titel: 'T4', opdracht: 'O4' }, { titel: 'T5', opdracht: 'O5' }] }; };
+  const punten = await adviesVerbeterpunten({ klantNaam: 'X', naam: 'N', blueprint: { htmlTemplate: '<h1>x</h1>' }, beelden: ['data:image/jpeg;base64,AAAA'], aiFn });
+  assert.deepStrictEqual(gezien.beelden, ['data:image/jpeg;base64,AAAA']);
+  assert.match(gezien.systemPrompt, /LOOK AND FEEL/);
+  assert.strictEqual(punten.length, 4);
+  assert.strictEqual(punten[0].soort, 'ontwerp');
+  assert.strictEqual(punten[1].soort, 'inhoud');
+  const zonder = bouwVerbeterPrompt({ klantNaam: 'X', naam: 'N', html: '<h1>x</h1>', css: '' });
+  assert.doesNotMatch(zonder.systeem, /LOOK AND FEEL/);
+  assert.match(zonder.systeem, /geen oordeel over kleur/);
 });

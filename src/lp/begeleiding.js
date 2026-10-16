@@ -118,18 +118,37 @@ async function adviesNieuwSjabloon({ klantNaam, klantTekst, doel, onderdelen, be
   return schoonSjabloonAdvies(ruw, onderdelen, bestaandeSjablonen);
 }
 
-// Verbeterpunten voor een bestaand sjabloon: de AI kijkt mee en geeft hooguit drie concrete punten. Elk punt bevat een
+// Verbeterpunten voor een bestaand sjabloon: de AI kijkt mee en geeft hooguit vier concrete punten. Elk punt bevat een
 // opdracht die met een klik naar de bestaande "pas aan" functie kan.
-function bouwVerbeterPrompt({ klantNaam, naam, html, css, conversiedoel }) {
+// Met schermafbeeldingen (de browser maakt ze van het voorbeeld, 16-10-2026) beoordeelt de AI eerst de uitstraling
+// (ontwerp). Zonder afbeeldingen kan dat niet betrouwbaar uit alleen code, dan blijft het bij inhoud en structuur.
+function bouwVerbeterPrompt({ klantNaam, naam, html, css, conversiedoel, aantalBeelden = 0 }) {
+  const metBeeld = aantalBeelden > 0;
+  const ontwerpBlok = metBeeld
+    ? `Je krijgt ook schermafbeeldingen van het voorbeeld: eerst de desktopversie (van boven naar beneden, in stukken), daarna het begin van de mobiele versie.
+BEOORDEEL EERST DE LOOK AND FEEL en geef daar de meeste punten over (soort "ontwerp"). Kijk naar:
+- de eerste indruk bovenin (hero) op desktop en mobiel: is meteen duidelijk wat de pagina biedt en wat de volgende stap is
+- ritme tussen de secties: afwisseling van lichte en getinte vlakken, te veel of te weinig lucht tussen secties
+- witruimte en uitlijning binnen een sectie, kaarten en rasters die ongelijk of krap staan
+- contrast en leesbaarheid van tekst, koppen en knoppen op hun achtergrond
+- hiërarchie: welke kop of knop valt op, valt het juiste element op, is er een duidelijk hoofdknop
+- beeldgebruik: ruimte voor foto's, verhoudingen, hoe beelden en tekst naast elkaar staan
+- mobiel: tekstgrootte, knopgrootte, kolommen die onder elkaar horen te staan
+Een ontwerppunt noemt de plek (bijvoorbeeld "de sectie met de drie kaarten") en wat er zichtbaar mis is. Verzin geen problemen die je niet op de afbeelding ziet.
+Daarna mag je maximaal een punt geven over inhoud, structuur of vindbaarheid (soort "inhoud"), alleen als het echt iets oplevert.`
+    : `Je ziet alleen de code, niet hoe de pagina eruitziet. Geef daarom geen oordeel over kleur, uitstraling of spacing. Geef punten over inhoud, structuur, conversie en vindbaarheid (soort "inhoud").`;
   const systeem = `Je bent adviseur voor een bureau dat landingspagina's maakt voor lokale bedrijven in Nederland.
-Je krijgt de HTML en CSS van een sjabloon. Geef maximaal drie concrete verbeterpunten die de pagina beter laten converteren, beter leesbaar maken of sterker maken voor Google en AI antwoorden.
+Je krijgt de HTML en CSS van een sjabloon. Geef maximaal vier concrete verbeterpunten die de pagina mooier, duidelijker en sterker laten converteren.
+${ontwerpBlok}
 Regels:
-- Elk punt is klein en uitvoerbaar. Geen algemene adviezen.
-- "uitleg" legt in een zin in gewone taal uit waarom het punt helpt.
-- "opdracht" is de instructie die een ontwerper zou kunnen uitvoeren, in een of twee zinnen, bijvoorbeeld "Zet de knop Offerte aanvragen ook onder de eerste tekst".
+- Elk punt is klein en uitvoerbaar. Geen algemene adviezen zoals "maak het mooier" of "gebruik meer kleur".
+- "soort" is "ontwerp" of "inhoud".
+- "uitleg" legt in een zin in gewone taal uit wat je ziet of mist en waarom het punt helpt.
+- "opdracht" is de instructie die een ontwerper zou kunnen uitvoeren, in een of twee zinnen, bijvoorbeeld "Geef de sectie met de kaarten meer ruimte boven en onder en maak de kaarten even hoog".
+- Houd de huisstijlkleuren van de klant aan, stel geen nieuwe kleuren voor.
 - Als het sjabloon al goed is, geef dan minder punten of een lege lijst.
 - Schrijf geen streepjes en geen emoticons.
-Antwoord als JSON: {"punten":[{"titel":"...","uitleg":"...","opdracht":"..."}]}`;
+Antwoord als JSON: {"punten":[{"soort":"ontwerp","titel":"...","uitleg":"...","opdracht":"..."}]}`;
   const user = `Klant: ${klantNaam}
 Sjabloon: ${naam}
 ${conversiedoel ? `Doel van de bezoeker: ${conversiedoel}\n` : ''}
@@ -144,16 +163,22 @@ ${String(css || '').slice(0, 6000)}`;
 function schoonVerbeterpunten(ruw) {
   const lijst = ruw && Array.isArray(ruw.punten) ? ruw.punten : [];
   return lijst
-    .map((p) => ({ titel: schoneTekst(p && p.titel, 90), uitleg: schoneTekst(p && p.uitleg, 260), opdracht: schoneTekst(p && p.opdracht, 400) }))
+    .map((p) => ({
+      soort: p && p.soort === 'ontwerp' ? 'ontwerp' : 'inhoud',
+      titel: schoneTekst(p && p.titel, 90),
+      uitleg: schoneTekst(p && p.uitleg, 260),
+      opdracht: schoneTekst(p && p.opdracht, 400)
+    }))
     .filter((p) => p.titel && p.opdracht)
-    .slice(0, 3);
+    .slice(0, 4);
 }
 
-async function adviesVerbeterpunten({ klantNaam, naam, blueprint, conversiedoel, aiFn }) {
+async function adviesVerbeterpunten({ klantNaam, naam, blueprint, conversiedoel, beelden, aiFn }) {
   const bp = blueprint || {};
   if (!bp.htmlTemplate || !String(bp.htmlTemplate).trim()) throw new Error('Dit sjabloon heeft nog geen opzet om te beoordelen.');
-  const { systeem, user } = bouwVerbeterPrompt({ klantNaam, naam, html: bp.htmlTemplate, css: bp.cssTemplate, conversiedoel });
-  const ruw = await aiFn({ systemPrompt: systeem, userPrompt: user, reasoningEffort: 'low' });
+  const lijstBeelden = Array.isArray(beelden) ? beelden : [];
+  const { systeem, user } = bouwVerbeterPrompt({ klantNaam, naam, html: bp.htmlTemplate, css: bp.cssTemplate, conversiedoel, aantalBeelden: lijstBeelden.length });
+  const ruw = await aiFn({ systemPrompt: systeem, userPrompt: user, beelden: lijstBeelden, reasoningEffort: 'low' });
   return schoonVerbeterpunten(ruw);
 }
 

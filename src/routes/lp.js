@@ -5,6 +5,7 @@
 const express = require('express');
 const { getLpClient, clients: lpClients } = require('../lp/clients');
 const klantgegevens = require('../lp/klantgegevens');
+const { schoonScreenshots } = require('../lp/screenshots');
 const lpNotion = require('../lp/notion');
 const templates = require('../lp/templates');
 const clientIntake = require('../lp/clientIntake');
@@ -790,8 +791,10 @@ router.post('/templates/verbeterpunten', requireLpInternal, async (req, res) => 
     const client = getLpClient(klant);
     const blueprint = req.body?.blueprint;
     if (!blueprint || typeof blueprint !== 'object') return res.status(400).json({ error: 'Er is geen sjabloon om te beoordelen.' });
+    const beelden = schoonScreenshots(req.body?.screenshots);
     const punten = await begeleiding.adviesVerbeterpunten({
       klantNaam: client.profile.naam,
+      beelden,
       naam: String(req.body?.naam || ''),
       blueprint,
       conversiedoel: String(req.body?.conversiedoel || '').slice(0, 200),
