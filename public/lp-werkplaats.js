@@ -276,7 +276,7 @@ function wpTekenModule(inst) {
   el.className = 'wp-module ' + (aan ? 'aan' : 'uit');
   el.innerHTML = aan
     ? '<strong>Pagr. aan</strong><span>De AI schrijft de tekst vanzelf en de rest van de automatisering draait.</span>'
-    : '<strong>Pagr. uit</strong><span>Deze klant heeft de Pagr. module niet. Er draait geen automatisering. Zet het product op Pagr. of Beide bij Instellingen in de admin.</span>';
+    : '<strong>Pagr. uit</strong><span>Je maakt pagina\'s zelf met knoppen. Zet Pagr. aan bij Instellingen in de admin voor automatisch schrijven en controleren.</span>';
 }
 
 function wpTekenIdeeen(ideeen) {
