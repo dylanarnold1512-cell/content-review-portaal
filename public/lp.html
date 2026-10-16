@@ -425,6 +425,21 @@
         </div>
         <button type="button" id="lpNewTemplateBtn" class="btn btn-approve">+ Nieuw sjabloon</button>
       </div>
+      <section class="wp-kaart hidden" id="tdDupliceerKaart">
+        <div class="wp-kaart-kop"><h2>Sjabloon dupliceren</h2><span class="wp-muted" id="tdDupBron"></span></div>
+        <p class="wp-uitleg">De kopie krijgt precies dezelfde opmaak, opbouw en secties. Alleen het onderwerp van de pagina's verschilt. De AI gebruikt het onderwerp en de website van de klant om de tekst te schrijven. De kopie start als Concept.</p>
+        <div class="wp-veld"><label for="tdDupOnderwerp">Waar gaan de pagina's over? (verplicht)</label><input id="tdDupOnderwerp" type="text" autocomplete="off" placeholder="bv. Dakkapellen"></div>
+        <div class="wp-veld"><label for="tdDupNaam">Naam van de kopie (leeg laten = het onderwerp)</label><input id="tdDupNaam" type="text" autocomplete="off" placeholder="bv. Dakkapel"></div>
+        <div class="wp-veld"><label for="tdDupInstructie">Waar moet de pagina rekening mee houden? (optioneel)</label><textarea id="tdDupInstructie" rows="4" placeholder="Leeg laten: de AI leest de website van de klant en vult dit zelf in. Of klik op de knop hieronder om het eerst te bekijken."></textarea></div>
+        <div class="wp-plan-actie" style="margin-top:0;">
+          <button type="button" id="tdDupAiVul" class="btn-plain">Laat de AI dit invullen</button>
+        </div>
+        <div class="wp-plan-actie">
+          <button type="button" id="tdDupMaak" class="btn btn-approve">Maak kopie</button>
+          <button type="button" id="tdDupAnnuleer" class="btn-plain">Annuleren</button>
+          <span id="tdDupStatus" class="wp-muted"></span>
+        </div>
+      </section>
       <section class="wp-kaart">
         <div class="wp-selbalk" id="lpTemplateSelBalk">
           <label class="wp-vink"><input type="checkbox" id="lpTemplateSelAlles"> Alles selecteren</label>
@@ -1408,23 +1423,6 @@
   </div>
 </div>
 
-<div id="tdDupOverlay" class="td-overlay hidden">
-      <section class="wp-kaart" id="tdDupliceerKaart">
-        <div class="wp-kaart-kop"><h2>Sjabloon dupliceren</h2><span class="wp-muted" id="tdDupBron"></span></div>
-        <p class="wp-uitleg">De kopie krijgt precies dezelfde opmaak, opbouw en secties. Alleen het onderwerp van de pagina's verschilt. De AI gebruikt het onderwerp en de website van de klant om de tekst te schrijven. De kopie start als Concept.</p>
-        <div class="wp-veld"><label for="tdDupOnderwerp">Waar gaan de pagina's over? (verplicht)</label><input id="tdDupOnderwerp" type="text" autocomplete="off" placeholder="bv. Dakkapellen"></div>
-        <div class="wp-veld"><label for="tdDupNaam">Naam van de kopie (leeg laten = het onderwerp)</label><input id="tdDupNaam" type="text" autocomplete="off" placeholder="bv. Dakkapel"></div>
-        <div class="wp-veld"><label for="tdDupInstructie">Waar moet de pagina rekening mee houden? (optioneel)</label><textarea id="tdDupInstructie" rows="4" placeholder="Leeg laten: de AI leest de website van de klant en vult dit zelf in. Of klik op de knop hieronder om het eerst te bekijken."></textarea></div>
-        <div class="wp-plan-actie" style="margin-top:0;">
-          <button type="button" id="tdDupAiVul" class="btn-plain">Laat de AI dit invullen</button>
-        </div>
-        <div class="wp-plan-actie">
-          <button type="button" id="tdDupMaak" class="btn btn-approve">Maak kopie</button>
-          <button type="button" id="tdDupAnnuleer" class="btn-plain">Annuleren</button>
-          <span id="tdDupStatus" class="wp-muted"></span>
-        </div>
-      </section>
-</div>
 <script src="/lp.js"></script>
 <script src="/lp-werkplaats.js"></script>
 <script src="/lp-kloon.js"></script>

@@ -2023,18 +2023,24 @@ let dupBron = null;
 function openDupliceer(template) {
   if (!template) return;
   dupBron = { id: template.id, klant: template.klant, naam: template.naam };
+  const kaart = document.getElementById('tdDupliceerKaart');
+  // Het formulier staat in de pagina zelf (geen zwevend venster, want het portaal zit in een kader dat meegroeit met de
+  // inhoud): bovenaan het sjabloonscherm als dat open staat, anders boven de lijst met sjablonen.
+  const detailOpen = !document.getElementById('lpTemplateDetailSection').classList.contains('hidden');
+  const doel = detailOpen ? document.getElementById('lpTemplateDetailError') : document.getElementById('lpTemplatesTableBody').closest('section');
+  doel.parentNode.insertBefore(kaart, doel);
   document.getElementById('tdDupBron').textContent = `Kopie van "${template.naam}"`;
   document.getElementById('tdDupNaam').value = '';
   document.getElementById('tdDupOnderwerp').value = '';
   document.getElementById('tdDupInstructie').value = '';
   document.getElementById('tdDupStatus').textContent = '';
-  document.getElementById('tdDupOverlay').classList.remove('hidden');
-  document.getElementById('tdDupOnderwerp').focus();
+  kaart.classList.remove('hidden');
+  kaart.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  document.getElementById('tdDupOnderwerp').focus({ preventScroll: true });
 }
-function sluitDupliceer() { document.getElementById('tdDupOverlay').classList.add('hidden'); dupBron = null; }
+function sluitDupliceer() { document.getElementById('tdDupliceerKaart').classList.add('hidden'); dupBron = null; }
 document.getElementById('lpTplDupliceerBtn').addEventListener('click', () => openDupliceer(lpState.currentTemplate));
 document.getElementById('tdDupAnnuleer').addEventListener('click', sluitDupliceer);
-document.getElementById('tdDupOverlay').addEventListener('click', (e) => { if (e.target.id === 'tdDupOverlay') sluitDupliceer(); });
 document.getElementById('tdDupMaak').addEventListener('click', async () => {
   const bron = dupBron;
   if (!bron) return;
