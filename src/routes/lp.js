@@ -25,6 +25,7 @@ const { verzamelTekst } = gelijk;
 const share = require('../lp/share');
 const { validatePage, validateTemplateStructure } = require('../lp/validator');
 const { maakControle } = require('../lp/controle');
+const { wachtOpJou } = require('../lp/wachtOpJou');
 const { pushDraft, deletePage: deleteWpPage, searchMedia, uploadMedia, listSitePages, haalPaginaStatussen, siteNaam } = require('../lp/wordpress');
 const { vindTekst, vervangTekst } = require('../lp/tekstVervangen');
 const { haalSiteTeksten, formatSiteTekstenVoorPrompt } = require('../lp/siteTeksten');
@@ -653,6 +654,33 @@ router.get('/plan/instellingen', requireLpInternal, async (req, res) => {
     res.json({ paginasPerMaand: null, producten: null, pagr: false, paginameting: false, volumeBeschikbaar: false });
   }
 });
+
+// Wat wacht er op Dylan, per klant met de Pagr. module. Voor de teller in het menu van de admin.
+router.get('/wacht-op-jou', requireLpInternal, async (req, res) => {
+  try {
+    const resultaat = [];
+    for (const klant of Object.keys(lpClients)) {
+      if (!(await pagrModuleAan(klant))) continue;
+      const pages = await lpNotion.listPages({ klant });
+      const ideeen = pages.filter((p) => p.status === 'Idee').length ? await telKlantIdeeen(klant) : 0;
+      const w = wachtOpJou(pages, ideeen);
+      if (w.totaal) resultaat.push({ klant, naam: lpClients[klant].profile.naam, ...w });
+    }
+    res.json({ klanten: resultaat, totaal: resultaat.reduce((n, k) => n + k.totaal, 0) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+async function telKlantIdeeen(klant) {
+  const paginas = (await lpNotion.listPages({ klant, status: 'Idee' })).slice(0, 25);
+  let n = 0;
+  for (const p of paginas) {
+    const inv = (await lpNotion.getPage(p.id)).invoer || {};
+    if (inv.plan && inv.plan.status === 'idee van klant') n += 1;
+  }
+  return n;
+}
 
 // Klantideeen: pagina's met stand Idee die de klant zelf aandroeg en die nog beoordeeld moeten worden.
 router.get('/plan/ideeen', requireLpInternal, async (req, res) => {

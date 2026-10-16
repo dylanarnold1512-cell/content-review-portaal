@@ -149,6 +149,7 @@ window.addEventListener('message', (e) => {
     pagrVanFrame = d.tab;
     window.location.hash = `#pagr/${d.tab}`;
   }
+  if (d && d.type === 'pagr-gewijzigd') ververWachtTeller();
   if (d && d.type === 'pagr-hoogte' && Number.isFinite(d.hoogte)) {
     const frame = document.getElementById('pagrFrame');
     if (frame) frame.style.height = Math.max(400, d.hoogte + 8) + 'px';
@@ -741,7 +742,23 @@ async function loadSettings() {
   }
 }
 
+// Teller bij Werkplaats in het menu: hoeveel pagina's wachten er op jou (alleen klanten met de Pagr. module).
+async function ververWachtTeller() {
+  const el = document.getElementById('wachtTeller');
+  if (!el) return;
+  try {
+    const res = await fetch('/api/lp/wacht-op-jou');
+    const data = await res.json().catch(() => ({}));
+    const n = res.ok ? Number(data.totaal) || 0 : 0;
+    el.textContent = String(n);
+    el.classList.toggle('hidden', !n);
+    el.title = (data.klanten || []).map((k) => `${k.naam}: ${k.totaal}`).join(', ');
+  } catch (e) { el.classList.add('hidden'); }
+}
+setInterval(ververWachtTeller, 5 * 60 * 1000);
+
 async function startAdmin() {
+  ververWachtTeller();
   await loadOnboarding();
   await loadSettings();
   await loadIdeaProposals();
