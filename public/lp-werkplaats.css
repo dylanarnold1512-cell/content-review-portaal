@@ -132,3 +132,9 @@ html #lpKlantgegevensTab .kg-kleurrij input[type="text"] { min-width: 0; flex: 1
 .wp-vinkcel { width: 28px; }
 .wp-sjabloon { justify-content: flex-start; }
 .wp-sjabloon strong { flex: 1; min-width: 0; }
+
+/* Sjabloon dupliceren en onderwerp van het sjabloon (16-10-2026): volle breedte en ruimte tussen de velden. */
+#tdDupliceerKaart .wp-veld, #tdFocusKaart .wp-veld { margin-bottom: 14px; }
+#tdDupliceerKaart .wp-veld input, #tdDupliceerKaart .wp-veld textarea,
+#tdFocusKaart .wp-veld input, #tdFocusKaart .wp-veld textarea { width: 100%; box-sizing: border-box; }
+#tdDupliceerKaart .wp-plan-actie, #tdFocusKaart .wp-plan-actie { margin-top: 4px; gap: 10px; flex-wrap: wrap; }

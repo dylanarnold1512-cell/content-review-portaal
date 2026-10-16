@@ -2016,12 +2016,12 @@ document.getElementById('lpTplStatusSelect').addEventListener('change', async (e
 document.getElementById('lpTplDupliceerBtn').addEventListener('click', () => {
   const template = lpState.currentTemplate;
   if (!template) return;
-  document.getElementById('tdDupNaam').value = `${template.naam} kopie`;
+  document.getElementById('tdDupNaam').value = '';
   document.getElementById('tdDupOnderwerp').value = '';
   document.getElementById('tdDupInstructie').value = '';
   document.getElementById('tdDupStatus').textContent = '';
   document.getElementById('tdDupliceerKaart').classList.remove('hidden');
-  document.getElementById('tdDupNaam').focus();
+  document.getElementById('tdDupOnderwerp').focus();
 });
 document.getElementById('tdDupAnnuleer').addEventListener('click', () => document.getElementById('tdDupliceerKaart').classList.add('hidden'));
 document.getElementById('tdDupMaak').addEventListener('click', async () => {
@@ -2031,17 +2031,17 @@ document.getElementById('tdDupMaak').addEventListener('click', async () => {
   errorEl.classList.add('hidden');
   const btn = document.getElementById('tdDupMaak');
   btn.disabled = true;
-  document.getElementById('tdDupStatus').textContent = 'Bezig met kopieren...';
+  document.getElementById('tdDupStatus').textContent = document.getElementById('tdDupInstructie').value.trim() ? 'Bezig met kopieren...' : 'Bezig met kopieren. De AI leest de website van de klant, dit duurt ongeveer 30 seconden.';
   try {
-    const { template: kopie } = await lpApi(`/templates/${template.id}/dupliceer`, {
+    const { template: kopie, instructieDoorAi, aiOpmerking } = await lpApi(`/templates/${template.id}/dupliceer`, {
       method: 'POST',
-      body: JSON.stringify({ naam: document.getElementById('tdDupNaam').value, onderwerp: document.getElementById('tdDupOnderwerp').value, instructie: document.getElementById('tdDupInstructie').value })
+      body: JSON.stringify({ naam: document.getElementById('tdDupNaam').value.trim(), onderwerp: document.getElementById('tdDupOnderwerp').value, instructie: document.getElementById('tdDupInstructie').value })
     });
     document.getElementById('tdDupliceerKaart').classList.add('hidden');
     await loadTemplates();
     await openTemplateDetail(kopie.id);
     const savedEl = document.getElementById('lpTplSaved');
-    if (savedEl) savedEl.textContent = `Kopie "${kopie.naam}" gemaakt van "${template.naam}". Zet hem op Actief als hij klaar is.`;
+    if (savedEl) savedEl.textContent = `Kopie "${kopie.naam}" gemaakt van "${template.naam}".${instructieDoorAi ? ' De AI heeft de instructie ingevuld op basis van de website, controleer die hieronder.' : ''}${aiOpmerking ? ' ' + aiOpmerking : ''} Zet hem op Actief als hij klaar is.`;
   } catch (err) {
     document.getElementById('tdDupStatus').textContent = '';
     errorEl.textContent = formatApiError(err);
@@ -2050,6 +2050,26 @@ document.getElementById('tdDupMaak').addEventListener('click', async () => {
     btn.disabled = false;
   }
 });
+
+async function laatAiFocusInvullen(onderwerpId, instructieId, statusId, knopId) {
+  const template = lpState.currentTemplate;
+  if (!template) return;
+  const onderwerp = document.getElementById(onderwerpId).value.trim();
+  const status = document.getElementById(statusId);
+  const knop = document.getElementById(knopId);
+  knop.disabled = true;
+  status.textContent = 'De AI leest de website van de klant... Dit duurt ongeveer 30 seconden.';
+  try {
+    const { voorstel } = await lpApi('/templates/focus-voorstel', { method: 'POST', body: JSON.stringify({ klant: template.klant, onderwerp }) });
+    if (voorstel.onderwerp) document.getElementById(onderwerpId).value = voorstel.onderwerp;
+    document.getElementById(instructieId).value = voorstel.instructie;
+    status.textContent = 'Ingevuld op basis van de website. Controleer en pas aan waar nodig.' + (voorstel.opmerking ? ' ' + voorstel.opmerking : '');
+  } catch (err) {
+    status.textContent = formatApiError(err);
+  } finally { knop.disabled = false; }
+}
+document.getElementById('tdDupAiVul').addEventListener('click', () => laatAiFocusInvullen('tdDupOnderwerp', 'tdDupInstructie', 'tdDupStatus', 'tdDupAiVul'));
+document.getElementById('tdFocusAiVul').addEventListener('click', () => laatAiFocusInvullen('tdFocusOnderwerp', 'tdFocusInstructie', 'tdFocusStatus', 'tdFocusAiVul'));
 
 document.getElementById('tdFocusBewaar').addEventListener('click', () => {
   let blueprint;

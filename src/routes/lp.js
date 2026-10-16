@@ -6,7 +6,7 @@ const express = require('express');
 const { getLpClient, clients: lpClients } = require('../lp/clients');
 const klantgegevens = require('../lp/klantgegevens');
 const { schoonScreenshots } = require('../lp/screenshots');
-const { bouwSjabloonKopie, schoonFocus } = require('../lp/sjabloonKopie');
+const { bouwSjabloonKopie, schoonFocus, trefwoordenUitOnderwerp } = require('../lp/sjabloonKopie');
 const lpNotion = require('../lp/notion');
 const templates = require('../lp/templates');
 const clientIntake = require('../lp/clientIntake');
@@ -263,16 +263,51 @@ router.get('/templates/:templateId', requireLpInternal, async (req, res) => {
   }
 });
 
+// Onderwerp van een sjabloon laten invullen door de AI op basis van de klantsite (voorstel, slaat niets op).
+async function maakFocusVoorstel(klantId, onderwerp) {
+  const client = getLpClient(klantId);
+  const trefwoorden = trefwoordenUitOnderwerp(onderwerp);
+  let siteTeksten = '';
+  try {
+    const allePaginas = await lpNotion.listPages({ klant: klantId });
+    const site = await haalSiteTeksten({ url: (client.profile.bedrijf || {}).url, uitsluit: allePaginas.map((p) => p.wpUrl).filter(Boolean), voorkeur: trefwoorden });
+    siteTeksten = formatSiteTekstenVoorPrompt(site);
+  } catch (err) { siteTeksten = ''; }
+  const voorstel = await begeleiding.adviesFocus({ klantNaam: client.profile.naam, onderwerp, siteTeksten, aiFn: ai.callOpenAi });
+  return voorstel;
+}
+
+router.post('/templates/focus-voorstel', requireLpInternal, async (req, res) => {
+  try {
+    const klant = String(req.body?.klant || '');
+    res.json({ voorstel: await maakFocusVoorstel(klant, String(req.body?.onderwerp || '')) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // Sjabloon dupliceren: zelfde opzet en opmaak onder een nieuwe naam, als Concept. Zie src/lp/sjabloonKopie.js.
 router.post('/templates/:templateId/dupliceer', requireLpInternal, async (req, res) => {
   try {
     const origineel = await templates.getTemplate(req.params.templateId);
     const bestaandeSjablonen = await templates.listTemplates({ klant: origineel.klant });
-    const kopie = bouwSjabloonKopie(origineel, { naam: req.body?.naam, onderwerp: req.body?.onderwerp, instructie: req.body?.instructie, bestaandeSjablonen });
+    const onderwerp = String(req.body?.onderwerp || '').trim();
+    let instructie = String(req.body?.instructie || '').trim();
+    let aiOpmerking = '';
+    // Alleen een onderwerp ingevuld: de AI leest de klantsite en vult de instructie zelf in. Lukt dat niet, dan gaat de
+    // kopie door met alleen het onderwerp.
+    if (onderwerp && !instructie) {
+      try {
+        const voorstel = await maakFocusVoorstel(origineel.klant, onderwerp);
+        instructie = voorstel.instructie;
+        aiOpmerking = voorstel.opmerking || '';
+      } catch (err) { aiOpmerking = 'De instructie kon niet automatisch worden ingevuld.'; }
+    }
+    const kopie = bouwSjabloonKopie(origineel, { naam: req.body?.naam || onderwerp, onderwerp, instructie, bestaandeSjablonen });
     const structuur = validateTemplateStructure(kopie.blueprint);
     if (!structuur.ok) return res.status(400).json({ error: 'Het originele sjabloon voldoet niet aan de structuur-eisen, daarom is er geen kopie gemaakt.', structuurFouten: structuur.errors });
     const template = await templates.createTemplate(kopie);
-    res.json({ template, structuurWaarschuwingen: structuur.warnings });
+    res.json({ template, structuurWaarschuwingen: structuur.warnings, instructieDoorAi: Boolean(aiOpmerking !== undefined && instructie && !String(req.body?.instructie || '').trim()), aiOpmerking });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

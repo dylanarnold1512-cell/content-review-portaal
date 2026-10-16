@@ -182,8 +182,48 @@ async function adviesVerbeterpunten({ klantNaam, naam, blueprint, conversiedoel,
   return schoonVerbeterpunten(ruw);
 }
 
+// Onderwerp van een sjabloon invullen (16-10-2026): de gebruiker typt alleen "dakkapellen", de AI leest wat de klantsite
+// daarover vertelt en schrijft op basis daarvan waar de pagina's rekening mee moeten houden. Alleen wat in de bronteksten staat.
+function bouwFocusVoorstelPrompt({ klantNaam, onderwerp, siteTeksten }) {
+  const systeem = `Je helpt een bureau dat landingspagina's maakt voor lokale bedrijven in Nederland.
+Je krijgt een onderwerp en de teksten van de website van de klant. Schrijf waar landingspagina's over dit onderwerp rekening mee moeten houden, zodat een tekstschrijver ze goed kan maken.
+Regels:
+- Gebruik alleen wat in de bronteksten staat. Verzin geen diensten, regels, prijzen, levertijden of aantallen.
+- "onderwerp" is het onderwerp in een korte nette vorm, bijvoorbeeld "Dakkapellen plaatsen en renoveren".
+- "instructie" is een lopende tekst van drie tot zes korte zinnen: voor wie de pagina is, welke soorten of onderdelen de klant noemt, wat de werkwijze is, welke voordelen de klant zelf noemt en wat de pagina niet moet beloven.
+- Staat er in de bronteksten weinig of niets over dit onderwerp, zeg dat dan in "opmerking" en houd de instructie kort en algemeen.
+- Schrijf geen streepjes en geen emoticons.
+Antwoord als JSON: {"onderwerp":"...","instructie":"...","opmerking":"..."}`;
+  const user = `Klant: ${klantNaam}
+Onderwerp: ${onderwerp}
+
+Bronteksten van de website van de klant:
+${String(siteTeksten || '').slice(0, 30000) || '(geen bronteksten beschikbaar)'}`;
+  return { systeem, user };
+}
+
+function schoonFocusVoorstel(ruw, onderwerpInvoer) {
+  const r = ruw && typeof ruw === 'object' ? ruw : {};
+  return {
+    onderwerp: schoneTekst(r.onderwerp, 120) || schoneTekst(onderwerpInvoer, 120),
+    instructie: schoneTekst(r.instructie, 1200),
+    opmerking: schoneTekst(r.opmerking, 300)
+  };
+}
+
+async function adviesFocus({ klantNaam, onderwerp, siteTeksten, aiFn }) {
+  const o = schoneTekst(onderwerp, 120);
+  if (o.length < 3) throw new Error('Vul eerst in waar de pagina\'s over gaan, bijvoorbeeld "Dakkapellen".');
+  const { systeem, user } = bouwFocusVoorstelPrompt({ klantNaam, onderwerp: o, siteTeksten });
+  const ruw = await aiFn({ systemPrompt: systeem, userPrompt: user, reasoningEffort: 'low' });
+  const voorstel = schoonFocusVoorstel(ruw, o);
+  if (!String(siteTeksten || '').trim() && !voorstel.opmerking) voorstel.opmerking = 'De website van de klant kon niet gelezen worden, dit voorstel is dus algemeen.';
+  return voorstel;
+}
+
 module.exports = {
   VISUELE_RICHTINGEN, maakSlug, bouwPaginaPrompt, schoonPaginaAdvies, adviesNieuwePagina,
   bouwSjabloonPrompt, schoonSjabloonAdvies, adviesNieuwSjabloon,
-  bouwVerbeterPrompt, schoonVerbeterpunten, adviesVerbeterpunten
+  bouwVerbeterPrompt, schoonVerbeterpunten, adviesVerbeterpunten,
+  bouwFocusVoorstelPrompt, schoonFocusVoorstel, adviesFocus
 };

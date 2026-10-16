@@ -61,3 +61,38 @@ test('sjabloon dupliceren via de route: kopie als Concept met dezelfde opzet', a
     assert.equal(opgeslagen.length, 1, 'bij een fout wordt er niets aangemaakt');
   } finally { server.close(); }
 });
+
+test('alleen een onderwerp: de instructie wordt door de AI ingevuld, en bij een fout gaat de kopie toch door', async () => {
+  const ai = require('../src/lp/ai');
+  const origCall = ai.callOpenAi;
+  const app = express();
+  app.use(express.json());
+  app.use(cookieSession({ name: 'portal_session', keys: ['test-geheim'] }));
+  app.post('/test-login', (req, res) => { req.session.isAdmin = true; res.json({ ok: true }); });
+  app.use('/api/lp', lpRoutes);
+  const server = http.createServer(app);
+  await new Promise((resolve) => server.listen(0, resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const login = await fetch(`${base}/test-login`, { method: 'POST' });
+    const cookie = login.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ');
+    const post = (pad, body) => fetch(`${base}/api/lp${pad}`, { method: 'POST', headers: { 'Content-Type': 'application/json', cookie }, body: JSON.stringify(body) });
+    ai.callOpenAi = async () => ({ onderwerp: 'Dakkapellen plaatsen', instructie: 'Voor woningeigenaren. Noem de soorten.', opmerking: '' });
+    const voor = await (await post('/templates/focus-voorstel', { klant: 'macbouw', onderwerp: 'dakkapellen' })).json();
+    assert.equal(voor.voorstel.onderwerp, 'Dakkapellen plaatsen');
+    assert.match(voor.voorstel.instructie, /woningeigenaren/);
+    assert.equal((await post('/templates/focus-voorstel', { klant: 'macbouw', onderwerp: '' })).status, 400);
+
+    opgeslagen.length = 0;
+    const r = await (await post('/templates/t1/dupliceer', { onderwerp: 'Dakkapellen' })).json();
+    assert.equal(r.instructieDoorAi, true);
+    assert.equal(opgeslagen[0].naam, 'Dakkapellen', 'zonder naam wordt het onderwerp de naam');
+    assert.match(opgeslagen[0].blueprint.focus.instructie, /woningeigenaren/);
+
+    ai.callOpenAi = async () => { throw new Error('AI stuk'); };
+    const r2 = await (await post('/templates/t1/dupliceer', { onderwerp: 'Zolders' })).json();
+    assert.equal(r2.template.status, 'Concept');
+    assert.equal(opgeslagen[1].blueprint.focus.instructie, '');
+    assert.match(r2.aiOpmerking, /niet automatisch/);
+  } finally { ai.callOpenAi = origCall; server.close(); }
+});
