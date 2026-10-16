@@ -626,6 +626,11 @@ router.get('/pages', requireLpInternal, async (req, res) => {
 });
 
 // Instellingen van de klant voor de werkplaats: aantal pagina's per maand en product (uit Portaal Instellingen).
+// Heeft de klant de Pagr. module (Producten Pagr. of Beide)? Alle automatisering draait alleen dan.
+async function pagrModuleAan(klant) {
+  try { return Boolean((await klantInstellingen(klant)).pagr); } catch (e) { return false; }
+}
+
 async function klantInstellingen(klant) {
   let fallback = {};
   try { fallback = require('../config/clients').getClient(klant); } catch (e) { fallback = {}; }
@@ -639,11 +644,12 @@ router.get('/plan/instellingen', requireLpInternal, async (req, res) => {
     res.json({
       paginasPerMaand: inst.paginasPerMaand,
       producten: inst.producten,
+      pagr: Boolean(inst.pagr),
       paginameting: Boolean(inst.paginameting),
       volumeBeschikbaar: Boolean(inst.paginameting) && require('../lp/zoekvolume').beschikbaar()
     });
   } catch (err) {
-    res.json({ paginasPerMaand: null, producten: null, paginameting: false, volumeBeschikbaar: false });
+    res.json({ paginasPerMaand: null, producten: null, pagr: false, paginameting: false, volumeBeschikbaar: false });
   }
 });
 
@@ -815,12 +821,13 @@ router.post('/plan/goedkeuren', requireLpInternal, async (req, res) => {
     }
     if (voorstellen.length > plan.MAX_AANTAL) return res.status(400).json({ error: `Maximaal ${plan.MAX_AANTAL} pagina's tegelijk.` });
     const gekozenSjabloon = await templates.getActiveTemplateByBlueprintId(klant, blueprint);
+    const automatisch = await pagrModuleAan(klant);
     const aangemaakt = [];
     for (const v of voorstellen) {
       if (!v || !v.titel) continue;
       const page = await lpNotion.createPage({ klant, blueprint, titel: String(v.titel), invoer: plan.invoerVoorGoedgekeurd(v) });
       await lpNotion.setStatus(page.id, 'Idee');
-      if (gekozenSjabloon && gekozenSjabloon.templateFormat === 'slots') startAutoTekst(page.id);
+      if (automatisch && gekozenSjabloon && gekozenSjabloon.templateFormat === 'slots') startAutoTekst(page.id);
       aangemaakt.push({ id: page.id, titel: v.titel });
     }
     res.json({ aangemaakt });
@@ -913,8 +920,8 @@ router.post('/pages', requireLpInternal, async (req, res) => {
     // Valideer dat klant/blueprint bestaan voordat we een Notion-pagina aanmaken.
     const template = await templates.getActiveTemplateByBlueprintId(klant, blueprint);
     const page = await lpNotion.createPage({ klant, blueprint, titel, slug, invoer: metOnderwerp(invoer, titel) });
-    // De AI schrijft de tekst vanzelf (alleen voor sjablonen in het slot formaat). Uit te zetten met automatisch: false.
-    if (req.body.automatisch !== false && template && template.templateFormat === 'slots') startAutoTekst(page.id);
+    // De AI schrijft de tekst vanzelf (alleen voor sjablonen in het slot formaat en klanten met de Pagr. module). Uit te zetten met automatisch: false.
+    if (req.body.automatisch !== false && template && template.templateFormat === 'slots' && await pagrModuleAan(klant)) startAutoTekst(page.id);
     res.json({ page });
   } catch (err) {
     res.status(400).json({ error: err.message });
