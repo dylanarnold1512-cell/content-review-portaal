@@ -404,13 +404,14 @@ function renderVoortgang(page, feitenCounts) {
   const invoerIngevuld = Boolean((invoer._watGaatDezePaginaOver || '').toString().trim())
     || Object.keys(invoer).some((k) => !k.startsWith('_') && (invoer[k] || '').toString().trim());
   const { total = 0, gebruikt = 0 } = feitenCounts || {};
-  const feitenKlaar = total > 0 && gebruikt === total;
+  // De feiten zijn automatisch gekozen: de stap is klaar zodra er feiten zijn en er minstens een aan staat.
+  const feitenKlaar = total > 0 && gebruikt > 0;
   const contentKlaar = isContentIngevuld(page);
   const gepubliceerd = page.status === 'Gepubliceerd';
 
   const stappen = [
     { label: 'Onderwerp', klaar: invoerIngevuld, sub: invoerIngevuld ? 'Ingevuld' : 'Nog leeg' },
-    { label: 'Feiten', klaar: feitenKlaar, sub: total ? `${gebruikt} van ${total} bevestigd` : 'Nog geen feiten beschikbaar' },
+    { label: 'Feiten', klaar: feitenKlaar, sub: total ? `${gebruikt} van ${total} gebruikt` : 'Nog geen feiten beschikbaar' },
     { label: 'Tekst', klaar: contentKlaar, sub: contentKlaar ? 'Geschreven' : 'Nog niet geschreven' },
     { label: 'Controleren en live', klaar: gepubliceerd, sub: gepubliceerd ? 'Live' : 'Nog niet live' }
   ];
@@ -427,10 +428,35 @@ function renderVoortgang(page, feitenCounts) {
   if (typeof lpRenderPaginaAdvies === 'function') lpRenderPaginaAdvies(page, { invoerIngevuld, feitenKlaar, contentKlaar, gepubliceerd, total, gebruikt });
 }
 
+// Zelfde regel als onderwerpTekst in src/lp/autoPagina.js: een eigen tekst wint, anders stellen we hem samen uit de invoer.
+function lpOnderwerpTekst(invoer, titel) {
+  const inv = invoer || {};
+  const eigen = String(inv._watGaatDezePaginaOver || '').trim();
+  if (eigen) return eigen;
+  const dienst = String(inv.dienstFocus || inv.dienst || '').trim();
+  const plaats = String(inv.plaatsnaam || inv.plaats || '').trim();
+  const werkgebied = String(inv.werkgebied || '').trim();
+  const reden = String((inv.plan || {}).reden || '').trim();
+  const kop = String(inv.onderwerp || titel || '').trim();
+  const delen = [];
+  if (dienst && plaats) delen.push(`Pagina over ${dienst} in ${plaats}.`);
+  else if (kop) delen.push(`Pagina over ${kop}.`);
+  else if (dienst || plaats) delen.push(`Pagina over ${dienst || plaats}.`);
+  if (werkgebied && werkgebied !== plaats) delen.push(`Werkgebied: ${werkgebied}.`);
+  if (reden) delen.push(reden.replace(/[.!?]*$/, '.'));
+  return delen.join(' ').trim();
+}
+
 // ---- Detailscherm ----
 async function openPageDetail(pageId) {
-  const { page } = await lpApi(`/pages/${pageId}`);
+  const { page, tekstStatus } = await lpApi(`/pages/${pageId}`);
   lpState.currentPage = page;
+  lpState.tekstStatus = tekstStatus || null;
+  clearTimeout(lpState.tekstPoll);
+  if (tekstStatus && (tekstStatus.status === 'bezig' || tekstStatus.status === 'wacht')) {
+    // De AI schrijft de tekst op de achtergrond: ververs het scherm tot hij klaar is.
+    lpState.tekstPoll = setTimeout(() => { if (lpState.currentPage && lpState.currentPage.id === pageId) openPageDetail(pageId); }, 8000);
+  }
 
   document.getElementById('lpPaginasTab').classList.add('hidden');
   document.getElementById('lpWerkplaatsTab').classList.add('hidden');
@@ -457,7 +483,7 @@ async function openPageDetail(pageId) {
   lpState.currentPageBlueprint = blueprint;
 
   const invoer = page.invoer || {};
-  document.getElementById('lpInvoerOnderwerp').value = invoer._watGaatDezePaginaOver || '';
+  document.getElementById('lpInvoerOnderwerp').value = lpOnderwerpTekst(invoer, page.titel);
   document.getElementById('lpInvoerCtaOverride').value = invoer._ctaOverride || '';
 
   renderInvoerFields(page, blueprint);
@@ -647,12 +673,12 @@ async function renderFeitenList(page) {
   const { feiten } = await lpApi(`/clients/${page.klant}/feiten`);
   lpState.feitenById = new Map(feiten.map((f) => [f.id, f]));
   const feitensheet = page.feitensheet || { gebruikt: [], extra: [] };
-  // Een nog niet opgeslagen feitensheet: feiten met standaard: true staan vanzelf aan (zelfde regel als
+  // Een nog niet opgeslagen feitensheet: alle feiten van de klant staan vanzelf aan (zelfde regel als
   // gebruikteFeitIds in src/lp/feitenDefaults.js, die de server bij content genereren gebruikt).
   const gebruiktSet = new Set(
     page.feitensheet && Array.isArray(page.feitensheet.gebruikt)
       ? page.feitensheet.gebruikt
-      : feiten.filter((f) => f.standaard).map((f) => f.id)
+      : feiten.filter((f) => f.id && f.bron).map((f) => f.id)
   );
 
   container.innerHTML = feiten.map((f) => `

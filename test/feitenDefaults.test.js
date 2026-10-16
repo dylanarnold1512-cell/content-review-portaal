@@ -10,15 +10,16 @@ const profile = require('../src/lp/clients/roots/profile');
 const { pickImagesForPage } = require('../src/lp/ai');
 
 const FEITEN = [
-  { id: 'a', standaard: true },
-  { id: 'b' },
-  { id: 'c', standaard: true }
+  { id: 'a', bron: 'site', standaard: true },
+  { id: 'b', bron: 'site' },
+  { id: 'c', bron: 'site', standaard: true },
+  { id: 'd' }
 ];
 
-test('nog geen feitensheet: alleen de standaard feiten staan aan', () => {
-  assert.deepEqual(gebruikteFeitIds(null, FEITEN), ['a', 'c']);
-  assert.deepEqual(gebruikteFeitIds(undefined, FEITEN), ['a', 'c']);
-  assert.deepEqual(gebruikteFeitIds({ extra: [] }, FEITEN), ['a', 'c']);
+test('nog geen feitensheet: alle feiten met een bron staan aan', () => {
+  assert.deepEqual(gebruikteFeitIds(null, FEITEN), ['a', 'b', 'c']);
+  assert.deepEqual(gebruikteFeitIds(undefined, FEITEN), ['a', 'b', 'c']);
+  assert.deepEqual(gebruikteFeitIds({ extra: [] }, FEITEN), ['a', 'b', 'c']);
 });
 
 test('een opgeslagen feitensheet wint, ook als er minder of niets aan staat', () => {
@@ -26,7 +27,7 @@ test('een opgeslagen feitensheet wint, ook als er minder of niets aan staat', ()
   assert.deepEqual(gebruikteFeitIds({ gebruikt: [], extra: [] }, FEITEN), []);
 });
 
-test('zonder feiten of zonder standaard feiten komt er niets aan', () => {
+test('zonder feiten of zonder bron komt er niets aan', () => {
   assert.deepEqual(gebruikteFeitIds(null, []), []);
   assert.deepEqual(gebruikteFeitIds(null, [{ id: 'x' }]), []);
 });
@@ -52,7 +53,7 @@ test('Roots heeft een fotorichtlijn over de bar', () => {
 
 test('portaal en server gebruiken dezelfde standaard regel', () => {
   const js = fs.readFileSync(path.join(__dirname, '..', 'public', 'lp.js'), 'utf8');
-  assert.match(js, /feiten\.filter\(\(f\) => f\.standaard\)/);
+  assert.match(js, /feiten\.filter\(\(f\) => f\.id && f\.bron\)/);
   const route = fs.readFileSync(path.join(__dirname, '..', 'src', 'routes', 'lp.js'), 'utf8');
   assert.match(route, /gebruikteFeitIds\(page\.feitensheet, client\.feiten\)/);
   assert.equal(typeof pickImagesForPage, 'function');

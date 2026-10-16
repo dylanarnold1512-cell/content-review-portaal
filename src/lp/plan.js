@@ -8,6 +8,7 @@
 
 const { haalSuggesties } = require('./zoekvragen');
 const { voegVolumeToe } = require('./zoekvolume');
+const { onderwerpTekst } = require('./autoPagina');
 
 const MAX_AANTAL = 20;
 
@@ -134,6 +135,7 @@ function invoerVoorGoedgekeurd(v) {
     plaatsnaam: v.plaats || '',
     dienstFocus: v.dienst || '',
     onderwerp: v.titel,
+    _watGaatDezePaginaOver: onderwerpTekst({ dienstFocus: v.dienst, plaatsnaam: v.plaats, plan: { reden: v.reden } }, v.titel),
     plan: { status: 'goedgekeurd', soort: v.soort || '', reden: v.reden || '', signaal: v.signaal == null ? null : v.signaal, volume: typeof v.volume === 'number' ? v.volume : null, goedgekeurdOp: new Date().toISOString().slice(0, 10) }
   };
 }
