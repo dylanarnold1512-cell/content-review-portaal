@@ -208,3 +208,20 @@ test('huisstijl: bewerkbaar geeft de huidige waarden, waarschuwingen en eigen le
   assert.ok(Array.isArray(k.waarschuwingen));
   assert.ok(k.eigenLettertypenInCode.length >= 1, 'Yikes staat als eigen lettertype in de code');
 });
+
+test('aantal offertebalken: code geldt zolang Notion niets zegt, daarna wint Notion', async () => {
+  assert.strictEqual(clients.macbouw.profile.ctaBalken.aantal, 2);
+  assert.strictEqual(kg.bewerkbaar('macbouw').profiel.ctaBalken.aantal, 2);
+  assert.strictEqual(kg.bewerkbaar('roots').profiel.ctaBalken.aantal, 1);
+  const inv = kg.bewerkbaar('macbouw');
+  await kg.bewaar('macbouw', { profiel: { ...inv.profiel, ctaBalken: { aantal: 1 } }, feiten: inv.feiten });
+  assert.strictEqual(clients.macbouw.profile.ctaBalken.aantal, 1);
+  await kg.bewaar('macbouw', { profiel: { ...inv.profiel, ctaBalken: { aantal: 2 } }, feiten: inv.feiten });
+  assert.strictEqual(clients.macbouw.profile.ctaBalken.aantal, 2);
+});
+
+test('aantal offertebalken: ongeldige waarden worden niet bewaard', () => {
+  assert.strictEqual(kg.schoonProfiel({ naam: 'X', ctaBalken: { aantal: 7 } }).ctaBalken, undefined);
+  assert.strictEqual(kg.schoonProfiel({ naam: 'X' }).ctaBalken, undefined);
+  assert.deepStrictEqual(kg.schoonProfiel({ naam: 'X', ctaBalken: { aantal: '2' } }).ctaBalken, { aantal: 2 });
+});

@@ -42,6 +42,7 @@
     $('kgToon').value = p.toonNotitie;
     $('kgFoto').value = p.fotoRichtlijn;
     $('kgNiet').value = (p.nietToegestaan || []).join('\n');
+    $('kgCtaBalken').value = String((p.ctaBalken && p.ctaBalken.aantal) === 2 ? 2 : 1);
     vulHuisstijl(k.profiel.huisstijl || {});
     $('kgHuisWaarschuwing').innerHTML = (k.waarschuwingen || []).map((w) => `<p>${esc(w)}</p>`).join('');
     const eigen = (k.eigenLettertypenInCode || []).length ? ` Eigen lettertypebestanden (${k.eigenLettertypenInCode.join(', ')}) en extra CSS staan in de code en blijven daar.` : '';
@@ -119,6 +120,7 @@
         toonNotitie: $('kgToon').value,
         fotoRichtlijn: $('kgFoto').value,
         nietToegestaan: regels('kgNiet'),
+        ctaBalken: { aantal: Number($('kgCtaBalken').value) === 2 ? 2 : 1 },
         huisstijl: leesHuisstijl()
       },
       feiten: [...document.querySelectorAll('#kgFeiten .kg-feit')].map((r) => ({

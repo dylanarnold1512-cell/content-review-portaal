@@ -25,7 +25,7 @@ const VERVERS_MS = 5 * 60 * 1000;
 const MAX_FEITEN = 200;
 
 // Wat uit Notion mag komen. Alles daarbuiten blijft uit de code.
-const PROFIEL_VELDEN = ['naam', 'bedrijf', 'nietToegestaan', 'toonNotitie', 'fotoRichtlijn'];
+const PROFIEL_VELDEN = ['naam', 'bedrijf', 'nietToegestaan', 'toonNotitie', 'fotoRichtlijn', 'ctaBalken'];
 
 const diepKopie = (v) => JSON.parse(JSON.stringify(v));
 
@@ -79,7 +79,7 @@ function schoonProfiel(invoer) {
     werkgebied: lijst(b.werkgebied, 30, 80)
   };
   if (bedrijf.url && !/^https?:\/\//i.test(bedrijf.url)) bedrijf.url = 'https://' + bedrijf.url;
-  return {
+  const uit = {
     naam: tekst(i.naam, 120),
     bedrijf,
     nietToegestaan: lijst(i.nietToegestaan, 20, 300),
@@ -87,6 +87,10 @@ function schoonProfiel(invoer) {
     fotoRichtlijn: tekst(i.fotoRichtlijn, 600),
     huisstijl: schoonHuisstijl(i.huisstijl)
   };
+  // Aantal offertebalken: 1 of 2. Alleen bewaren als het is meegestuurd, zodat de waarde uit de code blijft gelden.
+  const balken = i.ctaBalken && typeof i.ctaBalken === 'object' ? Number(i.ctaBalken.aantal) : Number(i.ctaBalken);
+  if (balken === 1 || balken === 2) uit.ctaBalken = { aantal: balken };
+  return uit;
 }
 
 function schoonFeiten(invoer) {
@@ -350,6 +354,7 @@ function bewerkbaar(id) {
       nietToegestaan: p.nietToegestaan || [],
       toonNotitie: p.toonNotitie || '',
       fotoRichtlijn: p.fotoRichtlijn || '',
+      ctaBalken: { aantal: Number(p.ctaBalken && p.ctaBalken.aantal) === 2 ? 2 : 1 },
       huisstijl: huisstijlUitTokens(getTokens(id))
     },
     huisstijlEigen: Boolean(notionData.get(id) && notionData.get(id).profiel && notionData.get(id).profiel.huisstijl && Object.keys(notionData.get(id).profiel.huisstijl).length),
