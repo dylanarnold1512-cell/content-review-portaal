@@ -493,7 +493,13 @@ function renderInstellingen(c, inhoud) {
       </select>
     </div>
   </section>
-  ${(c.producten === 'Pagr.' || c.producten === 'Beide') ? `<section class="p-kaart ad-blok">
+  ${(c.producten === 'Pagr.' || c.producten === 'Beide') ? '' : `<section class="p-kaart ad-blok">
+    <div class="ad-regel">
+      <div class="ad-regel-tekst"><b>Automatisering intern</b><span>Voor een klant die Pagr. niet betaalt maar waarvoor jij wel landingspagina's maakt. De AI schrijft de tekst, controleert en zet het maandplan klaar, zodat jij sneller werkt. De klant ziet Pagr. niet in zijn portaal.</span></div>
+      ${toggleSwitch('internAutomatisering-' + c.id, c.id, 'internAutomatisering', c.internAutomatisering, false, '')}
+    </div>
+  </section>`}
+  ${(c.producten === 'Pagr.' || c.producten === 'Beide' || c.internAutomatisering) ? `<section class="p-kaart ad-blok">
     <div class="ad-regel">
       <div class="ad-regel-tekst"><b>Pagina's per maand</b><span>Het plan in de Werkplaats stelt elke maand dit aantal voor. Leeg betekent geen vast aantal.</span></div>
       <input type="number" min="0" max="100" class="admin-status" style="width:90px" data-client="${c.id}" data-aantalveld="paginasPerMaand" value="${c.paginasPerMaand == null ? '' : c.paginasPerMaand}" aria-label="Pagina's per maand van ${escapeHtmlAdmin(c.naam)}">
