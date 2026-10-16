@@ -49,7 +49,7 @@ test('de wachtrij schrijft een pagina per keer en onthoudt een fout', async () =
 test('pagina aanmaken en plan goedkeuren starten de tekst vanzelf, het scherm toont de stand', () => {
   const route = fs.readFileSync(path.join(__dirname, '..', 'src', 'routes', 'lp.js'), 'utf8');
   assert.match(route, /startAutoTekst\(page\.id\)/g);
-  assert.equal((route.match(/startAutoTekst\(page\.id\)/g) || []).length, 2);
+  assert.equal((route.match(/startAutoTekst\(page\.id\)/g) || []).length, 3);
   assert.match(route, /tekstStatus: autoTekstRij\.status/);
   const adv = fs.readFileSync(path.join(__dirname, '..', 'public', 'lp-begeleiding.js'), 'utf8');
   assert.match(adv, /De AI schrijft de tekst voor deze pagina/);
