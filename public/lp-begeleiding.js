@@ -208,7 +208,38 @@
         const v = $('lpValidateBtn'); if (v) v.click();
       });
     }
+    const toonControle = !st.gepubliceerd && st.contentKlaar && !(ts && (ts.status === 'bezig' || ts.status === 'wacht'));
+    if (toonControle && !(typeof lpState !== 'undefined' && lpState.pagrModule)) {
+      // Zonder Pagr. module draait de controle niet vanzelf: de knop doet het met een klik.
+      items[items.length - 1] = { tekst: 'De tekst is klaar. Laat de pagina controleren voordat je hem live zet.', knop: 'Controleer de pagina', soort: 'plan', actie: () => lpToonControle(page) };
+    }
     box.innerHTML = items.map((it, i) => `<div class="wp-advies-item ${it.soort}"><p>${esc(it.tekst)}</p>${it.knop ? `<button type="button" class="btn btn-approve" data-adv="${i}">${esc(it.knop)}</button>` : ''}</div>`).join('');
     box.querySelectorAll('[data-adv]').forEach((b) => b.addEventListener('click', () => items[Number(b.dataset.adv)].actie()));
+    if (toonControle && typeof lpState !== 'undefined' && lpState.pagrModule) lpToonControle(page);
+  };
+
+  // Automatische controle: haalt de controle op en toont per punt een oplosknop.
+  window.lpToonControle = async function (page) {
+    const box = $('pdAdvies');
+    if (!box) return;
+    let kaart = $('pdControle');
+    if (!kaart) { kaart = document.createElement('div'); kaart.id = 'pdControle'; box.appendChild(kaart); }
+    kaart.innerHTML = '<p class="wp-muted">De pagina wordt gecontroleerd...</p>';
+    try {
+      const c = await lpApi(`/pages/${page.id}/controle`);
+      const punt = (p, soort, i) => `<div class="wp-advies-item ${soort}"><p>${esc(p.tekst)}</p>${p.knop ? `<button type="button" class="btn btn-plain" data-oplos="${soort}-${i}">${esc(p.knop)}</button>` : ''}</div>`;
+      kaart.innerHTML = `<div class="wp-advies-item ${c.ok ? 'goed' : 'fout'}"><p><strong>${esc(c.samenvatting)}</strong></p></div>`
+        + c.fouten.map((p, i) => punt(p, 'fout', i)).join('') + c.letOp.map((p, i) => punt(p, 'let-op', i)).join('');
+      kaart.querySelectorAll('[data-oplos]').forEach((b) => b.addEventListener('click', async () => {
+        b.disabled = true;
+        b.textContent = 'Bezig...';
+        try {
+          await lpApi(`/pages/${page.id}/auto-tekst`, { method: 'POST', body: JSON.stringify({ opnieuw: true }) });
+          openPageDetail(page.id);
+        } catch (err) { b.textContent = err.message; }
+      }));
+    } catch (err) {
+      kaart.innerHTML = `<p class="admin-error">${esc(err.message)}</p>`;
+    }
   };
 })();
