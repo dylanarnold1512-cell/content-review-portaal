@@ -173,6 +173,8 @@ document.getElementById('lpTemplateBackBtn').addEventListener('click', () => {
 
 // ---- Subtabs (detailscherm) ----
 function switchLpSubtab(tab) {
+  const aanpassen = document.getElementById('pdAanpassen');
+  if (aanpassen) aanpassen.open = true;
   document.querySelectorAll('#lpSubtabs .lp-subtab-btn').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.lpSubtab === tab);
   });
@@ -225,6 +227,13 @@ function fillBlueprintSelect(klantId) {
   const client = lpState.clients.find((c) => c.id === klantId);
   const select = document.getElementById('lpNewBlueprint');
   select.innerHTML = (client ? client.blueprints : []).map((b) => `<option value="${b.id}">${b.naam}</option>`).join('');
+  // Stap 1 van Nieuwe pagina: zelf een sjabloon kiezen, of de AI laten kiezen.
+  const kies = document.getElementById('npSjabloon');
+  if (kies) {
+    kies.innerHTML = '<option value="">De AI kiest het sjabloon</option>' + (client ? client.blueprints : []).map((b) => `<option value="${b.id}">${b.naam}</option>`).join('');
+    const uitleg = document.getElementById('npSjabloonUitleg');
+    if (uitleg) uitleg.textContent = 'De AI kiest het sjabloon dat bij je zin past.';
+  }
   loadNewFormInvoerFields();
 }
 
@@ -320,7 +329,11 @@ function renderPagesTable() {
   lpState.pages.forEach((p) => { const st = standVan(p.status); if (tellers[st] != null) tellers[st] += 1; });
   document.getElementById('lpPaginaTellers').innerHTML = Object.keys(tellers)
     .map((st) => `<span class="wp-pil ${klasse(st)}"><span class="wp-stip"></span>${st} <b>${tellers[st]}</b></span>`).join('');
-  lijst.innerHTML = lpState.pages.map((p) => {
+  // Eerst een paar pagina's, de rest achter "Toon alle". Zo blijft het overzicht rustig.
+  const ZICHTBAAR = 6;
+  const alle = Boolean(lpState.alleLijstUit);
+  const getoond = alle ? lpState.pages : lpState.pages.slice(0, ZICHTBAAR);
+  lijst.innerHTML = getoond.map((p) => {
     const stand = standVan(p.status);
     const datum = p.laatstGewijzigd ? new Date(p.laatstGewijzigd).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : '';
     return `<div class="wp-rij lp-row" data-page-id="${p.id}" tabindex="0" role="button">
@@ -330,6 +343,10 @@ function renderPagesTable() {
       <span class="wp-muted wp-rij-datum">${datum}</span>
     </div>`;
   }).join('') || '<p class="wp-muted">Nog geen pagina\'s. Maak je eerste pagina met Nieuwe pagina.</p>';
+  if (lpState.pages.length > ZICHTBAAR) {
+    lijst.insertAdjacentHTML('beforeend', `<div class="wp-meer-rij"><button type="button" class="btn btn-plain" id="lpPaginasMeer">${alle ? 'Toon minder' : `Toon alle ${lpState.pages.length} pagina's`}</button></div>`);
+    document.getElementById('lpPaginasMeer').addEventListener('click', () => { lpState.alleLijstUit = !lpState.alleLijstUit; renderPagesTable(); });
+  }
   lpKoppelSelectie('lpPagina', lijst);
   lijst.querySelectorAll('.lp-row').forEach((row) => {
     const open = () => openPageDetail(row.dataset.pageId);
@@ -473,6 +490,9 @@ async function openPageDetail(pageId) {
   document.getElementById('lpDetailStatusBadge').className = lpBadgeClass(LP_PAGE_STATUS_BADGE, page.status);
   document.getElementById('lpStatusSelect').value = page.status;
   switchLpSubtab('invoer');
+  // Aanpassen staat ingeklapt zodra er tekst is: dan gaat het om controleren. Zonder tekst staat het open.
+  const aanpassen = document.getElementById('pdAanpassen');
+  if (aanpassen) aanpassen.open = !isContentIngevuld(page);
 
   let blueprint = null;
   try {
