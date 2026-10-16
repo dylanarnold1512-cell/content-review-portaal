@@ -824,6 +824,17 @@ function bouwVragenBlok({ zoekvragen, zusterVragen } = {}) {
   return tekst;
 }
 
+// Waar de pagina's van dit sjabloon over gaan (16-10-2026). Een sjabloon kan een gedupliceerde variant zijn met dezelfde
+// opzet maar een ander onderwerp (bv. dakkapellen naast algemene verbouw). De opzet blijft gelijk, de inhoud volgt het onderwerp.
+function bouwFocusBlok(focus) {
+  if (!focus || (!focus.onderwerp && !focus.instructie)) return '';
+  return `\n\nONDERWERP VAN DIT SJABLOON (geldt voor elke pagina die op dit sjabloon wordt gemaakt):
+${focus.onderwerp ? `Onderwerp: ${focus.onderwerp}\n` : ''}${focus.instructie ? `Hier moet de pagina rekening mee houden: ${focus.instructie}\n` : ''}Regels:
+- De hele pagina gaat over dit onderwerp: kop, intro, diensten of onderdelen, voordelen, stappen en veelgestelde vragen. Andere diensten van het bedrijf noem je hooguit kort en niet als hoofdonderwerp.
+- Gebruik uit de bronteksten van de klantsite vooral wat over dit onderwerp gaat (pagina's, feiten, werkwijze, voorbeelden). Verzin niets: staat er in de bronteksten of feiten niets over een deel van het onderwerp, laat dat deel dan weg of formuleer het algemeen.
+- De opbouw en het aantal onderdelen blijven zoals het sjabloon ze vraagt.`;
+}
+
 async function generatePageContent({ klant, template, invoer, feiten, watGaatDezePaginaOver, ctaOverride, linkKandidaten, zusterInhoud, siteTeksten, zoekvragen, zusterVragen }) {
   const systemPrompt = buildContentSystemPrompt(template);
   const userPrompt = `Klant: ${klant}
@@ -833,7 +844,7 @@ ${JSON.stringify(invoer || {}, null, 2)}
 
 Waar deze pagina over gaat (door de gebruiker aangeleverd, gebruik dit als leidraad voor de
 hero/intro-achtige slots en om de pagina te onderscheiden van vergelijkbare pagina's):
-${watGaatDezePaginaOver || '(niet opgegeven)'}
+${watGaatDezePaginaOver || '(niet opgegeven)'}${bouwFocusBlok(template.focus)}
 
 ${
   ctaOverride
@@ -1071,6 +1082,7 @@ async function callOpenAiVision({ systemPrompt, contentParts }) {
 }
 
 module.exports = {
+  bouwFocusBlok,
   VASTE_ONDERDELEN_OPTIES,
   VASTE_ONDERDELEN_LABELS,
   formatBrandingForPrompt,

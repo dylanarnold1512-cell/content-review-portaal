@@ -6,7 +6,7 @@ const express = require('express');
 const { getLpClient, clients: lpClients } = require('../lp/clients');
 const klantgegevens = require('../lp/klantgegevens');
 const { schoonScreenshots } = require('../lp/screenshots');
-const { bouwSjabloonKopie } = require('../lp/sjabloonKopie');
+const { bouwSjabloonKopie, schoonFocus } = require('../lp/sjabloonKopie');
 const lpNotion = require('../lp/notion');
 const templates = require('../lp/templates');
 const clientIntake = require('../lp/clientIntake');
@@ -268,7 +268,7 @@ router.post('/templates/:templateId/dupliceer', requireLpInternal, async (req, r
   try {
     const origineel = await templates.getTemplate(req.params.templateId);
     const bestaandeSjablonen = await templates.listTemplates({ klant: origineel.klant });
-    const kopie = bouwSjabloonKopie(origineel, { naam: req.body?.naam, bestaandeSjablonen });
+    const kopie = bouwSjabloonKopie(origineel, { naam: req.body?.naam, onderwerp: req.body?.onderwerp, instructie: req.body?.instructie, bestaandeSjablonen });
     const structuur = validateTemplateStructure(kopie.blueprint);
     if (!structuur.ok) return res.status(400).json({ error: 'Het originele sjabloon voldoet niet aan de structuur-eisen, daarom is er geen kopie gemaakt.', structuurFouten: structuur.errors });
     const template = await templates.createTemplate(kopie);
@@ -281,6 +281,10 @@ router.post('/templates/:templateId/dupliceer', requireLpInternal, async (req, r
 router.put('/templates/:templateId/blueprint', requireLpInternal, async (req, res) => {
   try {
     const blueprint = req.body?.blueprint ?? null;
+    if (blueprint && typeof blueprint === 'object' && 'focus' in blueprint) {
+      const focus = schoonFocus(blueprint.focus);
+      if (focus) blueprint.focus = focus; else delete blueprint.focus;
+    }
     const structuur = validateTemplateStructure(blueprint);
     if (!structuur.ok) {
       return res.status(400).json({ error: 'Sjabloon voldoet niet aan de structuur-eisen.', structuurFouten: structuur.errors });
@@ -980,7 +984,7 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
   let siteTeksten = '';
   try {
     const eigenUrls = allePaginas.map((p) => p.wpUrl).filter(Boolean);
-    const site = await haalSiteTeksten({ url: (client.profile.bedrijf || {}).url, uitsluit: eigenUrls });
+    const site = await haalSiteTeksten({ url: (client.profile.bedrijf || {}).url, uitsluit: eigenUrls, voorkeur: (blueprint.focus && blueprint.focus.trefwoorden) || [] });
     siteTeksten = formatSiteTekstenVoorPrompt(site);
     if (!siteTeksten) siteTekstWarning = `De teksten van de klantsite konden niet gelezen worden (${site.fout || 'geen pagina\'s gevonden'}), de tekst is alleen op de feiten gebaseerd en kan daardoor karig zijn.`;
   } catch (siteTekstErr) {
@@ -991,7 +995,7 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
 
   // Echte zoekvragen (Google suggesties) en de vragen van zusterpagina's, zodat de FAQ niet op elke pagina gelijk is
   // (zoekvragen.js). Nooit blokkerend: zonder zoekvragen werkt de generatie gewoon door.
-  const dienstTekst = invoer.dienstFocus || invoer.dienst || invoer.onderwerp || '';
+  const dienstTekst = invoer.dienstFocus || invoer.dienst || invoer.onderwerp || (blueprint.focus && blueprint.focus.onderwerp) || '';
   let zoekvragen = [];
   try {
     zoekvragen = await haalZoekvragen({ diensten: dienstenUitTekst(dienstTekst), plaats: invoer.plaatsnaam });

@@ -1114,9 +1114,28 @@
       </div>
       <div id="lpTplDeleteError" class="admin-error hidden"></div>
       <div id="lpTemplateDetailError" class="admin-error hidden"></div>
+      <section class="wp-kaart hidden" id="tdDupliceerKaart">
+        <div class="wp-kaart-kop"><h2>Sjabloon dupliceren</h2></div>
+        <p class="wp-uitleg">De kopie krijgt precies dezelfde opmaak, opbouw en secties. Alleen het onderwerp van de pagina's verschilt. De AI gebruikt het onderwerp en de website van de klant om de tekst te schrijven. De kopie start als Concept.</p>
+        <div class="wp-veld"><label for="tdDupNaam">Naam van de kopie</label><input id="tdDupNaam" type="text" autocomplete="off" placeholder="bv. Dakkapel"></div>
+        <div class="wp-veld"><label for="tdDupOnderwerp">Waar gaan de pagina's over?</label><input id="tdDupOnderwerp" type="text" autocomplete="off" placeholder="bv. Dakkapellen plaatsen en renoveren"></div>
+        <div class="wp-veld"><label for="tdDupInstructie">Waar moet de pagina rekening mee houden? (optioneel)</label><textarea id="tdDupInstructie" rows="3" placeholder="bv. Richt je op particuliere woningeigenaren. Noem de soorten dakkapellen, de vergunningsvrije regels en de levertijd."></textarea></div>
+        <div class="wp-plan-actie" style="margin-top:0;">
+          <button type="button" id="tdDupMaak" class="btn btn-approve">Maak kopie</button>
+          <button type="button" id="tdDupAnnuleer" class="btn-plain">Annuleren</button>
+          <span id="tdDupStatus" class="wp-muted"></span>
+        </div>
+      </section>
       <input type="hidden" id="lpTplDetailKlant"><input type="hidden" id="lpTplDetailBlueprintId">
 
       <div id="lpTplDetailAiSection" class="wp-links">
+        <section class="wp-kaart">
+          <div class="wp-kaart-kop"><h2>Waar de pagina's over gaan</h2></div>
+          <p class="wp-uitleg">Het onderwerp geldt voor elke pagina die je met dit sjabloon maakt. De opbouw blijft gelijk, de AI schrijft de inhoud op dit onderwerp en leest daarvoor vooral de pagina's van de klantsite die erover gaan. Laat leeg voor een algemeen sjabloon.</p>
+          <div class="wp-veld"><label for="tdFocusOnderwerp">Onderwerp</label><input id="tdFocusOnderwerp" type="text" autocomplete="off" placeholder="bv. Dakkapellen"></div>
+          <div class="wp-veld"><label for="tdFocusInstructie">Hier moet de pagina rekening mee houden (optioneel)</label><textarea id="tdFocusInstructie" rows="3"></textarea></div>
+          <div class="wp-plan-actie" style="margin-top:0;"><button type="button" id="tdFocusBewaar" class="btn btn-approve">Bewaar onderwerp</button><span id="tdFocusStatus" class="wp-muted"></span></div>
+        </section>
         <section class="wp-kaart">
           <div class="wp-kaart-kop"><h2>Voorbeeld</h2></div>
           <p class="wp-uitleg">Zo ziet een pagina van dit sjabloon eruit met de echte kleuren en gegevens van de klant.</p>

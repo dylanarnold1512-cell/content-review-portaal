@@ -20,3 +20,29 @@ test('blueprintId blijft uniek en dubbele naam wordt geweigerd', () => {
   assert.throws(() => bouwSjabloonKopie(orig, { naam: 'ab' }), /minstens 3/);
   assert.throws(() => bouwSjabloonKopie({ klant: 'x', blueprint: {} }, { naam: 'Nieuw' }), /geen opzet/);
 });
+
+const { schoonFocus, trefwoordenUitOnderwerp } = require('../src/lp/sjabloonKopie');
+const { bouwFocusBlok } = require('../src/lp/ai');
+const { kiesUrls } = require('../src/lp/siteTeksten');
+
+test('kopie met onderwerp: alleen de focus verschilt, opzet blijft gelijk', () => {
+  const k = bouwSjabloonKopie(orig, { naam: 'Dakkapel', onderwerp: 'Dakkapellen plaatsen', instructie: 'Noem de soorten.' });
+  assert.deepStrictEqual({ ...k.blueprint, focus: undefined }, { ...orig.blueprint, focus: undefined });
+  assert.strictEqual(k.blueprint.focus.onderwerp, 'Dakkapellen plaatsen');
+  assert.ok(k.blueprint.focus.trefwoorden.includes('dakkapel'));
+  assert.ok(k.blueprint.focus.trefwoorden.includes('dakkapellen'));
+  assert.strictEqual(schoonFocus({}), null);
+  assert.deepStrictEqual(trefwoordenUitOnderwerp('Het plaatsen van een dakkapel'), ['plaatsen', 'plaats', 'dakkapel']);
+});
+
+test('focus komt in de AI prompt en pagina\'s over het onderwerp gaan voor bij het lezen van de site', () => {
+  assert.strictEqual(bouwFocusBlok(null), '');
+  const blok = bouwFocusBlok({ onderwerp: 'Dakkapellen', instructie: 'Noem de levertijd.' });
+  assert.match(blok, /Onderwerp: Dakkapellen/);
+  assert.match(blok, /Noem de levertijd/);
+  const urls = kiesUrls({
+    basis: 'https://klant.nl/', restPaginas: [{ url: 'https://klant.nl/over-ons/', titel: 'Over ons' }, { url: 'https://klant.nl/zolder/', titel: 'Zolder' }, { url: 'https://klant.nl/dakkapel-plaatsen/', titel: 'Dakkapel plaatsen' }],
+    homepageLinks: [], uitsluit: [], voorkeur: ['dakkapel']
+  });
+  assert.deepStrictEqual(urls.map((u) => u.url), ['https://klant.nl/', 'https://klant.nl/dakkapel-plaatsen/', 'https://klant.nl/over-ons/', 'https://klant.nl/zolder/']);
+});

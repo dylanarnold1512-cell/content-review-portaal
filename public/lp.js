@@ -1866,6 +1866,9 @@ async function openTemplateDetail(templateId) {
   const heeftBewaardVoorbeeld = isSlot && bewaardVoorbeeld && typeof bewaardVoorbeeld === 'object' && Object.keys(bewaardVoorbeeld).length > 0;
   document.getElementById('lpTplDetailBlueprintJson').value = JSON.stringify(blueprintZonderVoorbeeld, null, 2);
   document.getElementById('lpTplDetailVoorbeeldJson').value = isSlot ? JSON.stringify(heeftBewaardVoorbeeld ? bewaardVoorbeeld : {}, null, 2) : '[]';
+  document.getElementById('tdFocusOnderwerp').value = (template.blueprint && template.blueprint.focus && template.blueprint.focus.onderwerp) || '';
+  document.getElementById('tdFocusInstructie').value = (template.blueprint && template.blueprint.focus && template.blueprint.focus.instructie) || '';
+  document.getElementById('tdDupliceerKaart').classList.add('hidden');
   document.getElementById('lpTplDetailFeedback').value = '';
   document.getElementById('lpTplDetailRefineStatus').textContent = '';
   delete lpTplUndo.detail;
@@ -2010,27 +2013,57 @@ document.getElementById('lpTplStatusSelect').addEventListener('change', async (e
   document.getElementById('lpTplDetailStatusBadge').className = lpBadgeClass(LP_TEMPLATE_STATUS_BADGE, updated.status);
 });
 
-document.getElementById('lpTplDupliceerBtn').addEventListener('click', async () => {
+document.getElementById('lpTplDupliceerBtn').addEventListener('click', () => {
   const template = lpState.currentTemplate;
   if (!template) return;
-  const errorEl = document.getElementById('lpTplDeleteError');
+  document.getElementById('tdDupNaam').value = `${template.naam} kopie`;
+  document.getElementById('tdDupOnderwerp').value = '';
+  document.getElementById('tdDupInstructie').value = '';
+  document.getElementById('tdDupStatus').textContent = '';
+  document.getElementById('tdDupliceerKaart').classList.remove('hidden');
+  document.getElementById('tdDupNaam').focus();
+});
+document.getElementById('tdDupAnnuleer').addEventListener('click', () => document.getElementById('tdDupliceerKaart').classList.add('hidden'));
+document.getElementById('tdDupMaak').addEventListener('click', async () => {
+  const template = lpState.currentTemplate;
+  if (!template) return;
+  const errorEl = document.getElementById('lpTemplateDetailError');
   errorEl.classList.add('hidden');
-  const naam = prompt(`Naam van de kopie van "${template.naam}"? De opmaak blijft gelijk, de kopie start als Concept.`, `${template.naam} kopie`);
-  if (!naam) return;
-  const btn = document.getElementById('lpTplDupliceerBtn');
+  const btn = document.getElementById('tdDupMaak');
   btn.disabled = true;
+  document.getElementById('tdDupStatus').textContent = 'Bezig met kopieren...';
   try {
-    const { template: kopie } = await lpApi(`/templates/${template.id}/dupliceer`, { method: 'POST', body: JSON.stringify({ naam }) });
+    const { template: kopie } = await lpApi(`/templates/${template.id}/dupliceer`, {
+      method: 'POST',
+      body: JSON.stringify({ naam: document.getElementById('tdDupNaam').value, onderwerp: document.getElementById('tdDupOnderwerp').value, instructie: document.getElementById('tdDupInstructie').value })
+    });
+    document.getElementById('tdDupliceerKaart').classList.add('hidden');
     await loadTemplates();
     await openTemplateDetail(kopie.id);
     const savedEl = document.getElementById('lpTplSaved');
-    if (savedEl) savedEl.textContent = `Kopie "${kopie.naam}" gemaakt van "${template.naam}". Pas hem aan en zet hem daarna op Actief.`;
+    if (savedEl) savedEl.textContent = `Kopie "${kopie.naam}" gemaakt van "${template.naam}". Zet hem op Actief als hij klaar is.`;
   } catch (err) {
+    document.getElementById('tdDupStatus').textContent = '';
     errorEl.textContent = formatApiError(err);
     errorEl.classList.remove('hidden');
   } finally {
     btn.disabled = false;
   }
+});
+
+document.getElementById('tdFocusBewaar').addEventListener('click', () => {
+  let blueprint;
+  try { blueprint = JSON.parse(document.getElementById('lpTplDetailBlueprintJson').value || '{}'); } catch (err) {
+    document.getElementById('tdFocusStatus').textContent = 'De opzet van het sjabloon is ongeldig: ' + err.message;
+    return;
+  }
+  const onderwerp = document.getElementById('tdFocusOnderwerp').value.trim();
+  const instructie = document.getElementById('tdFocusInstructie').value.trim();
+  if (onderwerp || instructie) blueprint.focus = { onderwerp, instructie }; else delete blueprint.focus;
+  document.getElementById('lpTplDetailBlueprintJson').value = JSON.stringify(blueprint, null, 2);
+  document.getElementById('tdFocusStatus').textContent = 'Bezig met opslaan...';
+  document.getElementById('lpTplSaveBlueprintBtn').click();
+  setTimeout(() => { document.getElementById('tdFocusStatus').textContent = ''; }, 3000);
 });
 
 document.getElementById('lpTplDeleteBtn').addEventListener('click', async () => {

@@ -133,7 +133,7 @@ function zelfdeHost(a, b) {
 
 // Pagina's van de klantsite: homepage, WordPress REST lijst en links op de homepage. Volgorde: homepage, daarna
 // pagina's met een dienst- of bedrijfsachtige naam, daarna de rest. Landingspagina's van LP Fabriek (uitsluit) vallen af.
-function kiesUrls({ basis, restPaginas, homepageLinks, uitsluit }) {
+function kiesUrls({ basis, restPaginas, homepageLinks, uitsluit, voorkeur }) {
   const uitgesloten = new Set((uitsluit || []).map((u) => normaliseerUrl(u, basis)).filter(Boolean));
   const home = normaliseerUrl(basis, basis);
   const gezien = new Set();
@@ -147,7 +147,10 @@ function kiesUrls({ basis, restPaginas, homepageLinks, uitsluit }) {
   voegToe(basis, 'Homepage');
   (restPaginas || []).forEach((p) => voegToe(p.url, p.titel));
   (homepageLinks || []).forEach((u) => voegToe(u, ''));
-  const prioriteit = (p) => (p.url === home ? 0 : PRIORITEIT_RE.test(p.url) || PRIORITEIT_RE.test(p.titel) ? 1 : 2);
+  // Pagina's over het onderwerp van het sjabloon (voorkeur, bv. "dakkapel") komen direct na de homepage.
+  const woorden = (voorkeur || []).map((w) => String(w).toLowerCase()).filter((w) => w.length >= 4);
+  const metVoorkeur = (p) => woorden.some((w) => `${p.url} ${p.titel}`.toLowerCase().includes(w));
+  const prioriteit = (p) => (p.url === home ? 0 : metVoorkeur(p) ? 1 : PRIORITEIT_RE.test(p.url) || PRIORITEIT_RE.test(p.titel) ? 2 : 3);
   return lijst
     .map((p, i) => ({ ...p, i }))
     .sort((a, b) => prioriteit(a) - prioriteit(b) || a.i - b.i)
@@ -168,10 +171,10 @@ async function inBatches(items, n, fn) {
 }
 
 // Leest de klantsite. Gooit nooit: bij een fout komt { paginas: [], fout } terug.
-async function haalSiteTeksten({ url, uitsluit }) {
+async function haalSiteTeksten({ url, uitsluit, voorkeur }) {
   if (!url) return { paginas: [], totaalWoorden: 0, fout: 'Geen website opgegeven voor deze klant.' };
   const basis = String(url).replace(/\/+$/, '') + '/';
-  const sleutel = `${basis}|${(uitsluit || []).slice().sort().join(',')}`;
+  const sleutel = `${basis}|${(uitsluit || []).slice().sort().join(',')}|${(voorkeur || []).slice().sort().join(',')}`;
   const cached = CACHE.get(sleutel);
   if (cached && Date.now() - cached.tijd < CACHE_MS) return cached.waarde;
   let waarde;
@@ -187,7 +190,7 @@ async function haalSiteTeksten({ url, uitsluit }) {
           restPaginas = (JSON.parse(rest.text) || []).map((p) => ({ url: p.link, titel: decodeEntiteiten((p.title && p.title.rendered) || '').replace(/<[^>]+>/g, '') }));
         } catch (err) { /* geen WordPress REST, dan alleen de links van de homepage */ }
       }
-      const kandidaten = kiesUrls({ basis, restPaginas, homepageLinks: linksUitHtml(home.text, basis), uitsluit });
+      const kandidaten = kiesUrls({ basis, restPaginas, homepageLinks: linksUitHtml(home.text, basis), uitsluit, voorkeur });
       const gelezen = await inBatches(kandidaten, PARALLEL, async (k) => {
         const homepage = normaliseerUrl(k.url, basis) === normaliseerUrl(basis, basis);
         const res = homepage ? home : await fetchTekst(k.url);

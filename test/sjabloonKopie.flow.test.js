@@ -44,7 +44,7 @@ test('sjabloon dupliceren via de route: kopie als Concept met dezelfde opzet', a
     const cookie = login.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ');
     const post = (naam) => fetch(`${base}/api/lp/templates/t1/dupliceer`, { method: 'POST', headers: { 'Content-Type': 'application/json', cookie }, body: JSON.stringify({ naam }) });
 
-    const ok = await post('Dakkapel');
+    const ok = await fetch(`${base}/api/lp/templates/t1/dupliceer`, { method: 'POST', headers: { 'Content-Type': 'application/json', cookie }, body: JSON.stringify({ naam: 'Dakkapel', onderwerp: 'Dakkapellen', instructie: 'Noem de soorten.' }) });
     assert.equal(ok.status, 200);
     const { template } = await ok.json();
     assert.equal(template.blueprintId, 'dakkapel');
@@ -52,6 +52,8 @@ test('sjabloon dupliceren via de route: kopie als Concept met dezelfde opzet', a
     assert.equal(opgeslagen.length, 1);
     assert.equal(opgeslagen[0].blueprint.cssTemplate, blueprint.cssTemplate);
     assert.equal(opgeslagen[0].blueprint.htmlTemplate, blueprint.htmlTemplate);
+    assert.equal(opgeslagen[0].blueprint.focus.onderwerp, 'Dakkapellen');
+    assert.ok(opgeslagen[0].blueprint.focus.trefwoorden.includes('dakkapel'));
 
     const dubbel = await post('Locatiegericht');
     assert.equal(dubbel.status, 400);
