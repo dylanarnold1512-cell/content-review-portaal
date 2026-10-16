@@ -250,33 +250,39 @@
       <div class="wp-kop">
         <div>
           <h1 class="lp-h1">Werkplaats</h1>
-          <p class="wp-sub">Alles voor een klant op één plek: sjabloon, pagina's en wat er nu aandacht nodig heeft.</p>
+          <p class="wp-sub">Wat op jou wacht staat bovenaan. De rest loopt vanzelf.</p>
         </div>
         <div class="wp-kies">
           <label for="wpKlant">Klant</label>
           <select id="wpKlant"></select>
-          <div id="wpModule" class="wp-module" aria-live="polite"></div>
+          <button type="button" id="wpNieuwePagina" class="btn btn-approve">+ Nieuwe pagina</button>
         </div>
       </div>
-      <div id="wpStappen" class="wp-stappen"></div>
-      <div class="wp-raster">
-        <div class="wp-links">
-          <section class="wp-kaart hidden" id="wpWachtKaart">
-            <div class="wp-kaart-kop"><h2>Wacht op jou</h2></div>
-            <div id="wpWacht"></div>
-          </section>
-          <section class="wp-kaart hidden" id="wpMaandplanKaart">
-            <div class="wp-kaart-kop"><h2 id="wpMaandplanTitel">Plan voor deze maand</h2></div>
-            <p class="wp-muted wp-uitleg">De AI heeft dit plan klaargezet. Pagina's die je niet aanvinkt worden weggehaald. Bij goedkeuren begint de AI meteen met schrijven.</p>
-            <div id="wpMaandplan"></div>
-            <div class="wp-plan-actie"><button type="button" id="wpMaandplanKeur" class="btn btn-approve">Keur geselecteerde goed</button><span id="wpMaandplanStatus" class="wp-muted"></span></div>
-          </section>
-          <section class="wp-kaart hidden" id="wpIdeeenKaart">
-            <div class="wp-kaart-kop"><h2>Ideeën van de klant</h2></div>
-            <div id="wpIdeeen"></div>
-          </section>
-          <section class="wp-kaart" id="wpPlanKaart">
-            <div class="wp-kaart-kop"><h2>Plan</h2></div>
+      <div id="wpModule" class="wp-module" aria-live="polite"></div>
+      <div id="wpStappen" class="hidden"></div>
+      <div class="wp-links">
+        <section class="wp-kaart" id="wpMaandKaart" aria-labelledby="wpMaandTitel">
+          <div class="wp-kaart-kop"><h2 id="wpMaandTitel">Deze maand</h2><span class="wp-muted" id="wpMaandSub"></span></div>
+          <div id="wpMaandBalk" class="wp-maand-balk" role="img"></div>
+          <div id="wpMaandTel" class="wp-maand-tel"></div>
+        </section>
+
+        <section class="wp-kaart" id="wpWachtKaart" aria-labelledby="wpWachtTitel">
+          <div class="wp-kaart-kop"><h2 id="wpWachtTitel">Wacht op jou</h2><span class="wp-muted">Belangrijkste eerst</span></div>
+          <div id="wpWacht"></div>
+        </section>
+
+        <section class="wp-kaart hidden" id="wpMaandplanKaart">
+          <div class="wp-kaart-kop"><h2 id="wpMaandplanTitel">Plan voor deze maand</h2></div>
+          <p class="wp-muted wp-uitleg">Voorgesteld door de AI op basis van de site en zoekdata. Pagina's die je niet aanvinkt worden weggehaald. Na goedkeuren schrijft de AI ze meteen.</p>
+          <div id="wpMaandplan"></div>
+          <div class="wp-plan-actie"><button type="button" id="wpMaandplanKeur" class="btn btn-approve">Keur geselecteerde goed</button><span id="wpMaandplanStatus" class="wp-muted"></span></div>
+        </section>
+
+        <section class="wp-kaart" id="wpPlanKaart">
+          <div class="wp-kaart-kop"><h2>Plan</h2></div>
+          <div id="wpPlanUit" class="wp-plan-uit hidden"></div>
+          <div id="wpPlanAan">
             <p class="wp-muted wp-uitleg">De AI stelt pagina's voor op basis van de site van de klant en wat mensen zoeken. Jij keurt goed. Er wordt pas iets aangemaakt als je goedkeurt.</p>
             <div class="wp-planvorm">
               <div class="wp-veld"><label for="wpAantal">Aantal deze maand</label><input id="wpAantal" type="number" min="1" max="20" value="4"></div>
@@ -286,46 +292,57 @@
             </div>
             <div id="wpPlanStatus" class="wp-muted"></div>
             <div id="wpPlanLijst"></div>
-          </section>
-          <section class="wp-kaart">
-            <div class="wp-kaart-kop"><h2>Pagina's</h2><span class="wp-kaart-acties"><button type="button" id="wpKloonKnop" class="btn btn-plain">Kopie van een bestaande pagina</button><button type="button" id="wpNieuwePagina" class="btn btn-approve">+ Nieuwe pagina</button></span></div>
-            <div id="wpTellers" class="wp-tellers"></div>
-            <div id="wpBulk" class="wp-bulk hidden"></div>
-            <div class="wp-selbalk" id="wpPaginaSelBalk">
-              <label class="wp-vink"><input type="checkbox" id="wpPaginaSelAlles"> Alles selecteren</label>
-              <span id="wpPaginaSelTel" class="wp-muted"></span>
-              <button type="button" id="wpPaginaVerwijderBtn" class="btn-plain lp-btn-danger hidden">Verwijder geselecteerde</button>
-            </div>
-            <p id="wpPaginaSelMelding" class="wp-muted np-klein hidden"></p>
-            <div class="wp-tabel-wrap"><table class="lp-table wp-tabel"><thead><tr><th></th><th>Pagina</th><th>Stand</th><th>Laatst bijgewerkt</th></tr></thead><tbody id="wpPaginas"></tbody></table></div>
-          </section>
-          <section class="wp-kaart">
-            <div class="wp-kaart-kop"><h2>Sjablonen</h2><button type="button" id="wpNieuwSjabloon" class="btn btn-plain">+ Nieuw sjabloon</button></div>
-            <div class="wp-selbalk" id="wpSjabSelBalk">
-              <label class="wp-vink"><input type="checkbox" id="wpSjabSelAlles"> Alles selecteren</label>
-              <span id="wpSjabSelTel" class="wp-muted"></span>
-              <button type="button" id="wpSjabVerwijderBtn" class="btn-plain lp-btn-danger hidden">Verwijder geselecteerde</button>
-            </div>
-            <p id="wpSjabSelMelding" class="wp-muted np-klein hidden"></p>
-            <div id="wpSjablonen"></div>
-          </section>
-        </div>
-        <aside class="wp-rechts">
-          <section class="wp-kaart wp-advies">
-            <div class="wp-kaart-kop"><h2>Advies</h2></div>
-            <div id="wpAdvies"></div>
-          </section>
-          <section class="wp-kaart">
-            <div class="wp-kaart-kop"><h2>Bijhouden</h2></div>
-            <div id="wpBijhouden"></div>
-          </section>
-          <section class="wp-kaart">
-            <div class="wp-kaart-kop"><h2>Vraag het de adviseur</h2></div>
-            <textarea id="wpVraag" rows="2" placeholder="Bijvoorbeeld: welke pagina moet ik als eerste verbeteren?"></textarea>
-            <div class="wp-plan-actie"><button type="button" id="wpVraagKnop" class="btn btn-plain">Vraag stellen</button></div>
-            <p id="wpVraagAntwoord" class="wp-antwoord"></p>
-          </section>
-        </aside>
+          </div>
+        </section>
+
+        <section class="wp-kaart hidden" id="wpIdeeenKaart">
+          <div class="wp-kaart-kop"><h2>Ideeën van de klant</h2></div>
+          <div id="wpIdeeen"></div>
+        </section>
+
+        <section class="wp-kaart" aria-labelledby="wpPaginasTitel">
+          <div class="wp-kaart-kop"><h2 id="wpPaginasTitel">Pagina's van deze klant</h2><span class="wp-kaart-acties"><button type="button" id="wpKloonKnop" class="btn btn-plain">Kopie van een bestaande pagina</button></span></div>
+          <div id="wpTellers" class="wp-tellers"></div>
+          <div id="wpBulk" class="wp-bulk hidden"></div>
+          <div class="wp-selbalk" id="wpPaginaSelBalk">
+            <label class="wp-vink"><input type="checkbox" id="wpPaginaSelAlles"> Alles selecteren</label>
+            <span id="wpPaginaSelTel" class="wp-muted"></span>
+            <button type="button" id="wpPaginaVerwijderBtn" class="btn-plain lp-btn-danger hidden">Verwijder geselecteerde</button>
+          </div>
+          <p id="wpPaginaSelMelding" class="wp-muted np-klein hidden"></p>
+          <div class="wp-tabel-wrap"><table class="lp-table wp-tabel"><thead><tr><th></th><th>Pagina</th><th>Stand</th><th>Laatst bijgewerkt</th></tr></thead><tbody id="wpPaginas"></tbody></table></div>
+          <div class="wp-meer-rij"><button type="button" id="wpPaginasMeer" class="btn btn-plain hidden"></button></div>
+        </section>
+
+        <details class="wp-rest">
+          <summary>Meer: sjablonen, advies en vragen aan de adviseur</summary>
+          <div class="wp-links">
+            <section class="wp-kaart">
+              <div class="wp-kaart-kop"><h2>Sjablonen</h2><button type="button" id="wpNieuwSjabloon" class="btn btn-plain">+ Nieuw sjabloon</button></div>
+              <div class="wp-selbalk" id="wpSjabSelBalk">
+                <label class="wp-vink"><input type="checkbox" id="wpSjabSelAlles"> Alles selecteren</label>
+                <span id="wpSjabSelTel" class="wp-muted"></span>
+                <button type="button" id="wpSjabVerwijderBtn" class="btn-plain lp-btn-danger hidden">Verwijder geselecteerde</button>
+              </div>
+              <p id="wpSjabSelMelding" class="wp-muted np-klein hidden"></p>
+              <div id="wpSjablonen"></div>
+            </section>
+            <section class="wp-kaart wp-advies">
+              <div class="wp-kaart-kop"><h2>Advies</h2></div>
+              <div id="wpAdvies"></div>
+            </section>
+            <section class="wp-kaart">
+              <div class="wp-kaart-kop"><h2>Bijhouden</h2></div>
+              <div id="wpBijhouden"></div>
+            </section>
+            <section class="wp-kaart">
+              <div class="wp-kaart-kop"><h2>Vraag het de adviseur</h2></div>
+              <textarea id="wpVraag" rows="2" placeholder="Bijvoorbeeld: welke pagina moet ik als eerste verbeteren?"></textarea>
+              <div class="wp-plan-actie"><button type="button" id="wpVraagKnop" class="btn btn-plain">Vraag stellen</button></div>
+              <p id="wpVraagAntwoord" class="wp-antwoord"></p>
+            </section>
+          </div>
+        </details>
       </div>
     </div>
   </div>
@@ -360,26 +377,32 @@
   </div>
 
   <div id="lpNieuwTab" class="tab-panel hidden">
-    <div class="lp-shell">
+    <div class="lp-shell np-shell">
       <div id="lpNewError" class="admin-error hidden"></div>
-      <div class="wp-kop">
-        <div>
-          <h1 class="lp-h1">Nieuwe pagina</h1>
-          <p class="wp-sub">Vertel in je eigen woorden welke pagina je wilt. De AI kiest het sjabloon, bedenkt de titel en vult de gegevens in. Jij past aan wat je anders wilt.</p>
-        </div>
+      <div class="np-kop">
+        <button type="button" id="npTerug" class="np-terug">&larr; Werkplaats</button>
+        <h1 class="lp-h1">Nieuwe pagina</h1>
+        <p class="wp-sub">Eén zin is genoeg. Kies zelf het sjabloon, of laat de AI het kiezen. De AI maakt de titel en het webadres en begint meteen met schrijven.</p>
       </div>
-      <form id="lpNewForm" class="wp-links">
-        <section class="wp-kaart">
-          <div class="wp-kaart-kop"><h2>1. Voor wie en waarover</h2></div>
-          <div class="wp-planvorm">
-            <div class="wp-veld wp-veld-breed">
-              <label for="lpNewKlant">Klant</label>
-              <select id="lpNewKlant" required></select>
-            </div>
+      <form id="lpNewForm" class="np-raster">
+        <section class="wp-kaart np-stap" aria-labelledby="npStap1">
+          <div class="np-stapkop"><span class="np-stip np-stip-donker">1</span><h2 id="npStap1">1. Voor wie en waarover</h2></div>
+          <div class="wp-veld wp-veld-breed">
+            <label for="lpNewKlant">Klant</label>
+            <select id="lpNewKlant" required></select>
           </div>
           <div class="wp-veld wp-veld-breed">
-            <label for="npOnderwerp">Wat voor pagina wil je?</label>
+            <label for="npSjabloon">Sjabloon</label>
+            <select id="npSjabloon"></select>
+            <span id="npSjabloonUitleg" class="wp-muted np-klein">De AI kiest het sjabloon dat bij je zin past.</span>
+          </div>
+          <div class="wp-veld wp-veld-breed">
+            <label for="npOnderwerp">Welke pagina wil je?</label>
             <textarea id="npOnderwerp" rows="3" placeholder="Bijvoorbeeld: een pagina over dakkapellen plaatsen in Zandvoort, of een pagina voor het Testival in Tilburg"></textarea>
+          </div>
+          <div id="npGepland" class="hidden">
+            <p class="wp-muted np-klein">Of kies een kans uit het plan:</p>
+            <div id="npGeplandLijst" class="np-chips"></div>
           </div>
           <details class="np-meer">
             <summary>Meer opties</summary>
@@ -389,25 +412,26 @@
               <span class="wp-muted np-klein">Per plaats komt er een eigen pagina met dezelfde opzet.</span>
             </div>
           </details>
-          <div id="npGepland" class="hidden">
-            <p class="wp-muted np-klein">Of kies iets uit het plan:</p>
-            <div id="npGeplandLijst" class="np-chips"></div>
-          </div>
           <div class="wp-plan-actie">
             <button type="button" id="npMaakKnop" class="btn btn-approve">Maak pagina</button>
-            <button type="button" id="npAdviesKnop" class="btn btn-plain">Eerst zelf kiezen</button>
-            <span id="npAdviesStatus" class="wp-muted">Eén zin is genoeg. De AI kiest sjabloon, titel en webadres en begint meteen met schrijven.</span>
+            <button type="button" id="npAdviesKnop" class="btn btn-plain">Eerst zelf invullen</button>
+            <span id="npAdviesStatus" class="wp-muted">Klaar voor controle binnen een paar minuten.</span>
           </div>
         </section>
 
-        <section class="wp-kaart hidden" id="npResultaat">
-          <div class="wp-kaart-kop"><h2>Aangemaakt</h2></div>
-          <p id="npResultaatTekst" class="wp-uitleg"></p>
-          <div id="npResultaatKeuzes"></div>
-          <p class="wp-muted np-klein">Klopt er iets niet, open de pagina en pas het aan of laat de AI opnieuw schrijven. Klopt het, dan doe je niets: je vindt hem straks bij Wacht op jou.</p>
-          <div class="wp-plan-actie">
-            <button type="button" id="npOpenPagina" class="btn btn-approve">Pagina openen</button>
-            <button type="button" id="npNogEen" class="btn btn-plain">Nog een pagina</button>
+        <section class="wp-kaart np-stap np-stap-twee" aria-labelledby="npStap2">
+          <div class="np-stapkop"><span class="np-stip np-stip-blauw">2</span><h2 id="npStap2">Direct daarna</h2></div>
+          <p id="npLeeg" class="wp-muted">Zodra je op Maak pagina klikt, zie je hier wat de AI koos. Je hoeft daarna niet te wachten: de pagina verschijnt vanzelf bij Wacht op jou.</p>
+          <div id="npResultaat" class="hidden">
+            <div class="np-ai"><span class="np-stip np-stip-blauw">AI</span><div><strong id="npResultaatKop"></strong><p id="npResultaatTekst"></p></div></div>
+            <div class="np-keuzes-kop">Wat de AI koos</div>
+            <div id="npResultaatKeuzes"></div>
+            <p class="wp-muted np-klein">Wijzig je iets, dan begint de AI opnieuw met die keuze. Klopt het, dan doe je niets.</p>
+            <div class="wp-plan-actie">
+              <button type="button" id="npNaarWerkplaats" class="btn btn-plain">Terug naar de Werkplaats</button>
+              <button type="button" id="npOpenPagina" class="btn btn-plain">Pagina openen</button>
+              <button type="button" id="npNogEen" class="btn btn-plain">Nog een pagina</button>
+            </div>
           </div>
         </section>
 
@@ -1249,6 +1273,9 @@
             <span class="lp-meta-modified" id="lpDetailModifiedText"></span>
           </div>
         </div>
+        <details class="pd-meer">
+          <summary class="btn btn-plain">Meer</summary>
+          <div class="pd-meer-lijst">
         <div class="lp-field-row" style="max-width:220px;margin:0;">
           <label for="lpStatusSelect">Fase van de pagina</label>
           <select id="lpStatusSelect">
@@ -1265,6 +1292,8 @@
         </div>
         <button type="button" id="lpDupBtn" class="btn-plain">Kopie maken</button>
         <button type="button" id="lpPageDeleteBtn" class="btn-plain lp-btn-danger">Verwijder pagina</button>
+                </div>
+        </details>
       </div>
       <p id="lpPageDeleteError" class="admin-error hidden"></p>
       <div id="lpDupPanel" class="hidden" style="border:1px solid #ccc;border-radius:8px;padding:16px;margin:12px 0;">
@@ -1295,18 +1324,78 @@
         De fase hierboven verandert alleen het portaal, niet WordPress. Een pagina live zetten blijft altijd een bewuste stap die je zelf doet.
       </p>
 
+      <div class="pd-grid">
+        <section class="wp-kaart pd-voorbeeld" aria-label="Voorbeeld van de pagina">
+          <div class="wp-kaart-kop"><h2>Voorbeeld</h2><span class="wp-muted">Klik op een tekst of foto om hem te wijzigen</span></div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <button type="button" id="lpPreviewBtn" class="btn-plain">Ververs voorbeeld</button>
+          <button type="button" id="lpPreviewFullscreenBtn" class="btn-plain">Volledig scherm</button>
+        </div>
+        <p class="wp-uitleg">
+          Klik in het voorbeeld op een afbeelding om hem te wisselen, of op een tekst om die aan te passen. Wijzigingen worden meteen bewaard.
+        </p>
+        <div id="lpPreviewWrapper" class="lp-preview-card">
+          <p id="lpPreviewStatus" class="admin-footnote hidden" style="margin:8px 12px;"></p>
+          <iframe id="lpPreviewFrame"></iframe>
+<div id="lpImageSwapOverlay" class="lp-modal-overlay hidden">
+  <div class="lp-modal-box">
+    <div class="lp-modal-header">
+      <strong id="lpImageSwapTitle">Afbeelding wijzigen</strong>
+      <button type="button" id="lpImageSwapClose" class="btn-plain">Sluiten</button>
+    </div>
+    <p class="admin-footnote">Een keuze hier wordt meteen opgeslagen en het voorbeeld ververst automatisch.</p>
+    <div class="lp-field-row" style="max-width:320px;">
+      <label for="lpImageSwapSearch">Zoekterm (optioneel)</label>
+      <input type="text" id="lpImageSwapSearch" autocomplete="off">
+    </div>
+    <button type="button" id="lpImageSwapSearchBtn" class="btn-plain">Zoeken</button>
+    <div class="lp-field-row" style="max-width:320px; margin-top:14px;">
+      <label for="lpImageSwapUploadInput">Of upload een nieuwe foto</label>
+      <input type="file" id="lpImageSwapUploadInput" accept="image/*">
+    </div>
+    <button type="button" id="lpImageSwapUploadBtn" class="btn-plain">Uploaden</button>
+    <p id="lpImageSwapError" class="admin-error hidden"></p>
+    <div id="lpImageSwapResults" class="lp-media-grid"></div>
+    <p id="lpImageSwapResultsInfo" class="admin-footnote hidden"></p>
+    <button type="button" id="lpImageSwapLoadMoreBtn" class="btn-plain hidden">Meer laden</button>
+  </div>
+</div>
+<div id="lpTextEditOverlay" class="lp-modal-overlay hidden">
+  <div class="lp-modal-box">
+    <div class="lp-modal-header">
+      <strong id="lpTextEditTitle">Tekst wijzigen</strong>
+      <button type="button" id="lpTextEditClose" class="btn-plain">Sluiten</button>
+    </div>
+    <p class="admin-footnote">Wijzigingen hier worden meteen opgeslagen en het voorbeeld ververst automatisch. Interne links zet je met [ankertekst](url).</p>
+    <div class="lp-field-row" id="lpTextEditTextRow">
+      <label for="lpTextEditInput" id="lpTextEditLabel">Tekst</label>
+      <textarea id="lpTextEditInput" class="lp-json-textarea" style="min-height:140px;" spellcheck="true"></textarea>
+    </div>
+    <div class="lp-field-row hidden" id="lpTextEditLinkRow">
+      <label for="lpTextEditLinkInput" id="lpTextEditLinkLabel">Link</label>
+      <input type="text" id="lpTextEditLinkInput" placeholder="https://... of tel:...">
+    </div>
+    <p id="lpTextEditError" class="admin-error hidden"></p>
+    <button type="button" id="lpTextEditSaveBtn" class="btn btn-approve">Opslaan</button>
+  </div>
+</div>
+        </div>
+        </section>
+        <aside class="pd-rechts" aria-label="Controle en aanpassen">
       <section class="wp-kaart pd-advies" id="pdAdviesKaart">
-        <div class="wp-kaart-kop"><h2>Wat nu</h2></div>
+        <div class="wp-kaart-kop"><h2>Controle en live zetten</h2></div>
         <div id="pdAdvies"></div>
       </section>
 
+          <details class="wp-kaart pd-aanpassen" id="pdAanpassen">
+            <summary>Aanpassen en opnieuw laten schrijven</summary>
       <div class="lp-steps" id="lpSteps"></div>
 
       <div class="lp-subtabs" id="lpSubtabs">
         <button type="button" class="lp-subtab-btn active" data-lp-subtab="invoer">Onderwerp</button>
         <button type="button" class="lp-subtab-btn" data-lp-subtab="feitensheet">Feiten</button>
         <button type="button" class="lp-subtab-btn" data-lp-subtab="content">Tekst</button>
-        <button type="button" class="lp-subtab-btn" data-lp-subtab="publiceren">Controleren en live zetten</button>
+        <button type="button" class="lp-subtab-btn" data-lp-subtab="publiceren">Handmatig controleren en deellink</button>
       </div>
 
       <div id="lpSub-invoer" class="lp-subpanel">
@@ -1365,13 +1454,6 @@
       </div>
 
       <div id="lpSub-publiceren" class="lp-subpanel hidden">
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <button type="button" id="lpPreviewBtn" class="btn-plain">Ververs voorbeeld</button>
-          <button type="button" id="lpPreviewFullscreenBtn" class="btn-plain">Volledig scherm</button>
-        </div>
-        <p class="wp-uitleg">
-          Klik in het voorbeeld op een afbeelding om hem te wisselen, of op een tekst om die aan te passen. Wijzigingen worden meteen bewaard.
-        </p>
         <div id="lpShareBox" style="margin:12px 0; padding:12px; border:1px solid #e3e1dc;">
           <strong>Deellink om de klant mee te laten meekijken</strong>
           <p class="admin-footnote">
@@ -1391,52 +1473,6 @@
           <input type="text" id="lpShareUrl" class="hidden" readonly style="width:100%; margin-top:8px;">
           <div id="lpShareStatus" class="admin-footnote"></div>
         </div>
-        <div id="lpPreviewWrapper" class="lp-preview-card">
-          <p id="lpPreviewStatus" class="admin-footnote hidden" style="margin:8px 12px;"></p>
-          <iframe id="lpPreviewFrame"></iframe>
-<div id="lpImageSwapOverlay" class="lp-modal-overlay hidden">
-  <div class="lp-modal-box">
-    <div class="lp-modal-header">
-      <strong id="lpImageSwapTitle">Afbeelding wijzigen</strong>
-      <button type="button" id="lpImageSwapClose" class="btn-plain">Sluiten</button>
-    </div>
-    <p class="admin-footnote">Een keuze hier wordt meteen opgeslagen en het voorbeeld ververst automatisch.</p>
-    <div class="lp-field-row" style="max-width:320px;">
-      <label for="lpImageSwapSearch">Zoekterm (optioneel)</label>
-      <input type="text" id="lpImageSwapSearch" autocomplete="off">
-    </div>
-    <button type="button" id="lpImageSwapSearchBtn" class="btn-plain">Zoeken</button>
-    <div class="lp-field-row" style="max-width:320px; margin-top:14px;">
-      <label for="lpImageSwapUploadInput">Of upload een nieuwe foto</label>
-      <input type="file" id="lpImageSwapUploadInput" accept="image/*">
-    </div>
-    <button type="button" id="lpImageSwapUploadBtn" class="btn-plain">Uploaden</button>
-    <p id="lpImageSwapError" class="admin-error hidden"></p>
-    <div id="lpImageSwapResults" class="lp-media-grid"></div>
-    <p id="lpImageSwapResultsInfo" class="admin-footnote hidden"></p>
-    <button type="button" id="lpImageSwapLoadMoreBtn" class="btn-plain hidden">Meer laden</button>
-  </div>
-</div>
-<div id="lpTextEditOverlay" class="lp-modal-overlay hidden">
-  <div class="lp-modal-box">
-    <div class="lp-modal-header">
-      <strong id="lpTextEditTitle">Tekst wijzigen</strong>
-      <button type="button" id="lpTextEditClose" class="btn-plain">Sluiten</button>
-    </div>
-    <p class="admin-footnote">Wijzigingen hier worden meteen opgeslagen en het voorbeeld ververst automatisch. Interne links zet je met [ankertekst](url).</p>
-    <div class="lp-field-row" id="lpTextEditTextRow">
-      <label for="lpTextEditInput" id="lpTextEditLabel">Tekst</label>
-      <textarea id="lpTextEditInput" class="lp-json-textarea" style="min-height:140px;" spellcheck="true"></textarea>
-    </div>
-    <div class="lp-field-row hidden" id="lpTextEditLinkRow">
-      <label for="lpTextEditLinkInput" id="lpTextEditLinkLabel">Link</label>
-      <input type="text" id="lpTextEditLinkInput" placeholder="https://... of tel:...">
-    </div>
-    <p id="lpTextEditError" class="admin-error hidden"></p>
-    <button type="button" id="lpTextEditSaveBtn" class="btn btn-approve">Opslaan</button>
-  </div>
-</div>
-        </div>
         <div class="lp-columns" style="margin-top:20px;">
           <div class="lp-col">
             <button type="button" id="lpValidateBtn" class="btn-plain">Controleer de pagina</button>
@@ -1450,6 +1486,9 @@
             <div id="lpPublishResult"></div>
           </div>
         </div>
+      </div>
+          </details>
+        </aside>
       </div>
     </div>
   </div>

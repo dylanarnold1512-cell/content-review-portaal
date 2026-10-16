@@ -147,3 +147,72 @@ html #lpKlantgegevensTab .kg-kleurrij input[type="text"] { min-width: 0; flex: 1
 .wp-module:empty { display: none; }
 .wp-module.aan { background: #e8f5ee; color: #14532d; }
 .wp-module.uit { background: #fdf3e1; color: #7a4a00; }
+
+/* Nieuw ontwerp (16-10-2026): Nieuwe pagina in twee kolommen */
+.np-shell { max-width: 1180px; }
+.np-kop { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
+.np-terug { align-self: flex-start; background: none; border: 0; padding: 0; font: inherit; font-size: 14px; color: var(--accent, #c41f35); cursor: pointer; }
+.np-raster { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 22px; align-items: start; }
+.np-raster > #npAdviesKaart, .np-raster > #npHandmatig { grid-column: 1 / -1; }
+.np-stap { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.np-stap-twee { border: 2px solid #14142b; }
+.np-stapkop { display: flex; align-items: center; gap: 10px; }
+.np-stapkop h2 { margin: 0; font-size: 17px; }
+.np-stip { width: 22px; height: 22px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; }
+.np-stip-donker { background: #14142b; }
+.np-stip-blauw { background: #5b7bea; }
+.np-ai { display: flex; gap: 12px; align-items: flex-start; background: #eef2ff; border-radius: 10px; padding: 14px 16px; font-size: 14px; line-height: 1.5; }
+.np-ai p { margin: 4px 0 0; color: #2b3a7a; }
+.np-keuzes-kop { font-size: 13px; font-weight: 600; margin-top: 14px; }
+.np-keuze { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid #eef0f6; font-size: 14px; flex-wrap: wrap; }
+.np-keuze-k { color: #545770; width: 110px; flex: none; }
+.np-keuze-w { flex: 1 1 200px; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.np-keuze-uitleg { flex: 1 1 200px; color: #3a3d55; font-size: 13.5px; line-height: 1.5; }
+.np-wijzig { background: none; border: 0; padding: 0; font: inherit; font-size: 14px; color: var(--accent, #c41f35); cursor: pointer; text-decoration: underline; }
+.np-wijzigvak { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 0 12px; }
+.np-wijzigvak input, .np-wijzigvak select { flex: 1 1 220px; min-height: 40px; }
+
+/* Werkplaats: maandvoortgang, Wacht op jou als rijen, plan alleen met Pagr. */
+.wp-maand-balk { display: flex; height: 12px; border-radius: 999px; overflow: hidden; background: #eef0f6; margin: 10px 0; }
+.wp-maand-balk span { display: block; }
+.wp-maand-live { background: #1f8a50; } .wp-maand-controle { background: #f0a019; } .wp-maand-maak { background: #5b7bea; }
+.wp-maand-tel { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13.5px; }
+.wp-wrij { display: flex; align-items: center; gap: 14px; padding: 14px 0; border-top: 1px solid #eef0f6; flex-wrap: wrap; }
+.wp-wrij:first-child { border-top: 0; }
+.wp-wsoort { font-family: ui-monospace, "Geist Mono", monospace; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; width: 118px; flex: none; color: #9a5b00; }
+.wp-wsoort.fout { color: #b3261e; }
+.wp-wtekst { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.wp-wtekst b { font-size: 15px; }
+.wp-teller { background: #e0263e; color: #fff; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 1px 8px; margin-left: 6px; }
+.wp-plan-uit { background: #f6f7fb; border-radius: 10px; padding: 14px 16px; font-size: 14px; line-height: 1.5; }
+.wp-meer-rij { display: flex; justify-content: center; padding-top: 10px; }
+.wp-rest { margin-top: 18px; }
+.wp-rest > summary { cursor: pointer; font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+
+/* Nieuw ontwerp: Controleren. Voorbeeld links, controle en live zetten rechts, aanpassen ingeklapt */
+.pd-kop { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.pd-meer { position: relative; }
+.pd-meer > summary { list-style: none; cursor: pointer; display: inline-flex; }
+.pd-meer > summary::-webkit-details-marker { display: none; }
+.pd-meer-lijst { position: absolute; right: 0; top: 46px; z-index: 5; background: var(--panel, #fff); border: 1px solid var(--border, #e6e8f1); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; min-width: 240px; box-shadow: var(--shadow-card, 0 4px 18px rgba(20, 20, 43, .12)); }
+.pd-grid { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-start; margin-top: 14px; }
+.pd-voorbeeld { flex: 999 1 640px; min-width: 0; padding: 0; overflow: hidden; }
+.pd-voorbeeld > .wp-kaart-kop { padding: 12px 16px; margin: 0; border-bottom: 1px solid var(--border, #e6e8f1); }
+.pd-voorbeeld > .wp-kaart-kop h2 { font-size: 14px; }
+.pd-voorbeeld > div, .pd-voorbeeld > p { margin-left: 16px; margin-right: 16px; }
+.pd-voorbeeld > div:first-of-type { margin-top: 12px; }
+.pd-rechts { flex: 1 1 360px; max-width: 460px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.pd-rechts .pd-advies { margin: 0; }
+.pd-aanpassen > summary { cursor: pointer; font-size: 15px; font-weight: 700; }
+.pd-aanpassen[open] > summary { margin-bottom: 14px; }
+.pd-punt { border-top: 1px solid #eef0f6; padding-top: 14px; margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+.pd-punt-kop { display: flex; gap: 10px; align-items: flex-start; }
+.pd-nr { width: 24px; height: 24px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; background: #e0263e; }
+.pd-nr.let-op { background: #f0a019; color: #14142b; }
+.pd-punt .wp-idee-knoppen { padding-left: 34px; }
+.pd-live { border: 2px solid #14142b; border-radius: 14px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; margin-top: 16px; background: var(--panel, #fff); }
+.pd-live h3 { margin: 0; font-size: 17px; }
+.pd-live .btn { width: 100%; justify-content: center; }
+@media (max-width: 900px) { .pd-rechts { max-width: none; flex-basis: 100%; } }
+.np-stap .wp-veld, .np-stap .wp-veld-breed { flex: none; width: 100%; margin: 0; }
+.np-stap .wp-plan-actie { margin-top: 0; }

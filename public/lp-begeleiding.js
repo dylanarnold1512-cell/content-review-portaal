@@ -32,51 +32,104 @@
       }));
     } catch (e) { kaart.classList.add('hidden'); }
   }
-  $('lpNewKlant').addEventListener('change', () => { laadGepland(); $('npAdviesKaart').classList.add('hidden'); $('npResultaat').classList.add('hidden'); });
+  $('lpNewKlant').addEventListener('change', () => { laadGepland(); $('npAdviesKaart').classList.add('hidden'); $('npResultaat').classList.add('hidden'); $('npLeeg').classList.remove('hidden'); });
   document.querySelectorAll('#lpTabNav .tab-btn').forEach((b) => b.addEventListener('click', () => { if (b.dataset.lpTab === 'nieuw') laadGepland(); }));
   const nieuweKnop = $('lpNieuwePaginaBtn');
   if (nieuweKnop) nieuweKnop.addEventListener('click', laadGepland);
 
-  // Maak pagina: de AI kiest alles en de pagina wordt meteen aangemaakt.
-  $('npMaakKnop').addEventListener('click', async () => {
+  // Maak pagina: de AI kiest wat jij niet zelf kiest en de pagina wordt meteen aangemaakt.
+  // Het sjabloon dat je in stap 1 kiest gaat naar de server en de AI kan dan geen ander sjabloon nemen.
+  function toonResultaat(r, invoerGegevens) {
+    lpState.npPagina = r.page;
+    const extra = r.extraPlaatsen || [];
+    lpState.npLaatste = { ...invoerGegevens, pageIds: [r.page.id, ...extra.filter((x) => x.id).map((x) => x.id)], blueprintId: r.advies.blueprintId, titel: r.page.titel, slug: r.page.slug || r.advies.slug || '' };
+    const feiten = r.automatisch ? 'alle feiten van de klant' : null;
+    $('npResultaatKop').textContent = `${r.page.titel} is aangemaakt`;
+    $('npResultaatTekst').textContent = r.automatisch
+      ? `De AI schrijft nu de tekst met ${feiten}. Je vindt hem straks bij Wacht op jou. Je hoeft hier niet te wachten.`
+      : 'Deze klant heeft Pagr. niet aan en geen interne automatisering, dus de tekst schrijf je zelf via de knop op het paginascherm.';
+    const gelukt = extra.filter((x) => x.id);
+    const mislukt = extra.filter((x) => x.fout);
+    if (gelukt.length) $('npResultaatTekst').textContent += ` Er ${gelukt.length === 1 ? 'is ook 1 pagina' : 'zijn ook ' + gelukt.length + " pagina's"} gemaakt voor ${gelukt.map((x) => x.plaats).join(', ')}.`;
+    if (mislukt.length) $('npResultaatTekst').textContent += ` Niet gelukt: ${mislukt.map((x) => (x.plaats ? x.plaats + ': ' : '') + x.fout).join(' ')}`;
+    const rij = (k, w, veld) => `<div class="np-keuze" data-veld="${veld || ''}"><span class="np-keuze-k">${k}</span><b class="np-keuze-w">${esc(w)}</b>${veld ? `<button type="button" class="np-wijzig" data-wijzig="${veld}">Wijzig</button>` : ''}</div>`;
+    $('npResultaatKeuzes').innerHTML =
+      rij('Sjabloon', r.sjabloonNaam || r.advies.blueprintId, 'sjabloon') +
+      rij('Titel', r.page.titel, 'titel') +
+      rij('Webadres', '/' + lpState.npLaatste.slug, 'slug') +
+      (r.advies.waarom ? `<div class="np-keuze"><span class="np-keuze-k">Waarom</span><span class="np-keuze-uitleg">${esc(r.advies.waarom)}</span></div>` : '');
+    $('npResultaatKeuzes').querySelectorAll('[data-wijzig]').forEach((b) => b.addEventListener('click', () => openWijzig(b.dataset.wijzig)));
+    $('npLeeg').classList.add('hidden');
+    $('npResultaat').classList.remove('hidden');
+  }
+
+  // Wijzig: een veldje onder de keuze. Opslaan verwijdert de net gemaakte pagina('s) en laat de AI opnieuw beginnen.
+  function openWijzig(veld) {
+    const l = lpState.npLaatste;
+    const rij = $('npResultaatKeuzes').querySelector(`[data-veld="${veld}"]`);
+    if (!l || !rij || rij.nextElementSibling?.classList.contains('np-wijzigvak')) return;
+    let invoer;
+    if (veld === 'sjabloon') invoer = `<select id="npWijzigWaarde">${$('npSjabloon').innerHTML}</select>`;
+    else invoer = `<input type="text" id="npWijzigWaarde" value="${esc(veld === 'titel' ? l.titel : l.slug)}">`;
+    rij.insertAdjacentHTML('afterend', `<div class="np-wijzigvak">${invoer}<button type="button" class="btn btn-approve" id="npWijzigOk">Opnieuw laten maken</button><button type="button" class="btn btn-plain" id="npWijzigAnnuleer">Annuleer</button></div>`);
+    if (veld === 'sjabloon') $('npWijzigWaarde').value = l.blueprintId || '';
+    $('npWijzigAnnuleer').addEventListener('click', () => rij.nextElementSibling.remove());
+    $('npWijzigOk').addEventListener('click', async () => {
+      const waarde = $('npWijzigWaarde').value.trim();
+      const overrides = { ...(l.overrides || {}) };
+      if (veld === 'sjabloon') { if (!waarde) { fout('lpNewError', 'Kies een sjabloon.'); return; } overrides.blueprintId = waarde; }
+      if (veld === 'titel') { if (!waarde) { fout('lpNewError', 'Typ een titel.'); return; } overrides.titel = waarde; }
+      if (veld === 'slug') { if (!waarde) { fout('lpNewError', 'Typ een webadres.'); return; } overrides.slug = waarde; }
+      $('npWijzigOk').disabled = true;
+      try {
+        await lpApi('/pages/verwijder-meerdere', { method: 'POST', body: JSON.stringify({ ids: l.pageIds }) });
+      } catch (err) { fout('lpNewError', err.message); $('npWijzigOk').disabled = false; return; }
+      await maakPagina({ klant: l.klant, onderwerp: l.onderwerp, plaatsen: l.plaatsen, blueprintId: overrides.blueprintId || l.blueprintId, overrides });
+    });
+  }
+
+  async function maakPagina({ klant, onderwerp, plaatsen, blueprintId, overrides }) {
     fout('lpNewError', '');
     const knop = $('npMaakKnop');
-    const klant = $('lpNewKlant').value;
-    const onderwerp = $('npOnderwerp').value.trim();
-    if (!onderwerp) { fout('lpNewError', 'Typ eerst in een zin welke pagina je wilt.'); return; }
     knop.disabled = true;
     $('npAdviesStatus').textContent = 'De pagina wordt gemaakt... Dit duurt ongeveer 15 seconden.';
     try {
-      const r = await lpApi('/pages/snel', { method: 'POST', body: JSON.stringify({ klant, onderwerp, plaatsen: ($('npPlaatsen') || {}).value || '' }) });
+      const body = { klant, onderwerp, plaatsen: plaatsen || '', blueprintId: blueprintId || '' };
+      if (overrides && overrides.titel) body.titel = overrides.titel;
+      if (overrides && overrides.slug) body.slug = overrides.slug;
+      const r = await lpApi('/pages/snel', { method: 'POST', body: JSON.stringify(body) });
       if (!r.page) {
         // Niet netjes gelukt: vul het formulier voor zodat jij kiest.
         await vulFormulier(r.advies);
         $('npAdviesStatus').textContent = 'De AI weet het niet zeker. Controleer hieronder wat is ingevuld.';
         return;
       }
-      lpState.npPagina = r.page;
-      const keuze = (k, w) => `<div class="keuze"><span class="wp-muted">${k}</span> <strong>${esc(w)}</strong></div>`;
-      $('npResultaatTekst').textContent = r.automatisch
-        ? `${r.page.titel} is aangemaakt. De AI schrijft nu de tekst met alle feiten van de klant. Je hoeft niet te wachten.`
-        : `${r.page.titel} is aangemaakt. Deze klant heeft Pagr. niet aan, dus de tekst schrijf je zelf via de knop op het paginascherm.`;
-      $('npResultaatKeuzes').innerHTML = keuze('Sjabloon', r.sjabloonNaam || r.advies.blueprintId) + keuze('Titel', r.page.titel) + keuze('Webadres', '/' + (r.page.slug || r.advies.slug || '')) + (r.advies.waarom ? keuze('Waarom', r.advies.waarom) : '');
-      const extra = r.extraPlaatsen || [];
-      const gelukt = extra.filter((x) => x.id).length;
-      const mislukt = extra.filter((x) => x.fout);
-      if (gelukt) $('npResultaatTekst').textContent += ` Er ${gelukt === 1 ? 'is ook 1 pagina' : 'zijn ook ' + gelukt + ' pagina\'s'} gemaakt voor ${extra.filter((x) => x.id).map((x) => x.plaats).join(', ')}.`;
-      if (mislukt.length) $('npResultaatTekst').textContent += ` Niet gelukt: ${mislukt.map((x) => (x.plaats ? x.plaats + ': ' : '') + x.fout).join(' ')}`;
+      toonResultaat(r, { klant, onderwerp, plaatsen, overrides: overrides || {} });
       if ($('npPlaatsen')) $('npPlaatsen').value = '';
-      $('npResultaat').classList.remove('hidden');
-      $('npAdviesStatus').textContent = '';
+      $('npAdviesStatus').textContent = 'Klaar voor controle binnen een paar minuten.';
       $('npOnderwerp').value = '';
       if (typeof loadPages === 'function') loadPages();
+      if (typeof wpLaad === 'function') wpLaad();
     } catch (err) {
       $('npAdviesStatus').textContent = '';
       fout('lpNewError', err.message);
     } finally { knop.disabled = false; }
+  }
+
+  $('npMaakKnop').addEventListener('click', () => {
+    const onderwerp = $('npOnderwerp').value.trim();
+    if (!onderwerp) { fout('lpNewError', 'Typ eerst in een zin welke pagina je wilt.'); return; }
+    maakPagina({ klant: $('lpNewKlant').value, onderwerp, plaatsen: ($('npPlaatsen') || {}).value || '', blueprintId: $('npSjabloon').value });
+  });
+  $('npSjabloon').addEventListener('change', () => {
+    $('npSjabloonUitleg').textContent = $('npSjabloon').value
+      ? 'De AI gebruikt alleen dit sjabloon en kiest zelf titel en webadres.'
+      : 'De AI kiest het sjabloon dat bij je zin past.';
   });
   $('npOpenPagina').addEventListener('click', () => { if (lpState.npPagina) { switchLpTab('paginas'); openPageDetail(lpState.npPagina.id); } });
-  $('npNogEen').addEventListener('click', () => { $('npResultaat').classList.add('hidden'); $('npOnderwerp').focus(); });
+  $('npNaarWerkplaats').addEventListener('click', () => switchLpTab('werkplaats'));
+  $('npTerug').addEventListener('click', () => switchLpTab('werkplaats'));
+  $('npNogEen').addEventListener('click', () => { $('npResultaat').classList.add('hidden'); $('npLeeg').classList.remove('hidden'); $('npOnderwerp').focus(); });
 
   async function vulFormulier(advies) {
     if (advies.blueprintId) {
@@ -105,7 +158,7 @@
     knop.disabled = true;
     $('npAdviesStatus').textContent = 'De AI denkt mee... Dit duurt ongeveer 15 seconden.';
     try {
-      const { advies } = await lpApi('/pages/begeleiding', { method: 'POST', body: JSON.stringify({ klant, onderwerp }) });
+      const { advies } = await lpApi('/pages/begeleiding', { method: 'POST', body: JSON.stringify({ klant, onderwerp, blueprintId: $('npSjabloon').value }) });
       await vulFormulier(advies);
       $('npAdviesStatus').textContent = 'Controleer hieronder wat de AI heeft ingevuld en pas aan.';
     } catch (err) {
@@ -249,9 +302,9 @@
       stap('Alles staat klaar. De AI kan nu de tekst schrijven en passende foto\'s kiezen.', 'Laat de AI de tekst schrijven', () => { switchLpSubtab('content'); const k = $('lpGenerateContentBtn'); if (k && !k.disabled) k.click(); });
     } else {
       stap('De tekst is klaar. Bekijk het voorbeeld en laat de pagina controleren voordat je hem als concept naar WordPress zet.', 'Bekijk en controleer', () => {
-        switchLpSubtab('publiceren');
         const pv = $('lpPreviewBtn'); if (pv) pv.click();
         const v = $('lpValidateBtn'); if (v) v.click();
+        const kaart = $('pdAdviesKaart'); if (kaart) kaart.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
     }
     const toonControle = !st.gepubliceerd && st.contentKlaar && !(ts && (ts.status === 'bezig' || ts.status === 'wacht'));
@@ -273,15 +326,16 @@
     kaart.innerHTML = '<p class="wp-muted">De pagina wordt gecontroleerd...</p>';
     try {
       const c = await lpApi(`/pages/${page.id}/controle`);
-      const punt = (p, soort, i) => `<div class="wp-advies-item ${soort}"><p>${esc(p.tekst)}</p>${p.knop ? `<button type="button" class="btn btn-plain" data-oplos="${soort}-${i}">${esc(p.knop)}</button>` : ''}</div>`;
-      kaart.innerHTML = `<div class="wp-advies-item ${c.ok ? 'goed' : 'fout'}"><p><strong>${esc(c.samenvatting)}</strong></p></div>`
-        + c.fouten.map((p, i) => punt(p, 'fout', i)).join('') + c.letOp.map((p, i) => punt(p, 'let-op', i)).join('');
-      kaart.insertAdjacentHTML('beforeend', `<div class="wp-advies-item ${c.ok ? 'plan' : 'let-op'}">
-        <p><strong>Live zetten</strong><br>${c.ok ? 'Je zet de pagina zelf live. Er gaat niets live zonder jouw klik.' : 'Los eerst de fouten op, dan kun je hem live zetten.'}</p>
-        <div class="wp-idee-knoppen">
-          <button type="button" class="btn btn-approve" id="pdZetLive"${c.ok ? '' : ' disabled'}>Zet live${c.site ? ' op ' + esc(c.site) : ''}</button>
-          <button type="button" class="btn btn-plain" id="pdAlsConcept">Alleen als concept in WordPress</button>
-        </div><p id="pdLiveMelding" class="wp-muted"></p></div>`);
+      const punten = [...c.fouten.map((p, i) => ({ p, soort: 'fout', i })), ...c.letOp.map((p, i) => ({ p, soort: 'let-op', i }))];
+      const punt = ({ p, soort, i }, n) => `<div class="pd-punt"><div class="pd-punt-kop"><span class="pd-nr ${soort}">${n + 1}</span><div><strong>${esc(p.tekst)}</strong></div></div>${p.knop ? `<div class="wp-idee-knoppen"><button type="button" class="btn btn-plain" data-oplos="${soort}-${i}">${esc(p.knop)}</button></div>` : ''}</div>`;
+      kaart.innerHTML = `<p class="${c.ok ? '' : 'admin-error'}"><strong>${esc(c.samenvatting)}</strong>${c.letOp.length && c.ok ? ' Ze blokkeren live zetten niet.' : ''}</p>`
+        + punten.map((x, n) => punt(x, n)).join('');
+      kaart.insertAdjacentHTML('beforeend', `<div class="pd-live">
+        <h3>Live zetten</h3>
+        <button type="button" class="btn btn-approve" id="pdZetLive"${c.ok ? '' : ' disabled'}>Zet live${c.site ? ' op ' + esc(c.site) : ''}</button>
+        <button type="button" class="btn btn-plain" id="pdAlsConcept">Alleen als concept in WordPress</button>
+        <p class="wp-muted np-klein">${c.ok ? 'Er gaat niets live zonder jouw klik. Zet je hem zelf live in WordPress, dan ziet het portaal dat ook.' : 'Los eerst de fouten op, dan kun je hem live zetten.'}</p>
+        <p id="pdLiveMelding" class="wp-muted"></p></div>`);
       const melding = (t, fout) => { const m = $('pdLiveMelding'); if (m) { m.textContent = t; m.className = fout ? 'admin-error' : 'wp-muted'; } };
       const zetLive = $('pdZetLive');
       if (zetLive) zetLive.addEventListener('click', async () => {

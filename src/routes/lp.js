@@ -638,6 +638,12 @@ async function pagrModuleAan(klant) {
   } catch (e) { return false; }
 }
 
+// Het plan (voorstellen, maandplan) hoort bij betaald Pagr. De interne automatisering schrijft alleen de tekst van
+// pagina's die Dylan zelf aanmaakt.
+async function planAan(klant) {
+  try { return Boolean((await klantInstellingen(klant)).pagr); } catch (e) { return false; }
+}
+
 async function klantInstellingen(klant) {
   let fallback = {};
   try { fallback = require('../config/clients').getClient(klant); } catch (e) { fallback = {}; }
@@ -654,6 +660,7 @@ router.get('/plan/instellingen', requireLpInternal, async (req, res) => {
       pagr: Boolean(inst.pagr),
       intern: Boolean(inst.internAutomatisering),
       automatisering: Boolean(inst.pagr || inst.internAutomatisering),
+      plan: Boolean(inst.pagr),
       paginameting: Boolean(inst.paginameting),
       volumeBeschikbaar: Boolean(inst.paginameting) && require('../lp/zoekvolume').beschikbaar()
     });
@@ -709,8 +716,8 @@ async function maakMaandPlan(klant, { forceer } = {}) {
   const inst = await klantInstellingen(klant);
   const sleutel = `${klant}:${maand}`;
   const bestaat = forceer ? false : await planBestaatDezeMaand(klant, maand);
-  if (!forceer && !maandplan.moetPlannen({ pagr: inst.pagr || inst.internAutomatisering, paginasPerMaand: inst.paginasPerMaand, planBestaat: bestaat, gedaan: maandplanGedaan.has(sleutel) })) return { overgeslagen: true };
-  if (forceer && !inst.pagr && !inst.internAutomatisering) throw new Error('Voor deze klant staat de automatisering niet aan.');
+  if (!forceer && !maandplan.moetPlannen({ pagr: inst.pagr, paginasPerMaand: inst.paginasPerMaand, planBestaat: bestaat, gedaan: maandplanGedaan.has(sleutel) })) return { overgeslagen: true };
+  if (forceer && !inst.pagr) throw new Error('Het plan hoort bij Pagr. Voor deze klant staat Pagr. niet aan.');
   const actief = (await templates.listTemplates({ klant, status: 'Actief' }))[0];
   if (!actief) return { overgeslagen: true, reden: 'Geen actief sjabloon.' };
   const bestaandePaginas = await lpNotion.listPages({ klant });
@@ -941,6 +948,7 @@ router.post('/plan/voorstel', requireLpInternal, async (req, res) => {
   try {
     const { klant, aantal, wens } = req.body || {};
     getLpClient(klant);
+    if (!(await planAan(klant))) return res.status(403).json({ error: 'Het plan hoort bij Pagr. Voor deze klant staat Pagr. niet aan.' });
     const bestaandePaginas = await lpNotion.listPages({ klant });
     const klantTekst = await ai.formatKlantBronnenVoorSjabloon(klant);
     const inst = await klantInstellingen(klant);
@@ -961,6 +969,7 @@ router.post('/plan/goedkeuren', requireLpInternal, async (req, res) => {
     if (!klant || !blueprint || !Array.isArray(voorstellen) || !voorstellen.length) {
       return res.status(400).json({ error: 'klant, blueprint en minstens een voorstel zijn verplicht.' });
     }
+    if (!(await planAan(klant))) return res.status(403).json({ error: 'Het plan hoort bij Pagr. Voor deze klant staat Pagr. niet aan.' });
     if (voorstellen.length > plan.MAX_AANTAL) return res.status(400).json({ error: `Maximaal ${plan.MAX_AANTAL} pagina's tegelijk.` });
     const gekozenSjabloon = await templates.getActiveTemplateByBlueprintId(klant, blueprint);
     const automatisch = await pagrModuleAan(klant);
@@ -980,9 +989,14 @@ router.post('/plan/goedkeuren', requireLpInternal, async (req, res) => {
 
 // AI begeleiding (Pagr. stap 12): de beheerder beschrijft in gewone woorden wat hij wil, de AI kiest sjabloon, titel en
 // invoer en legt uit waarom. Er wordt niets opgeslagen; de beheerder past aan en maakt de pagina zelf aan.
-async function maakPaginaAdvies(klant, onderwerp) {
+async function maakPaginaAdvies(klant, onderwerp, blueprintId) {
   const client = getLpClient(klant);
-  const actief = await templates.listTemplates({ klant, status: 'Actief' });
+  let actief = await templates.listTemplates({ klant, status: 'Actief' });
+  // Heeft de beheerder zelf een sjabloon gekozen, dan krijgt de AI alleen dat sjabloon te zien en kan hij geen ander kiezen.
+  if (blueprintId) {
+    actief = actief.filter((t) => t.blueprintId === blueprintId);
+    if (!actief.length) throw new Error('Dit sjabloon is niet (meer) actief. Kies een ander sjabloon.');
+  }
   const sjablonen = [];
   for (const t of actief.slice(0, 12)) {
     try {
@@ -1008,7 +1022,7 @@ router.post('/pages/begeleiding', requireLpInternal, async (req, res) => {
   try {
     const klant = String(req.body?.klant || '');
     const onderwerp = String(req.body?.onderwerp || '').slice(0, 1500);
-    const { advies } = await maakPaginaAdvies(klant, onderwerp);
+    const { advies } = await maakPaginaAdvies(klant, onderwerp, String(req.body?.blueprintId || ''));
     res.json({ advies });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -1044,8 +1058,13 @@ router.post('/pages/snel', requireLpInternal, async (req, res) => {
   try {
     const klant = String(req.body?.klant || '');
     const onderwerp = String(req.body?.onderwerp || '').slice(0, 1500);
-    const { advies } = await maakPaginaAdvies(klant, onderwerp);
-    if (!advies.blueprintId || !advies.titel || advies.waarschuwing) return res.json({ advies, page: null });
+    const { advies } = await maakPaginaAdvies(klant, onderwerp, String(req.body?.blueprintId || ''));
+    // Heeft de beheerder zelf een titel of webadres getypt (Wijzig in het scherm), dan gaat dat voor op de keuze van de AI.
+    const eigenTitel = String(req.body?.titel || '').trim().slice(0, 140);
+    const eigenSlug = String(req.body?.slug || '').trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 90);
+    if (eigenTitel) advies.titel = eigenTitel;
+    if (eigenSlug) advies.slug = eigenSlug;
+    if (!advies.blueprintId || !advies.titel || (advies.waarschuwing && !eigenTitel)) return res.json({ advies, page: null });
     const template = await templates.getActiveTemplateByBlueprintId(klant, advies.blueprintId);
     const page = await lpNotion.createPage({ klant, blueprint: advies.blueprintId, titel: advies.titel, slug: advies.slug, invoer: metOnderwerp({ ...advies.invoer, _watGaatDezePaginaOver: onderwerp }, advies.titel) });
     const automatisch = template && template.templateFormat === 'slots' && await pagrModuleAan(klant);
