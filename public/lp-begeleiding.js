@@ -327,9 +327,20 @@
     try {
       const c = await lpApi(`/pages/${page.id}/controle`);
       const punten = [...c.fouten.map((p, i) => ({ p, soort: 'fout', i })), ...c.letOp.map((p, i) => ({ p, soort: 'let-op', i }))];
-      const punt = ({ p, soort, i }, n) => `<div class="pd-punt"><div class="pd-punt-kop"><span class="pd-nr ${soort}">${n + 1}</span><div><strong>${esc(p.tekst)}</strong></div></div>${p.knop ? `<div class="wp-idee-knoppen"><button type="button" class="btn btn-plain" data-oplos="${soort}-${i}">${esc(p.knop)}</button></div>` : ''}</div>`;
+      const knoppen = (p, soort, i) => [
+        p.knop ? `<button type="button" class="btn btn-plain" data-oplos="${soort}-${i}">${esc(p.knop)}</button>` : '',
+        ...(p.acties || []).map((a, j) => `<button type="button" class="btn btn-plain" data-actie="${soort}-${i}-${j}">${esc(a.label)}</button>`)
+      ].join('');
+      const punt = ({ p, soort, i }, n) => {
+        const k = knoppen(p, soort, i);
+        return `<div class="pd-punt"><div class="pd-punt-kop"><span class="pd-nr ${soort}">${n + 1}</span><div><strong>${esc(p.tekst)}</strong></div></div>${k ? `<div class="wp-idee-knoppen">${k}</div>` : ''}</div>`;
+      };
       kaart.innerHTML = `<p class="${c.ok ? '' : 'admin-error'}"><strong>${esc(c.samenvatting)}</strong>${c.letOp.length && c.ok ? ' Ze blokkeren live zetten niet.' : ''}</p>`
-        + punten.map((x, n) => punt(x, n)).join('');
+        + punten.map((x, n) => punt(x, n)).join('')
+        + ((c.inOrde || []).length ? `<details class="pd-punt"><summary><strong>In orde (${c.inOrde.length})</strong></summary><ul class="pd-inorde">${c.inOrde.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></details>` : '');
+      // Nummers in het voorbeeld bij de secties waar een punt over gaat.
+      lpState.controleMarkers = punten.map((x, n) => ({ n: n + 1, sectie: x.p.sectieIndex, soort: x.soort })).filter((m) => m.sectie != null);
+      if (typeof lpZetMarkers === 'function') lpZetMarkers();
       kaart.insertAdjacentHTML('beforeend', `<div class="pd-live">
         <h3>Live zetten</h3>
         <button type="button" class="btn btn-approve" id="pdZetLive"${c.ok ? '' : ' disabled'}>Zet live${c.site ? ' op ' + esc(c.site) : ''}</button>
@@ -358,6 +369,24 @@
         } catch (err) { melding(err.message, true); }
         alsConcept.disabled = false;
       });
+      kaart.querySelectorAll('[data-actie]').forEach((b) => b.addEventListener('click', async () => {
+        const [soort, i, j] = b.dataset.actie.split('-');
+        const lijst = soort === 'fout' ? c.fouten : c.letOp;
+        const a = lijst[Number(i)].acties[Number(j)];
+        b.disabled = true;
+        const tekst = b.textContent;
+        b.textContent = 'Bezig...';
+        try {
+          if (a.type === 'verberg') {
+            await lpApi(`/pages/${page.id}/verberg`, { method: 'POST', body: JSON.stringify({ type: 'sectie', index: a.sectie, verborgen: true }) });
+          } else if (a.type === 'fotos') {
+            const r = await lpApi(`/pages/${page.id}/kies-fotos`, { method: 'POST', body: JSON.stringify({ lijst: a.lijst }) });
+            if (!r.gewisseld) { b.textContent = r.melding; b.disabled = false; return; }
+          }
+          if (typeof refreshPreview === 'function') await refreshPreview();
+          window.lpToonControle(page);
+        } catch (err) { b.textContent = err.message; b.disabled = false; }
+      }));
       kaart.querySelectorAll('[data-oplos]').forEach((b) => b.addEventListener('click', async () => {
         b.disabled = true;
         b.textContent = 'Bezig...';

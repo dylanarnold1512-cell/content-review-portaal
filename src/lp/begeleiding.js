@@ -221,7 +221,37 @@ async function adviesFocus({ klantNaam, onderwerp, siteTeksten, aiFn }) {
   return voorstel;
 }
 
+// Kiest per voorstel van het maandplan het best passende sjabloon (een AI aanroep voor alle voorstellen). Zonder AI of bij een
+// onbekend antwoord valt het terug op het eerste sjabloon. sjablonen = [{ blueprintId, naam, onderwerp }].
+async function kiesSjablonenVoorVoorstellen({ klantNaam, voorstellen, sjablonen, aiFn }) {
+  const eerste = sjablonen && sjablonen[0] ? sjablonen[0].blueprintId : '';
+  const standaard = (voorstellen || []).map(() => eerste);
+  if (!sjablonen || sjablonen.length < 2 || !voorstellen || !voorstellen.length || !aiFn) return standaard;
+  const geldig = new Set(sjablonen.map((s) => s.blueprintId));
+  const systeem = `Je kiest voor elke geplande pagina het best passende sjabloon voor een bedrijf in Nederland.
+Regels:
+- Kies per pagina precies een sjabloon uit de lijst, op basis van het onderwerp van de pagina en waar het sjabloon voor bedoeld is.
+- Een sjabloon dat voor een bepaalde dienst of een bepaalde opzet is gemaakt (bijvoorbeeld pagina's per plaats) gebruik je alleen als de pagina daar echt over gaat.
+- Schrijf geen streepjes en geen emoticons.
+Antwoord als JSON: {"keuzes":["blueprintId voor pagina 1","blueprintId voor pagina 2"]} met precies evenveel keuzes als pagina's, in dezelfde volgorde.`;
+  const user = `Klant: ${klantNaam}
+
+Sjablonen:
+${sjablonen.map((s) => `- ${s.blueprintId}: ${s.naam}${s.onderwerp ? `. Bedoeld voor: ${s.onderwerp}` : ''}`).join('\n')}
+
+Pagina's:
+${voorstellen.map((v, i) => `${i + 1}. ${v.titel}${v.reden ? ` (${v.reden})` : ''}`).join('\n')}`;
+  try {
+    const ruw = await aiFn({ systemPrompt: systeem, userPrompt: user, reasoningEffort: 'low' });
+    const keuzes = ruw && Array.isArray(ruw.keuzes) ? ruw.keuzes : [];
+    return voorstellen.map((_, i) => (geldig.has(keuzes[i]) ? keuzes[i] : eerste));
+  } catch (e) {
+    return standaard;
+  }
+}
+
 module.exports = {
+  kiesSjablonenVoorVoorstellen,
   VISUELE_RICHTINGEN, maakSlug, bouwPaginaPrompt, schoonPaginaAdvies, adviesNieuwePagina,
   bouwSjabloonPrompt, schoonSjabloonAdvies, adviesNieuwSjabloon,
   bouwVerbeterPrompt, schoonVerbeterpunten, adviesVerbeterpunten,

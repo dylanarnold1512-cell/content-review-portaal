@@ -24,10 +24,11 @@ const gelijk = require('../lp/gelijkenis');
 const { verzamelTekst } = gelijk;
 const share = require('../lp/share');
 const { validatePage, validateTemplateStructure } = require('../lp/validator');
-const { maakControle } = require('../lp/controle');
+const { maakControle, inOrdePunten } = require('../lp/controle');
+const { onderwerpFit } = require('../lp/onderwerpFit');
 const { wachtOpJou } = require('../lp/wachtOpJou');
 const maandplan = require('../lp/maandplan');
-const { pushDraft, deletePage: deleteWpPage, searchMedia, uploadMedia, listSitePages, haalPaginaStatussen, siteNaam } = require('../lp/wordpress');
+const { pushDraft, deletePage: deleteWpPage, restorePage: herstelWpPage, searchMedia, uploadMedia, listSitePages, haalPaginaStatussen, siteNaam } = require('../lp/wordpress');
 const { vindTekst, vervangTekst } = require('../lp/tekstVervangen');
 const { haalSiteTeksten, formatSiteTekstenVoorPrompt } = require('../lp/siteTeksten');
 const plan = require('../lp/plan');
@@ -718,17 +719,25 @@ async function maakMaandPlan(klant, { forceer } = {}) {
   const bestaat = forceer ? false : await planBestaatDezeMaand(klant, maand);
   if (!forceer && !maandplan.moetPlannen({ pagr: inst.pagr, paginasPerMaand: inst.paginasPerMaand, planBestaat: bestaat, gedaan: maandplanGedaan.has(sleutel) })) return { overgeslagen: true };
   if (forceer && !inst.pagr) throw new Error('Het plan hoort bij Pagr. Voor deze klant staat Pagr. niet aan.');
-  const actief = (await templates.listTemplates({ klant, status: 'Actief' }))[0];
-  if (!actief) return { overgeslagen: true, reden: 'Geen actief sjabloon.' };
+  const actieveLijst = await templates.listTemplates({ klant, status: 'Actief' });
+  if (!actieveLijst.length) return { overgeslagen: true, reden: 'Geen actief sjabloon.' };
   const bestaandePaginas = await lpNotion.listPages({ klant });
   const klantTekst = await ai.formatKlantBronnenVoorSjabloon(klant);
   let aiVragen = [];
   if (inst.paginameting) { try { aiVragen = await meting.haalAiVragen(getLpClient(klant).profile.naam); } catch (e) { aiVragen = []; } }
   const aantal = Number(inst.paginasPerMaand) > 0 ? Number(inst.paginasPerMaand) : 4;
   const uit = await plan.maakPlanVoorstel({ klant, aantal, wens: '', bestaandePaginas, klantTekst, aiVragen, aiFn: ai.callOpenAi, volumeAan: Boolean(inst.paginameting) });
+  // De AI kiest per voorstel een sjabloon, zodat een sjabloon voor een bepaald soort pagina (bijvoorbeeld per plaats) niet
+  // op elke pagina terugkomt. In de planlijst kun je het per voorstel wijzigen.
+  const sjabloonInfo = [];
+  for (const t of actieveLijst.slice(0, 12)) {
+    try { const bp = await templates.getActiveTemplateByBlueprintId(klant, t.blueprintId); sjabloonInfo.push({ blueprintId: t.blueprintId, naam: t.naam, onderwerp: (bp.focus && bp.focus.onderwerp) || '' }); } catch (e) { /* overslaan */ }
+  }
+  if (!sjabloonInfo.length) sjabloonInfo.push({ blueprintId: actieveLijst[0].blueprintId, naam: actieveLijst[0].naam, onderwerp: '' });
+  const gekozen = await begeleiding.kiesSjablonenVoorVoorstellen({ klantNaam: getLpClient(klant).profile.naam, voorstellen: uit.voorstellen, sjablonen: sjabloonInfo, aiFn: ai.callOpenAi });
   let n = 0;
-  for (const v of uit.voorstellen) {
-    const page = await lpNotion.createPage({ klant, blueprint: actief.blueprintId, titel: String(v.titel), invoer: maandplan.invoerVoorVoorgesteld(v, maand) });
+  for (const [i, v] of uit.voorstellen.entries()) {
+    const page = await lpNotion.createPage({ klant, blueprint: gekozen[i], titel: String(v.titel), invoer: maandplan.invoerVoorVoorgesteld(v, maand) });
     await lpNotion.setStatus(page.id, 'Idee');
     n += 1;
   }
@@ -766,11 +775,13 @@ router.get('/plan/voorgesteld', requireLpInternal, async (req, res) => {
     const klant = String(req.query.klant || '');
     const paginas = (await lpNotion.listPages({ klant, status: 'Idee' })).slice(0, 40);
     const voorstellen = [];
+    const actief = await templates.listTemplates({ klant, status: 'Actief' }).catch(() => []);
+    const naamVan = new Map(actief.map((t) => [t.blueprintId, t.naam]));
     for (const p of paginas) {
       const inv = (await lpNotion.getPage(p.id)).invoer || {};
-      if (inv.plan && inv.plan.status === 'voorgesteld') voorstellen.push({ id: p.id, titel: p.titel, reden: inv.plan.reden || '', maand: inv.plan.maand || '', volume: inv.plan.volume, signaal: inv.plan.signaal });
+      if (inv.plan && inv.plan.status === 'voorgesteld') voorstellen.push({ id: p.id, blueprint: p.blueprint, sjabloonNaam: naamVan.get(p.blueprint) || p.blueprint, titel: p.titel, reden: inv.plan.reden || '', maand: inv.plan.maand || '', volume: inv.plan.volume, signaal: inv.plan.signaal });
     }
-    res.json({ voorstellen, maand: voorstellen[0] ? maandplan.maandNaam(voorstellen[0].maand) : '' });
+    res.json({ voorstellen, maand: voorstellen[0] ? maandplan.maandNaam(voorstellen[0].maand) : '', sjablonen: actief.map((t) => ({ id: t.blueprintId, naam: t.naam })) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -779,11 +790,17 @@ router.get('/plan/voorgesteld', requireLpInternal, async (req, res) => {
 // Keurt gekozen voorstellen goed en haalt de rest weg. De tekst start vanzelf bij klanten met Pagr.
 router.post('/plan/voorgesteld/keur', requireLpInternal, async (req, res) => {
   try {
-    const { klant, goedkeuren, afwijzen } = req.body || {};
+    const { klant, goedkeuren, afwijzen, sjablonen: gekozenSjablonen } = req.body || {};
     const automatisch = await pagrModuleAan(klant);
+    const actiefNu = new Set((await templates.listTemplates({ klant, status: 'Actief' }).catch(() => [])).map((t) => t.blueprintId));
     let goed = 0;
     for (const id of Array.isArray(goedkeuren) ? goedkeuren : []) {
-      const page = await lpNotion.getPage(id);
+      let page = await lpNotion.getPage(id);
+      const nieuwSjabloon = gekozenSjablonen && gekozenSjablonen[id];
+      if (nieuwSjabloon && nieuwSjabloon !== page.blueprint && actiefNu.has(nieuwSjabloon)) {
+        await lpNotion.setBlueprint(id, nieuwSjabloon);
+        page = await lpNotion.getPage(id);
+      }
       const inv = page.invoer || {};
       if (!inv.plan || inv.plan.status !== 'voorgesteld') continue;
       await lpNotion.updateSection(id, 'invoer', { ...inv, plan: { ...inv.plan, status: 'goedgekeurd', goedgekeurdOp: new Date().toISOString().slice(0, 10) } });
@@ -1136,6 +1153,34 @@ router.post('/pages', requireLpInternal, async (req, res) => {
   }
 });
 
+router.get('/pages-verwijderd', requireLpInternal, (req, res) => {
+  const klant = String(req.query.klant || '');
+  const grens = Date.now() - 7 * 24 * 3600 * 1000;
+  res.json({ pages: onlangsVerwijderd.filter((p) => p.op >= grens && (!klant || p.klant === klant)).map((p) => ({ id: p.id, titel: p.titel, klant: p.klant, op: p.op })) });
+});
+
+// Verwijderde pagina's terugzetten: Notion weer actief, en als de pagina in WordPress stond, daar terug als concept.
+router.post('/pages-herstel', requireLpInternal, async (req, res) => {
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(String) : [];
+  if (!ids.length) return res.status(400).json({ error: 'Kies eerst een pagina om terug te zetten.' });
+  const hersteld = [];
+  const fouten = [];
+  for (const id of ids) {
+    const rij = onlangsVerwijderd.find((p) => p.id === id);
+    try {
+      await lpNotion.restorePage(id);
+      let wpMelding = '';
+      if (rij && rij.wpPaginaId) {
+        try { await herstelWpPage({ profile: getLpClient(rij.klant).profile, wpPaginaId: rij.wpPaginaId }); } catch (e) { wpMelding = e.message; }
+      }
+      const i = onlangsVerwijderd.findIndex((p) => p.id === id);
+      if (i >= 0) onlangsVerwijderd.splice(i, 1);
+      hersteld.push({ id, titel: rij && rij.titel, wpMelding });
+    } catch (err) { fouten.push({ id, titel: rij && rij.titel, fout: err.message }); }
+  }
+  res.json({ hersteld, fouten });
+});
+
 router.get('/pages/:pageId', requireLpInternal, async (req, res) => {
   try {
     const page = await lpNotion.getPage(req.params.pageId);
@@ -1294,6 +1339,16 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
   } catch (zoekErr) {
     zoekvragen = [];
   }
+  // Vragen die AI assistenten (ChatGPT, Gemini) over deze klant krijgen, alleen als de Paginameting aan staat (die meting kost geld).
+  let aiVragenAantal = 0;
+  try {
+    const instGen = await klantInstellingen(page.klant);
+    if (instGen.paginameting) {
+      const aiVragen = (await meting.haalAiVragen(client.profile.naam)).slice(0, 15);
+      aiVragenAantal = aiVragen.length;
+      zoekvragen = [...zoekvragen, ...aiVragen.map((v) => (typeof v === 'string' ? v : v && v.vraag)).filter(Boolean)];
+    }
+  } catch (aiErr) { /* de AI vragen zijn een extra bron, nooit blokkerend */ }
   const zusterVragen = [...new Set(zusters.flatMap((z) => (z.content ? vragenUitContent(z.content) : [])))];
 
   watGaatDezePaginaOver = watGaatDezePaginaOver || onderwerpTekst(invoer, page.titel);
@@ -1342,7 +1397,7 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
   if (dubbel.length) {
     faqWarning = `${dubbel.length === 1 ? 'Een veelgestelde vraag lijkt' : `${dubbel.length} veelgestelde vragen lijken`} sterk op een vraag van een zusterpagina (${dubbel.slice(0, 3).map((d) => `"${d.vraag}"`).join(', ')}). Pas ze aan zodat elke pagina eigen vragen heeft.`;
   }
-  const zoekvragenAantal = zoekvragen.length;
+  const zoekvragenAantal = zoekvragen.length - aiVragenAantal;
   // Zichtbaar maken als er geen echte zoekvragen waren, zodat dit niet stil misgaat (de bron is een publieke dienst).
   const zoekvragenWarning = dienstTekst && !zoekvragenAantal
     ? 'Er konden geen echte zoekvragen worden opgehaald, de vragen zijn alleen uit de site en de feiten opgesteld.'
@@ -1409,6 +1464,44 @@ router.post('/pages/:pageId/verberg', requireLpInternal, async (req, res) => {
   }
 });
 
+// Andere foto's kiezen voor een lijst (bijvoorbeeld de projecten): de AI kiest opnieuw uit de mediabibliotheek en slaat
+// de foto's over die er nu al staan. Past er niets anders, dan blijft alles zoals het was.
+router.post('/pages/:pageId/kies-fotos', requireLpInternal, async (req, res) => {
+  try {
+    const lijst = String((req.body || {}).lijst || '');
+    if (!/^[\w.]+$/.test(lijst)) return res.status(400).json({ error: 'Ongeldige lijst.' });
+    const page = await lpNotion.getPage(req.params.pageId);
+    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const content = page.content || {};
+    const slotData = JSON.parse(JSON.stringify(content.slotData || {}));
+    const client = getLpClient(page.klant);
+    const slots = ai.getImageSlots(blueprint, slotData).filter((sl) => sl.key.startsWith(lijst + '.'));
+    if (!slots.length) return res.status(400).json({ error: 'In deze sectie zijn geen foto\'s om te wisselen.' });
+    const nu = new Set(slots.map((sl) => getNestedSlotValue(slotData, sl.key)).filter(Boolean));
+    const { items } = await searchMedia({ profile: client.profile, perPage: 100 });
+    const kandidaten = items.filter((k) => !nu.has(k.url));
+    const inv = page.invoer || {};
+    const { picks } = await ai.pickImagesForPage({
+      template: blueprint, invoer: inv, feiten: [], watGaatDezePaginaOver: inv._watGaatDezePaginaOver || onderwerpTekst(inv, page.titel),
+      fotoRichtlijn: client.profile.fotoRichtlijn, kandidaten, slotData, afbeeldingSlots: slots
+    });
+    let gewisseld = 0;
+    for (const [slotKey, pick] of Object.entries(picks || {})) {
+      if (pick && pick.url) {
+        setNestedSlotValue(slotData, slotKey, pick.url);
+        const altKey = deriveImageAltKey(slotKey);
+        if (pick.alt && altKey) setNestedSlotValue(slotData, altKey, pick.alt);
+        gewisseld += 1;
+      }
+    }
+    if (!gewisseld) return res.json({ gewisseld: 0, melding: 'De AI vond geen betere foto\'s in de mediabibliotheek van de klant. Upload passende foto\'s of verberg de sectie.' });
+    await lpNotion.updateSection(req.params.pageId, 'content', { ...content, slotData });
+    res.json({ gewisseld });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // Controleert de content JSON tegen de blueprint-regels. Blokkeert niet zelf
 // — /publish doet dat door dezelfde check voor de WordPress-push te draaien.
 router.get('/pages/:pageId/validate', requireLpInternal, async (req, res) => {
@@ -1433,10 +1526,28 @@ router.get('/pages/:pageId/controle', requireLpInternal, async (req, res) => {
     const page = await lpNotion.getPage(req.params.pageId);
     const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
     const result = validatePage({ blueprint, contentJson: page.content || {} });
+    let seo = [];
     try {
-      result.warnings = [...(result.warnings || []), ...(await seoWaarschuwingen(page))];
+      seo = await seoWaarschuwingen(page);
+      result.warnings = [...(result.warnings || []), ...seo];
     } catch (e) { /* extra controle mag de rest nooit blokkeren */ }
-    res.json({ ...maakControle(result), site: siteNaam(getLpClient(page.klant).profile) });
+    // Past het uitgevoerde werk bij het onderwerp? Met een oplossing: sectie verbergen of andere foto's kiezen.
+    const extraPunten = [];
+    try {
+      const inv = page.invoer || {};
+      const plaatsen = [gelijk.plaatsWaarde(inv)].filter(Boolean);
+      const onderwerpTeksten = [inv._watGaatDezePaginaOver, inv.dienstFocus, inv.dienst, inv.onderwerp, blueprint.focus && blueprint.focus.onderwerp].filter(Boolean);
+      onderwerpFit({ slotData: (page.content || {}).slotData, htmlTemplate: blueprint.htmlTemplate, onderwerpTeksten, plaatsen }).forEach((f) => {
+        const acties = [];
+        if (f.sectieIndex != null) acties.push({ type: 'verberg', label: 'Verberg deze sectie', sectie: f.sectieIndex });
+        acties.push({ type: 'fotos', label: 'Kies andere foto\'s', lijst: f.lijst });
+        extraPunten.push({ tekst: f.tekst, acties, sectieIndex: f.sectieIndex });
+      });
+    } catch (e) { /* extra controle mag de rest nooit blokkeren */ }
+    const gelijkenisGemeld = seo.some((w) => /lijkt voor \d+% op/.test(w));
+    const zusterAantal = (await haalZusterPaginas(page)).length;
+    const inOrde = inOrdePunten({ content: { slotData: (page.content || {}).slotData }, validatie: result, zusterAantal, gelijkenisGemeld });
+    res.json({ ...maakControle(result, { extraPunten, inOrde }), site: siteNaam(getLpClient(page.klant).profile) });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -1468,6 +1579,16 @@ router.post('/plan/live-sync', requireLpInternal, async (req, res) => {
   }
 });
 
+// Veelgestelde vragen die vrijwel gelijk zijn aan een vraag van een zusterpagina (bij het schrijven werd dit alleen
+// kort getoond, nu zit het ook in de controle). De vraag of het bedrijf in deze plaats werkt mag wel gelijk zijn.
+function faqWaarschuwingen(page, zusters) {
+  const eigen = vragenUitContent(page.content || {});
+  const zusterVragen = [...new Set((zusters || []).flatMap((z) => (z.content ? vragenUitContent(z.content) : [])))];
+  if (!eigen.length || !zusterVragen.length) return [];
+  const plaatsen = [gelijk.plaatsWaarde(page.invoer), ...(zusters || []).map((z) => gelijk.plaatsWaarde(z.invoer))].filter(Boolean);
+  return vindDubbeleVragen({ vragen: eigen, zusterVragen, plaatsen }).map((d) => `De veelgestelde vraag "${d.vraag}" lijkt sterk op een vraag van een andere pagina ("${d.zusterVraag}"). Elke pagina hoort eigen vragen te hebben, anders lijkt de FAQ op die van de zusterpagina's.`);
+}
+
 async function seoWaarschuwingen(page) {
   const uit = [];
   const client = getLpClient(page.klant);
@@ -1488,6 +1609,7 @@ async function seoWaarschuwingen(page) {
   if (heeftContent) {
     uit.push(...gelijk.gelijkenisWaarschuwingen(page, zusters));
     uit.push(...gelijk.restantWaarschuwingen(page, zusters));
+    uit.push(...faqWaarschuwingen(page, zusters));
   }
   return uit;
 }
@@ -1562,6 +1684,9 @@ router.post('/pages/:pageId/dupliceer-meerdere', requireLpInternal, async (req, 
 // Zet de pagina als CONCEPT in WordPress (nooit live, zie src/lp/wordpress.js
 // en het harde uitgangspunt "nooit automatisch publiceren" in besluiten.md).
 // Weigert als de validator fouten geeft.
+// Wat er recent is verwijderd, zodat het met een klik terug kan (in het geheugen; Notion bewaart de pagina's zelf 30 dagen).
+const onlangsVerwijderd = [];
+
 async function verwijderPagina(id) {
   const page = await lpNotion.getPage(id);
   // Als de pagina ooit naar WordPress gepusht is (concept of live), eerst
@@ -1573,6 +1698,8 @@ async function verwijderPagina(id) {
     await deleteWpPage({ profile: client.profile, wpPaginaId: page.wpPaginaId });
   }
   await lpNotion.deletePage(id);
+  onlangsVerwijderd.unshift({ id, titel: page.titel, klant: page.klant, wpPaginaId: page.wpPaginaId || null, op: Date.now() });
+  onlangsVerwijderd.length = Math.min(onlangsVerwijderd.length, 30);
 }
 
 router.delete('/pages/:pageId', requireLpInternal, async (req, res) => {

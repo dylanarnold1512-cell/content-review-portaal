@@ -276,6 +276,7 @@ async function wpLaadExtra() {
   if (inst.automatisering) wpSyncLive(klant);
   if (inst.paginasPerMaand && !wpPlanOpslag(klant)) document.getElementById('wpAantal').value = inst.paginasPerMaand;
   wpTekenIdeeen(ideeen.ideeen || []);
+  wpLaadVerwijderd(klant);
   wpTekenPlanKaart(inst);
   wpLaadMaandplan(klant, Boolean(inst.plan));
   wpTekenBijhouden(bijhouden);
@@ -351,6 +352,24 @@ function wpTekenMaand(pages, inst) {
   document.getElementById('wpMaandTel').innerHTML = `<span><b>${tel.live}</b> live</span><span><b>${tel.controle}</b> wachten op jouw controle</span><span><b>${tel.maak + tel.gepland}</b> wordt geschreven of is gepland</span><span class="wp-muted">${mislukt} mislukt</span>`;
 }
 
+// Onlangs verwijderde pagina's, met een knop om ze terug te zetten.
+async function wpLaadVerwijderd(klant) {
+  const kaart = document.getElementById('wpVerwijderdKaart');
+  if (!kaart) return;
+  let lijst = [];
+  try { lijst = (await lpApi('/pages-verwijderd?klant=' + encodeURIComponent(klant))).pages || []; } catch (e) { lijst = []; }
+  kaart.classList.toggle('hidden', !lijst.length);
+  document.getElementById('wpVerwijderd').innerHTML = lijst.map((p) => `<div class="wp-wrij"><div class="wp-wtekst"><b>${wpEsc(p.titel || '(zonder titel)')}</b><span class="wp-muted">Verwijderd op ${new Date(p.op).toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span></div><button type="button" class="btn btn-plain" data-herstel="${wpEsc(p.id)}">Terugzetten</button></div>`).join('');
+  document.querySelectorAll('#wpVerwijderd [data-herstel]').forEach((b) => b.addEventListener('click', async () => {
+    b.disabled = true;
+    try {
+      const r = await lpApi('/pages-herstel', { method: 'POST', body: JSON.stringify({ ids: [b.dataset.herstel] }) });
+      if (r.fouten.length) throw new Error(r.fouten[0].fout);
+      await wpLaad();
+    } catch (err) { b.textContent = err.message; b.disabled = false; }
+  }));
+}
+
 // Het plan hoort bij Pagr. Zonder Pagr. staat hier alleen uitleg en kan niets worden gestart.
 function wpTekenPlanKaart(inst) {
   const aan = Boolean(inst && inst.plan);
@@ -390,7 +409,7 @@ async function wpLaadMaandplan(klant, pagr) {
   wpTekenWacht(lpState.wpPages || []);
   if (!v.length) return;
   document.getElementById('wpMaandplanTitel').textContent = 'Plan voor ' + (data.maand || 'deze maand');
-  document.getElementById('wpMaandplan').innerHTML = `<div class="wp-plan-items">${v.map((x) => `<label class="wp-plan-item"><input type="checkbox" checked data-id="${wpEsc(x.id)}"><span class="wp-plan-tekst"><strong>${wpEsc(x.titel)}</strong><small>${wpEsc(x.reden)}</small>${typeof x.volume === 'number' ? `<span class="wp-plan-meta"><span class="wp-pil wp-live">${x.volume.toLocaleString('nl-NL')} zoekopdrachten per maand</span></span>` : ''}</span></label>`).join('')}</div>`;
+  document.getElementById('wpMaandplan').innerHTML = `<div class="wp-plan-items">${v.map((x) => `<label class="wp-plan-item"><input type="checkbox" checked data-id="${wpEsc(x.id)}"><span class="wp-plan-tekst"><strong>${wpEsc(x.titel)}</strong><small>${wpEsc(x.reden)}</small>${(data.sjablonen || []).length > 1 ? `<select class="wp-plan-sjabloon" data-sjab="${wpEsc(x.id)}" aria-label="Sjabloon voor ${wpEsc(x.titel)}">${data.sjablonen.map((t) => `<option value="${wpEsc(t.id)}"${t.id === x.blueprint ? ' selected' : ''}>Sjabloon: ${wpEsc(t.naam)}</option>`).join('')}</select>` : `<small class="wp-muted">Sjabloon: ${wpEsc(x.sjabloonNaam)}</small>`}${typeof x.volume === 'number' ? `<span class="wp-plan-meta"><span class="wp-pil wp-live">${x.volume.toLocaleString('nl-NL')} zoekopdrachten per maand</span></span>` : ''}</span></label>`).join('')}</div>`;
   const keur = document.getElementById('wpMaandplanKeur');
   keur.onclick = async () => {
     const vinkjes = [...document.querySelectorAll('#wpMaandplan input[type=checkbox]')];
@@ -399,7 +418,7 @@ async function wpLaadMaandplan(klant, pagr) {
     if (weg.length && !confirm(`${weg.length} voorstel${weg.length === 1 ? '' : 'len'} zonder vinkje worden weggehaald. Doorgaan?`)) return;
     keur.disabled = true;
     try {
-      const r = await lpApi('/plan/voorgesteld/keur', { method: 'POST', body: JSON.stringify({ klant, goedkeuren: goed, afwijzen: weg }) });
+      const r = await lpApi('/plan/voorgesteld/keur', { method: 'POST', body: JSON.stringify({ klant, goedkeuren: goed, afwijzen: weg, sjablonen: Object.fromEntries([...document.querySelectorAll('#wpMaandplan select[data-sjab]')].map((sel) => [sel.dataset.sjab, sel.value])) }) });
       document.getElementById('wpMaandplanStatus').textContent = `${r.goedgekeurd} goedgekeurd, ${r.weggehaald} weggehaald.`;
       await wpLaad();
     } catch (err) { document.getElementById('wpMaandplanStatus').textContent = err.message; }

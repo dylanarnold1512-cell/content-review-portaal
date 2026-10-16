@@ -356,6 +356,37 @@ function renderPagesTable() {
 }
 
 
+// Na het verwijderen: een balk onderin met "Ongedaan maken". Het herstel zet de pagina's terug in Notion en, als ze in
+// WordPress stonden, daar als concept.
+function lpToonHerstel(ids) {
+  if (!ids || !ids.length) return;
+  let balk = document.getElementById('lpHerstelBalk');
+  if (!balk) {
+    balk = document.createElement('div');
+    balk.id = 'lpHerstelBalk';
+    balk.className = 'lp-herstelbalk';
+    document.body.appendChild(balk);
+  }
+  balk.innerHTML = `<span>${ids.length === 1 ? 'Pagina verwijderd.' : ids.length + " pagina's verwijderd."}</span><button type="button" class="btn btn-plain" id="lpHerstelKnop">Ongedaan maken</button><button type="button" class="btn-plain" id="lpHerstelSluit" aria-label="Sluiten">&times;</button>`;
+  balk.classList.remove('hidden');
+  document.getElementById('lpHerstelSluit').onclick = () => balk.classList.add('hidden');
+  document.getElementById('lpHerstelKnop').onclick = async () => {
+    const knop = document.getElementById('lpHerstelKnop');
+    knop.disabled = true;
+    try {
+      const r = await lpApi('/pages-herstel', { method: 'POST', body: JSON.stringify({ ids }) });
+      const wp = r.hersteld.map((h) => h.wpMelding).filter(Boolean);
+      balk.querySelector('span').textContent = r.fouten.length ? `Terugzetten lukte niet: ${r.fouten[0].fout}` : `Teruggezet.${wp.length ? ' In WordPress niet gelukt: ' + wp[0] : ''}`;
+      knop.remove();
+      if (typeof loadPages === 'function') loadPages();
+      if (typeof wpLaad === 'function') wpLaad();
+      setTimeout(() => balk.classList.add('hidden'), 8000);
+    } catch (err) { balk.querySelector('span').textContent = err.message; knop.disabled = false; }
+  };
+  clearTimeout(lpState.herstelTimer);
+  lpState.herstelTimer = setTimeout(() => balk.classList.add('hidden'), 30000);
+}
+
 // ---- Meerdere tegelijk selecteren en verwijderen (Pagr. stap 13) ----
 // De balk boven de lijst heeft "Alles selecteren", een teller en de verwijderknop. De uitvoering gaat via een
 // endpoint dat per item verwijdert en fouten per item teruggeeft.
@@ -391,6 +422,7 @@ function lpKoppelSelectie(pre, lijst) {
     melding.textContent = 'Bezig met verwijderen...';
     try {
       const r = await lpApi(cfg.url, { method: 'POST', body: JSON.stringify({ ids }) });
+      if (pre === 'lpPagina' || pre === 'wpPagina') lpToonHerstel(r.verwijderd);
       await cfg.ververs();
       const m = document.getElementById(pre + 'SelMelding');
       m.classList.remove('hidden');
@@ -493,6 +525,7 @@ async function openPageDetail(pageId) {
   // Aanpassen staat ingeklapt zodra er tekst is: dan gaat het om controleren. Zonder tekst staat het open.
   const aanpassen = document.getElementById('pdAanpassen');
   if (aanpassen) aanpassen.open = !isContentIngevuld(page);
+  lpState.controleMarkers = [];
 
   let blueprint = null;
   try {
@@ -539,11 +572,12 @@ document.getElementById('lpPageDeleteBtn').addEventListener('click', async () =>
   const wpMelding = page.wpPaginaId
     ? ' Dit verwijdert de pagina ook echt uit WordPress (naar de WordPress-prullenbak, dus daar nog terug te halen als het toch niet de bedoeling was).'
     : ' Deze pagina staat nog niet in WordPress, dus alleen de pagina hier in het portaal verdwijnt.';
-  const zeker = confirm(`Weet je zeker dat je de pagina "${page.titel}" wilt verwijderen?${wpMelding}`);
+  const zeker = confirm(`Weet je zeker dat je de pagina "${page.titel}" wilt verwijderen?${wpMelding} Je kunt het daarna meteen ongedaan maken.`);
   if (!zeker) return;
   setBtnLoading(btn, true, 'Bezig met verwijderen...');
   try {
     await lpApi(`/pages/${page.id}`, { method: 'DELETE' });
+    lpToonHerstel([page.id]);
     lpState.currentPage = null;
     await loadPages();
     lpTerugNaarLijst();
@@ -992,6 +1026,30 @@ function installeerVerbergBalk(doc) {
 
 document.getElementById('lpPreviewBtn').addEventListener('click', refreshPreview);
 
+// Genummerde markeringen in het voorbeeld bij de secties waar een punt van de controle over gaat.
+// Alleen in het voorbeeldscherm, de nummers komen nooit in de HTML voor WordPress.
+function lpZetMarkers() {
+  let doc;
+  try { doc = document.getElementById('lpPreviewFrame').contentDocument; } catch (err) { return; }
+  if (!doc || !doc.body) return;
+  doc.querySelectorAll('.lp-controle-nr').forEach((e) => e.remove());
+  doc.querySelectorAll('[data-lp-controle]').forEach((e) => { e.removeAttribute('data-lp-controle'); e.style.outline = ''; e.style.outlineOffset = ''; });
+  (lpState.controleMarkers || []).forEach((m) => {
+    const el = doc.querySelector(`[data-lp-sectie="${m.sectie}"]`);
+    if (!el) return;
+    el.setAttribute('data-lp-controle', '1');
+    el.style.outline = '2px dashed ' + (m.soort === 'fout' ? '#e0263e' : '#f0a019');
+    el.style.outlineOffset = '-2px';
+    if (getComputedStyle(el).position === 'static') el.style.position = 'relative';
+    const nr = doc.createElement('span');
+    nr.className = 'lp-controle-nr';
+    nr.textContent = String(m.n);
+    nr.style.cssText = 'position:absolute;top:8px;left:8px;z-index:50;width:26px;height:26px;border-radius:50%;background:' + (m.soort === 'fout' ? '#e0263e' : '#f0a019') + ';color:#14142b;font:700 13px/26px system-ui,sans-serif;text-align:center;pointer-events:none;';
+    el.appendChild(nr);
+  });
+}
+window.lpZetMarkers = lpZetMarkers;
+
 // Elke keer dat de iframe opnieuw laadt (dus ook na refreshPreview hierboven), afbeeldingen met
 // een data-lp-slot-attribuut klikbaar maken om ze te wisselen. srcdoc-iframes hebben hetzelfde
 // origin als deze pagina, dus contentDocument is gewoon rechtstreeks bereikbaar.
@@ -1006,6 +1064,7 @@ document.getElementById('lpPreviewFrame').addEventListener('load', () => {
   if (!doc) return;
   try {
     installeerVerbergBalk(doc);
+    lpZetMarkers();
     const scrollY = lpState.previewScrollY || 0;
     lpState.previewScrollY = 0;
     if (scrollY) {

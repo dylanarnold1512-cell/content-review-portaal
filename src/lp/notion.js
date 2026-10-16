@@ -292,6 +292,18 @@ async function deletePage(pageId) {
   await client.pages.update({ page_id: pageId, archived: true });
 }
 
+// Het sjabloon van een pagina wijzigen (alleen bedoeld voor pagina's die nog geen tekst hebben).
+async function setBlueprint(pageId, blueprint) {
+  const client = getNotionClient();
+  await client.pages.update({ page_id: pageId, properties: { Blueprint: { select: { name: blueprint } } } });
+}
+
+// Een verwijderde (gearchiveerde) pagina terugzetten. Notion bewaart hem in de prullenbak.
+async function restorePage(pageId) {
+  const client = getNotionClient();
+  await client.pages.update({ page_id: pageId, archived: false });
+}
+
 // ---- Deellink voor de klant (zie src/lp/share.js) ----
 // Vereist een tekst property "Deellink" op de Landingspagina's database.
 async function getShare(pageId) {
@@ -336,6 +348,8 @@ module.exports = {
   setStatus,
   setWordpressInfo,
   deletePage,
+  restorePage,
+  setBlueprint,
   getShare,
   setShare,
   findPageByShareToken
