@@ -629,9 +629,13 @@ router.get('/pages', requireLpInternal, async (req, res) => {
 });
 
 // Instellingen van de klant voor de werkplaats: aantal pagina's per maand en product (uit Portaal Instellingen).
-// Heeft de klant de Pagr. module (Producten Pagr. of Beide)? Alle automatisering draait alleen dan.
+// Draait de automatisering voor deze klant? Ja bij de Pagr. module (Producten Pagr. of Beide), en ook als Dylan de
+// schakelaar Automatisering intern aanzette voor een klant die geen Pagr. betaalt (eigen werk sneller maken).
 async function pagrModuleAan(klant) {
-  try { return Boolean((await klantInstellingen(klant)).pagr); } catch (e) { return false; }
+  try {
+    const inst = await klantInstellingen(klant);
+    return Boolean(inst.pagr || inst.internAutomatisering);
+  } catch (e) { return false; }
 }
 
 async function klantInstellingen(klant) {
@@ -648,6 +652,8 @@ router.get('/plan/instellingen', requireLpInternal, async (req, res) => {
       paginasPerMaand: inst.paginasPerMaand,
       producten: inst.producten,
       pagr: Boolean(inst.pagr),
+      intern: Boolean(inst.internAutomatisering),
+      automatisering: Boolean(inst.pagr || inst.internAutomatisering),
       paginameting: Boolean(inst.paginameting),
       volumeBeschikbaar: Boolean(inst.paginameting) && require('../lp/zoekvolume').beschikbaar()
     });
@@ -703,8 +709,8 @@ async function maakMaandPlan(klant, { forceer } = {}) {
   const inst = await klantInstellingen(klant);
   const sleutel = `${klant}:${maand}`;
   const bestaat = forceer ? false : await planBestaatDezeMaand(klant, maand);
-  if (!forceer && !maandplan.moetPlannen({ pagr: inst.pagr, paginasPerMaand: inst.paginasPerMaand, planBestaat: bestaat, gedaan: maandplanGedaan.has(sleutel) })) return { overgeslagen: true };
-  if (forceer && !inst.pagr) throw new Error('Deze klant heeft de Pagr. module niet.');
+  if (!forceer && !maandplan.moetPlannen({ pagr: inst.pagr || inst.internAutomatisering, paginasPerMaand: inst.paginasPerMaand, planBestaat: bestaat, gedaan: maandplanGedaan.has(sleutel) })) return { overgeslagen: true };
+  if (forceer && !inst.pagr && !inst.internAutomatisering) throw new Error('Voor deze klant staat de automatisering niet aan.');
   const actief = (await templates.listTemplates({ klant, status: 'Actief' }))[0];
   if (!actief) return { overgeslagen: true, reden: 'Geen actief sjabloon.' };
   const bestaandePaginas = await lpNotion.listPages({ klant });

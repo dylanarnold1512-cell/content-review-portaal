@@ -264,10 +264,10 @@ async function wpLaadExtra() {
   ]);
   lpState.wpInst = inst;
   wpTekenModule(inst);
-  if (inst.pagr) wpSyncLive(klant);
+  if (inst.automatisering) wpSyncLive(klant);
   if (inst.paginasPerMaand && !wpPlanOpslag(klant)) document.getElementById('wpAantal').value = inst.paginasPerMaand;
   wpTekenIdeeen(ideeen.ideeen || []);
-  wpLaadMaandplan(klant, Boolean(inst.pagr));
+  wpLaadMaandplan(klant, Boolean(inst.automatisering));
   wpTekenBijhouden(bijhouden);
   wpTekenAdvies();
 }
@@ -334,11 +334,14 @@ async function wpLaadMaandplan(klant, pagr) {
 function wpTekenModule(inst) {
   const el = document.getElementById('wpModule');
   if (!el) return;
-  const aan = Boolean(inst && inst.pagr);
+  const aan = Boolean(inst && inst.automatisering);
+  const intern = Boolean(inst && inst.intern && !inst.pagr);
   el.className = 'wp-module ' + (aan ? 'aan' : 'uit');
   el.innerHTML = aan
-    ? '<strong>Pagr. aan</strong><span>De AI schrijft de tekst vanzelf en de rest van de automatisering draait.</span>'
-    : '<strong>Pagr. uit</strong><span>Je maakt pagina\'s zelf met knoppen. Zet Pagr. aan bij Instellingen in de admin voor automatisch schrijven en controleren.</span><span><button type="button" class="btn btn-plain" id="wpLiveKnop">Haal live status op</button> <span id="wpLiveMelding"></span></span>';
+    ? (intern
+      ? '<strong>Automatisering aan voor eigen werk</strong><span>De AI schrijft de tekst vanzelf en de rest van de automatisering draait. De klant heeft Pagr. niet en ziet het niet in zijn portaal.</span>'
+      : '<strong>Pagr. aan</strong><span>De AI schrijft de tekst vanzelf en de rest van de automatisering draait.</span>')
+    : '<strong>Pagr. uit</strong><span>Je maakt pagina\'s zelf met knoppen. Zet Pagr. of Automatisering intern aan bij Instellingen in de admin voor automatisch schrijven en controleren.</span><span><button type="button" class="btn btn-plain" id="wpLiveKnop">Haal live status op</button> <span id="wpLiveMelding"></span></span>';
   const knop = document.getElementById('wpLiveKnop');
   if (knop) knop.addEventListener('click', () => wpSyncLive(document.getElementById('wpKlant').value, true));
 }
