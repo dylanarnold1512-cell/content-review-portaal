@@ -379,8 +379,20 @@
             <div id="npGeplandLijst" class="np-chips"></div>
           </div>
           <div class="wp-plan-actie">
-            <button type="button" id="npAdviesKnop" class="btn btn-approve">Laat de AI meedenken</button>
-            <span id="npAdviesStatus" class="wp-muted"></span>
+            <button type="button" id="npMaakKnop" class="btn btn-approve">Maak pagina</button>
+            <button type="button" id="npAdviesKnop" class="btn btn-plain">Eerst zelf kiezen</button>
+            <span id="npAdviesStatus" class="wp-muted">Eén zin is genoeg. De AI kiest sjabloon, titel en webadres en begint meteen met schrijven.</span>
+          </div>
+        </section>
+
+        <section class="wp-kaart hidden" id="npResultaat">
+          <div class="wp-kaart-kop"><h2>Aangemaakt</h2></div>
+          <p id="npResultaatTekst" class="wp-uitleg"></p>
+          <div id="npResultaatKeuzes"></div>
+          <p class="wp-muted np-klein">Klopt er iets niet, open de pagina en pas het aan of laat de AI opnieuw schrijven. Klopt het, dan doe je niets: je vindt hem straks bij Wacht op jou.</p>
+          <div class="wp-plan-actie">
+            <button type="button" id="npOpenPagina" class="btn btn-approve">Pagina openen</button>
+            <button type="button" id="npNogEen" class="btn btn-plain">Nog een pagina</button>
           </div>
         </section>
 
@@ -391,7 +403,7 @@
           <p id="npWaarschuwing" class="np-waarschuwing hidden"></p>
         </section>
 
-        <section class="wp-kaart">
+        <section class="wp-kaart hidden" id="npHandmatig">
           <div class="wp-kaart-kop"><h2>2. Controleer en pas aan</h2></div>
           <div class="wp-veld wp-veld-breed">
             <label for="lpNewBlueprint">Sjabloon</label>
