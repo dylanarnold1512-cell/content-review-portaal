@@ -29,3 +29,10 @@ test('voorgesteld plan heeft stand voorgesteld en een onderwerp', () => {
   assert.match(inv._watGaatDezePaginaOver, /dakkapel in Lisse/);
   assert.equal(maandNaam('2026-11'), 'november');
 });
+
+test('Geen van beide is een geldig product zonder Blogr. of Pagr.', () => {
+  const s = require('../src/services/settings');
+  assert.ok(s.PRODUCT_WAARDEN.includes('Geen van beide'));
+  assert.equal(s.normaliseerProducten('Geen van beide'), 'Geen van beide');
+  assert.equal(s.normaliseerProducten(''), 'Blogr.');
+});
