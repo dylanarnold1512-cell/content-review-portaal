@@ -161,6 +161,19 @@ async function deletePage({ profile, wpPaginaId }) {
   return data;
 }
 
+// Een pagina uit de WordPress-prullenbak halen. Hij komt terug als concept, nooit als live pagina.
+async function restorePage({ profile, wpPaginaId }) {
+  const { url, username, appPassword } = getWpConfig(profile);
+  const res = await fetch(`${url}/wp-json/wp/v2/pages/${wpPaginaId}`, {
+    method: 'POST',
+    headers: { Authorization: authHeader(username, appPassword), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'draft' })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(`WordPress-fout bij herstellen (${res.status}): ${data?.message || res.statusText}`);
+  return data;
+}
+
 // Doorzoekt de WordPress-mediabibliotheek van de klant (besluit 7,
 // besluiten.md: "Beeld: WordPress mediabibliotheek met zoekfunctie, Dylan
 // kiest zelf per blok"). Alleen lezen, geen upload — Dylan/Marc uploaden
@@ -309,6 +322,7 @@ function siteNaam(profile) {
 }
 
 module.exports = {
+  restorePage,
   siteNaam,
   haalPaginaStatussen,
   SEO_META_SLEUTELS,
