@@ -69,6 +69,7 @@ function wpTeken() {
   document.getElementById('wpStappen').innerHTML = wpStappen({ tellers: uit.tellers, actief: uit.actief, pages });
   document.querySelectorAll('#wpStappen .wp-stap').forEach((b) => b.addEventListener('click', () => switchLpTab(b.dataset.wpTab)));
 
+  wpTekenWacht(pages);
   wpTekenBulk();
   document.getElementById('wpTellers').innerHTML = WP_STANDEN.map((s) => `<span class="wp-pil ${WP_STAND_KLASSE[s]}"><span class="wp-stip"></span>${s} <b>${uit.tellers[s]}</b></span>`).join('');
 
@@ -116,6 +117,7 @@ async function wpLaad() {
       lpApi('/templates?klant=' + encodeURIComponent(klantId))
     ]);
     lpState.wpPages = pages;
+    try { window.parent.postMessage({ type: 'pagr-gewijzigd' }, window.location.origin); } catch (e) { /* niet in een frame */ }
     lpState.wpTemplates = (templates || []).filter((t) => t.status !== 'Gearchiveerd');
     wpTeken();
     wpLaadExtra();
@@ -267,6 +269,23 @@ async function wpLaadExtra() {
   wpTekenIdeeen(ideeen.ideeen || []);
   wpTekenBijhouden(bijhouden);
   wpTekenAdvies();
+}
+
+// Bovenaan: alles wat op jou wacht, met een knop per pagina.
+function wpTekenWacht(pages) {
+  const kaart = document.getElementById('wpWachtKaart');
+  if (!kaart) return;
+  const items = [];
+  pages.forEach((p) => {
+    if (p.status === 'Fout' || p.status === 'Afgewezen') items.push({ p, tekst: 'Mislukt of afgewezen', knop: 'Bekijk', soort: 'fout' });
+    else if (wpStandVan(p.status) === 'Ter controle') items.push({ p, tekst: p.status === 'Ter review' ? 'Staat als concept in WordPress, klaar om live te zetten' : 'Tekst is klaar, controleren', knop: 'Controleren', soort: 'plan' });
+  });
+  kaart.classList.toggle('hidden', !items.length);
+  document.getElementById('wpWacht').innerHTML = items.map((it, i) => `<div class="wp-advies-item ${it.soort}"><p><strong>${wpEsc(it.p.titel || '(zonder titel)')}</strong><br><span class="wp-muted">${wpEsc(it.tekst)}</span></p><button type="button" class="btn btn-approve" data-wacht="${i}">${it.knop}</button></div>`).join('');
+  document.querySelectorAll('#wpWacht [data-wacht]').forEach((b) => b.addEventListener('click', () => {
+    lpState.laatsteLijst = 'werkplaats';
+    openPageDetail(items[Number(b.dataset.wacht)].p.id);
+  }));
 }
 
 // Laat zien of de klant de Pagr. module heeft. Zonder module draait er geen automatisering.
