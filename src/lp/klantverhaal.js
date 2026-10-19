@@ -256,6 +256,7 @@ const PAGINA_OPBOUW_REGELS = `OPBOUW VAN DE PAGINA (rode draad voor elke klant):
 - Wissel op een pagina niet tussen "je" en "u".
 - Hero en antwoordblok: gebruik hier de bedrijfsnaam niet. Open met de situatie of vraag van de bezoeker ("Wil je...", "Heb je...") en zeg direct daarna in "wij" wat jullie voor die vraag doen. Dus niet "Bedrijf X helpt je met...".
 - Een badge of label op een foto (bijvoorbeeld heroBadgeTitle en heroBadgeText) is een kort, hard feit: een jaartal, een aantal jaren ervaring, een werkgebied of een beoordeling. Zet er nooit de introductie van een persoon in ("Mitchell, eigenaar"), want op de foto staat die persoon niet.
+- Een bijschrift bij een foto (heroImageCaption) vertelt in een korte zin wat jullie doen of wat het sterke punt is, bijvoorbeeld "Verbouw, renovatie en onderhoud in Hillegom". Het is geen naam of functie van een persoon.
 - Elke zin zegt iets nieuws. Schrijf geen vulzinnen die alleen herhalen wat er al staat, zoals "Dat maakt dit onderdeel van ons brede aanbod".
 - Beweer niets wat niet in de feiten, het klantverhaal of de bronteksten staat. Verzin dus geen beloften zoals "vast aanspreekpunt" of "van begin tot eind begeleiden".
 - Praktische gegevens (adres, telefoon, werkgebied, soorten projecten) zijn korte feiten. Neem geen reclamezinnen uit de website over ("wij hebben de expertise en ervaring...").

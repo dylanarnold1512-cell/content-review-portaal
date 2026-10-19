@@ -762,7 +762,7 @@ item-object, de overige velden van dat item vul je wel gewoon in. Deze velden wo
     ? `\n\nVoor het icoonveld ("icon", of een slot die eindigt op "Icon"): kies ALTIJD een waarde uit
 exact deze lijst, nooit een andere of zelfverzonnen naam — een naam die hier niet in staat wordt niet
 als icoon herkend en toont een neutraal fallback-icoontje in plaats van het bedoelde icoon:
-${ICON_NAMES.join(', ')}.`
+${ICON_NAMES.join(', ')}.\nKies per item het icoon dat het best bij dat onderwerp past (bijvoorbeeld hammer voor verbouw, layers voor renovatie, wrench voor onderhoud en reparatie). Gebruik binnen een lijst elk icoon hooguit een keer.`
     : '';
 
   return `Je schrijft de INHOUD voor één landingspagina, binnen een AL GOEDGEKEURD sjabloon. De
@@ -1071,6 +1071,42 @@ ${siteTeksten ? `Bronteksten van de klantsite (ingekort):\n${String(siteTeksten)
   return { slotData: { ...slotData, ...resultaat }, gewijzigd: Object.keys(resultaat) };
 }
 
+// Binnen een lijst (bijvoorbeeld de dienstkaarten) krijgt elk item een eigen icoon. Dubbele iconen worden vervangen door
+// het best passende icoon dat nog vrij is, op basis van woorden in de titel en tekst van het item.
+const ICOON_TREFWOORDEN = [
+  [/(verbouw|uitbreid|aanbouw|dakopbouw|nieuwbouw|bouw)/i, 'hammer'],
+  [/(renovat|vernieuw|opknap)/i, 'layers'],
+  [/(timmer|onderhoud|herstel|reparat|houtrot)/i, 'wrench'],
+  [/(schilder|verf|afwerk)/i, 'paint'],
+  [/(dakkapel|zon|licht)/i, 'sun'],
+  [/(vergunning|tekening|ontwerp|plan|begroting|offerte)/i, 'ruler'],
+  [/(kosten|prijs|tarief|betaal)/i, 'euro'],
+  [/(contact|bel|telefoon|vraag)/i, 'phone'],
+  [/(ervaring|jaar|sinds|actief)/i, 'calendar'],
+  [/(review|beoordel|tevreden)/i, 'star'],
+  [/(persoon|team|vakman|eigenaar|samen)/i, 'users'],
+  [/(garantie|zeker|veilig)/i, 'shield'],
+  [/(woning|huis|woon)/i, 'home']
+];
+const ICOON_RESERVE = ['check', 'shield', 'star', 'users', 'info', 'key', 'ruler', 'hammer', 'wrench', 'layers', 'home', 'calendar'];
+
+function verdeelIconen(slotData) {
+  if (!slotData || typeof slotData !== 'object') return;
+  Object.values(slotData).forEach((lijst) => {
+    if (!Array.isArray(lijst) || lijst.length < 2) return;
+    const items = lijst.filter((it) => it && typeof it === 'object' && typeof it.icon === 'string' && it.icon);
+    if (items.length < 2) return;
+    const gebruikt = new Set();
+    items.forEach((it) => {
+      if (!gebruikt.has(it.icon)) { gebruikt.add(it.icon); return; }
+      const tekst = `${it.title || ''} ${it.text || ''}`;
+      const passend = ICOON_TREFWOORDEN.filter(([re, naam]) => re.test(tekst) && !gebruikt.has(naam) && ICON_NAMES.includes(naam)).map(([, naam]) => naam);
+      const keuze = passend[0] || ICOON_RESERVE.find((n) => !gebruikt.has(n) && ICON_NAMES.includes(n));
+      if (keuze) { it.icon = keuze; gebruikt.add(keuze); }
+    });
+  });
+}
+
 async function generatePageContent({ klant, template, invoer, feiten, watGaatDezePaginaOver, ctaOverride, linkKandidaten, zusterInhoud, siteTeksten, zoekvragen, zusterVragen, klantverhaal, bedrijfsnaam, zonderPlan }) {
   const systemPrompt = buildContentSystemPrompt(template);
   // Ronde 1: een plan per onderdeel. Mislukt het, dan schrijven we gewoon zonder plan.
@@ -1126,6 +1162,7 @@ ${JSON.stringify(linkKandidaten || [], null, 2)}${bouwZusterBlok(zusterInhoud)}$
   verwijderVerzonnenLinks(slotData, linkKandidaten);
   verwijderPlaceholderWaarden(slotData);
   verwijderReviewAanhalingstekens(slotData);
+  verdeelIconen(slotData);
   const iconProblemen = findUnknownIcons(slotData);
   const iconWarning = iconProblemen.length
     ? `Niet-herkende icoonwaarde(n) gevonden (${iconProblemen
@@ -1336,6 +1373,7 @@ async function callOpenAiVision({ systemPrompt, contentParts }) {
 }
 
 module.exports = {
+  verdeelIconen,
   bouwFocusBlok,
   VASTE_ONDERDELEN_OPTIES,
   VASTE_ONDERDELEN_LABELS,
