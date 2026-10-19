@@ -844,7 +844,7 @@ document.getElementById('lpGenerateContentBtn').addEventListener('click', async 
   try {
     const watGaatDezePaginaOver = document.getElementById('lpInvoerOnderwerp').value;
     const ctaOverride = document.getElementById('lpInvoerCtaOverride').value;
-    const { slotData, imageWarning, linkWarning, siteTekstWarning, iconWarning, faqWarning, zoekvragenWarning, zoekvragenAantal, klantverhaalWarning, planWaarschuwing, schrijfplan } = await lpApi(`/pages/${page.id}/generate-content`, {
+    const { slotData, imageWarning, linkWarning, siteTekstWarning, iconWarning, faqWarning, zoekvragenWarning, zoekvragenAantal, klantverhaalWarning, planWaarschuwing, redactieWaarschuwing, schrijfplan } = await lpApi(`/pages/${page.id}/generate-content`, {
       method: 'POST',
       body: JSON.stringify({ watGaatDezePaginaOver, ctaOverride })
     });
@@ -857,7 +857,7 @@ document.getElementById('lpGenerateContentBtn').addEventListener('click', async 
     // titel was gegenereerd (hij stond alleen nog niet op de juiste plek).
     if (slotData.metaTitle) document.getElementById('lpMetaTitle').value = slotData.metaTitle;
     if (slotData.metaDescription) document.getElementById('lpMetaDescription').value = slotData.metaDescription;
-    const waarschuwingen = [imageWarning, linkWarning, siteTekstWarning, iconWarning, faqWarning, zoekvragenWarning, klantverhaalWarning, planWaarschuwing].filter(Boolean).join(' ');
+    const waarschuwingen = [imageWarning, linkWarning, siteTekstWarning, iconWarning, faqWarning, zoekvragenWarning, klantverhaalWarning, planWaarschuwing, redactieWaarschuwing].filter(Boolean).join(' ');
     // Het plan van ronde 1 (verhaallijn per onderdeel), zodat te zien is waarom de tekst zo is opgebouwd.
     const planBox = document.getElementById('lpSchrijfplan');
     if (planBox) {

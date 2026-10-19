@@ -1385,6 +1385,40 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
     zusterInhoud: zusters.filter((z) => z.content).map((z) => ({ titel: z.titel, tekst: verzamelTekst(z.content).join('\n').slice(0, 2500) }))
   });
 
+  // Automatische redactieronde: de mechanische controle leest de nieuwe tekst en alleen de aangewezen onderdelen
+  // worden een keer herschreven. Reviews en praktische gegevens blijven zoals ze zijn. Nooit blokkerend.
+  let redactieWaarschuwing = null;
+  try {
+    const NIET_AANRAKEN = /^(reviewItems|practicalItems)$/;
+    const bepaal = (slotData) => redactiePunten({ content: { slotData }, invoer, titel: page.titel }, blueprint, client).punten
+      .map((pt) => ({ ...pt, slots: (pt.slots || []).filter((k) => !NIET_AANRAKEN.test(k)) }))
+      .filter((pt) => pt.slots.length && !(pt.soort === 'toon' && pt.slots.length < 2) && pt.soort !== 'bewijs');
+    const eerste = bepaal(result.slotData).slice(0, 6);
+    if (eerste.length) {
+      const kvRuw = client.profile.klantverhaal;
+      const slots = [...new Set(eerste.flatMap((pt) => pt.slots))];
+      const aanwijzing = eerste.map((pt, i) => `${i + 1}. ${pt.aanwijzing || pt.tekst}`).join('\n');
+      const herschreven = await ai.herschrijfOnderdelen({
+        klant: client.profile.naam,
+        template: blueprint,
+        slotData: result.slotData,
+        slots,
+        aanwijzing,
+        klantverhaal: kvRuw && kvRuw.status === 'goedgekeurd' ? kvRuw : null,
+        bedrijfsnaam: (client.profile.bedrijf || {}).naam || client.profile.naam,
+        feiten,
+        siteTeksten
+      });
+      result.slotData = herschreven.slotData;
+      const rest = bepaal(result.slotData);
+      redactieWaarschuwing = rest.length
+        ? `De tekst is automatisch een keer nagelopen en ${eerste.length} ${eerste.length === 1 ? 'punt is' : 'punten zijn'} herschreven. Er ${rest.length === 1 ? 'blijft 1 punt' : `blijven ${rest.length} punten`} over, zie de controle.`
+        : `De tekst is automatisch nagelopen op herhaling en toon en ${eerste.length} ${eerste.length === 1 ? 'punt is' : 'punten zijn'} herschreven.`;
+    }
+  } catch (redErr) {
+    console.warn('[redactie] automatische ronde mislukt:', redErr.message);
+  }
+
   let imageWarning = null;
   try {
     const { items: kandidaten } = await searchMedia({ profile: client.profile, perPage: 100 });
@@ -1429,7 +1463,7 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
     : (kv
       ? 'Het klantverhaal van deze klant is nog niet goedgekeurd, dus de AI gebruikt het niet. Keur het goed bij Klantgegevens.'
       : 'Deze klant heeft nog geen klantverhaal. Zonder klantverhaal klinkt de tekst minder persoonlijk en herhaalt hij sneller. Maak het bij Klantgegevens met "Analyseer klantverhaal".');
-  return { ...result, imageWarning, linkWarning, siteTekstWarning, faqWarning, zoekvragenAantal, zoekvragenWarning, klantverhaalWarning };
+  return { ...result, imageWarning, linkWarning, siteTekstWarning, faqWarning, zoekvragenAantal, zoekvragenWarning, klantverhaalWarning, redactieWaarschuwing };
 }
 
 router.post('/pages/:pageId/auto-tekst', requireLpInternal, async (req, res) => {
