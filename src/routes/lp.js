@@ -1393,11 +1393,17 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
     const bepaal = (slotData) => redactiePunten({ content: { slotData }, invoer, titel: page.titel }, blueprint, client).punten
       .map((pt) => ({ ...pt, slots: (pt.slots || []).filter((k) => !NIET_AANRAKEN.test(k)) }))
       .filter((pt) => pt.slots.length && !(pt.soort === 'toon' && /^De bedrijfsnaam staat/.test(pt.tekst || '') && pt.slots.length < 2) && pt.soort !== 'bewijs');
-    const eerste = bepaal(result.slotData).slice(0, 6);
-    if (eerste.length) {
-      const kvRuw = client.profile.klantverhaal;
-      const slots = [...new Set(eerste.flatMap((pt) => pt.slots))];
-      const aanwijzing = eerste.map((pt, i) => `${i + 1}. ${pt.aanwijzing || pt.tekst}`).join('\n');
+    const kvRuw = client.profile.klantverhaal;
+    let eerste = [];
+    let rest = [];
+    for (let ronde = 1; ronde <= 2; ronde += 1) {
+      const punten = bepaal(result.slotData).slice(0, 6);
+      if (ronde === 1) eerste = punten;
+      rest = punten;
+      if (!punten.length) break;
+      const slots = [...new Set(punten.flatMap((pt) => pt.slots))];
+      const aanwijzing = punten.map((pt, i) => `${i + 1}. ${pt.aanwijzing || pt.tekst}`).join('\n')
+        + '\nSchrijf de aangewezen onderdelen echt anders: een andere invalshoek en andere woorden dan de rest van de pagina. Kopieer geen zinnen van andere onderdelen.';
       const herschreven = await ai.herschrijfOnderdelen({
         klant: client.profile.naam,
         template: blueprint,
@@ -1410,9 +1416,11 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
         siteTeksten
       });
       result.slotData = herschreven.slotData;
-      const rest = bepaal(result.slotData);
+      rest = bepaal(result.slotData);
+    }
+    if (eerste.length) {
       redactieWaarschuwing = rest.length
-        ? `De tekst is automatisch een keer nagelopen en ${eerste.length} ${eerste.length === 1 ? 'punt is' : 'punten zijn'} herschreven. Er ${rest.length === 1 ? 'blijft 1 punt' : `blijven ${rest.length} punten`} over, zie de controle.`
+        ? `De tekst is automatisch nagelopen en herschreven. Er ${rest.length === 1 ? 'blijft 1 punt' : `blijven ${rest.length} punten`} over, zie de controle.`
         : `De tekst is automatisch nagelopen op herhaling en toon en ${eerste.length} ${eerste.length === 1 ? 'punt is' : 'punten zijn'} herschreven.`;
     }
   } catch (redErr) {
