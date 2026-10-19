@@ -32,6 +32,8 @@ const { pushDraft, deletePage: deleteWpPage, restorePage: herstelWpPage, searchM
 const { vindTekst, vervangTekst } = require('../lp/tekstVervangen');
 const { haalSiteTeksten, formatSiteTekstenVoorPrompt } = require('../lp/siteTeksten');
 const { bouwKlantverhaalVoorstel } = require('../lp/klantverhaal');
+const { waarschuwingGefilterd } = require('../lp/bronFilter');
+const verhaal = require('../lp/verhaal');
 const plan = require('../lp/plan');
 const { onderwerpTekst, metOnderwerp, maakWachtrij } = require('../lp/autoPagina');
 const begeleiding = require('../lp/begeleiding');
@@ -1336,7 +1338,7 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
   try {
     const eigenUrls = allePaginas.map((p) => p.wpUrl).filter(Boolean);
     const site = await haalSiteTeksten({ url: (client.profile.bedrijf || {}).url, uitsluit: eigenUrls, voorkeur: (blueprint.focus && blueprint.focus.trefwoorden) || [], taal: client.profile.taal });
-    if ((site.gefilterd || []).length) siteTekstWarning = `Op de klantsite staat tekst die niet bij het bedrijf lijkt te horen (${site.gefilterd.length} regels, bijvoorbeeld op ${site.gefilterd[0].titel || site.gefilterd[0].url}). Die is genegeerd; controleer de pagina in WordPress.`;
+    siteTekstWarning = waarschuwingGefilterd(site.gefilterd);
     siteTeksten = formatSiteTekstenVoorPrompt(site);
     if (!siteTeksten) siteTekstWarning = `De teksten van de klantsite konden niet gelezen worden (${site.fout || 'geen pagina\'s gevonden'}), de tekst is alleen op de feiten gebaseerd en kan daardoor karig zijn.`;
   } catch (siteTekstErr) {
@@ -1420,7 +1422,14 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
     ? 'Er konden geen echte zoekvragen worden opgehaald, de vragen zijn alleen uit de site en de feiten opgesteld.'
     : null;
 
-  return { ...result, imageWarning, linkWarning, siteTekstWarning, faqWarning, zoekvragenAantal, zoekvragenWarning };
+  // Onboarding: zonder goedgekeurd klantverhaal schrijft de AI nog steeds, maar de pagina wordt minder persoonlijk.
+  const kv = client.profile.klantverhaal;
+  const klantverhaalWarning = kv && kv.status === 'goedgekeurd'
+    ? null
+    : (kv
+      ? 'Het klantverhaal van deze klant is nog niet goedgekeurd, dus de AI gebruikt het niet. Keur het goed bij Klantgegevens.'
+      : 'Deze klant heeft nog geen klantverhaal. Zonder klantverhaal klinkt de tekst minder persoonlijk en herhaalt hij sneller. Maak het bij Klantgegevens met "Analyseer klantverhaal".');
+  return { ...result, imageWarning, linkWarning, siteTekstWarning, faqWarning, zoekvragenAantal, zoekvragenWarning, klantverhaalWarning };
 }
 
 router.post('/pages/:pageId/auto-tekst', requireLpInternal, async (req, res) => {
@@ -1531,6 +1540,9 @@ router.get('/pages/:pageId/validate', requireLpInternal, async (req, res) => {
       const extra = await seoWaarschuwingen(page);
       result.warnings = [...(result.warnings || []), ...extra];
     } catch (e) { /* een fout in deze extra controle mag de validatie nooit blokkeren */ }
+    try {
+      result.warnings = [...(result.warnings || []), ...redactiePunten(page, blueprint, getLpClient(page.klant)).punten.map((p) => p.tekst)];
+    } catch (e) { /* de redactiecheck mag de validatie nooit blokkeren */ }
     res.json(result);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -1561,10 +1573,97 @@ router.get('/pages/:pageId/controle', requireLpInternal, async (req, res) => {
         extraPunten.push({ tekst: f.tekst, acties, sectieIndex: f.sectieIndex });
       });
     } catch (e) { /* extra controle mag de rest nooit blokkeren */ }
+    // Redactiecheck: persoonlijk, geen herhaling, bewijs aanwezig. Elk punt met een knop om alleen dat onderdeel te herschrijven.
+    try {
+      const klant = getLpClient(page.klant);
+      const { punten, klantverhaalGoedgekeurd } = redactiePunten(page, blueprint, klant);
+      punten.forEach((p) => extraPunten.push({ tekst: p.tekst, acties: [{ type: 'herschrijf', label: 'Herschrijf dit onderdeel', slots: p.slots, aanwijzing: p.aanwijzing }], sectieIndex: null }));
+      if (!klantverhaalGoedgekeurd) extraPunten.push({ tekst: 'Voor deze klant is nog geen goedgekeurd klantverhaal. Daardoor is de tekst minder persoonlijk en herhaalt hij sneller. Maak en keur het goed bij Klantgegevens.', acties: [], sectieIndex: null });
+    } catch (e) { /* extra controle mag de rest nooit blokkeren */ }
     const gelijkenisGemeld = seo.some((w) => /lijkt voor \d+% op/.test(w));
     const zusterAantal = (await haalZusterPaginas(page)).length;
     const inOrde = inOrdePunten({ content: { slotData: (page.content || {}).slotData }, validatie: result, zusterAantal, gelijkenisGemeld });
     res.json({ ...maakControle(result, { extraPunten, inOrde }), site: siteNaam(getLpClient(page.klant).profile) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+
+// Stap 3 van de verhaallijn (19-10-2026): de redactiecheck. Mechanisch (geen AI): herhaling, je of u, bedrijfsnaam,
+// lege woorden, claims die niet bruikbaar zijn, een afstandelijke intro en ontbrekend bewijs. Elk punt wijst naar de onderdelen
+// die herschreven kunnen worden.
+function redactiePunten(page, blueprint, client) {
+  const slotData = (page.content || {}).slotData || {};
+  const kvRuw = client.profile.klantverhaal;
+  const kv = kvRuw && kvRuw.status === 'goedgekeurd' ? kvRuw : null;
+  const inv = page.invoer || {};
+  const bedrijf = client.profile.bedrijf || {};
+  const onderwerpWoorden = verhaal.woorden([inv.dienstFocus, inv.dienst, inv.onderwerp, inv._watGaatDezePaginaOver, page.titel].filter(Boolean).join(' '));
+  const punten = verhaal.redactieControle(slotData, {
+    bedrijfsnaam: bedrijf.naam || client.profile.naam,
+    plaats: gelijk.plaatsWaarde(inv),
+    onderwerpWoorden,
+    aanspreekvorm: kv && kv.stem ? kv.stem.aanspreekvorm : null,
+    nietGebruiken: kv ? kv.nietGebruiken : []
+  });
+  punten.push(...verhaal.ontbrekendBewijs(blueprint, slotData, kvRuw));
+  return { punten, klantverhaalGoedgekeurd: Boolean(kv), klantverhaal: kv };
+}
+
+router.post('/pages/:pageId/redactie-check', requireLpInternal, async (req, res) => {
+  try {
+    const page = await lpNotion.getPage(req.params.pageId);
+    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const client = getLpClient(page.klant);
+    const slotData = (page.content || {}).slotData;
+    if (!slotData || !Object.keys(slotData).length) return res.status(400).json({ error: 'Deze pagina heeft nog geen tekst om te controleren.' });
+    const { punten: mechanisch, klantverhaal } = redactiePunten(page, blueprint, client);
+    const punten = await ai.redactieReview({
+      klant: client.profile.naam,
+      template: blueprint,
+      slotData,
+      klantverhaal,
+      bedrijfsnaam: (client.profile.bedrijf || {}).naam || client.profile.naam,
+      alGevonden: mechanisch.map((p) => p.tekst)
+    });
+    res.json({ punten, aantalMechanisch: mechanisch.length });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Herschrijft alleen de aangewezen onderdelen van een pagina. De rest blijft zoals hij is. Slaat het resultaat op.
+router.post('/pages/:pageId/herschrijf', requireLpInternal, async (req, res) => {
+  try {
+    const { slots, aanwijzing } = req.body || {};
+    const page = await lpNotion.getPage(req.params.pageId);
+    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const client = getLpClient(page.klant);
+    const content = page.content || {};
+    if (!content.slotData || !Object.keys(content.slotData).length) return res.status(400).json({ error: 'Deze pagina heeft nog geen tekst.' });
+    const feitensheet = page.feitensheet || { gebruikt: [], extra: [] };
+    const feitenById = new Map((client.feiten || []).map((f) => [f.id, f]));
+    const feiten = [...gebruikteFeitIds(page.feitensheet, client.feiten).map((id) => feitenById.get(id)).filter(Boolean), ...(feitensheet.extra || [])];
+    let siteTeksten = '';
+    try {
+      const site = await haalSiteTeksten({ url: (client.profile.bedrijf || {}).url, uitsluit: [page.wpUrl].filter(Boolean), taal: client.profile.taal });
+      siteTeksten = formatSiteTekstenVoorPrompt(site);
+    } catch (e) { siteTeksten = ''; }
+    const kvRuw = client.profile.klantverhaal;
+    const r = await ai.herschrijfOnderdelen({
+      klant: client.profile.naam,
+      template: blueprint,
+      slotData: content.slotData,
+      slots,
+      aanwijzing,
+      klantverhaal: kvRuw && kvRuw.status === 'goedgekeurd' ? kvRuw : null,
+      bedrijfsnaam: (client.profile.bedrijf || {}).naam || client.profile.naam,
+      feiten,
+      siteTeksten
+    });
+    await lpNotion.updateSection(page.id, 'content', { ...content, slotData: r.slotData });
+    res.json({ slotData: r.slotData, gewijzigd: r.gewijzigd });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -1682,7 +1781,7 @@ router.post('/pages/:pageId/dupliceer-meerdere', requireLpInternal, async (req, 
             const voorstel = await maakContentVoorstel(nieuw, {});
             await lpNotion.updateSection(id, 'content', { meta: { metaTitle: voorstel.slotData.metaTitle || '', metaDescription: voorstel.slotData.metaDescription || '' }, slotData: voorstel.slotData, overrides: {} });
             r.geschreven = true;
-            r.waarschuwingen = [voorstel.imageWarning, voorstel.linkWarning, voorstel.siteTekstWarning, voorstel.iconWarning].filter(Boolean);
+            r.waarschuwingen = [voorstel.imageWarning, voorstel.linkWarning, voorstel.siteTekstWarning, voorstel.iconWarning, voorstel.klantverhaalWarning, voorstel.planWaarschuwing].filter(Boolean);
           } catch (e) {
             r.fout = `Pagina is aangemaakt, maar de tekst schrijven mislukte: ${e.message}`;
           }

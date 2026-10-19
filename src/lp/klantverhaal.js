@@ -15,6 +15,7 @@
 // Dit bestand laadt ai.js niet bovenaan (ai.js laadt dit bestand), de AI aanroep wordt pas bij gebruik opgehaald.
 
 const { haalSiteTeksten, formatSiteTekstenVoorPrompt, normaliseerUrl } = require('./siteTeksten');
+const { waarschuwingGefilterd } = require('./bronFilter');
 
 const EIGEN = 'eigen aanvulling';
 const BEWIJS_SOORTEN = ['review', 'project', 'ervaring', 'cijfer'];
@@ -231,10 +232,8 @@ async function bouwKlantverhaalVoorstel({ url, bedrijfsnaam, uitsluit, taal, cal
   });
   const { voorstel, waarschuwingen, aanspreekMeting } = controleerVoorstel(ruw, site.paginas);
   const gefilterd = (site.gefilterd || []).map((g) => ({ url: g.url, titel: g.titel, regel: g.regel, reden: g.reden }));
-  if (gefilterd.length) {
-    const paginas = [...new Set(gefilterd.map((g) => g.titel || g.url))];
-    waarschuwingen.push(`Op de site staat tekst die niet bij het bedrijf lijkt te horen en die is genegeerd (${gefilterd.length} regels op: ${paginas.slice(0, 4).join(', ')}). Controleer die pagina${paginas.length === 1 ? '' : "'s"} in WordPress, het kan spam zijn.`);
-  }
+  const filterMelding = waarschuwingGefilterd(gefilterd);
+  if (filterMelding) waarschuwingen.push(filterMelding);
   return {
     voorstel,
     waarschuwingen,

@@ -341,6 +341,31 @@
       // Nummers in het voorbeeld bij de secties waar een punt over gaat.
       lpState.controleMarkers = punten.map((x, n) => ({ n: n + 1, sectie: x.p.sectieIndex, soort: x.soort })).filter((m) => m.sectie != null);
       if (typeof lpZetMarkers === 'function') lpZetMarkers();
+      kaart.insertAdjacentHTML('beforeend', `<div class="pd-punt" id="pdRedactie"><div class="pd-punt-kop"><div><strong>Tweede lezer</strong><p class="wp-muted np-klein">Een tweede AI leest de pagina als bezoeker die twijfelt en geeft maximaal vijf verbeteringen. Dit duurt ongeveer een halve minuut.</p></div></div><div class="wp-idee-knoppen"><button type="button" class="btn btn-plain" id="pdRedactieKnop">Laat een tweede AI meelezen</button></div><div id="pdRedactieUit"></div></div>`);
+      const redactieKnop = $('pdRedactieKnop');
+      if (redactieKnop) redactieKnop.addEventListener('click', async () => {
+        const uit = $('pdRedactieUit');
+        redactieKnop.disabled = true;
+        redactieKnop.textContent = 'De tweede AI leest mee...';
+        try {
+          const r = await lpApi(`/pages/${page.id}/redactie-check`, { method: 'POST', body: '{}' });
+          if (!r.punten.length) {
+            uit.innerHTML = '<p class="wp-muted">De tweede lezer vond niets dat beter kan.</p>';
+          } else {
+            uit.innerHTML = r.punten.map((p, i) => `<div class="pd-punt"><div class="pd-punt-kop"><span class="pd-nr let-op">${i + 1}</span><div><strong>${esc(p.probleem)}</strong><p class="wp-muted np-klein">${esc(p.aanwijzing)}</p></div></div><div class="wp-idee-knoppen"><button type="button" class="btn btn-plain" data-herschrijf="${i}">Herschrijf dit onderdeel</button></div></div>`).join('');
+            uit.querySelectorAll('[data-herschrijf]').forEach((hb) => hb.addEventListener('click', async () => {
+              const p = r.punten[Number(hb.dataset.herschrijf)];
+              hb.disabled = true;
+              hb.textContent = 'Bezig met herschrijven (ongeveer 20 seconden)...';
+              try {
+                await lpApi(`/pages/${page.id}/herschrijf`, { method: 'POST', body: JSON.stringify({ slots: p.slots, aanwijzing: p.aanwijzing }) });
+                openPageDetail(page.id);
+              } catch (err) { hb.textContent = err.message; hb.disabled = false; }
+            }));
+          }
+        } catch (err) { uit.innerHTML = `<p class="admin-error">${esc(err.message)}</p>`; }
+        finally { redactieKnop.disabled = false; redactieKnop.textContent = 'Laat een tweede AI meelezen'; }
+      });
       kaart.insertAdjacentHTML('beforeend', `<div class="pd-live">
         <h3>Live zetten</h3>
         <button type="button" class="btn btn-approve" id="pdZetLive"${c.ok ? '' : ' disabled'}>Zet live${c.site ? ' op ' + esc(c.site) : ''}</button>
@@ -379,6 +404,11 @@
         try {
           if (a.type === 'verberg') {
             await lpApi(`/pages/${page.id}/verberg`, { method: 'POST', body: JSON.stringify({ type: 'sectie', index: a.sectie, verborgen: true }) });
+          } else if (a.type === 'herschrijf') {
+            b.textContent = 'Bezig met herschrijven (ongeveer 20 seconden)...';
+            await lpApi(`/pages/${page.id}/herschrijf`, { method: 'POST', body: JSON.stringify({ slots: a.slots, aanwijzing: a.aanwijzing }) });
+            openPageDetail(page.id);
+            return;
           } else if (a.type === 'fotos') {
             const r = await lpApi(`/pages/${page.id}/kies-fotos`, { method: 'POST', body: JSON.stringify({ lijst: a.lijst }) });
             if (!r.gewisseld) { b.textContent = r.melding; b.disabled = false; return; }

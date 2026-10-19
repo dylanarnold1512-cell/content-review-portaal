@@ -844,7 +844,7 @@ document.getElementById('lpGenerateContentBtn').addEventListener('click', async 
   try {
     const watGaatDezePaginaOver = document.getElementById('lpInvoerOnderwerp').value;
     const ctaOverride = document.getElementById('lpInvoerCtaOverride').value;
-    const { slotData, imageWarning, linkWarning, siteTekstWarning, iconWarning, faqWarning, zoekvragenWarning, zoekvragenAantal } = await lpApi(`/pages/${page.id}/generate-content`, {
+    const { slotData, imageWarning, linkWarning, siteTekstWarning, iconWarning, faqWarning, zoekvragenWarning, zoekvragenAantal, klantverhaalWarning, planWaarschuwing, schrijfplan } = await lpApi(`/pages/${page.id}/generate-content`, {
       method: 'POST',
       body: JSON.stringify({ watGaatDezePaginaOver, ctaOverride })
     });
@@ -857,7 +857,19 @@ document.getElementById('lpGenerateContentBtn').addEventListener('click', async 
     // titel was gegenereerd (hij stond alleen nog niet op de juiste plek).
     if (slotData.metaTitle) document.getElementById('lpMetaTitle').value = slotData.metaTitle;
     if (slotData.metaDescription) document.getElementById('lpMetaDescription').value = slotData.metaDescription;
-    const waarschuwingen = [imageWarning, linkWarning, siteTekstWarning, iconWarning, faqWarning, zoekvragenWarning].filter(Boolean).join(' ');
+    const waarschuwingen = [imageWarning, linkWarning, siteTekstWarning, iconWarning, faqWarning, zoekvragenWarning, klantverhaalWarning, planWaarschuwing].filter(Boolean).join(' ');
+    // Het plan van ronde 1 (verhaallijn per onderdeel), zodat te zien is waarom de tekst zo is opgebouwd.
+    const planBox = document.getElementById('lpSchrijfplan');
+    if (planBox) {
+      const esc2 = (t) => String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+      if (schrijfplan && schrijfplan.secties && schrijfplan.secties.length) {
+        document.getElementById('lpSchrijfplanTekst').innerHTML = (schrijfplan.leidraad ? `<p><strong>${esc2(schrijfplan.leidraad)}</strong></p>` : '')
+          + '<ol>' + schrijfplan.secties.map((sec) => `<li><strong>${esc2(sec.rol)}</strong> (${esc2(sec.slots.join(', '))}): ${esc2(sec.kernboodschap)}</li>`).join('') + '</ol>';
+        planBox.classList.remove('hidden');
+      } else {
+        planBox.classList.add('hidden');
+      }
+    }
     statusEl.textContent = waarschuwingen
       ? `Voorstel gegenereerd — ${waarschuwingen} Controleer en klik daarna op "Opslaan" bij de tekst als code.`
       : `Voorstel gegenereerd (tekst, meta, afbeeldingen en interne links${zoekvragenAantal ? `, vragen uit ${zoekvragenAantal} echte zoekvragen` : ''}) — controleer en pas aan waar nodig (klik in het voorbeeldscherm op een afbeelding om te wisselen), klik daarna op "Opslaan".`;
@@ -2553,7 +2565,7 @@ document.getElementById('lpIntakeSubmitBtn').addEventListener('click', async () 
   btn.disabled = true;
   try {
     await lpApi('/intake', { method: 'POST', body: JSON.stringify({ klantnaam, klantId, intake }) });
-    alert('Intake verzonden en opgeslagen in Notion met status "Nieuw". Start nu een chat in het project LP Fabriek en vraag Claude de intake van deze klant te verwerken.');
+    alert('Intake verzonden en opgeslagen in Notion met status "Nieuw". Start nu een chat in het project LP Fabriek en vraag Claude de intake van deze klant te verwerken. Daarna maak je bij Klantgegevens het klantverhaal van de klant en keur je het goed, voordat je de eerste pagina schrijft.');
     document.getElementById('lpIntakeKlantnaam').value = '';
     document.getElementById('lpIntakeKlantId').value = '';
     document.getElementById('lpIntakeToonNotitie').value = '';

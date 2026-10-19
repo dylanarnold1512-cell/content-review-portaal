@@ -75,4 +75,22 @@ function filterBrontekst(tekst, opties = {}) {
   return { tekst: over.join('\n'), verwijderd };
 }
 
-module.exports = { filterBrontekst, beoordeelRegel, spamTreffers, taalAandelen };
+
+// Korte melding voor de beheerder over wat er uit de bron is gehaald. Alleen spam en een andere taal zijn een melding waard;
+// thema placeholders ("View More", "Contact") zijn gewoon ruis en worden zonder melding genegeerd.
+function waarschuwingGefilterd(gefilterd) {
+  const lijst = Array.isArray(gefilterd) ? gefilterd : [];
+  const pagina = (g) => g.titel || g.url || 'een pagina';
+  const uniek = (x) => [...new Set(x)];
+  const delen = [];
+  const spam = lijst.filter((g) => /spam/i.test(g.reden || ''));
+  if (spam.length) {
+    delen.push(`Op de website staat tekst die op spam lijkt (${spam.length} regels op: ${uniek(spam.map(pagina)).slice(0, 5).join(', ')}), bijvoorbeeld "${String(spam[0].regel || '').slice(0, 90)}". Die tekst is genegeerd. Zoek in WordPress naar de oorzaak, het kan een hack zijn.`);
+  }
+  const taal = lijst.filter((g) => /andere taal/i.test(g.reden || ''));
+  if (taal.length) delen.push(`Tekst in een andere taal is genegeerd (${taal.length} regels op: ${uniek(taal.map(pagina)).slice(0, 4).join(', ')}).`);
+  return delen.length ? delen.join(' ') : null;
+}
+
+module.exports = {
+  waarschuwingGefilterd, filterBrontekst, beoordeelRegel, spamTreffers, taalAandelen };

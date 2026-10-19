@@ -1,5 +1,6 @@
 const { forEachTextLeaf, INLINE_LINK_RE } = require('./slotEngine');
 const { berekenOverrides, filterSlotData, pasSectiesToe } = require('./overrides');
+const { sjabloonRolWaarschuwingen } = require('./verhaal');
 
 // LP Fabriek: validator voor publicatie. Twee paden naast elkaar sinds
 // bouwvolgorde-stap 3 (koerswijziging naar vrije templates, zie
@@ -280,6 +281,9 @@ function validateTemplateStructure(blueprint) {
   if (ctaZonderKlasse.length) {
     warnings.push(`${ctaZonderKlasse.length} CTA-knop(pen) hebben niet de klasse "lp-cta-button": de knopvorm van de klant (afronding, hoofdletters, lettertype) wordt dan niet overgenomen. Vraag in de feedback om die klasse op elke CTA-knop.`);
   }
+
+  // Waarschuwing, 19-10-2026: een sjabloon zonder bewijs, zonder vragen of met de werkwijze voor het aanbod bouwt geen goed verhaal.
+  warnings.push(...sjabloonRolWaarschuwingen(blueprint));
 
   const h1Matches = [...html.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/gi)];
   if (h1Matches.length !== 1) {

@@ -127,13 +127,17 @@
   function renderKv() {
     const kv = state.kv;
     const doel = $('kgKvInhoud');
-    if (!kv) { doel.innerHTML = '<p class="kv-leeg">Er is nog geen klantverhaal. Klik op "Analyseer klantverhaal" om het van de website te laten opstellen.</p>'; return; }
+    if (!kv) {
+      doel.innerHTML = '<p class="kv-leeg">Er is nog geen klantverhaal. Klik op "Analyseer klantverhaal" om het van de website te laten opstellen. Zonder klantverhaal klinken de pagina\'s van deze klant minder persoonlijk.</p><button type="button" class="btn btn-plain" id="kgKvLeeg">Zelf een leeg klantverhaal beginnen</button>';
+      $('kgKvLeeg').addEventListener('click', () => { state.kv = nieuwKv(); renderKv(); });
+      return;
+    }
     const delen = [];
     delen.push(`<div class="kv-status"><label><input type="checkbox" id="kgKvGoed"${kv.status === 'goedgekeurd' ? ' checked' : ''}> Goedgekeurd, gebruik dit bij Content genereren</label><label>Aanspreekvorm <select id="kgKvVorm"><option value="je"${kv.stem.aanspreekvorm === 'je' ? ' selected' : ''}>je</option><option value="u"${kv.stem.aanspreekvorm === 'u' ? ' selected' : ''}>u</option></select></label><span class="wp-muted">Status: ${kv.status === 'goedgekeurd' ? 'goedgekeurd' : 'concept'}</span></div>`);
     delen.push(`<h3 class="kv-kop">Stem van het bedrijf</h3><div class="kv-stem"><div class="wp-veld"><label for="kgKvKenmerken">Kenmerken (een per regel)</label><textarea id="kgKvKenmerken" rows="3">${esc((kv.stem.kenmerken || []).join('\n'))}</textarea></div></div>`);
-    delen.push(`<h3 class="kv-kop">Voorbeeldzinnen van de eigen site</h3>${rijenKv('voorbeeldzinnen', kv.stem.voorbeeldzinnen, [['tekst', 'Zin', 'textarea']])}`);
+    delen.push(`<h3 class="kv-kop">Voorbeeldzinnen van de eigen site</h3>${rijenKv('voorbeeldzinnen', kv.stem.voorbeeldzinnen, [['tekst', 'Zin', 'textarea']])}${plusKnop('voorbeeldzinnen')}`);
     delen.push(`<h3 class="kv-kop">Gezicht</h3>${kv.gezicht ? `<div class="kv-rij"><input type="text" data-pad="gezicht.naam" value="${esc(kv.gezicht.naam)}" placeholder="Naam"><textarea rows="3" data-pad="gezicht.tekst" placeholder="Wat deze persoon zelf zegt">${esc(kv.gezicht.tekst)}</textarea><button type="button" class="btn btn-plain" data-weg-gezicht>Verwijder</button><div class="kv-bron">Bron: ${bronLink(kv.gezicht.bron)}</div></div>` : '<p class="kv-leeg">Geen persoon gevonden op de site.</p>'}`);
-    SECTIES.forEach((sec) => { delen.push(`<h3 class="kv-kop">${esc(sec.titel)}</h3>${rijenKv(sec.sleutel, kv[sec.sleutel], sec.velden)}`); });
+    SECTIES.forEach((sec) => { delen.push(`<h3 class="kv-kop">${esc(sec.titel)}</h3>${rijenKv(sec.sleutel, kv[sec.sleutel], sec.velden)}${plusKnop(sec.sleutel)}`); });
     if ((kv.tegenstrijdig || []).length) {
       delen.push('<h3 class="kv-kop">Tegenstrijdig op de site: kies wat klopt</h3>' + kv.tegenstrijdig.map((t, i) => `<div class="kv-rij"><div>${esc(t.onderwerp)}</div><select data-keuze="${i}"><option value="">Niet noemen op de pagina\'s</option>${t.waarden.map((w) => `<option value="${esc(w.waarde)}"${t.gekozen === w.waarde ? ' selected' : ''}>${esc(w.waarde)}</option>`).join('')}</select><span></span><div class="kv-bron">${t.waarden.map((w) => `${esc(w.waarde)}: ${bronLink(w.bron)}`).join(' &nbsp; ')}</div></div>`).join(''));
     }
@@ -145,6 +149,18 @@
     }
     doel.innerHTML = delen.join('');
     koppelKv();
+  }
+
+  const NIEUW_ITEM = {
+    voorbeeldzinnen: () => ({ tekst: '', bron: 'eigen aanvulling' }),
+    waaromKiezen: () => ({ punt: '', uitleg: '', bron: 'eigen aanvulling', citaat: '' }),
+    twijfels: () => ({ twijfel: '', antwoord: '', bron: 'eigen aanvulling', citaat: '' }),
+    bewijs: () => ({ soort: 'review', wie: '', tekst: '', bron: 'eigen aanvulling', citaat: '' }),
+    werkwijze: () => ({ stap: '', uitleg: '', bron: 'eigen aanvulling', citaat: '' })
+  };
+
+  function plusKnop(sleutel) {
+    return `<p><button type="button" class="btn btn-plain" data-plus="${sleutel}">+ Zelf toevoegen</button></p>`;
   }
 
   function rijenKv(sleutel, lijst, velden) {
@@ -172,6 +188,11 @@
     document.querySelectorAll('#kgKvInhoud [data-weg]').forEach((el) => el.addEventListener('click', () => {
       const [sleutel, i] = el.dataset.weg.split('.');
       (sleutel === 'voorbeeldzinnen' ? kv.stem.voorbeeldzinnen : kv[sleutel]).splice(Number(i), 1);
+      renderKv();
+    }));
+    document.querySelectorAll('#kgKvInhoud [data-plus]').forEach((el) => el.addEventListener('click', () => {
+      const sleutel = el.dataset.plus;
+      (sleutel === 'voorbeeldzinnen' ? kv.stem.voorbeeldzinnen : kv[sleutel]).push(NIEUW_ITEM[sleutel]());
       renderKv();
     }));
     document.querySelectorAll('#kgKvInhoud [data-weg-niet]').forEach((el) => el.addEventListener('click', () => { kv.nietGebruiken.splice(Number(el.dataset.wegNiet), 1); renderKv(); }));
@@ -241,7 +262,7 @@
     try {
       const { klanten } = await lpApi('/klantgegevens');
       const sel = $('kgKlant');
-      sel.innerHTML = klanten.map((k) => `<option value="${esc(k.id)}">${esc(k.naam)}</option>`).join('') + '<option value="__nieuw">+ Nieuwe klant</option>';
+      sel.innerHTML = klanten.map((k) => `<option value="${esc(k.id)}">${esc(k.naam)}${k.klantverhaal === 'ontbreekt' ? ' (klantverhaal ontbreekt)' : (k.klantverhaal === 'concept' ? ' (klantverhaal nog niet goedgekeurd)' : '')}</option>`).join('') + '<option value="__nieuw">+ Nieuwe klant</option>';
       const id = kies || (klanten[0] && klanten[0].id);
       if (id) { sel.value = id; await laadKlant(id); }
     } catch (err) { fout(err.message); }
@@ -272,7 +293,7 @@
       $('kgNieuwKaart').classList.add('hidden');
       $('kgFormulier').classList.remove('hidden');
       await laadLijst(klant.id);
-      status('Klant aangemaakt. Vul nu de gegevens en feiten in.');
+      status('Klant aangemaakt. Vul nu de gegevens en feiten in en maak daarna het klantverhaal met "Analyseer klantverhaal".');
     } catch (err) { fout(err.message); }
   });
 

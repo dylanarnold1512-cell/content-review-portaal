@@ -25,6 +25,7 @@ const { INLINE_LINK_RE, forEachTextLeaf, ICON_NAMES, findUnknownIcons } = requir
 // vaste slot-namen/regels hieronder, dus die staan hier expres niet in.
 const { verwijderReviewAanhalingstekens } = require('./aanhalingstekens');
 const { PAGINA_OPBOUW_REGELS, bouwKlantverhaalBlok } = require('./klantverhaal');
+const verhaal = require('./verhaal');
 const VASTE_ONDERDELEN_OPTIES = ['usps', 'stappen', 'aanbod', 'praktisch', 'reviews', 'faq', 'doelgroep', 'galerij'];
 
 const VASTE_ONDERDELEN_LABELS = {
@@ -54,6 +55,8 @@ Een sjabloon (blueprint) is een JSON-object met exact deze velden:
                              // var(--lp-font-heading), var(--lp-font-body), var(--lp-cta-bg),
                              // var(--lp-cta-text).
   "slots": [ { "key": string, "label": string, "type": "text" | "list", "verplicht": boolean,
+               "rol": "hero" | "aanbod" | "waarom" | "werkwijze" | "bewijs" | "twijfels" | "actie" | "overig" (optioneel, de plek van dit
+                 onderdeel in het verhaal van de pagina; zonder "rol" wordt hij uit de naam van het slot afgeleid),
                "itemFields": string[] (alleen bij type "list", bv. ["question","answer"]) } ],
   "invoerVelden": [ { "key": string, "label": string, "verplicht": boolean,
                        "voorbeeld": string (kort, realistisch voorbeeld van een goed ingevulde waarde voor dit
@@ -64,6 +67,14 @@ Een sjabloon (blueprint) is een JSON-object met exact deze velden:
   "ctaRegel": { "verplicht": boolean },
   "seoRegels": { "exactEenH1": true, "metaTitleMin": number, "metaTitleMax": number, "metaDescriptionMin": number, "metaDescriptionMax": number }
 }
+
+VERHAALLIJN VAN DE PAGINA (zo bouw je het sjabloon op, de teksten volgen deze volgorde):
+1. hero: herkenning en belofte. 2. aanbod: wat het bedrijf doet. 3. waarom: redenen om te kiezen.
+4. werkwijze: zo gaat het na de aanvraag. 5. bewijs: reviews en projecten. 6. twijfels: veelgestelde vragen.
+7. actie: formulier of knop. Zet het aanbod altijd voor de werkwijze en het bewijs voor het formulier. Maak per rol
+een onderdeel en niet drie onderdelen die hetzelfde zeggen (bijvoorbeeld geen losse blokken "voordelen", "redenen" en
+"kenmerken" op een pagina). Slotnamen die beginnen met hero, offer of aanbod, usp of waarom, steps of werkwijze,
+reviews of projects, faq en cta krijgen automatisch de passende rol.
 
 VASTE SLOT-NAMEN (verplicht deze exacte "key"-waarden gebruiken voor deze onderdelen, ze worden
 mechanisch gecontroleerd):
@@ -839,8 +850,237 @@ ${focus.onderwerp ? `Onderwerp: ${focus.onderwerp}\n` : ''}${focus.instructie ? 
 - De opbouw en het aantal onderdelen blijven zoals het sjabloon ze vraagt.`;
 }
 
-async function generatePageContent({ klant, template, invoer, feiten, watGaatDezePaginaOver, ctaOverride, linkKandidaten, zusterInhoud, siteTeksten, zoekvragen, zusterVragen, klantverhaal, bedrijfsnaam }) {
+
+// ---- Stap 2 van de verhaallijn (19-10-2026): eerst een plan per onderdeel, dan pas de tekst ----
+
+function sectieOverzichtVoorPrompt(template) {
+  return verhaal.verhaalSecties(template).map((sec) => ({
+    rol: sec.rol,
+    naam: verhaal.ROL_TAKEN[sec.rol].naam,
+    taak: verhaal.ROL_TAKEN[sec.rol].taak,
+    slots: sec.slots.map((x) => ({ key: x.key, label: x.label, type: x.type, velden: x.itemFields }))
+  }));
+}
+
+const SCHRIJFPLAN_SYSTEEMPROMPT = `Je bent eindredacteur van een landingspagina. Je schrijft nog geen tekst. Je maakt het PLAN dat een tekstschrijver straks volgt, zodat de pagina een verhaal wordt dat de bezoeker van begin tot eind meeneemt en nergens hetzelfde zegt.
+
+De bezoeker stelt in deze volgorde vragen: herkent dit bedrijf mijn vraag (hero), wat doen ze precies voor mij (aanbod), waarom zij (waarom), wat gebeurt er na mijn aanvraag (werkwijze), is dit echt waar (bewijs), wat als het misgaat (twijfels), hoe begin ik (actie). Elk onderdeel van de pagina beantwoordt een van die vragen en bouwt voort op het vorige.
+
+REGELS
+- Gebruik alleen punten die in de feiten, het klantverhaal of de bronteksten staan. Verzin niets.
+- Elk punt (feit, voordeel of reden) krijgt een plek waar het uitgebreid staat ("uitgebreid") en hooguit een plek waar het kort terugkomt ("kort"). Nooit op drie plekken.
+- Geef elk onderdeel een eigen kernboodschap in een zin, die duidelijk anders is dan die van de andere onderdelen.
+- Schrijf per onderdeel wat het voor de bezoeker oplevert (rust, tijd, zekerheid) en niet alleen wat het bedrijf doet.
+- Gebruik bij bewijs alleen echte reviews en projecten uit het klantverhaal of de bronteksten. Is er geen bewijs, zeg dat dan bij "bewijs" en laat het onderdeel zo kort mogelijk.
+- Zijn er twijfels van klanten bekend (klantverhaal), laat dan de twijfel-onderdelen die beantwoorden. Anders de gebruikelijke zorgen bij dit soort werk, alleen als de bronteksten er iets over zeggen.
+- Kies voor de hero een persoonlijke opening: de bezoeker direct aanspreken en het bedrijf als "wij".
+- Schrijf eenvoudig Nederlands. Gebruik geen streepjes als leesteken.
+
+ANTWOORD ALLEEN MET JSON:
+{
+  "leidraad": "twee zinnen: wat voelt en doet de bezoeker aan het einde van de pagina",
+  "secties": [ { "rol": "hero", "slots": ["heroTitle","heroIntro"], "kernboodschap": "een zin", "gebruik": ["korte aanduiding van feit of klantverhaalpunt"], "nietHier": ["wat hier juist niet mag staan omdat het elders staat"] } ],
+  "verdeling": [ { "punt": "feit of reden in een paar woorden", "uitgebreid": "slotnaam", "kort": "slotnaam of leeg" } ]
+}
+"secties" bevat precies de onderdelen die je in de lijst krijgt, in dezelfde volgorde en met dezelfde slotnamen.`;
+
+function schoonPlan(ruw, template) {
+  if (!ruw || typeof ruw !== 'object' || !Array.isArray(ruw.secties)) return null;
+  const tekst = (v, max) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, max);
+  const lijst = (v, max, n) => (Array.isArray(v) ? v : []).map((x) => tekst(x, max)).filter(Boolean).slice(0, n);
+  const geldig = new Set((Array.isArray(template && template.slots) ? template.slots : []).map((x) => x.key));
+  const secties = ruw.secties.map((sec) => ({
+    rol: verhaal.ROLLEN.includes(sec && sec.rol) ? sec.rol : 'overig',
+    slots: lijst(sec && sec.slots, 60, 12).filter((k) => geldig.has(k)),
+    kernboodschap: tekst(sec && sec.kernboodschap, 240),
+    gebruik: lijst(sec && sec.gebruik, 160, 6),
+    nietHier: lijst(sec && sec.nietHier, 160, 6)
+  })).filter((sec) => sec.slots.length && sec.kernboodschap).slice(0, 12);
+  if (!secties.length) return null;
+  const verdeling = (Array.isArray(ruw.verdeling) ? ruw.verdeling : []).map((v) => ({
+    punt: tekst(v && v.punt, 120), uitgebreid: tekst(v && v.uitgebreid, 60), kort: tekst(v && v.kort, 60)
+  })).filter((v) => v.punt && v.uitgebreid).slice(0, 20);
+  return { leidraad: tekst(ruw.leidraad, 400), secties, verdeling };
+}
+
+function bouwSchrijfplanBlok(plan) {
+  if (!plan) return '';
+  const regels = [`SCHRIJFPLAN (door de eindredacteur opgesteld, volg dit plan; het voorkomt dat onderdelen hetzelfde zeggen)`];
+  if (plan.leidraad) regels.push(`Leidraad van de pagina: ${plan.leidraad}`);
+  regels.push('Per onderdeel:');
+  plan.secties.forEach((sec) => {
+    const naam = verhaal.ROL_TAKEN[sec.rol] ? verhaal.ROL_TAKEN[sec.rol].naam : sec.rol;
+    regels.push(`- ${naam} (${sec.slots.join(', ')}): ${sec.kernboodschap}${sec.gebruik.length ? ` Gebruik: ${sec.gebruik.join('; ')}.` : ''}${sec.nietHier.length ? ` Niet hier: ${sec.nietHier.join('; ')}.` : ''}`);
+  });
+  if (plan.verdeling.length) {
+    regels.push('Waar elk punt staat (op de aangewezen plek uitgebreid, op de korte plek hooguit een zin, nergens anders):');
+    plan.verdeling.forEach((v) => regels.push(`- ${v.punt}: uitgebreid bij ${v.uitgebreid}${v.kort ? `, kort bij ${v.kort}` : ''}`));
+  }
+  regels.push('Schrijf elk onderdeel vanuit de kernboodschap van dat onderdeel. Geen enkele zin mag op twee plekken staan.');
+  return regels.join('\n');
+}
+
+// Ronde 1. Mislukt dit, dan schrijft de AI toch een pagina (zonder plan): nooit blokkerend.
+async function maakSchrijfPlan({ klant, template, invoer, feiten, watGaatDezePaginaOver, siteTeksten, klantverhaal, bedrijfsnaam }) {
+  const overzicht = sectieOverzichtVoorPrompt(template);
+  if (!overzicht.length) return null;
+  const userPrompt = `Klant: ${klant}
+Onderwerp van de pagina: ${watGaatDezePaginaOver || '(niet opgegeven)'}
+Invoervelden: ${JSON.stringify(invoer || {})}
+
+Onderdelen van de pagina, in de volgorde waarin ze staan:
+${JSON.stringify(overzicht, null, 2)}
+
+Feiten (alleen wat hier of in het klantverhaal of de bronteksten staat mag gebruikt worden):
+${JSON.stringify(feiten || [])}
+
+${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam }) || 'Er is geen goedgekeurd klantverhaal.'}
+
+${siteTeksten ? `Bronteksten van de klantsite (ingekort):\n${String(siteTeksten).slice(0, 14000)}` : 'Er zijn geen bronteksten van de klantsite.'}`;
+  const ruw = await callOpenAi({ systemPrompt: SCHRIJFPLAN_SYSTEEMPROMPT, userPrompt });
+  return schoonPlan(ruw, template);
+}
+
+// ---- Stap 3: een tweede, onafhankelijke lezer en het herschrijven van alleen de aangewezen onderdelen ----
+
+const REDACTIE_SYSTEEMPROMPT = `Je bent een kritische eindredacteur die een landingspagina leest zoals een bezoeker: iemand die een aanvraag overweegt en twijfelt. Je hebt de pagina niet geschreven en je bent niet aardig voor de schrijver.
+
+Beoordeel in deze volgorde van belang:
+1. Spreekt de pagina de bezoeker persoonlijk aan, of klinkt het als een brochure (bedrijfsnaam voluit, "het bedrijf", lijdende vorm)?
+2. Staat dezelfde boodschap op meer dan twee plekken, of beginnen onderdelen met hetzelfde idee?
+3. Klopt de verhaallijn: eerst herkenning, dan wat het bedrijf doet, waarom zij, hoe het werkt, bewijs, twijfels, actie? Staat iets op een verkeerde plek of ontbreekt een stap?
+4. Is er bewijs (echte reviews, echte projecten, echte cijfers) of alleen beweringen?
+5. Staan er lege zinnen die niets zeggen, of beloften zonder feit?
+6. Wordt een echte twijfel van de bezoeker (kosten, planning, overlast, vergunning) beantwoord?
+
+REGELS
+- Geef maximaal 5 verbeteringen, de belangrijkste eerst. Liever 2 raak dan 5 vaag. Is de pagina goed, geef dan een lege lijst.
+- Elke verbetering wijst naar de slots (sleutels uit de pagina) die herschreven moeten worden, en geeft een concrete opdracht aan de schrijver. Geen algemene adviezen.
+- Verzin geen nieuwe feiten in je opdracht. Gebruik alleen wat in de pagina, het klantverhaal of de feiten staat.
+- Herhaal geen punt dat al in de lijst "al gevonden" staat.
+- Schrijf eenvoudig Nederlands. Gebruik geen streepjes als leesteken.
+
+ANTWOORD ALLEEN MET JSON: { "verbeteringen": [ { "slots": ["slotnaam"], "probleem": "wat een bezoeker hier merkt, een zin", "aanwijzing": "concrete opdracht aan de schrijver" } ] }`;
+
+async function redactieReview({ klant, template, slotData, klantverhaal, bedrijfsnaam, alGevonden }) {
+  const velden = verhaal.tekstVelden(slotData);
+  if (velden.length < 3) return [];
+  const pagina = {};
+  velden.forEach((v) => { pagina[v.pad] = v.tekst; });
+  const sleutels = [...new Set(velden.map((v) => v.slot))];
+  const userPrompt = `Klant: ${klant}
+Onderdelen en hun rol in het verhaal:
+${JSON.stringify(sectieOverzichtVoorPrompt(template), null, 2)}
+
+De pagina (pad: tekst):
+${JSON.stringify(pagina, null, 2)}
+
+${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam }) || 'Er is geen goedgekeurd klantverhaal.'}
+
+Al gevonden door de automatische controle (herhaal deze niet):
+${(alGevonden || []).map((t) => `- ${t}`).join('\n') || '(niets)'}
+
+Toegestane slotnamen voor "slots": ${sleutels.join(', ')}`;
+  const ruw = await callOpenAi({ systemPrompt: REDACTIE_SYSTEEMPROMPT, userPrompt });
+  const toegestaan = new Set(sleutels);
+  const tekst = (v, max) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, max);
+  return (Array.isArray(ruw && ruw.verbeteringen) ? ruw.verbeteringen : [])
+    .map((v) => ({
+      slots: [...new Set((Array.isArray(v && v.slots) ? v.slots : []).map((k) => tekst(k, 60)).filter((k) => toegestaan.has(k)))],
+      probleem: tekst(v && v.probleem, 300),
+      aanwijzing: tekst(v && v.aanwijzing, 600)
+    }))
+    .filter((v) => v.slots.length && v.probleem && v.aanwijzing)
+    .slice(0, 5);
+}
+
+const HERSCHRIJF_SYSTEEMPROMPT = `Je herschrijft een DEEL van een bestaande landingspagina. De rest van de pagina blijft zoals hij is en staat hieronder ter context, zodat je niets herhaalt wat er al staat en de toon gelijk blijft.
+
+REGELS
+- Je krijgt de slots die je moet herschrijven en een opdracht. Geef alleen die slots terug, in dezelfde vorm: een tekstslot als tekst, een lijstslot als lijst met precies dezelfde velden per item en hetzelfde aantal items in dezelfde volgorde.
+- Gebruik alleen feiten uit de feiten, het klantverhaal en de bronteksten. Verzin geen cijfers, namen of beloften. Reviews blijven letterlijk zoals ze zijn.
+- Vul geen afbeeldingvelden in. Laat die velden weg.
+- Behoud links in de vorm [tekst](url) alleen als de url al in de huidige tekst staat.
+- Schrijf persoonlijk en direct, eenvoudig Nederlands, zonder streepjes als leesteken.
+
+ANTWOORD ALLEEN MET JSON: { "slotData": { "<slotnaam>": ... } }`;
+
+const NIET_HERSCHRIJFBAAR_RE = /^(meta|cta|links)|(Href|Src|Alt)$/i;
+
+async function herschrijfOnderdelen({ klant, template, slotData, slots, aanwijzing, klantverhaal, bedrijfsnaam, feiten, siteTeksten }) {
+  const definitie = new Map((Array.isArray(template && template.slots) ? template.slots : []).map((x) => [x.key, x]));
+  const gevraagd = [...new Set(Array.isArray(slots) ? slots : [])].filter((k) => definitie.has(k) && !NIET_HERSCHRIJFBAAR_RE.test(k) && slotData && slotData[k] !== undefined);
+  if (!gevraagd.length) throw new Error('Er is geen onderdeel gekozen dat herschreven kan worden.');
+  const huidig = {};
+  gevraagd.forEach((k) => { huidig[k] = slotData[k]; });
+  const rest = {};
+  verhaal.tekstVelden(slotData).forEach((v) => { if (!gevraagd.includes(v.slot)) rest[v.pad] = v.tekst; });
+  const userPrompt = `Klant: ${klant}
+
+Opdracht: ${String(aanwijzing || '').slice(0, 800) || 'Maak deze onderdelen persoonlijker en haal herhaling weg.'}
+
+Te herschrijven slots (huidige inhoud):
+${JSON.stringify(huidig, null, 2)}
+
+Beschrijving van die slots:
+${JSON.stringify(gevraagd.map((k) => ({ key: k, type: definitie.get(k).type, label: definitie.get(k).label, velden: definitie.get(k).itemFields })), null, 2)}
+
+De rest van de pagina (pad: tekst), niet aanpassen:
+${JSON.stringify(rest, null, 2)}
+
+Feiten: ${JSON.stringify(feiten || [])}
+
+${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam }) || 'Er is geen goedgekeurd klantverhaal.'}
+
+${PAGINA_OPBOUW_REGELS}
+
+${siteTeksten ? `Bronteksten van de klantsite (ingekort):\n${String(siteTeksten).slice(0, 14000)}` : ''}`;
+  const ruw = await callOpenAi({ systemPrompt: HERSCHRIJF_SYSTEEMPROMPT, userPrompt });
+  const nieuw = ruw && typeof ruw.slotData === 'object' && ruw.slotData ? ruw.slotData : null;
+  if (!nieuw) throw new Error('Het AI-antwoord miste het veld "slotData". Er is niets veranderd.');
+  const resultaat = {};
+  gevraagd.forEach((k) => {
+    const waarde = nieuw[k];
+    const def = definitie.get(k);
+    if (def.type === 'list') {
+      if (!Array.isArray(waarde) || !waarde.length) return;
+      const oud = Array.isArray(slotData[k]) ? slotData[k] : [];
+      resultaat[k] = waarde.filter((i) => i && typeof i === 'object').map((item, i) => {
+        const samen = { ...item };
+        // Afbeeldingen en andere niet herschreven velden blijven bij hun item.
+        const vorig = oud[i] && typeof oud[i] === 'object' ? oud[i] : {};
+        Object.keys(vorig).forEach((veld) => {
+          if (IMAGE_SRC_RE.test(veld) || IMAGE_ALT_RE.test(veld) || !(def.itemFields || []).includes(veld)) samen[veld] = vorig[veld];
+        });
+        return samen;
+      });
+    } else if (typeof waarde === 'string' && waarde.trim()) {
+      resultaat[k] = waarde;
+    }
+  });
+  if (!Object.keys(resultaat).length) throw new Error('Het AI-antwoord bevatte geen bruikbare tekst voor deze onderdelen. Er is niets veranderd.');
+  // Dezelfde veiligheidsnetten als bij het schrijven van een pagina.
+  const toegestaneLinks = [];
+  const bekijk = (t) => { String(t || '').replace(INLINE_LINK_RE, (m, label, href) => { toegestaneLinks.push({ url: href }); return m; }); };
+  forEachTextLeaf(slotData, (pad, w) => bekijk(w));
+  verwijderVerzonnenLinks(resultaat, toegestaneLinks);
+  verwijderPlaceholderWaarden(resultaat);
+  verwijderReviewAanhalingstekens(resultaat);
+  return { slotData: { ...slotData, ...resultaat }, gewijzigd: Object.keys(resultaat) };
+}
+
+async function generatePageContent({ klant, template, invoer, feiten, watGaatDezePaginaOver, ctaOverride, linkKandidaten, zusterInhoud, siteTeksten, zoekvragen, zusterVragen, klantverhaal, bedrijfsnaam, zonderPlan }) {
   const systemPrompt = buildContentSystemPrompt(template);
+  // Ronde 1: een plan per onderdeel. Mislukt het, dan schrijven we gewoon zonder plan.
+  let schrijfplan = null;
+  let planWaarschuwing = null;
+  if (!zonderPlan) {
+    try {
+      schrijfplan = await maakSchrijfPlan({ klant, template, invoer, feiten, watGaatDezePaginaOver, siteTeksten, klantverhaal, bedrijfsnaam });
+    } catch (planErr) {
+      planWaarschuwing = `Het plan voor de verhaallijn kon niet gemaakt worden (${planErr.message}), de tekst is zonder plan geschreven.`;
+    }
+  }
   const userPrompt = `Klant: ${klant}
 
 Invoervelden voor deze pagina:
@@ -862,6 +1102,8 @@ ${JSON.stringify(feiten || [], null, 2)}
 ${siteTeksten ? `Bronteksten van de eigen website van de klant (automatisch gelezen, ${siteTeksten.split('\n--- ').length} pagina's). Dit is je hoofdbron voor de inhoud, volg de regels voor brontekst hierboven:\n${siteTeksten}` : 'Er zijn geen bronteksten van de klantsite beschikbaar, werk alleen met de feiten en de invoer.'}
 
 ${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam }) || 'Er is voor deze klant nog geen goedgekeurd klantverhaal, volg de opbouwregels hierboven en werk alleen met de bronteksten en de feiten.'}
+
+${bouwSchrijfplanBlok(schrijfplan)}
 
 Feiten met "standaard": true zijn vaste praktische gegevens van de klant (bv. in- en uitchecktijden, kamertypes, ligging). Neem ze op in de praktische informatie en de kamertypes van de pagina, voor zover het sjabloon daar een plek voor heeft, en gebruik de formulering (bv. namen van kamertypes en tijden) precies zoals ze er staan.
 
@@ -885,7 +1127,7 @@ ${JSON.stringify(linkKandidaten || [], null, 2)}${bouwZusterBlok(zusterInhoud)}$
         .map((p) => `${p.path}: "${p.value}"`)
         .join(', ')}) — deze tonen nu een neutraal fallback-icoon. Pas de content aan met een geldige icoonnaam.`
     : null;
-  return { slotData, iconWarning };
+  return { slotData, iconWarning, schrijfplan, planWaarschuwing };
 }
 
 // Een veld in een lijst-item zonder bron (bv. de soort klus onder een review) hoort leeg te blijven. Het model vult
@@ -1107,6 +1349,11 @@ module.exports = {
   refineTemplateProposal,
   refineSectionProposal,
   generatePageContent,
+  maakSchrijfPlan,
+  bouwSchrijfplanBlok,
+  schoonPlan,
+  redactieReview,
+  herschrijfOnderdelen,
   bouwZusterBlok,
   bouwVragenBlok,
   formatKlantBronnenVoorSjabloon,

@@ -378,7 +378,8 @@ function overzicht() {
     naam: (clients[id].profile || {}).naam || id,
     inNotion: notionData.has(id),
     inCode: Boolean(CODE_BASIS[id]),
-    aantalFeiten: (clients[id].feiten || []).length
+    aantalFeiten: (clients[id].feiten || []).length,
+    klantverhaal: (clients[id].profile || {}).klantverhaal ? ((clients[id].profile.klantverhaal.status === 'goedgekeurd') ? 'goedgekeurd' : 'concept') : 'ontbreekt'
   }));
 }
 
