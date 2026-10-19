@@ -250,6 +250,7 @@ const PAGINA_OPBOUW_REGELS = `OPBOUW VAN DE PAGINA (rode draad voor elke klant):
 - Elke sectie heeft een eigen taak in het verhaal van de bezoeker: herkenning en belofte (hero), wat we voor je doen (diensten of aanbod), waarom bij ons, zo gaat het (werkwijze), bewijs (reviews en projecten), twijfels weg (veelgestelde vragen), actie (formulier). Een sectie herhaalt niet wat een eerdere al zei, maar bouwt erop voort.
 - Een feit of voordeel staat op hooguit twee plekken: een keer uitgebreid en hooguit een keer kort terug (bijvoorbeeld in de hero en bij de veelgestelde vragen). Geef elk voordeel een eigen onderwerp en eigen woorden: vier voordelen die dezelfde reden herhalen zijn een voordeel.
 - Vertel bij een voordeel wat het voor de bezoeker betekent (rust, tijd, zekerheid), niet alleen wat het bedrijf doet. Spreek de bezoeker direct aan en schrijf als een persoon, niet als een brochure. Gebruik niet steeds de bedrijfsnaam voluit.
+- Redenen om te kiezen haal je uit wat klanten zelf zeggen in reviews (bijvoorbeeld duidelijke communicatie, dagelijks doorwerken, netjes opgeleverd) en uit het gezicht van het bedrijf. "Sinds jaartal" of "ervaren" is op zichzelf geen reden en staat hooguit een keer kort op de pagina.
 - Geen lege woorden zoals "hoogwaardig", "professioneel", "kwaliteit" of "excellentie" zonder dat er een concreet feit achter staat.
 - Wissel op een pagina niet tussen "je" en "u".
 - Hero en antwoordblok: gebruik hier de bedrijfsnaam niet. Open met de situatie of vraag van de bezoeker ("Wil je...", "Heb je...") en zeg direct daarna in "wij" wat jullie voor die vraag doen. Dus niet "Bedrijf X helpt je met...".
@@ -271,7 +272,7 @@ function bouwKlantverhaalBlok(kv, { bedrijfsnaam } = {}) {
     `- Noem de bedrijfsnaam "${naam}" hooguit een keer voluit, in de eerste alinea. Daarna "wij", "we" of "ons".`
   ];
   if ((stem.kenmerken || []).length) stemRegels.push(`- De toon is ${stem.kenmerken.join(', ')}.`);
-  if ((stem.voorbeeldzinnen || []).length) stemRegels.push(`- Zo praat dit bedrijf zelf (letterlijk van de eigen site). Neem de toon over, kopieer de zinnen niet:\n${stem.voorbeeldzinnen.map((z) => `  * ${z.tekst}`).join('\n')}`);
+  if ((stem.voorbeeldzinnen || []).length) stemRegels.push(`- Zo praat dit bedrijf zelf (letterlijk van de eigen site). Dit is de stem van de klant zelf. Gebruik de beste van deze zinnen vrijwel letterlijk in de hero of bij waarom klanten kiezen (ze komen van de eigen site, dus het zijn echte feiten en echte woorden). Schrijf de rest van de pagina in dezelfde toon:\n${stem.voorbeeldzinnen.map((z) => `  * ${z.tekst}`).join('\n')}`);
   delen.push(`STEM\n${stemRegels.join('\n')}`);
 
   if (kv.gezicht && (kv.gezicht.naam || kv.gezicht.tekst)) {
