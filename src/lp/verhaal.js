@@ -325,6 +325,41 @@ function redactieControle(slotData, opties) {
     }
   }
 
+  // 6d. Een label op een foto (badge) is een kort feit: een titel van hooguit 4 en een tekst van hooguit 10 woorden.
+  const aantalWoorden = (t) => String(t || '').trim().split(/\s+/).filter(Boolean).length;
+  const badgeTeLang = velden.filter((v) => /badge/i.test(v.slot) && aantalWoorden(v.tekst) > (/title|kop/i.test(v.pad) ? 4 : 10));
+  if (badgeTeLang.length) {
+    punten.push({
+      soort: 'lengte',
+      tekst: `Het label op de foto is te lang (${uniek(badgeTeLang.map((v) => leesbaar(v.pad))).join(', ')}). Daar hoort een kort feit.`,
+      slots: uniek(badgeTeLang.map((v) => v.slot)),
+      aanwijzing: 'Maak het label een kort feit: de titel hooguit 4 woorden (bijvoorbeeld "Sinds 2012") en de tekst hooguit 10 woorden (bijvoorbeeld "Meer dan 20 jaar ervaring in de bouw"). Geen introductie van een persoon.'
+    });
+  }
+
+  // 6e. De intro bij projecten gaat over de getoonde projecten, niet over de ervaring van het bedrijf.
+  const projectErvaring = velden.filter((v) => /^projects?.*Intro$/i.test(v.slot) && /\bervaring\b|\b\d{1,3}\s*jaar\b/i.test(v.tekst));
+  if (projectErvaring.length) {
+    punten.push({
+      soort: 'toon',
+      tekst: 'De intro bij de projecten gaat over ervaring in plaats van over de projecten zelf.',
+      slots: uniek(projectErvaring.map((v) => v.slot)),
+      aanwijzing: 'Schrijf de intro over de getoonde projecten (wat er gebouwd is, waar) of laat hem leeg. De ervaring van het bedrijf staat al elders op de pagina.'
+    });
+  }
+
+  // 6f. Het antwoordblok is geen ja/nee vraag aan de bezoeker ("Kun je je woning in X laten verbouwen? Ja.").
+  const antwoord = velden.filter((v) => /^(answer|antwoord)/i.test(v.slot));
+  const jaNee = antwoord.filter((v) => (/title|kop/i.test(v.pad) && /\?\s*$/.test(v.tekst) && /^(kun|kan|mag|doe|werk|heb|ben|zijn)\w*\b/i.test(v.tekst.trim())) || /^(ja|nee)\b[.,!]/i.test(v.tekst.trim()));
+  if (jaNee.length) {
+    punten.push({
+      soort: 'toon',
+      tekst: 'Het antwoordblok stelt een ja of nee vraag waar de bezoeker het antwoord al op weet.',
+      slots: uniek(jaNee.map((v) => v.slot)),
+      aanwijzing: 'Geen vraag die met ja of nee beantwoord wordt. Schrijf een stellige kop over wat de bezoeker in deze plaats van het bedrijf mag verwachten (bijvoorbeeld hoe en vanuit waar jullie hier werken) en een antwoord van een of twee zinnen met alleen feiten uit het werkgebied, het kantoor en de diensten. Herhaal de hero niet.'
+    });
+  }
+
   // 6c. Dezelfde harde claim (aantal jaren, startjaar) op meer dan een plek: noem hem een keer, daar waar hij het meest overtuigt.
   const CLAIMS = [[/\b\d{1,3}\s*jaar\b/i, 'het aantal jaren ervaring'], [/\bsinds\s+(?:in\s+)?(?:19|20)\d{2}\b|\bactief\s+sinds\b/i, 'het startjaar']];
   CLAIMS.forEach(([cre, naam]) => {

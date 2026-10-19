@@ -186,3 +186,19 @@ test('redactieReview houdt maximaal vijf punten met bestaande slots', async () =
     assert.ok(punten.length >= 1);
   } finally { m.herstel(); }
 });
+
+test('redactiecontrole: te lang fotolabel, ervaring in de projectintro en ja/nee antwoordblok', () => {
+  const punten = v.redactieControle({
+    heroTitle: 'Verbouw in Bennebroek',
+    heroIntro: 'Wil je verbouwen? Wij helpen je met je plannen.',
+    heroBadgeTitle: 'Sinds 2012',
+    heroBadgeText: 'Mitchell is eigenaar, opgeleid tot allround timmerman en heeft de KOB-opleiding afgerond.',
+    answerTitle: 'Kun je je woning in Bloemendaal laten verbouwen?',
+    locationAnswer: 'Ja. Voor je woning kun je bij ons terecht.',
+    projectsIntro: 'Mitchell heeft meer dan 20 jaar ervaring in de bouwsector.',
+    projectsTitle: 'Project'
+  }, { bedrijfsnaam: 'MAC Bouw' });
+  assert.ok(punten.some((p) => p.soort === 'lengte' && p.slots.includes('heroBadgeText')));
+  assert.ok(punten.some((p) => p.slots.includes('projectsIntro')));
+  assert.ok(punten.some((p) => p.slots.includes('answerTitle') || p.slots.includes('locationAnswer')));
+});

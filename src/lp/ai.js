@@ -249,6 +249,8 @@ const SEO_GEO_SJABLOON_REGELS = `SEO EN GEO IN HET SJABLOON (elke pagina moet or
 const SEO_GEO_CONTENT_REGELS = `SEO EN GEO BIJ HET SCHRIJVEN (elke pagina moet organisch kunnen scoren en goed te citeren zijn):
 - Kop (h1): begin met de dienst, noem de plaats natuurlijk (bv. "Aannemer in Amersfoort voor verbouw en renovatie").
   Geen keyword stuffing: de plaatsnaam en dienst komen natuurlijk terug (ongeveer drie tot vijf keer op de pagina).
+- Antwoordblok onder de hero (slots als answerTitle en locationAnswer): stel de bezoeker geen ja of nee vraag zoals "Kun je je woning in [plaats] laten verbouwen?" en begin het antwoord niet met "Ja". De bezoeker weet al dat het kan. Schrijf een stellige kop met iets nieuws (hoe en vanuit waar jullie in deze plaats werken) en een antwoord van een tot twee zinnen met alleen feiten uit het werkgebied, het kantoor en de diensten. Herhaal de hero niet.
+- Labels op een foto (badge): titel hooguit 4 woorden, tekst hooguit 10 woorden, een kort feit.
 - Antwoord eerst: de allereerste alinea (hero-introductie of eerste introductietekst) beantwoordt in een tot twee
   zinnen wie het bedrijf is, wat het doet, voor wie en waar. Feitelijk, zonder superlatieven, zodat het letterlijk te
   citeren is door een zoekmachine of AI-antwoord.
@@ -301,6 +303,7 @@ const SECTIE_INTRO_REGELS = `INTRO ONDER EEN SECTIEKOP (slots die eindigen op "I
 - Schrijf een of twee korte, concrete zinnen die de bezoeker helpen bij wat hij in die sectie ziet, op basis van de bronteksten, de feiten of de invoer.
 - Schrijf het bedrijf nooit als iemand die iets "toont", "laat zien", "presenteert" of "een overzicht biedt". Dus niet: "[Bedrijf] toont uiteenlopende projecten, van ... tot ...". Zo'n zin zegt niets en is geen feit.
 - Bij projecten, reviews en foto's: noem alleen wat echt in de bron of in de lijst van de sectie staat. Noem geen soorten werk of plaatsen die niet in de bron staan.
+- De intro bij projecten (projectsIntro) gaat over de getoonde projecten zelf, nooit over de ervaring of het aantal jaren van het bedrijf. Dat staat al in de hero of bij waarom klanten kiezen.
 - Heb je voor zo'n intro geen bron of niets concreets te zeggen, laat het veld dan leeg (""). Een lege intro is beter dan een vulzin.`;
 
 function buildTemplateSystemPrompt() {
