@@ -309,11 +309,13 @@
   $('lpSchrijfPubliceer').addEventListener('change', schrijfReset);
   $('lpSchrijfAnnuleerBtn').addEventListener('click', schrijfReset);
 
-  // Een pagina laten schrijven en wachten tot de wachtrij klaar is. Geeft de uitkomst terug of gooit een fout.
-  async function schrijfEenPagina(id, publiceer) {
+  // Een pagina in de wachtrij zetten (de server werkt de wachtrij een voor een af) en daarna wachten op de uitkomst.
+  async function schrijfInWachtrij(id, publiceer) {
     await lpApi(`/pages/${encodeURIComponent(id)}/schrijf-opnieuw`, { method: 'POST', body: JSON.stringify({ publiceer }) });
+  }
+  async function schrijfWachtOp(id) {
     let onbekend = 0;
-    for (let i = 0; i < 150; i++) {
+    for (let i = 0; i < 900; i++) {
       await wacht(4000);
       const s = await lpApi(`/pages/${encodeURIComponent(id)}/schrijf-status`);
       if (s.tekstStatus && s.tekstStatus.status === 'fout') throw new Error(s.tekstStatus.fout || 'Schrijven mislukt.');
@@ -352,13 +354,26 @@
     btn.dataset.stap = '';
     let gelukt = 0;
     let mislukt = 0;
-    for (let i = 0; i < gekozen.length; i++) {
-      const p = gekozen[i];
+    // Eerst alles in de wachtrij zetten: de server schrijft daarna door, ook als je dit scherm sluit.
+    const gezet = [];
+    for (const p of gekozen) {
       const cel = document.querySelector(`[data-schrijf-uitkomst="${p.id}"]`);
-      btn.textContent = `Bezig (${i + 1} van ${gekozen.length})...`;
-      cel.textContent = 'De AI schrijft...';
       try {
-        const u = await schrijfEenPagina(p.id, publiceer);
+        await schrijfInWachtrij(p.id, publiceer);
+        cel.textContent = 'In de wachtrij...';
+        gezet.push(p);
+      } catch (err) {
+        mislukt += 1;
+        cel.textContent = `Mislukt: ${err.message}`;
+      }
+    }
+    $('lpSchrijfWaarschuwing').textContent = `${gezet.length} pagina's staan in de wachtrij. De server schrijft ze een voor een, ongeveer twee minuten per pagina. Je mag dit scherm sluiten: wat klaar is staat gewoon in het portaal.`;
+    for (let i = 0; i < gezet.length; i++) {
+      const p = gezet[i];
+      const cel = document.querySelector(`[data-schrijf-uitkomst="${p.id}"]`);
+      btn.textContent = `Bezig (${i + 1} van ${gezet.length})...`;
+      try {
+        const u = await schrijfWachtOp(p.id);
         gelukt += 1;
         const delen = ['Nieuwe tekst opgeslagen in het portaal'];
         if (publiceer && u.wpStatus) delen.push(`bijgewerkt in WordPress (${wpNaam(u.wpStatus)})`);
