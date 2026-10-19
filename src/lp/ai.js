@@ -938,7 +938,9 @@ ${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam }) || 'Er is geen goedgekeur
 
 ${siteTeksten ? `Bronteksten van de klantsite (ingekort):\n${String(siteTeksten).slice(0, 14000)}` : 'Er zijn geen bronteksten van de klantsite.'}`;
   const ruw = await callOpenAi({ systemPrompt: SCHRIJFPLAN_SYSTEEMPROMPT, userPrompt });
-  return schoonPlan(ruw, template);
+  const plan = schoonPlan(ruw, template);
+  if (!plan) console.warn('[schrijfplan] geen bruikbaar plan, ruwe uitvoer:', JSON.stringify(ruw).slice(0, 800));
+  return plan;
 }
 
 // ---- Stap 3: een tweede, onafhankelijke lezer en het herschrijven van alleen de aangewezen onderdelen ----
@@ -1079,6 +1081,9 @@ async function generatePageContent({ klant, template, invoer, feiten, watGaatDez
       schrijfplan = await maakSchrijfPlan({ klant, template, invoer, feiten, watGaatDezePaginaOver, siteTeksten, klantverhaal, bedrijfsnaam });
     } catch (planErr) {
       planWaarschuwing = `Het plan voor de verhaallijn kon niet gemaakt worden (${planErr.message}), de tekst is zonder plan geschreven.`;
+    }
+    if (!schrijfplan && !planWaarschuwing) {
+      planWaarschuwing = 'De AI gaf geen bruikbaar schrijfplan terug, dus de tekst is zonder plan geschreven. Probeer het nog een keer.';
     }
   }
   const userPrompt = `Klant: ${klant}
