@@ -3,7 +3,7 @@
 (function () {
   const $ = (id) => document.getElementById(id);
   const esc = (t) => String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const state = { geladen: false, klant: null };
+  const state = { geladen: false, klant: null, kv: null };
 
   function fout(tekst) {
     const e = $('kgFout');
@@ -43,6 +43,9 @@
     $('kgFoto').value = p.fotoRichtlijn;
     $('kgNiet').value = (p.nietToegestaan || []).join('\n');
     $('kgCtaBalken').value = String((p.ctaBalken && p.ctaBalken.aantal) === 2 ? 2 : 1);
+    state.kv = k.profiel.klantverhaal ? JSON.parse(JSON.stringify(k.profiel.klantverhaal)) : null;
+    renderKv();
+    $('kgKvMelding').textContent = '';
     vulHuisstijl(k.profiel.huisstijl || {});
     $('kgHuisWaarschuwing').innerHTML = (k.waarschuwingen || []).map((w) => `<p>${esc(w)}</p>`).join('');
     const eigen = (k.eigenLettertypenInCode || []).length ? ` Eigen lettertypebestanden (${k.eigenLettertypenInCode.join(', ')}) en extra CSS staan in de code en blijven daar.` : '';
@@ -104,6 +107,98 @@
     finally { knop.disabled = false; }
   });
 
+  // ---- Klantverhaal ----
+  const SECTIES = [
+    { sleutel: 'waaromKiezen', titel: 'Waarom klanten kiezen', velden: [['punt', 'Punt', 'input'], ['uitleg', 'Uitleg', 'textarea']] },
+    { sleutel: 'twijfels', titel: 'Twijfels van klanten en het antwoord', velden: [['twijfel', 'Twijfel', 'input'], ['antwoord', 'Antwoord', 'textarea']] },
+    { sleutel: 'bewijs', titel: 'Bewijs (reviews en projecten)', velden: [['wie', 'Wie of waar', 'input'], ['tekst', 'Tekst', 'textarea']] },
+    { sleutel: 'werkwijze', titel: 'Werkwijze', velden: [['stap', 'Stap', 'input'], ['uitleg', 'Uitleg', 'textarea']] }
+  ];
+
+  function bronLink(bron) {
+    const b = String(bron || '');
+    return /^https?:\/\//i.test(b) ? `<a href="${esc(b)}" target="_blank" rel="noopener">${esc(b)}</a>` : esc(b);
+  }
+
+  function nieuwKv() {
+    return { versie: 1, status: 'concept', stem: { aanspreekvorm: 'je', kenmerken: [], voorbeeldzinnen: [] }, gezicht: null, waaromKiezen: [], twijfels: [], bewijs: [], werkwijze: [], nietGebruiken: [], tegenstrijdig: [], ontbreekt: [] };
+  }
+
+  function renderKv() {
+    const kv = state.kv;
+    const doel = $('kgKvInhoud');
+    if (!kv) { doel.innerHTML = '<p class="kv-leeg">Er is nog geen klantverhaal. Klik op "Analyseer klantverhaal" om het van de website te laten opstellen.</p>'; return; }
+    const delen = [];
+    delen.push(`<div class="kv-status"><label><input type="checkbox" id="kgKvGoed"${kv.status === 'goedgekeurd' ? ' checked' : ''}> Goedgekeurd, gebruik dit bij Content genereren</label><label>Aanspreekvorm <select id="kgKvVorm"><option value="je"${kv.stem.aanspreekvorm === 'je' ? ' selected' : ''}>je</option><option value="u"${kv.stem.aanspreekvorm === 'u' ? ' selected' : ''}>u</option></select></label><span class="wp-muted">Status: ${kv.status === 'goedgekeurd' ? 'goedgekeurd' : 'concept'}</span></div>`);
+    delen.push(`<h3 class="kv-kop">Stem van het bedrijf</h3><div class="kv-stem"><div class="wp-veld"><label for="kgKvKenmerken">Kenmerken (een per regel)</label><textarea id="kgKvKenmerken" rows="3">${esc((kv.stem.kenmerken || []).join('\n'))}</textarea></div></div>`);
+    delen.push(`<h3 class="kv-kop">Voorbeeldzinnen van de eigen site</h3>${rijenKv('voorbeeldzinnen', kv.stem.voorbeeldzinnen, [['tekst', 'Zin', 'textarea']])}`);
+    delen.push(`<h3 class="kv-kop">Gezicht</h3>${kv.gezicht ? `<div class="kv-rij"><input type="text" data-pad="gezicht.naam" value="${esc(kv.gezicht.naam)}" placeholder="Naam"><textarea rows="3" data-pad="gezicht.tekst" placeholder="Wat deze persoon zelf zegt">${esc(kv.gezicht.tekst)}</textarea><button type="button" class="btn btn-plain" data-weg-gezicht>Verwijder</button><div class="kv-bron">Bron: ${bronLink(kv.gezicht.bron)}</div></div>` : '<p class="kv-leeg">Geen persoon gevonden op de site.</p>'}`);
+    SECTIES.forEach((sec) => { delen.push(`<h3 class="kv-kop">${esc(sec.titel)}</h3>${rijenKv(sec.sleutel, kv[sec.sleutel], sec.velden)}`); });
+    if ((kv.tegenstrijdig || []).length) {
+      delen.push('<h3 class="kv-kop">Tegenstrijdig op de site: kies wat klopt</h3>' + kv.tegenstrijdig.map((t, i) => `<div class="kv-rij"><div>${esc(t.onderwerp)}</div><select data-keuze="${i}"><option value="">Niet noemen op de pagina\'s</option>${t.waarden.map((w) => `<option value="${esc(w.waarde)}"${t.gekozen === w.waarde ? ' selected' : ''}>${esc(w.waarde)}</option>`).join('')}</select><span></span><div class="kv-bron">${t.waarden.map((w) => `${esc(w.waarde)}: ${bronLink(w.bron)}`).join(' &nbsp; ')}</div></div>`).join(''));
+    }
+    if ((kv.nietGebruiken || []).length) {
+      delen.push('<h3 class="kv-kop">Niet gebruiken (lege of onbewezen claims)</h3>' + kv.nietGebruiken.map((n, i) => `<div class="kv-rij"><div>${esc(n.tekst)}</div><div class="wp-muted">${esc(n.reden)}</div><button type="button" class="btn btn-plain" data-weg-niet="${i}">Verwijder</button></div>`).join(''));
+    }
+    if ((kv.ontbreekt || []).length) {
+      delen.push('<h3 class="kv-kop">Wat de site niet vertelt (vraag dit aan de klant)</h3><ul>' + kv.ontbreekt.map((o) => `<li>${esc(o)}</li>`).join('') + '</ul>');
+    }
+    doel.innerHTML = delen.join('');
+    koppelKv();
+  }
+
+  function rijenKv(sleutel, lijst, velden) {
+    if (!(lijst || []).length) return '<p class="kv-leeg">Niets gevonden op de site.</p>';
+    return lijst.map((item, i) => {
+      const veld = (v) => (v[2] === 'textarea'
+        ? `<textarea rows="3" data-pad="${sleutel}.${i}.${v[0]}" placeholder="${esc(v[1])}">${esc(item[v[0]])}</textarea>`
+        : `<input type="text" data-pad="${sleutel}.${i}.${v[0]}" value="${esc(item[v[0]])}" placeholder="${esc(v[1])}">`);
+      const eerste = veld(velden[0]);
+      const tweede = velden[1] ? veld(velden[1]) : '<span></span>';
+      return `<div class="kv-rij">${eerste}${tweede}<button type="button" class="btn btn-plain" data-weg="${sleutel}.${i}">Verwijder</button><div class="kv-bron">Bron: ${bronLink(item.bron)}</div></div>`;
+    }).join('');
+  }
+
+  function zetPad(pad, waarde) {
+    const delen = pad.split('.');
+    let o = delen[0] === 'voorbeeldzinnen' ? state.kv.stem : state.kv;
+    for (let n = 0; n < delen.length - 1; n++) o = o[delen[n]];
+    o[delen[delen.length - 1]] = waarde;
+  }
+
+  function koppelKv() {
+    const kv = state.kv;
+    document.querySelectorAll('#kgKvInhoud [data-pad]').forEach((el) => el.addEventListener('input', () => zetPad(el.dataset.pad, el.value)));
+    document.querySelectorAll('#kgKvInhoud [data-weg]').forEach((el) => el.addEventListener('click', () => {
+      const [sleutel, i] = el.dataset.weg.split('.');
+      (sleutel === 'voorbeeldzinnen' ? kv.stem.voorbeeldzinnen : kv[sleutel]).splice(Number(i), 1);
+      renderKv();
+    }));
+    document.querySelectorAll('#kgKvInhoud [data-weg-niet]').forEach((el) => el.addEventListener('click', () => { kv.nietGebruiken.splice(Number(el.dataset.wegNiet), 1); renderKv(); }));
+    document.querySelectorAll('#kgKvInhoud [data-weg-gezicht]').forEach((el) => el.addEventListener('click', () => { kv.gezicht = null; renderKv(); }));
+    document.querySelectorAll('#kgKvInhoud [data-keuze]').forEach((el) => el.addEventListener('change', () => { kv.tegenstrijdig[Number(el.dataset.keuze)].gekozen = el.value; }));
+    $('kgKvGoed').addEventListener('change', (e) => { kv.status = e.target.checked ? 'goedgekeurd' : 'concept'; });
+    $('kgKvVorm').addEventListener('change', (e) => { kv.stem.aanspreekvorm = e.target.value; });
+    $('kgKvKenmerken').addEventListener('input', (e) => { kv.stem.kenmerken = e.target.value.split('\n').map((x) => x.trim()).filter(Boolean); });
+  }
+
+  $('kgKvAnalyse').addEventListener('click', async () => {
+    fout('');
+    if (!state.klant) return;
+    if (state.kv && !window.confirm('Er staat al een klantverhaal. Een nieuwe analyse vervangt het op het scherm (opgeslagen wordt het pas als je opslaat). Doorgaan?')) return;
+    const knop = $('kgKvAnalyse');
+    knop.disabled = true;
+    $('kgKvMelding').textContent = 'De website wordt gelezen en geordend. Dit duurt ongeveer een minuut...';
+    try {
+      const r = await lpApi('/klantgegevens/' + encodeURIComponent(state.klant.id) + '/klantverhaal-voorstel', { method: 'POST', body: JSON.stringify({}) });
+      state.kv = r.voorstel;
+      renderKv();
+      const w = (r.waarschuwingen || []).map((x) => `<div class="kv-waarschuwing">${esc(x)}</div>`).join('');
+      $('kgKvMelding').innerHTML = `${r.gelezen.length} pagina's gelezen. Controleer het voorstel, zet "Goedgekeurd" aan en sla op.${w}`;
+    } catch (err) { $('kgKvMelding').textContent = ''; fout(err.message); }
+    finally { knop.disabled = false; }
+  });
+
   function lees() {
     const regels = (id) => $(id).value.split('\n').map((x) => x.trim()).filter(Boolean);
     return {
@@ -121,6 +216,7 @@
         fotoRichtlijn: $('kgFoto').value,
         nietToegestaan: regels('kgNiet'),
         ctaBalken: { aantal: Number($('kgCtaBalken').value) === 2 ? 2 : 1 },
+        klantverhaal: state.kv || undefined,
         huisstijl: leesHuisstijl()
       },
       feiten: [...document.querySelectorAll('#kgFeiten .kg-feit')].map((r) => ({

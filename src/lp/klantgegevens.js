@@ -19,13 +19,14 @@ const { Client } = require('@notionhq/client');
 const { clients } = require('./clients');
 const { slugify } = require('./utils');
 const { clientTokens, defaultTokens, getTokens, checkFontLoadConsistency } = require('./tokens');
+const { schoonKlantverhaal } = require('./klantverhaal');
 
 const DATABASE_ID = process.env.LP_KLANTGEGEVENS_DATABASE_ID || '926632fa-da31-464a-ad31-24ee36592459';
 const VERVERS_MS = 5 * 60 * 1000;
 const MAX_FEITEN = 200;
 
 // Wat uit Notion mag komen. Alles daarbuiten blijft uit de code.
-const PROFIEL_VELDEN = ['naam', 'bedrijf', 'nietToegestaan', 'toonNotitie', 'fotoRichtlijn', 'ctaBalken'];
+const PROFIEL_VELDEN = ['naam', 'bedrijf', 'nietToegestaan', 'toonNotitie', 'fotoRichtlijn', 'ctaBalken', 'klantverhaal'];
 
 const diepKopie = (v) => JSON.parse(JSON.stringify(v));
 
@@ -90,6 +91,11 @@ function schoonProfiel(invoer) {
   // Aantal offertebalken: 1 of 2. Alleen bewaren als het is meegestuurd, zodat de waarde uit de code blijft gelden.
   const balken = i.ctaBalken && typeof i.ctaBalken === 'object' ? Number(i.ctaBalken.aantal) : Number(i.ctaBalken);
   if (balken === 1 || balken === 2) uit.ctaBalken = { aantal: balken };
+  // Klantverhaal: alleen bewaren als het is meegestuurd, zodat een bestaand klantverhaal niet per ongeluk verdwijnt.
+  if (i.klantverhaal !== undefined) {
+    const kv = schoonKlantverhaal(i.klantverhaal);
+    if (kv) uit.klantverhaal = kv;
+  }
   return uit;
 }
 
@@ -355,6 +361,7 @@ function bewerkbaar(id) {
       toonNotitie: p.toonNotitie || '',
       fotoRichtlijn: p.fotoRichtlijn || '',
       ctaBalken: { aantal: Number(p.ctaBalken && p.ctaBalken.aantal) === 2 ? 2 : 1 },
+      klantverhaal: p.klantverhaal || null,
       huisstijl: huisstijlUitTokens(getTokens(id))
     },
     huisstijlEigen: Boolean(notionData.get(id) && notionData.get(id).profiel && notionData.get(id).profiel.huisstijl && Object.keys(notionData.get(id).profiel.huisstijl).length),
@@ -389,6 +396,7 @@ async function bewaar(klantIdInvoer, { profiel, feiten, nieuw = false } = {}) {
   const bestaandProfiel = notionData.get(id) && notionData.get(id).profiel;
   if (profiel && profiel.huisstijl === undefined) p.huisstijl = (bestaandProfiel && bestaandProfiel.huisstijl) || {};
   else p.huisstijl = alleenVerschil(p.huisstijl, id); // alleen wat afwijkt van de code of de standaard, zodat latere wijzigingen in code blijven gelden
+  if (profiel && profiel.klantverhaal === undefined && bestaandProfiel && bestaandProfiel.klantverhaal) p.klantverhaal = bestaandProfiel.klantverhaal;
   if (!p.naam) throw new Error('Vul de naam van de klant in.');
   const f = schoonFeiten(feiten);
 

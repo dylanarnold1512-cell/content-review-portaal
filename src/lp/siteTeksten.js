@@ -14,6 +14,8 @@
 //     de AI mag alleen gebruiken wat in de bronteksten, de feitensheet of de invoer staat.
 // Resultaat wordt 6 uur onthouden per site, zodat een reeks pagina's niet steeds de hele site ophaalt.
 
+const { filterBrontekst } = require('./bronFilter');
+
 const FETCH_TIMEOUT_MS = 8000;
 const CACHE_MS = 6 * 60 * 60 * 1000;
 const MAX_PAGINAS = 14;
@@ -171,17 +173,19 @@ async function inBatches(items, n, fn) {
 }
 
 // Leest de klantsite. Gooit nooit: bij een fout komt { paginas: [], fout } terug.
-async function haalSiteTeksten({ url, uitsluit, voorkeur }) {
-  if (!url) return { paginas: [], totaalWoorden: 0, fout: 'Geen website opgegeven voor deze klant.' };
+async function haalSiteTeksten({ url, uitsluit, voorkeur, taal }) {
+  if (!url) return { paginas: [], totaalWoorden: 0, gefilterd: [], fout: 'Geen website opgegeven voor deze klant.' };
   const basis = String(url).replace(/\/+$/, '') + '/';
-  const sleutel = `${basis}|${(uitsluit || []).slice().sort().join(',')}|${(voorkeur || []).slice().sort().join(',')}`;
+  const sleutel = `${basis}|${(uitsluit || []).slice().sort().join(',')}|${(voorkeur || []).slice().sort().join(',')}|${taal || 'nl'}`;
   const cached = CACHE.get(sleutel);
   if (cached && Date.now() - cached.tijd < CACHE_MS) return cached.waarde;
   let waarde;
+  // Regels die het bronfilter (bronFilter.js) uit de bron haalde, zodat zichtbaar wordt wat er op de site staat dat er niet hoort.
+  const gefilterd = [];
   try {
     const home = await fetchTekst(basis);
     if (!home.ok) {
-      waarde = { paginas: [], totaalWoorden: 0, fout: `Homepage ${basis} kon niet opgehaald worden (${home.fout}).` };
+      waarde = { paginas: [], totaalWoorden: 0, gefilterd, fout: `Homepage ${basis} kon niet opgehaald worden (${home.fout}).` };
     } else {
       let restPaginas = [];
       const rest = await fetchTekst(`${basis}wp-json/wp/v2/pages?per_page=100&status=publish&_fields=link,title`, 'application/json');
@@ -196,9 +200,12 @@ async function haalSiteTeksten({ url, uitsluit, voorkeur }) {
         const res = homepage ? home : await fetchTekst(k.url);
         if (!res.ok) return null;
         const titel = (res.text.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1];
-        const tekst = hoofdTekst(res.text);
+        const gefilterdeTekst = filterBrontekst(hoofdTekst(res.text), { taal: taal || 'nl' });
+        const paginaTitel = decodeEntiteiten(k.titel || titel || k.url).replace(/\s+/g, ' ').trim();
+        gefilterdeTekst.verwijderd.forEach((v) => gefilterd.push({ url: k.url, titel: paginaTitel, regel: v.regel, reden: v.reden }));
+        const tekst = gefilterdeTekst.tekst;
         if (telWoorden(tekst) < MIN_WOORDEN) return null;
-        return { url: k.url, titel: decodeEntiteiten(k.titel || titel || k.url).replace(/\s+/g, ' ').trim(), tekst: kapAfOpWoorden(tekst, MAX_WOORDEN_PER_PAGINA) };
+        return { url: k.url, titel: paginaTitel, tekst: kapAfOpWoorden(tekst, MAX_WOORDEN_PER_PAGINA) };
       });
       const paginas = [];
       let totaal = 0;
@@ -215,10 +222,10 @@ async function haalSiteTeksten({ url, uitsluit, voorkeur }) {
         paginas.push(p);
         totaal += w;
       }
-      waarde = { paginas, totaalWoorden: totaal, fout: paginas.length ? null : 'Geen leesbare pagina\'s gevonden op de klantsite.' };
+      waarde = { paginas, totaalWoorden: totaal, gefilterd: gefilterd.slice(0, 40), fout: paginas.length ? null : 'Geen leesbare pagina\'s gevonden op de klantsite.' };
     }
   } catch (err) {
-    waarde = { paginas: [], totaalWoorden: 0, fout: err.message };
+    waarde = { paginas: [], totaalWoorden: 0, gefilterd: [], fout: err.message };
   }
   if (!waarde.fout) CACHE.set(sleutel, { tijd: Date.now(), waarde });
   return waarde;

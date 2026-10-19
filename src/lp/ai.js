@@ -24,6 +24,7 @@ const { INLINE_LINK_RE, forEachTextLeaf, ICON_NAMES, findUnknownIcons } = requir
 // 1, vraag 3). Hero, CTA en interne links zijn altijd al verplicht via de
 // vaste slot-namen/regels hieronder, dus die staan hier expres niet in.
 const { verwijderReviewAanhalingstekens } = require('./aanhalingstekens');
+const { PAGINA_OPBOUW_REGELS, bouwKlantverhaalBlok } = require('./klantverhaal');
 const VASTE_ONDERDELEN_OPTIES = ['usps', 'stappen', 'aanbod', 'praktisch', 'reviews', 'faq', 'doelgroep', 'galerij'];
 
 const VASTE_ONDERDELEN_LABELS = {
@@ -763,6 +764,8 @@ ${SITE_BRON_REGELS}
 
 ${SECTIE_INTRO_REGELS}
 
+${PAGINA_OPBOUW_REGELS}
+
 Slots die gevuld moeten worden:
 ${slotBeschrijving}${afbeeldingNotitie}${galerijNotitie}${iconNotitie}
 
@@ -836,7 +839,7 @@ ${focus.onderwerp ? `Onderwerp: ${focus.onderwerp}\n` : ''}${focus.instructie ? 
 - De opbouw en het aantal onderdelen blijven zoals het sjabloon ze vraagt.`;
 }
 
-async function generatePageContent({ klant, template, invoer, feiten, watGaatDezePaginaOver, ctaOverride, linkKandidaten, zusterInhoud, siteTeksten, zoekvragen, zusterVragen }) {
+async function generatePageContent({ klant, template, invoer, feiten, watGaatDezePaginaOver, ctaOverride, linkKandidaten, zusterInhoud, siteTeksten, zoekvragen, zusterVragen, klantverhaal, bedrijfsnaam }) {
   const systemPrompt = buildContentSystemPrompt(template);
   const userPrompt = `Klant: ${klant}
 
@@ -857,6 +860,8 @@ Aangevinkte feiten uit de feitensheet (bronprincipe — gebruik uitsluitend deze
 ${JSON.stringify(feiten || [], null, 2)}
 
 ${siteTeksten ? `Bronteksten van de eigen website van de klant (automatisch gelezen, ${siteTeksten.split('\n--- ').length} pagina's). Dit is je hoofdbron voor de inhoud, volg de regels voor brontekst hierboven:\n${siteTeksten}` : 'Er zijn geen bronteksten van de klantsite beschikbaar, werk alleen met de feiten en de invoer.'}
+
+${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam }) || 'Er is voor deze klant nog geen goedgekeurd klantverhaal, volg de opbouwregels hierboven en werk alleen met de bronteksten en de feiten.'}
 
 Feiten met "standaard": true zijn vaste praktische gegevens van de klant (bv. in- en uitchecktijden, kamertypes, ligging). Neem ze op in de praktische informatie en de kamertypes van de pagina, voor zover het sjabloon daar een plek voor heeft, en gebruik de formulering (bv. namen van kamertypes en tijden) precies zoals ze er staan.
 

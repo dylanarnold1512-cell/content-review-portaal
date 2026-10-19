@@ -31,6 +31,7 @@ const maandplan = require('../lp/maandplan');
 const { pushDraft, deletePage: deleteWpPage, restorePage: herstelWpPage, searchMedia, uploadMedia, listSitePages, haalPaginaStatussen, siteNaam } = require('../lp/wordpress');
 const { vindTekst, vervangTekst } = require('../lp/tekstVervangen');
 const { haalSiteTeksten, formatSiteTekstenVoorPrompt } = require('../lp/siteTeksten');
+const { bouwKlantverhaalVoorstel } = require('../lp/klantverhaal');
 const plan = require('../lp/plan');
 const { onderwerpTekst, metOnderwerp, maakWachtrij } = require('../lp/autoPagina');
 const begeleiding = require('../lp/begeleiding');
@@ -135,6 +136,19 @@ router.post('/klantgegevens/huisstijl-voorstel', requireLpInternal, async (req, 
       samenvatting: voorstel.samenvatting || '',
       twijfels: voorstel.twijfels || []
     });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/klantgegevens/:clientId/klantverhaal-voorstel', requireLpInternal, async (req, res) => {
+  try {
+    const client = getLpClient(req.params.clientId);
+    if (!client) return res.status(404).json({ error: 'Onbekende klant.' });
+    const bedrijf = client.profile.bedrijf || {};
+    if (!bedrijf.url) return res.status(400).json({ error: 'Vul eerst de website van de klant in bij Bedrijf.' });
+    const resultaat = await bouwKlantverhaalVoorstel({ url: bedrijf.url, bedrijfsnaam: bedrijf.naam || client.profile.naam, taal: client.profile.taal });
+    res.json(resultaat);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -1321,7 +1335,8 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
   let siteTeksten = '';
   try {
     const eigenUrls = allePaginas.map((p) => p.wpUrl).filter(Boolean);
-    const site = await haalSiteTeksten({ url: (client.profile.bedrijf || {}).url, uitsluit: eigenUrls, voorkeur: (blueprint.focus && blueprint.focus.trefwoorden) || [] });
+    const site = await haalSiteTeksten({ url: (client.profile.bedrijf || {}).url, uitsluit: eigenUrls, voorkeur: (blueprint.focus && blueprint.focus.trefwoorden) || [], taal: client.profile.taal });
+    if ((site.gefilterd || []).length) siteTekstWarning = `Op de klantsite staat tekst die niet bij het bedrijf lijkt te horen (${site.gefilterd.length} regels, bijvoorbeeld op ${site.gefilterd[0].titel || site.gefilterd[0].url}). Die is genegeerd; controleer de pagina in WordPress.`;
     siteTeksten = formatSiteTekstenVoorPrompt(site);
     if (!siteTeksten) siteTekstWarning = `De teksten van de klantsite konden niet gelezen worden (${site.fout || 'geen pagina\'s gevonden'}), de tekst is alleen op de feiten gebaseerd en kan daardoor karig zijn.`;
   } catch (siteTekstErr) {
@@ -1363,6 +1378,8 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
     siteTeksten,
     zoekvragen,
     zusterVragen,
+    klantverhaal: client.profile.klantverhaal,
+    bedrijfsnaam: (client.profile.bedrijf || {}).naam || client.profile.naam,
     zusterInhoud: zusters.filter((z) => z.content).map((z) => ({ titel: z.titel, tekst: verzamelTekst(z.content).join('\n').slice(0, 2500) }))
   });
 
