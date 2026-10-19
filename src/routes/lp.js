@@ -16,6 +16,7 @@ const ai = require('../lp/ai');
 const { renderPageHtml } = require('../lp/render');
 const { buildRenderPage, contentIsEmpty } = require('../lp/pageRender');
 const { zorgVoorGalerijSlot } = require('../lp/galerij');
+const { zorgVoorProjectItems, ruimOpProjectItems } = require('../lp/projectFotos');
 const { beschrijfSecties } = require('../lp/sectieRefine');
 const { berekenOverrides, zetVerborgen } = require('../lp/overrides');
 const { gebruikteFeitIds } = require('../lp/feitenDefaults');
@@ -1429,6 +1430,7 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
 
   let imageWarning = null;
   try {
+    zorgVoorProjectItems(blueprint, result.slotData);
     const { items: kandidaten } = await searchMedia({ profile: client.profile, perPage: 100 });
     const { picks } = await ai.pickImagesForPage({
       template: blueprint,
@@ -1449,6 +1451,7 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
   } catch (imgErr) {
     imageWarning = `Automatisch afbeeldingen kiezen is niet gelukt (${imgErr.message}) — vul afbeeldingen zelf in via het voorbeeldscherm.`;
   }
+  ruimOpProjectItems(blueprint, result.slotData);
 
   // Controle op dubbele vragen: vragen die (zonder plaatsnaam) vrijwel gelijk zijn aan een vraag van een zusterpagina.
   let faqWarning = null;

@@ -1275,7 +1275,10 @@ async function pickImagesForPage({
   }
 
   const slotsBeschrijving = afbeeldingSlots
-    .map((s) => `- "${s.key}": ${s.label || s.key}${s.context ? ` (gaat over: ${s.context})` : ''}`)
+    .map((s) => {
+      const projectHint = /project/i.test(s.key) && !s.context ? ' (gaat over: een foto van een afgerond project van het bedrijf, zoals een verbouwing, uitbreiding, keuken of tuinhuis; geen portret, logo of foto met tekst)' : '';
+      return `- "${s.key}": ${s.label || s.key}${s.context ? ` (gaat over: ${s.context})` : projectHint}`;
+    })
     .join('\n');
 
   const systemPrompt = `Je kiest, voor een Nederlandse landingspagina, per genoemde afbeelding-slot de
@@ -1292,6 +1295,8 @@ Schrijf voor elke slot waar je WEL een kandidaat voor kiest ook meteen een korte
 alt-tekst (bondige feitelijke beschrijving van wat je ECHT op die foto ziet, geen marketingtaal) — de
 mediabibliotheek van de klant heeft daar vaak zelf geen tekst voor ingevuld, dus reken niet op een
 andere bron.
+
+Kies voor elk slot een andere foto: gebruik nooit twee keer dezelfde kandidaat, ook niet voor verschillende slots.
 
 Antwoord ALLEEN met een JSON-object met exact één veld:
 { "picks": { "<slotKey>": { "kandidaatId": <getal, of null>, "alt": "<korte alt-tekst, leeg als kandidaatId null is>" }, ... } } — precies één entry per genoemde slot.`;
