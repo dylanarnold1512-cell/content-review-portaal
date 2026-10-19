@@ -1947,6 +1947,15 @@ router.post('/pages/:pageId/zet-live', requireLpInternal, async (req, res) => {
 // echte WordPress status per pagina, zodat Dylan ziet welke pagina's live staan.
 // Stap 2 (per pagina): vervangen, opslaan in Notion en (optioneel) opnieuw naar WordPress sturen. Het scherm roept
 // dit pagina voor pagina aan, zodat een verzoek nooit te lang duurt en een fout bij een pagina de rest niet stopt.
+// Een metatitel of metabeschrijving die iets te kort of te lang is blokkeert bij het in bulk bijwerken niets meer: de pagina
+// wordt wel bijgewerkt en de afwijking komt als opmerking terug. Alle andere fouten blokkeren nog wel.
+function zonderMetaLengte(validation) {
+  const fouten = (validation && validation.errors) || [];
+  const meta = fouten.filter((e) => /^Meta (title|description) lengte/i.test(e));
+  const rest = fouten.filter((e) => !meta.includes(e));
+  return { ...validation, ok: rest.length === 0, errors: rest, metaOpmerkingen: meta };
+}
+
 async function metGelijktijdigheid(items, max, taak) {
   const uit = new Array(items.length);
   let volgende = 0;
@@ -2016,7 +2025,7 @@ router.post('/pages/:pageId/tekst-vervangen', requireLpInternal, async (req, res
 
     // Eerst valideren: een verplicht veld leegmaken mag niet stilletjes een kapotte pagina opleveren.
     const nieuweContent = { ...content, slotData };
-    const validation = validatePage({ blueprint, contentJson: nieuweContent });
+    const validation = zonderMetaLengte(validatePage({ blueprint, contentJson: nieuweContent }));
     if (!validation.ok) {
       return res.status(400).json({ error: `Niet aangepast, de pagina zou niet meer geldig zijn: ${validation.errors.join('; ')}` });
     }
@@ -2071,7 +2080,7 @@ function startSchrijfOpnieuw(pageId, { publiceer }) {
     const uitkomst = { waarschuwing: [r.klantverhaalWarning, r.redactieWaarschuwing, r.planWaarschuwing].filter(Boolean).join(' '), wpStatus: null, wpMelding: null };
     if (publiceer && page.wpPaginaId) {
       const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
-      const validation = validatePage({ blueprint, contentJson: nieuweContent });
+      const validation = zonderMetaLengte(validatePage({ blueprint, contentJson: nieuweContent }));
       if (!validation.ok) {
         uitkomst.wpMelding = `De nieuwe tekst staat in het portaal, maar is niet naar WordPress gestuurd omdat de controle fouten gaf: ${validation.errors.join('; ')}`;
       } else {
@@ -2088,6 +2097,7 @@ function startSchrijfOpnieuw(pageId, { publiceer }) {
           behoudStatus: true
         });
         uitkomst.wpStatus = result.status || null;
+        if (validation.metaOpmerkingen && validation.metaOpmerkingen.length) uitkomst.waarschuwing = [uitkomst.waarschuwing, `Wel bijgewerkt, maar: ${validation.metaOpmerkingen.join(' ')}`].filter(Boolean).join(' ');
         if (result.opnieuwAangemaakt) {
           await lpNotion.setWordpressInfo(pageId, { wpPaginaId: result.id, wpUrl: result.link });
           uitkomst.wpMelding = 'De WordPress pagina bestond niet meer, er is een nieuw concept gemaakt.';
@@ -2146,7 +2156,7 @@ router.post('/pages/:pageId/opnieuw-publiceren', requireLpInternal, async (req, 
     const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
     const content = page.content;
     if (contentIsEmpty(blueprint, content)) return res.status(400).json({ error: 'Deze pagina heeft nog geen content.' });
-    const validation = validatePage({ blueprint, contentJson: content });
+    const validation = zonderMetaLengte(validatePage({ blueprint, contentJson: content }));
     if (!validation.ok) return res.status(400).json({ error: `Niet verstuurd, de pagina is niet geldig: ${validation.errors.join('; ')}` });
     const client = getLpClient(page.klant);
     const html = renderPageHtml(buildRenderPage({ blueprint, content, clientId: page.klant, slug: page.slug, invoer: page.invoer }), { forWordPress: true });
@@ -2166,6 +2176,7 @@ router.post('/pages/:pageId/opnieuw-publiceren', requireLpInternal, async (req, 
       await lpNotion.setWordpressInfo(req.params.pageId, { wpPaginaId: result.id, wpUrl: result.link });
       melding = 'De WordPress pagina bestond niet meer, er is een nieuw concept gemaakt.';
     }
+    if (validation.metaOpmerkingen && validation.metaOpmerkingen.length) melding = [melding, `Wel verstuurd, maar: ${validation.metaOpmerkingen.join(' ')}`].filter(Boolean).join(' ');
     res.json({ gepubliceerd: true, wpStatus: result.status || null, ctaBalken: (html.match(/data-lp-cta-balk/g) || []).length, melding });
   } catch (err) {
     res.status(400).json({ error: err.message });
