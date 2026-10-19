@@ -250,7 +250,7 @@ const PAGINA_OPBOUW_REGELS = `OPBOUW VAN DE PAGINA (rode draad voor elke klant):
 - Elke sectie heeft een eigen taak in het verhaal van de bezoeker: herkenning en belofte (hero), wat we voor je doen (diensten of aanbod), waarom bij ons, zo gaat het (werkwijze), bewijs (reviews en projecten), twijfels weg (veelgestelde vragen), actie (formulier). Een sectie herhaalt niet wat een eerdere al zei, maar bouwt erop voort.
 - Een feit of voordeel staat op hooguit twee plekken: een keer uitgebreid en hooguit een keer kort terug (bijvoorbeeld in de hero en bij de veelgestelde vragen). Geef elk voordeel een eigen onderwerp en eigen woorden: vier voordelen die dezelfde reden herhalen zijn een voordeel.
 - Vertel bij een voordeel wat het voor de bezoeker betekent (rust, tijd, zekerheid), niet alleen wat het bedrijf doet. Spreek de bezoeker direct aan en schrijf als een persoon, niet als een brochure. Gebruik niet steeds de bedrijfsnaam voluit.
-- Staat bij het gezicht of bij het bewijs een zin van de eigenaar zelf in de ik-vorm (bijvoorbeeld "Met meer dan 20 jaar ervaring heb ik..."), gebruik die dan letterlijk als citaat met naam, bijvoorbeeld in de hero of bij waarom klanten kiezen. Dat is persoonlijker dan een beschrijving in de derde persoon.
+- Staat bij het gezicht of bij het bewijs een zin van de eigenaar zelf in de ik-vorm (bijvoorbeeld "Met meer dan 20 jaar ervaring heb ik..."), gebruik die dan letterlijk als citaat met naam, bijvoorbeeld in de hero of bij waarom klanten kiezen. Zet zo'n zin NOOIT in een reviewblok: reviews zijn alleen uitspraken van klanten, niet van het bedrijf zelf. Laat ook geen echte review weg om ruimte te maken.
 - Redenen om te kiezen haal je uit wat klanten zelf zeggen in reviews (bijvoorbeeld duidelijke communicatie, dagelijks doorwerken, netjes opgeleverd) en uit het gezicht van het bedrijf. "Sinds jaartal" of "ervaren" is op zichzelf geen reden en staat hooguit een keer kort op de pagina.
 - Geen lege woorden zoals "hoogwaardig", "professioneel", "kwaliteit" of "excellentie" zonder dat er een concreet feit achter staat.
 - Wissel op een pagina niet tussen "je" en "u".
@@ -281,7 +281,7 @@ function bouwKlantverhaalBlok(kv, { bedrijfsnaam } = {}) {
   }
   if ((kv.waaromKiezen || []).length) delen.push(`WAAROM KLANTEN KIEZEN (gebruik elk punt hooguit een keer uitgebreid)\n${kv.waaromKiezen.map((w) => `- ${w.punt}${w.uitleg ? `: ${w.uitleg}` : ''}`).join('\n')}`);
   if ((kv.twijfels || []).length) delen.push(`TWIJFELS VAN KLANTEN EN HET ANTWOORD (laat de pagina deze zorgen beantwoorden voordat de bezoeker ze hoeft te stellen)\n${kv.twijfels.map((t) => `- ${t.twijfel}${t.antwoord ? ` Antwoord: ${t.antwoord}` : ''}`).join('\n')}`);
-  if ((kv.bewijs || []).length) delen.push(`BEWIJS (echte reviews en projecten; reviews neem je letterlijk over)\n${kv.bewijs.map((b) => `- ${b.soort}${b.wie ? ` (${b.wie})` : ''}: ${b.tekst}`).join('\n')}`);
+  if ((kv.bewijs || []).length) delen.push(`BEWIJS (echte reviews en projecten; reviews neem je letterlijk over en alleen items met soort "review" horen in een reviewblok; neem alle reviews mee)\n${kv.bewijs.map((b) => `- ${b.soort}${b.wie ? ` (${b.wie})` : ''}: ${b.tekst}`).join('\n')}`);
   if ((kv.werkwijze || []).length) delen.push(`WERKWIJZE\n${kv.werkwijze.map((w) => `- ${w.stap}${w.uitleg ? `: ${w.uitleg}` : ''}`).join('\n')}`);
   const gekozen = (kv.tegenstrijdig || []).filter((t) => t.gekozen);
   const open = (kv.tegenstrijdig || []).filter((t) => !t.gekozen);
