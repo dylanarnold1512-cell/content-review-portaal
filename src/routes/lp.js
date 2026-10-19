@@ -2054,6 +2054,67 @@ router.post('/pages/:pageId/tekst-vervangen', requireLpInternal, async (req, res
   }
 });
 
+// ---- Pagina's opnieuw laten schrijven, eventueel meteen bijwerken in WordPress (19-10-2026) ----
+// De AI schrijft de tekst van een bestaande pagina opnieuw (met klantverhaal, schrijfplan en redactieronde). Wordt
+// "publiceer" gevraagd, dan gaat de nieuwe tekst naar DEZELFDE WordPress pagina (zelfde adres, geen nieuwe pagina)
+// met behoud van de status: live blijft live, concept blijft concept. De Notion status verandert niet.
+// De taak loopt in de wachtrij (een tegelijk), zodat een verzoek niet te lang duurt. Het scherm vraagt de uitkomst op.
+const schrijfUitkomst = new Map();
+function startSchrijfOpnieuw(pageId, { publiceer }) {
+  schrijfUitkomst.delete(pageId);
+  return autoTekstRij.zet(pageId, async () => {
+    const page = await lpNotion.getPage(pageId);
+    const r = await maakContentVoorstel(page, {});
+    const slotData = r.slotData || {};
+    const nieuweContent = { meta: { metaTitle: slotData.metaTitle || '', metaDescription: slotData.metaDescription || '' }, slotData };
+    await lpNotion.updateSection(pageId, 'content', nieuweContent);
+    const uitkomst = { waarschuwing: [r.klantverhaalWarning, r.redactieWaarschuwing, r.planWaarschuwing].filter(Boolean).join(' '), wpStatus: null, wpMelding: null };
+    if (publiceer && page.wpPaginaId) {
+      const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+      const validation = validatePage({ blueprint, contentJson: nieuweContent });
+      if (!validation.ok) {
+        uitkomst.wpMelding = `De nieuwe tekst staat in het portaal, maar is niet naar WordPress gestuurd omdat de controle fouten gaf: ${validation.errors.join('; ')}`;
+      } else {
+        const client = getLpClient(page.klant);
+        const html = renderPageHtml(buildRenderPage({ blueprint, content: nieuweContent, clientId: page.klant, slug: page.slug, invoer: page.invoer }), { forWordPress: true });
+        const result = await pushDraft({
+          profile: client.profile,
+          wpPaginaId: page.wpPaginaId,
+          titel: page.titel,
+          html,
+          slug: page.slug,
+          metaTitel: slotData.metaTitle,
+          metaBeschrijving: slotData.metaDescription,
+          behoudStatus: true
+        });
+        uitkomst.wpStatus = result.status || null;
+        if (result.opnieuwAangemaakt) {
+          await lpNotion.setWordpressInfo(pageId, { wpPaginaId: result.id, wpUrl: result.link });
+          uitkomst.wpMelding = 'De WordPress pagina bestond niet meer, er is een nieuw concept gemaakt.';
+        }
+      }
+    } else if (publiceer) {
+      uitkomst.wpMelding = 'Deze pagina staat nog niet in WordPress, alleen het portaal is bijgewerkt.';
+    }
+    schrijfUitkomst.set(pageId, uitkomst);
+  });
+}
+
+router.post('/pages/:pageId/schrijf-opnieuw', requireLpInternal, async (req, res) => {
+  try {
+    await lpNotion.getPage(req.params.pageId);
+    const huidig = autoTekstRij.status(req.params.pageId);
+    if (!huidig || huidig.status === 'fout') startSchrijfOpnieuw(req.params.pageId, { publiceer: Boolean((req.body || {}).publiceer) });
+    res.json({ tekstStatus: autoTekstRij.status(req.params.pageId) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.get('/pages/:pageId/schrijf-status', requireLpInternal, (req, res) => {
+  res.json({ tekstStatus: autoTekstRij.status(req.params.pageId), uitkomst: schrijfUitkomst.get(req.params.pageId) || null });
+});
+
 // ---- Pagina's opnieuw naar WordPress sturen, zonder tekst te veranderen (16-10-2026) ----
 // Voor als een sjabloon of een vaste bouwsteen (bijvoorbeeld een extra CTA-balk, zie formulierCta.js) is veranderd en
 // de bestaande pagina's dat ook moeten krijgen. Rendert de pagina opnieuw met de huidige code en stuurt hem naar

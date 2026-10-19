@@ -817,6 +817,32 @@
         <p id="lpVervangBevestig" class="admin-footnote hidden" style="font-weight:600;"></p>
       </div>
 
+      <div class="admin-section-title" style="margin-top:34px;">Pagina's opnieuw laten schrijven</div>
+      <p class="admin-footnote">
+        De AI schrijft de tekst van bestaande pagina's opnieuw, met het klantverhaal en de redactiecontrole. Let op: dit vervangt de tekst in het portaal, ook zinnen die je zelf hebt aangepast.
+        Vink "direct bijwerken" aan, dan gaat de nieuwe tekst naar dezelfde WordPress pagina (zelfde adres, geen nieuwe pagina) en blijft de status zoals die is: live blijft live. Test eerst met een pagina. Per pagina duurt het ongeveer twee minuten.
+      </p>
+      <div class="lp-field-row" style="margin-top:8px;">
+        <label><input type="checkbox" id="lpSchrijfPubliceer"> Direct bijwerken in WordPress (de status blijft zoals die is)</label>
+      </div>
+      <div class="modal-actions" style="justify-content:flex-start;gap:10px;">
+        <button type="button" id="lpSchrijfLijstBtn" class="btn btn-approve">Toon pagina's van deze klant</button>
+      </div>
+      <div id="lpSchrijfResultaat" class="hidden" style="margin-top:14px;">
+        <p id="lpSchrijfWaarschuwing" class="admin-footnote hidden"></p>
+        <div class="lp-table-card">
+          <table class="lp-table">
+            <thead><tr><th><input type="checkbox" id="lpSchrijfAlles" aria-label="Alles selecteren"></th><th>Pagina</th><th>WordPress</th><th>Uitkomst</th></tr></thead>
+            <tbody id="lpSchrijfBody"></tbody>
+          </table>
+        </div>
+        <div class="modal-actions" style="justify-content:flex-start;gap:10px;margin-top:10px;">
+          <button type="button" id="lpSchrijfUitvoerBtn" class="btn btn-approve">Opnieuw laten schrijven...</button>
+          <button type="button" id="lpSchrijfAnnuleerBtn" class="btn-plain hidden">Annuleren</button>
+        </div>
+        <p id="lpSchrijfBevestig" class="admin-footnote hidden" style="font-weight:600;"></p>
+      </div>
+
       <div class="admin-section-title" style="margin-top:34px;">Pagina's opnieuw naar WordPress sturen</div>
       <p class="admin-footnote">
         Is er iets aan de opbouw van de pagina's veranderd, bijvoorbeeld een extra offertebalk? Dan stuurt de tool de pagina's hier opnieuw naar WordPress,

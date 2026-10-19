@@ -258,4 +258,121 @@
     btn.textContent = 'Opnieuw sturen...';
     $('lpOpnieuwWaarschuwing').textContent = `Klaar: ${gelukt} pagina's bijgewerkt${mislukt ? `, ${mislukt} mislukt (zie de tabel)` : ''}.`;
   });
+
+  // ---- Pagina's opnieuw laten schrijven (19-10-2026) ----
+  const schrijf = { paginas: [], bezig: false };
+  const wacht = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  function schrijfGeselecteerd() {
+    return [...document.querySelectorAll('#lpSchrijfBody input[type=checkbox]')].filter((c) => c.checked).map((c) => schrijf.paginas.find((p) => p.id === c.dataset.id)).filter(Boolean);
+  }
+  function schrijfReset() {
+    $('lpSchrijfBevestig').classList.add('hidden');
+    $('lpSchrijfAnnuleerBtn').classList.add('hidden');
+    $('lpSchrijfUitvoerBtn').textContent = 'Opnieuw laten schrijven...';
+    $('lpSchrijfUitvoerBtn').dataset.stap = '';
+  }
+
+  $('lpSchrijfLijstBtn').addEventListener('click', async () => {
+    toonFout('');
+    const btn = $('lpSchrijfLijstBtn');
+    setBtnLoading(btn, true, 'Laden...');
+    try {
+      const data = await lpApi(`/clients/${encodeURIComponent($('lpVervangKlant').value)}/opnieuw-publiceren/lijst`, { method: 'POST', body: '{}' });
+      schrijf.paginas = data.paginas;
+      $('lpSchrijfResultaat').classList.remove('hidden');
+      const w = $('lpSchrijfWaarschuwing');
+      w.textContent = data.statusWaarschuwing || (data.paginas.length ? `${data.paginas.length} pagina's staan in WordPress.` : 'Deze klant heeft nog geen pagina\'s in WordPress.');
+      w.classList.remove('hidden');
+      const body = $('lpSchrijfBody');
+      body.innerHTML = '';
+      data.paginas.forEach((p) => {
+        const cb = el('input', { type: 'checkbox', 'data-id': p.id });
+        body.appendChild(el('tr', {}, [
+          el('td', {}, [cb]),
+          el('td', {}, [p.wpUrl ? el('a', { href: p.wpUrl, target: '_blank', rel: 'noopener', text: p.titel }) : document.createTextNode(p.titel)]),
+          el('td', { text: wpNaam(p.wpStatus) }),
+          el('td', { 'data-schrijf-uitkomst': p.id, text: '' })
+        ]));
+      });
+      $('lpSchrijfAlles').checked = false;
+      $('lpSchrijfUitvoerBtn').disabled = !data.paginas.length;
+      schrijfReset();
+    } catch (err) { toonFout(formatApiError(err)); } finally { setBtnLoading(btn, false); }
+  });
+
+  $('lpSchrijfAlles').addEventListener('change', (e) => {
+    document.querySelectorAll('#lpSchrijfBody input[type=checkbox]').forEach((c) => { c.checked = e.target.checked; });
+    schrijfReset();
+  });
+  $('lpSchrijfBody').addEventListener('change', schrijfReset);
+  $('lpSchrijfPubliceer').addEventListener('change', schrijfReset);
+  $('lpSchrijfAnnuleerBtn').addEventListener('click', schrijfReset);
+
+  // Een pagina laten schrijven en wachten tot de wachtrij klaar is. Geeft de uitkomst terug of gooit een fout.
+  async function schrijfEenPagina(id, publiceer) {
+    await lpApi(`/pages/${encodeURIComponent(id)}/schrijf-opnieuw`, { method: 'POST', body: JSON.stringify({ publiceer }) });
+    let onbekend = 0;
+    for (let i = 0; i < 150; i++) {
+      await wacht(4000);
+      const s = await lpApi(`/pages/${encodeURIComponent(id)}/schrijf-status`);
+      if (s.tekstStatus && s.tekstStatus.status === 'fout') throw new Error(s.tekstStatus.fout || 'Schrijven mislukt.');
+      if (s.tekstStatus) { onbekend = 0; continue; }
+      if (s.uitkomst) return s.uitkomst;
+      onbekend += 1;
+      if (onbekend >= 3) throw new Error('De uitkomst is niet terug te vinden. Controleer de pagina zelf.');
+    }
+    throw new Error('Het duurde te lang. Controleer de pagina zelf.');
+  }
+
+  $('lpSchrijfUitvoerBtn').addEventListener('click', async () => {
+    const btn = $('lpSchrijfUitvoerBtn');
+    const gekozen = schrijfGeselecteerd();
+    if (!gekozen.length || schrijf.bezig) return;
+    const publiceer = $('lpSchrijfPubliceer').checked;
+    if (btn.dataset.stap !== 'bevestig') {
+      const live = gekozen.filter((p) => p.wpStatus === 'publish').length;
+      let tekst = `${gekozen.length} pagina's worden opnieuw geschreven. De huidige tekst in het portaal wordt vervangen.`;
+      tekst += publiceer
+        ? ' De nieuwe tekst gaat meteen naar dezelfde WordPress pagina.'
+        : ' Er gaat niets naar WordPress, je controleert eerst en stuurt daarna zelf.';
+      if (publiceer && live) tekst += live === 1 ? ' 1 daarvan staat live: die blijft live en toont meteen de nieuwe tekst.' : ` ${live} daarvan staan live: die blijven live en tonen meteen de nieuwe tekst.`;
+      $('lpSchrijfBevestig').textContent = tekst;
+      $('lpSchrijfBevestig').classList.remove('hidden');
+      $('lpSchrijfAnnuleerBtn').classList.remove('hidden');
+      btn.textContent = 'Ja, opnieuw schrijven';
+      btn.dataset.stap = 'bevestig';
+      return;
+    }
+    schrijf.bezig = true;
+    toonFout('');
+    $('lpSchrijfAnnuleerBtn').classList.add('hidden');
+    $('lpSchrijfBevestig').classList.add('hidden');
+    btn.disabled = true;
+    btn.dataset.stap = '';
+    let gelukt = 0;
+    let mislukt = 0;
+    for (let i = 0; i < gekozen.length; i++) {
+      const p = gekozen[i];
+      const cel = document.querySelector(`[data-schrijf-uitkomst="${p.id}"]`);
+      btn.textContent = `Bezig (${i + 1} van ${gekozen.length})...`;
+      cel.textContent = 'De AI schrijft...';
+      try {
+        const u = await schrijfEenPagina(p.id, publiceer);
+        gelukt += 1;
+        const delen = ['Nieuwe tekst opgeslagen in het portaal'];
+        if (publiceer && u.wpStatus) delen.push(`bijgewerkt in WordPress (${wpNaam(u.wpStatus)})`);
+        if (u.wpMelding) delen.push(u.wpMelding);
+        if (u.waarschuwing) delen.push(u.waarschuwing);
+        cel.textContent = delen.join(', ') + '.';
+      } catch (err) {
+        mislukt += 1;
+        cel.textContent = `Mislukt: ${err.message}`;
+      }
+    }
+    schrijf.bezig = false;
+    btn.disabled = false;
+    btn.textContent = 'Opnieuw laten schrijven...';
+    $('lpSchrijfWaarschuwing').textContent = `Klaar: ${gelukt} pagina's opnieuw geschreven${mislukt ? `, ${mislukt} mislukt (zie de tabel)` : ''}.`;
+  });
 })();
