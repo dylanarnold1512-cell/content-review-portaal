@@ -312,6 +312,34 @@ function redactieControle(slotData, opties) {
     });
   }
 
+  // 6b. De hero noemt het bedrijf voluit bij naam in de derde persoon ("Aannemersbedrijf X helpt je"): dat is een brochure.
+  if (re) {
+    const heroNaam = velden.filter((v) => /^hero(Intro|Subtitle|Tekst|Text)/i.test(v.slot) && tel(re, v.tekst) > 0);
+    if (heroNaam.length) {
+      punten.push({
+        soort: 'toon',
+        tekst: `De hero praat over het bedrijf bij de volledige naam in plaats van als "wij" (${uniek(heroNaam.map((v) => leesbaar(v.pad))).join(', ')}). Dat klinkt afstandelijk.`,
+        slots: uniek(heroNaam.map((v) => v.slot)),
+        aanwijzing: 'Schrijf de hero als "wij" tegen "je": begin met de situatie of vraag van de bezoeker en laat de bedrijfsnaam weg. Geen openingszin die met de bedrijfsnaam begint.'
+      });
+    }
+  }
+
+  // 6c. Dezelfde harde claim (aantal jaren, startjaar) op meer dan een plek: noem hem een keer, daar waar hij het meest overtuigt.
+  const CLAIMS = [[/\b\d{1,3}\s*jaar\b/i, 'het aantal jaren ervaring'], [/\bsinds\s+(?:in\s+)?(?:19|20)\d{2}\b|\bactief\s+sinds\b/i, 'het startjaar']];
+  CLAIMS.forEach(([cre, naam]) => {
+    const plekken = velden.filter((v) => !/^(review|practical)/i.test(v.slot) && cre.test(v.tekst));
+    const slotsMet = uniek(plekken.map((v) => v.slot));
+    if (slotsMet.length >= 3 || (slotsMet.length === 2 && naam === 'het aantal jaren ervaring')) {
+      punten.push({
+        soort: 'herhaling',
+        tekst: `${naam[0].toUpperCase() + naam.slice(1)} staat op ${slotsMet.length} plekken (${slotsMet.slice(0, 4).join(', ')}).`,
+        slots: slotsMet.slice(1),
+        aanwijzing: `Noem ${naam} maar een keer (bij ${slotsMet[0]}). Schrijf de andere plekken over iets anders, zonder dit feit te herhalen.`
+      });
+    }
+  });
+
   // 7. De hero is afstandelijk: de bezoeker wordt niet direct aangesproken of het bedrijf spreekt niet als "wij".
   const hero = velden.filter((v) => /^hero(Intro|Subtitle|Tekst|Text)/i.test(v.slot));
   if (hero.length) {

@@ -1392,7 +1392,7 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
     const NIET_AANRAKEN = /^(reviewItems|practicalItems)$/;
     const bepaal = (slotData) => redactiePunten({ content: { slotData }, invoer, titel: page.titel }, blueprint, client).punten
       .map((pt) => ({ ...pt, slots: (pt.slots || []).filter((k) => !NIET_AANRAKEN.test(k)) }))
-      .filter((pt) => pt.slots.length && !(pt.soort === 'toon' && pt.slots.length < 2) && pt.soort !== 'bewijs');
+      .filter((pt) => pt.slots.length && !(pt.soort === 'toon' && /^De bedrijfsnaam staat/.test(pt.tekst || '') && pt.slots.length < 2) && pt.soort !== 'bewijs');
     const eerste = bepaal(result.slotData).slice(0, 6);
     if (eerste.length) {
       const kvRuw = client.profile.klantverhaal;

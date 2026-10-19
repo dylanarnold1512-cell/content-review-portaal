@@ -251,7 +251,12 @@ const PAGINA_OPBOUW_REGELS = `OPBOUW VAN DE PAGINA (rode draad voor elke klant):
 - Een feit of voordeel staat op hooguit twee plekken: een keer uitgebreid en hooguit een keer kort terug (bijvoorbeeld in de hero en bij de veelgestelde vragen). Geef elk voordeel een eigen onderwerp en eigen woorden: vier voordelen die dezelfde reden herhalen zijn een voordeel.
 - Vertel bij een voordeel wat het voor de bezoeker betekent (rust, tijd, zekerheid), niet alleen wat het bedrijf doet. Spreek de bezoeker direct aan en schrijf als een persoon, niet als een brochure. Gebruik niet steeds de bedrijfsnaam voluit.
 - Geen lege woorden zoals "hoogwaardig", "professioneel", "kwaliteit" of "excellentie" zonder dat er een concreet feit achter staat.
-- Wissel op een pagina niet tussen "je" en "u".`;
+- Wissel op een pagina niet tussen "je" en "u".
+- Hero en antwoordblok: gebruik hier de bedrijfsnaam niet. Open met de situatie of vraag van de bezoeker ("Wil je...", "Heb je...") en zeg direct daarna in "wij" wat jullie voor die vraag doen. Dus niet "Bedrijf X helpt je met...".
+- Elke zin zegt iets nieuws. Schrijf geen vulzinnen die alleen herhalen wat er al staat, zoals "Dat maakt dit onderdeel van ons brede aanbod".
+- Beweer niets wat niet in de feiten, het klantverhaal of de bronteksten staat. Verzin dus geen beloften zoals "vast aanspreekpunt" of "van begin tot eind begeleiden".
+- Praktische gegevens (adres, telefoon, werkgebied, soorten projecten) zijn korte feiten. Neem geen reclamezinnen uit de website over ("wij hebben de expertise en ervaring...").
+- Schrijf correct Nederlands: "kies een werkzaamheid of combineer er meerdere", "een compleet tuinhuis".`;
 
 function bouwKlantverhaalBlok(kv, { bedrijfsnaam } = {}) {
   if (!kv || kv.status !== 'goedgekeurd' || !klantverhaalHeeftInhoud(kv)) return '';
