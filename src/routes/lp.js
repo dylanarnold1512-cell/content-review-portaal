@@ -30,7 +30,12 @@ const { onderwerpFit } = require('../lp/onderwerpFit');
 const { wachtOpJou } = require('../lp/wachtOpJou');
 const maandplan = require('../lp/maandplan');
 const { pushDraft, deletePage: deleteWpPage, restorePage: herstelWpPage, searchMedia, uploadMedia, listSitePages, haalPaginaStatussen, siteNaam } = require('../lp/wordpress');
-const { vindTekst, vervangTekst } = require('../lp/tekstVervangen');
+const { vindTekst, vervangTekst, vulPlaatshouders } = require('../lp/tekstVervangen');
+
+function plaatshouderWaarden(client, page) {
+  const bedrijf = (client.profile && client.profile.bedrijf) || {};
+  return { plaats: page && page.invoer && page.invoer.plaatsnaam, bedrijf: bedrijf.naam || (client.profile && client.profile.naam) };
+}
 const { haalSiteTeksten, formatSiteTekstenVoorPrompt } = require('../lp/siteTeksten');
 const { bouwKlantverhaalVoorstel } = require('../lp/klantverhaal');
 const { waarschuwingGefilterd } = require('../lp/bronFilter');
@@ -1983,7 +1988,8 @@ router.post('/clients/:clientId/tekst-vervangen/zoek', requireLpInternal, async 
       try {
         const volledig = await lpNotion.getPage(p.id);
         const slotData = (volledig.content && volledig.content.slotData) || {};
-        return { pagina: p, gevonden: vindTekst(slotData, { zoek, slotKey: slotKey || undefined }) };
+        const zoekHier = vulPlaatshouders(zoek, plaatshouderWaarden(client, volledig));
+        return { pagina: p, gevonden: vindTekst(slotData, { zoek: zoekHier, slotKey: slotKey || undefined }) };
       } catch (err) {
         return { pagina: p, fout: err.message };
       }
@@ -2023,7 +2029,8 @@ router.post('/pages/:pageId/tekst-vervangen', requireLpInternal, async (req, res
     const content = page.content;
     if (contentIsEmpty(blueprint, content)) return res.status(400).json({ error: 'Deze pagina heeft nog geen content.' });
 
-    const { slotData, aantal } = vervangTekst(content.slotData || {}, { zoek, vervang, slotKey: slotKey || undefined, heleVeld: !!heleVeld });
+    const waarden = plaatshouderWaarden(getLpClient(page.klant), page);
+    const { slotData, aantal } = vervangTekst(content.slotData || {}, { zoek: vulPlaatshouders(zoek, waarden), vervang: vulPlaatshouders(vervang, waarden), slotKey: slotKey || undefined, heleVeld: !!heleVeld });
     if (!aantal) return res.json({ aantal: 0, opgeslagen: false, gepubliceerd: false, melding: 'De tekst staat niet meer op deze pagina.' });
 
     // Eerst valideren: een verplicht veld leegmaken mag niet stilletjes een kapotte pagina opleveren.

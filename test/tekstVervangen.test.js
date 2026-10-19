@@ -119,3 +119,10 @@ test('haalPaginaStatussen: geeft per pagina de echte WordPress status terug', as
     assert.deepEqual(await haalPaginaStatussen({ profile: getLpClient('macbouw').profile, ids: [] }), {});
   } finally { nep.herstel(); }
 });
+
+test('plaatshouders worden per pagina ingevuld', () => {
+  const { vulPlaatshouders } = require('../src/lp/tekstVervangen');
+  assert.equal(vulPlaatshouders('Plannen om je woning in {plaats} te verbouwen met {bedrijf}?', { plaats: 'Hoofddorp', bedrijf: 'MAC Bouw' }), 'Plannen om je woning in Hoofddorp te verbouwen met MAC Bouw?');
+  assert.throws(() => vulPlaatshouders('in {plaats}', { plaats: '' }), /plaatsnaam/);
+  assert.equal(vulPlaatshouders('zonder houder', {}), 'zonder houder');
+});

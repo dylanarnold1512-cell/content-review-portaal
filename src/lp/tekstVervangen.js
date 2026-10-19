@@ -72,4 +72,23 @@ function vervangTekst(slotData, { zoek, vervang, slotKey, heleVeld } = {}) {
   return { slotData: nieuw, aantal };
 }
 
-module.exports = { vindTekst, vervangTekst, loopDoorSlotData };
+// Plaatshouders (19-10-2026): in "Tekst zoeken" en "Vervangen door" mag je {plaats} en {bedrijf} gebruiken. Per
+// pagina worden ze ingevuld met de plaatsnaam van die pagina en de naam van het bedrijf, zodat een tekst met een
+// plaats er in een keer bij alle pagina's goed in komt. Is er een waarde leeg, dan geeft dit een duidelijke fout.
+const PLAATSHOUDER_RE = /\{\s*(plaatsnaam|plaats|bedrijfsnaam|bedrijf)\s*\}/gi;
+
+function heeftPlaatshouders(tekst) {
+  return typeof tekst === 'string' && new RegExp(PLAATSHOUDER_RE.source, 'i').test(tekst);
+}
+
+function vulPlaatshouders(tekst, { plaats, bedrijf } = {}) {
+  if (typeof tekst !== 'string') return tekst;
+  return tekst.replace(PLAATSHOUDER_RE, (_m, naam) => {
+    const soort = naam.toLowerCase().startsWith('plaats') ? 'plaats' : 'bedrijf';
+    const waarde = String((soort === 'plaats' ? plaats : bedrijf) || '').trim();
+    if (!waarde) throw new Error(soort === 'plaats' ? 'Bij deze pagina is geen plaatsnaam ingevuld, dus {plaats} kan niet worden ingevuld.' : 'De bedrijfsnaam is niet bekend, dus {bedrijf} kan niet worden ingevuld.');
+    return waarde;
+  });
+}
+
+module.exports = { vindTekst, vervangTekst, loopDoorSlotData, vulPlaatshouders, heeftPlaatshouders };
