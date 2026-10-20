@@ -29,7 +29,8 @@ const { maakControle, inOrdePunten } = require('../lp/controle');
 const { onderwerpFit } = require('../lp/onderwerpFit');
 const { wachtOpJou } = require('../lp/wachtOpJou');
 const maandplan = require('../lp/maandplan');
-const { pushDraft, deletePage: deleteWpPage, restorePage: herstelWpPage, searchMedia, uploadMedia, listSitePages, haalPaginaStatussen, siteNaam } = require('../lp/wordpress');
+const { bouwBlogKandidaten } = require('../lp/blogLinks');
+const { pushDraft, deletePage: deleteWpPage, restorePage: herstelWpPage, searchMedia, uploadMedia, listSitePages, listSiteBlogs, haalPaginaStatussen, siteNaam } = require('../lp/wordpress');
 const { vindTekst, vervangTekst, vulPlaatshouders } = require('../lp/tekstVervangen');
 const onderdeel = require('../lp/onderdeelOvernemen');
 
@@ -1335,7 +1336,18 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
     linkWarning = `Site-pagina's ophalen bij WordPress is niet gelukt (${siteErr.message}) — alleen zusterpagina's (indien aanwezig) zijn als linkkandidaat gebruikt.`;
   }
 
-  const linkKandidaten = [...zusterKandidaten, ...siteKandidaten];
+  // Bij klanten met Blogr. (product Blogr. of Beide) mag de pagina ook naar gepubliceerde blogs linken. Nooit blokkerend.
+  let blogKandidaten = [];
+  try {
+    const instBlogs = await klantInstellingen(page.klant);
+    if (instBlogs.blogr && instBlogs.pagr) {
+      blogKandidaten = bouwBlogKandidaten(await listSiteBlogs({ profile: client.profile }));
+    }
+  } catch (blogErr) {
+    linkWarning = [linkWarning, `Blogs ophalen bij WordPress is niet gelukt (${blogErr.message}), de pagina linkt nu niet naar blogs.`].filter(Boolean).join(' ');
+  }
+
+  const linkKandidaten = [...zusterKandidaten, ...siteKandidaten, ...blogKandidaten];
 
   // Bronteksten van de hele klantsite (siteTeksten.js): de AI leest standaard alle echte pagina's van de website van de
   // klant, behalve onze eigen landingspagina's, en gebruikt die als hoofdbron. Nooit blokkerend: lukt het niet, dan
