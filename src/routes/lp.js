@@ -31,6 +31,7 @@ const { wachtOpJou } = require('../lp/wachtOpJou');
 const maandplan = require('../lp/maandplan');
 const { pushDraft, deletePage: deleteWpPage, restorePage: herstelWpPage, searchMedia, uploadMedia, listSitePages, haalPaginaStatussen, siteNaam } = require('../lp/wordpress');
 const { vindTekst, vervangTekst, vulPlaatshouders } = require('../lp/tekstVervangen');
+const onderdeel = require('../lp/onderdeelOvernemen');
 
 function plaatshouderWaarden(client, page) {
   const bedrijf = (client.profile && client.profile.bedrijf) || {};
@@ -2188,6 +2189,106 @@ router.post('/pages/:pageId/opnieuw-publiceren', requireLpInternal, async (req, 
     }
     if (validation.metaOpmerkingen && validation.metaOpmerkingen.length) melding = [melding, `Wel verstuurd, maar: ${validation.metaOpmerkingen.join(' ')}`].filter(Boolean).join(' ');
     res.json({ gepubliceerd: true, wpStatus: result.status || null, ctaBalken: (html.match(/data-lp-cta-balk/g) || []).length, melding });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// ---- Een onderdeel overnemen van een voorbeeldpagina (20-10-2026) ----
+// Bijvoorbeeld de sectie Projecten van Sassenheim op alle andere pagina's zetten, zonder de rest van de tekst te
+// veranderen. Alleen tussen pagina's met hetzelfde sjabloon. De plaatsnaam van de voorbeeldpagina wordt in de
+// overgenomen tekst vervangen door die van de doelpagina. Publiceren gaat met behoud van de WordPress status.
+router.post('/clients/:clientId/onderdeel-overnemen/lijst', requireLpInternal, async (req, res) => {
+  try {
+    const client = getLpClient(req.params.clientId);
+    const lijst = await lpNotion.listPages({ klant: req.params.clientId });
+    let statussen = {};
+    let statusWaarschuwing = null;
+    try {
+      statussen = await haalPaginaStatussen({ profile: client.profile, ids: lijst.filter((p) => p.wpPaginaId).map((p) => p.wpPaginaId) });
+    } catch (err) {
+      statusWaarschuwing = `De WordPress status kon niet worden opgehaald (${err.message}). Controleer zelf welke pagina's live staan.`;
+    }
+    const paginas = lijst
+      .map((p) => ({
+        id: p.id,
+        titel: p.titel,
+        blueprint: p.blueprint || null,
+        wpUrl: p.wpUrl || null,
+        wpStatus: p.wpPaginaId ? (statussen[p.wpPaginaId] || 'onbekend') : 'niet gepubliceerd'
+      }))
+      .sort((a, b) => String(a.titel).localeCompare(String(b.titel), 'nl'));
+    res.json({ paginas, statusWaarschuwing });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.get('/pages/:pageId/onderdelen', requireLpInternal, async (req, res) => {
+  try {
+    const page = await lpNotion.getPage(req.params.pageId);
+    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const slotData = (page.content && page.content.slotData) || {};
+    const onderdelen = onderdeel.onderdelenVan(blueprint)
+      .map((o) => ({ ...o, inhoud: onderdeel.samenvatting(slotData, o.slots) }))
+      .filter((o) => o.inhoud.length);
+    res.json({ blueprint: page.blueprint, plaats: (page.invoer && page.invoer.plaatsnaam) || '', onderdelen });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/pages/:pageId/onderdeel-overnemen', requireLpInternal, async (req, res) => {
+  try {
+    const { bronPageId, onderdeelId, publiceer } = req.body || {};
+    if (!bronPageId || !onderdeelId) return res.status(400).json({ error: 'Kies een voorbeeldpagina en een onderdeel.' });
+    if (bronPageId === req.params.pageId) return res.json({ overgeslagen: true, melding: 'Dit is de voorbeeldpagina zelf.' });
+    const [bron, page] = await Promise.all([lpNotion.getPage(bronPageId), lpNotion.getPage(req.params.pageId)]);
+    if (bron.klant !== page.klant) return res.status(400).json({ error: 'De voorbeeldpagina hoort bij een andere klant.' });
+    if (bron.blueprint !== page.blueprint) return res.status(400).json({ error: `Andere opbouw (sjabloon ${page.blueprint || 'onbekend'}), daarom niet overgenomen.` });
+    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const gekozen = onderdeel.onderdelenVan(blueprint).find((o) => o.id === onderdeelId);
+    if (!gekozen) return res.status(400).json({ error: 'Dit onderdeel bestaat niet in het sjabloon.' });
+    if (contentIsEmpty(blueprint, page.content)) return res.status(400).json({ error: 'Deze pagina heeft nog geen content.' });
+
+    const { content: nieuweContent, plaatsVervangen } = onderdeel.neemOnderdeelOver({
+      bronContent: bron.content,
+      doelContent: page.content,
+      slotKeys: gekozen.slots,
+      bronPlaats: bron.invoer && bron.invoer.plaatsnaam,
+      doelPlaats: page.invoer && page.invoer.plaatsnaam
+    });
+    const validation = zonderMetaLengte(validatePage({ blueprint, contentJson: nieuweContent }));
+    if (!validation.ok) return res.status(400).json({ error: `Niet aangepast, de pagina zou niet meer geldig zijn: ${validation.errors.join('; ')}` });
+    await lpNotion.updateSection(req.params.pageId, 'content', nieuweContent);
+
+    let gepubliceerd = false;
+    let wpStatus = null;
+    let melding = plaatsVervangen ? `Plaatsnaam ${plaatsVervangen} keer aangepast naar ${page.invoer.plaatsnaam}.` : null;
+    if (publiceer && page.wpPaginaId) {
+      const client = getLpClient(page.klant);
+      const html = renderPageHtml(buildRenderPage({ blueprint, content: nieuweContent, clientId: page.klant, slug: page.slug, invoer: page.invoer }), { forWordPress: true });
+      const slotData = nieuweContent.slotData || {};
+      const result = await pushDraft({
+        profile: client.profile,
+        wpPaginaId: page.wpPaginaId,
+        titel: page.titel,
+        html,
+        slug: page.slug,
+        metaTitel: slotData.metaTitle,
+        metaBeschrijving: slotData.metaDescription,
+        behoudStatus: true
+      });
+      gepubliceerd = true;
+      wpStatus = result.status || null;
+      if (result.opnieuwAangemaakt) {
+        await lpNotion.setWordpressInfo(req.params.pageId, { wpPaginaId: result.id, wpUrl: result.link });
+        melding = [melding, 'De WordPress pagina bestond niet meer, er is een nieuw concept gemaakt.'].filter(Boolean).join(' ');
+      }
+    } else if (publiceer) {
+      melding = [melding, 'Deze pagina staat nog niet in WordPress, alleen het portaal is bijgewerkt.'].filter(Boolean).join(' ');
+    }
+    res.json({ opgeslagen: true, gepubliceerd, wpStatus, melding });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

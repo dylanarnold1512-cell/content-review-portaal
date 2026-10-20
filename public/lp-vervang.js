@@ -390,4 +390,141 @@
     btn.textContent = 'Opnieuw laten schrijven...';
     $('lpSchrijfWaarschuwing').textContent = `Klaar: ${gelukt} pagina's opnieuw geschreven${mislukt ? `, ${mislukt} mislukt (zie de tabel)` : ''}.`;
   });
+
+  // ---- Een onderdeel overnemen van een voorbeeldpagina (20-10-2026) ----
+  const ond = { paginas: [], onderdelen: [], bron: null, bezig: false };
+
+  function ondReset() {
+    $('lpOndBevestig').classList.add('hidden');
+    $('lpOndAnnuleerBtn').classList.add('hidden');
+    $('lpOndUitvoerBtn').textContent = 'Overnemen...';
+    $('lpOndUitvoerBtn').dataset.stap = '';
+  }
+  function ondGeselecteerd() {
+    return [...document.querySelectorAll('#lpOndBody input[type=checkbox]')].filter((c) => c.checked && !c.disabled).map((c) => ond.paginas.find((p) => p.id === c.dataset.id)).filter(Boolean);
+  }
+  function ondTabel() {
+    const bron = ond.paginas.find((p) => p.id === $('lpOndBron').value);
+    const body = $('lpOndBody');
+    body.innerHTML = '';
+    const doelen = ond.paginas.filter((p) => bron && p.id !== bron.id && p.blueprint === bron.blueprint);
+    doelen.forEach((p) => {
+      const cb = el('input', { type: 'checkbox', 'data-id': p.id });
+      cb.checked = true;
+      body.appendChild(el('tr', {}, [
+        el('td', {}, [cb]),
+        el('td', {}, [p.wpUrl ? el('a', { href: p.wpUrl, target: '_blank', rel: 'noopener', text: p.titel }) : document.createTextNode(p.titel)]),
+        el('td', { text: wpNaam(p.wpStatus) }),
+        el('td', { 'data-ond-uitkomst': p.id, text: '' })
+      ]));
+    });
+    const anders = bron ? ond.paginas.filter((p) => p.id !== bron.id && p.blueprint !== bron.blueprint).length : 0;
+    const w = $('lpOndWaarschuwing');
+    w.textContent = [ond.statusWaarschuwing, `${doelen.length} pagina's hebben hetzelfde sjabloon als de voorbeeldpagina.`, anders ? `${anders} met een ander sjabloon staan niet in de lijst.` : ''].filter(Boolean).join(' ');
+    w.classList.remove('hidden');
+    $('lpOndAlles').checked = doelen.length > 0;
+    ondReset();
+  }
+  function ondInhoud() {
+    const o = ond.onderdelen.find((x) => x.id === $('lpOndOnderdeel').value);
+    $('lpOndInhoud').textContent = o ? `Zo staat het op de voorbeeldpagina: ${o.inhoud.join(' | ')}` : '';
+    $('lpOndUitvoerBtn').disabled = !o;
+    ondReset();
+  }
+  async function ondLaadOnderdelen() {
+    const sel = $('lpOndOnderdeel');
+    sel.innerHTML = '<option value="">Laden...</option>';
+    ond.onderdelen = [];
+    ondInhoud();
+    ondTabel();
+    const id = $('lpOndBron').value;
+    if (!id) return;
+    try {
+      const data = await lpApi(`/pages/${encodeURIComponent(id)}/onderdelen`);
+      ond.onderdelen = data.onderdelen;
+      ond.bronPlaats = data.plaats;
+      sel.innerHTML = '<option value="">Kies een onderdeel</option>' + data.onderdelen.map((o) => `<option value="${o.id}">${o.naam} (${o.slots.join(', ')})</option>`).join('');
+      const project = data.onderdelen.find((o) => /^project/.test(o.id));
+      if (project) sel.value = project.id;
+      ondInhoud();
+    } catch (err) { sel.innerHTML = ''; toonFout(formatApiError(err)); }
+  }
+
+  $('lpOndLijstBtn').addEventListener('click', async () => {
+    toonFout('');
+    const btn = $('lpOndLijstBtn');
+    setBtnLoading(btn, true, 'Laden...');
+    try {
+      const data = await lpApi(`/clients/${encodeURIComponent($('lpVervangKlant').value)}/onderdeel-overnemen/lijst`, { method: 'POST', body: '{}' });
+      ond.paginas = data.paginas;
+      ond.statusWaarschuwing = data.statusWaarschuwing;
+      $('lpOndKeuze').classList.remove('hidden');
+      $('lpOndBron').innerHTML = '<option value="">Kies de pagina waar het goed staat</option>' + data.paginas.map((p) => `<option value="${p.id}">${p.titel}</option>`).join('');
+      $('lpOndOnderdeel').innerHTML = '';
+      $('lpOndBody').innerHTML = '';
+      $('lpOndInhoud').textContent = '';
+      $('lpOndWaarschuwing').classList.add('hidden');
+      $('lpOndUitvoerBtn').disabled = true;
+    } catch (err) { toonFout(formatApiError(err)); } finally { setBtnLoading(btn, false); }
+  });
+  $('lpOndBron').addEventListener('change', ondLaadOnderdelen);
+  $('lpOndOnderdeel').addEventListener('change', ondInhoud);
+  $('lpOndAlles').addEventListener('change', (e) => {
+    document.querySelectorAll('#lpOndBody input[type=checkbox]').forEach((c) => { c.checked = e.target.checked; });
+    ondReset();
+  });
+  $('lpOndBody').addEventListener('change', ondReset);
+  $('lpOndPubliceer').addEventListener('change', ondReset);
+  $('lpOndAnnuleerBtn').addEventListener('click', ondReset);
+
+  $('lpOndUitvoerBtn').addEventListener('click', async () => {
+    const btn = $('lpOndUitvoerBtn');
+    const gekozen = ondGeselecteerd();
+    const onderdeelId = $('lpOndOnderdeel').value;
+    const bronPageId = $('lpOndBron').value;
+    if (!gekozen.length || !onderdeelId || !bronPageId || ond.bezig) return;
+    const publiceer = $('lpOndPubliceer').checked;
+    const o = ond.onderdelen.find((x) => x.id === onderdeelId);
+    if (btn.dataset.stap !== 'bevestig') {
+      const live = gekozen.filter((p) => p.wpStatus === 'publish').length;
+      let tekst = `Het onderdeel ${o ? o.naam : onderdeelId} wordt op ${gekozen.length} pagina's precies zo gezet als op de voorbeeldpagina. De rest van de tekst blijft staan.`;
+      tekst += publiceer ? ' Pagina\'s die in WordPress staan worden meteen bijgewerkt.' : ' Er gaat niets naar WordPress.';
+      if (publiceer && live) tekst += live === 1 ? ' 1 daarvan staat live en blijft live.' : ` ${live} daarvan staan live en blijven live.`;
+      $('lpOndBevestig').textContent = tekst;
+      $('lpOndBevestig').classList.remove('hidden');
+      $('lpOndAnnuleerBtn').classList.remove('hidden');
+      btn.textContent = 'Ja, overnemen';
+      btn.dataset.stap = 'bevestig';
+      return;
+    }
+    ond.bezig = true;
+    toonFout('');
+    $('lpOndAnnuleerBtn').classList.add('hidden');
+    $('lpOndBevestig').classList.add('hidden');
+    btn.disabled = true;
+    btn.dataset.stap = '';
+    let gelukt = 0;
+    let mislukt = 0;
+    for (let i = 0; i < gekozen.length; i++) {
+      const p = gekozen[i];
+      const cel = document.querySelector(`[data-ond-uitkomst="${p.id}"]`);
+      btn.textContent = `Bezig (${i + 1} van ${gekozen.length})...`;
+      cel.textContent = 'Bezig...';
+      try {
+        const r = await lpApi(`/pages/${encodeURIComponent(p.id)}/onderdeel-overnemen`, { method: 'POST', body: JSON.stringify({ bronPageId, onderdeelId, publiceer }) });
+        gelukt += 1;
+        const delen = ['Overgenomen'];
+        if (r.gepubliceerd) delen.push(`bijgewerkt in WordPress (${wpNaam(r.wpStatus)})`);
+        if (r.melding) delen.push(r.melding);
+        cel.textContent = delen.join(', ') + (delen.length > 1 && /[.]$/.test(delen[delen.length - 1]) ? '' : '.');
+      } catch (err) {
+        mislukt += 1;
+        cel.textContent = `Mislukt: ${err.message}`;
+      }
+    }
+    ond.bezig = false;
+    btn.disabled = false;
+    btn.textContent = 'Overnemen...';
+    $('lpOndWaarschuwing').textContent = `Klaar: ${gelukt} pagina's bijgewerkt${mislukt ? `, ${mislukt} mislukt (zie de tabel)` : ''}.`;
+  });
 })();
