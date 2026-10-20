@@ -10,6 +10,7 @@
     rapportages: 'Maandrapporten',
     merkprofiel: 'Merkprofiel',
     kennisdocument: 'Kennisdocument',
+    beeldbank: 'Beeldbank',
     paginas: 'Landingspagina\'s'
   };
   // Het adres gebruikt de woorden die de klant in het menu ziet, niet onze interne namen.
@@ -21,6 +22,7 @@
     rapportages: 'maandrapporten',
     merkprofiel: 'merkprofiel',
     kennisdocument: 'kennisdocument',
+    beeldbank: 'beeldbank',
     paginas: 'paginas'
   };
 

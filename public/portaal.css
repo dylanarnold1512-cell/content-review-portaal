@@ -644,3 +644,18 @@ body.alleen-pagr #tabNav .p-nav-groep:not(#paginasGroep) { display: none; }
 #intakeTab .ik-keuze:nth-child(1) .ik-keuze-kaart::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233a5fd9' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 4h16v16H4zM8 9h8M8 13h8M8 17h5'/%3E%3C/svg%3E"); }
 #intakeTab .ik-keuze:nth-child(2) .ik-keuze-kaart::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e0263e' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='16' rx='2'/%3E%3Cpath d='M3 9h18M8 14h8'/%3E%3C/svg%3E"); }
 #intakeTab .ik-keuze:nth-child(3) .ik-keuze-kaart::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236a35ff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 15.6 7.1 18.2 8 12.7 4 8.8l5.5-.8z'/%3E%3C/svg%3E"); }
+
+/* Beeldbank */
+.bb-hint { width: 100%; max-width: 520px; margin: 12px 0 0; }
+.bb-voortgang { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 8px; }
+.bb-rij { display: grid; grid-template-columns: minmax(120px, 220px) 1fr; gap: 12px; padding: 12px 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; align-items: start; }
+.bb-naam { font-weight: 600; word-break: break-word; }
+.bb-sub { margin-top: 4px; font-size: 13px; color: #5b6075; }
+.bb-status { font-weight: 600; }
+.bb-goed { color: #1b7f4b; }
+.bb-let-op { color: #a35f00; }
+.bb-fout { color: #c0263c; }
+.bb-bezig { color: #5b6075; }
+.bb-kies { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.bb-kies select, .bb-kies input { padding: 8px 10px; border: 1px solid #cfd3e0; border-radius: 8px; font: inherit; }
+@media (max-width: 640px) { .bb-rij { grid-template-columns: 1fr; } }

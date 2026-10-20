@@ -7,6 +7,7 @@ const merkprofielService = require('../services/merkprofiel');
 const prestatiesService = require('../services/prestaties');
 const rapportenService = require('../services/rapporten');
 const aiZichtbaarheidService = require('../services/aiZichtbaarheid');
+const beeldbankService = require('../services/beeldbank');
 const documentTekst = require('../services/documentTekst');
 const lpNotion = require('../lp/notion');
 const lpTemplates = require('../lp/templates');
@@ -296,6 +297,31 @@ router.post('/:clientId/ideas', requireLogin, async (req, res) => {
     res.json({ ok: true, id: result.id });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Beeldbank: afbeeldingen aanleveren. De browser verkleint, de n8n workflow Beeldbank Verwerk bepaalt map,
+// naam en alt tekst en zet de afbeelding in de Drive beeldmap van de klant (zie src/services/beeldbank.js).
+router.get('/:clientId/beeldbank', requireLogin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    if (!beeldbankService.beeldbankAan(config)) return res.json({ beschikbaar: false });
+    let afbeeldingen = [];
+    try { afbeeldingen = await beeldbankService.lijstAfbeeldingen(config.naam); } catch (err) { console.error('Beeldbank lijst mislukt:', err.message); }
+    res.json({ beschikbaar: true, afbeeldingen });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/:clientId/beeldbank/upload', requireLogin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    if (!beeldbankService.beeldbankAan(config)) return res.status(404).json({ error: 'De beeldbank staat niet aan voor deze klant.' });
+    const antwoord = await beeldbankService.stuurAfbeelding(config.naam, req.body || {});
+    res.json(antwoord);
+  } catch (err) {
+    res.status(500).json({ status: 'fout', melding: err.message });
   }
 });
 
