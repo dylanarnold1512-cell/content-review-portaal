@@ -348,13 +348,15 @@ function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies, kansen
     }
   }
   kansLijst.sort((a, b) => b.z.i - a.z.i);
-  const kansenUitTabel = (kansenRijen || []).filter((r) => r.soort === 'verbeteren' || r.soort === 'nieuw_onderwerp');
+  // Rijen met toon 'pool' zijn reserve voor de generators en horen niet in het portaal. Oude rijen zonder toon blijven zichtbaar.
+  const kansenUitTabel = (kansenRijen || []).filter((r) => (r.soort === 'verbeteren' || r.soort === 'nieuw_onderwerp') && r.toon !== 'pool');
   if (kansenUitTabel.length) {
     // Uitlegbare kansen uit de sync: de teksten staan al klaar, hier alleen ordenen.
     const rang = { hoog: 0, middel: 1, laag: 2 };
     const soortRang = { verbeteren: 0, nieuw_onderwerp: 1 };
     const gesorteerd = kansenUitTabel.slice().sort(
       (a, b) =>
+        ((num(a.rang) ?? 99) - (num(b.rang) ?? 99)) ||
         (soortRang[a.soort] - soortRang[b.soort]) ||
         ((rang[a.prioriteit] ?? 3) - (rang[b.prioriteit] ?? 3)) ||
         ((num(b.vertoningen) || 0) - (num(a.vertoningen) || 0))
