@@ -450,22 +450,64 @@
     } catch (err) { sel.innerHTML = ''; toonFout(formatApiError(err)); }
   }
 
-  $('lpOndLijstBtn').addEventListener('click', async () => {
+  function ondKlantNaam() {
+    const sel = $('lpVervangKlant');
+    const opt = sel.options[sel.selectedIndex];
+    return opt ? opt.textContent : '';
+  }
+  function ondWis() {
+    ond.paginas = [];
+    $('lpOndKeuze').classList.add('hidden');
+    $('lpOndStatus').classList.add('hidden');
+    $('lpOndBron').innerHTML = '';
+    $('lpOndOnderdeel').innerHTML = '';
+    $('lpOndBody').innerHTML = '';
+    $('lpOndInhoud').textContent = '';
+    $('lpOndWaarschuwing').classList.add('hidden');
+    $('lpOndUitvoerBtn').disabled = true;
+  }
+  // Laadt de pagina's van de gekozen klant. Wordt automatisch gedaan bij openen van het tabblad en bij wisselen van klant,
+  // zodat de voorbeeldlijst nooit bij een andere klant hoort dan degene die bovenaan staat.
+  let ondLaadVolgnr = 0;
+  async function ondLaadLijst() {
+    const klant = $('lpVervangKlant').value;
+    if (!klant) return;
+    const volgnr = ++ondLaadVolgnr;
     toonFout('');
     const btn = $('lpOndLijstBtn');
     setBtnLoading(btn, true, 'Laden...');
     try {
-      const data = await lpApi(`/clients/${encodeURIComponent($('lpVervangKlant').value)}/onderdeel-overnemen/lijst`, { method: 'POST', body: '{}' });
+      const data = await lpApi(`/clients/${encodeURIComponent(klant)}/onderdeel-overnemen/lijst`, { method: 'POST', body: '{}' });
+      if (volgnr !== ondLaadVolgnr) return;
+      ondWis();
       ond.paginas = data.paginas;
       ond.statusWaarschuwing = data.statusWaarschuwing;
+      const status = $('lpOndStatus');
+      status.classList.remove('hidden');
+      if (!data.paginas.length) {
+        status.textContent = `Er zijn geen pagina's gevonden voor ${ondKlantNaam()}. Kies bovenaan de juiste klant.`;
+        return;
+      }
+      status.textContent = `${data.paginas.length} pagina's gevonden voor ${ondKlantNaam()}.`;
       $('lpOndKeuze').classList.remove('hidden');
       $('lpOndBron').innerHTML = '<option value="">Kies de pagina waar het goed staat</option>' + data.paginas.map((p) => `<option value="${p.id}">${p.titel}</option>`).join('');
-      $('lpOndOnderdeel').innerHTML = '';
-      $('lpOndBody').innerHTML = '';
-      $('lpOndInhoud').textContent = '';
-      $('lpOndWaarschuwing').classList.add('hidden');
-      $('lpOndUitvoerBtn').disabled = true;
-    } catch (err) { toonFout(formatApiError(err)); } finally { setBtnLoading(btn, false); }
+    } catch (err) {
+      if (volgnr === ondLaadVolgnr) { ondWis(); toonFout(formatApiError(err)); }
+    } finally { setBtnLoading(btn, false); }
+  }
+  $('lpOndLijstBtn').addEventListener('click', ondLaadLijst);
+  $('lpVervangKlant').addEventListener('change', () => { ondWis(); if (!$('lpVervangTab').classList.contains('hidden')) ondLaadLijst(); });
+  document.querySelectorAll('#lpTabNav .tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.lpTab !== 'vervang') return;
+      // De klantenlijst wordt asynchroon gevuld, dus even wachten tot er een klant gekozen is.
+      let pogingen = 0;
+      const wacht = setInterval(() => {
+        pogingen += 1;
+        if ($('lpVervangKlant').value) { clearInterval(wacht); if (!ond.paginas.length) ondLaadLijst(); }
+        else if (pogingen > 40) clearInterval(wacht);
+      }, 250);
+    });
   });
   $('lpOndBron').addEventListener('change', ondLaadOnderdelen);
   $('lpOndOnderdeel').addEventListener('change', ondInhoud);

@@ -825,6 +825,7 @@
       <div class="modal-actions" style="justify-content:flex-start;gap:10px;">
         <button type="button" id="lpOndLijstBtn" class="btn btn-approve">Toon pagina's van deze klant</button>
       </div>
+      <p id="lpOndStatus" class="admin-footnote hidden" style="margin-top:10px;"></p>
       <div id="lpOndKeuze" class="hidden" style="margin-top:14px;">
         <div class="lp-field-row">
           <label for="lpOndBron">Voorbeeldpagina (waar het al goed staat)</label>
@@ -911,9 +912,19 @@
         <p class="wp-sub">Neem een bestaande pagina van de klantsite als voorbeeld: dezelfde opmaak, alleen de inhoud wordt nieuw. Het resultaat is altijd een concept in WordPress. Niets gaat live zonder dat je het zelf doet.</p>
       </div></div>
       <section class="wp-kaart" style="margin-bottom:18px;">
-      <div class="wp-kaart-kop"><h2>Eerder gemaakte kopieen</h2></div>
-      <div id="lpKloonLijst" class="admin-footnote">Laden...</div>
-      <button type="button" id="lpKloonLijstBtn" class="btn-plain" style="margin:8px 0 0;">Lijst vernieuwen</button>
+      <div class="kl-kop">
+        <div class="kl-titelrij"><h2>Eerder gemaakte kopieën</h2><span id="lpKloonAantal" class="kl-teller">0</span></div>
+        <div class="kl-gereedschap">
+          <div class="kl-filter" role="tablist" aria-label="Filter op status">
+            <button type="button" class="kl-tab aan" data-kl-filter="alle">Alle</button>
+            <button type="button" class="kl-tab" data-kl-filter="live">Live</button>
+            <button type="button" class="kl-tab" data-kl-filter="concept">Concept</button>
+          </div>
+          <input type="search" id="lpKloonZoek" class="kl-zoek" placeholder="Zoek een pagina" aria-label="Zoek een pagina" autocomplete="off">
+          <button type="button" id="lpKloonLijstBtn" class="kl-ververs" aria-label="Lijst vernieuwen" title="Lijst vernieuwen"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg></button>
+        </div>
+      </div>
+      <div id="lpKloonLijst" class="kl-lijst">Laden...</div>
       </section>
 
       <details class="wp-kaart np-meer" style="margin:0 0 18px;">

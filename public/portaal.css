@@ -575,3 +575,72 @@ body.alleen-pagr #tabNav .p-nav-groep:not(#paginasGroep) { display: none; }
 
 .p-teller { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--p-merk, #e0263e); color: #fff; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
 .p-teller.hidden { display: none; }
+
+
+/* ---- Nieuwe klant (intake): moderne opmaak, 20-10-2026 ---------------------------------------------------------
+   Alleen opmaak. De ids en klassen waar admin.js op leunt zijn niet veranderd. */
+#intakeTab .ik-layout { grid-template-columns: minmax(0, 1fr) 320px; gap: 24px; }
+#intakeTab .ik-form { gap: 18px; }
+#intakeTab .ik-kaart { background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 24px 26px; box-shadow: 0 1px 2px rgba(20,20,43,.04), 0 6px 24px rgba(20,20,43,.04); }
+#intakeTab .ik-kaart label { font-size: 13px; font-weight: 600; color: var(--p-tekst); margin: 18px 0 6px; }
+#intakeTab .ik-kaart input[type=text], #intakeTab .ik-kaart input[type=url], #intakeTab .ik-kaart select { height: 44px; padding: 0 14px; border: 1px solid #dfe2ec; border-radius: 10px; background: #fff; font: inherit; font-size: 14px; color: var(--p-tekst); box-shadow: 0 1px 0 rgba(20,20,43,.03); }
+#intakeTab .ik-kaart textarea { min-height: 92px; padding: 12px 14px; border: 1px solid #dfe2ec; border-radius: 10px; font: inherit; font-size: 14px; line-height: 1.5; color: var(--p-tekst); resize: vertical; }
+#intakeTab .ik-kaart input::placeholder, #intakeTab .ik-kaart textarea::placeholder { color: var(--p-tekst-vaag); }
+#intakeTab .ik-kaart input:focus, #intakeTab .ik-kaart select:focus, #intakeTab .ik-kaart textarea:focus { outline: 0; border-color: var(--p-merk); box-shadow: 0 0 0 4px var(--p-merk-zacht); }
+#intakeTab .ik-kop { gap: 14px; align-items: flex-start; margin-bottom: 6px; }
+#intakeTab .ik-kop h3 { font-size: 17px; font-weight: 600; color: var(--p-tekst); }
+#intakeTab .ik-kop p { margin: 3px 0 0; font-size: 13.5px; color: var(--p-tekst-zacht); line-height: 1.45; }
+#intakeTab .ik-nr { flex: 0 0 32px; width: 32px; height: 32px; border-radius: 10px; background: var(--p-merk-zacht); color: var(--p-merk-donker); font-size: 13px; }
+#intakeTab .ik-rij { gap: 10px; }
+#intakeTab .ik-knop { height: 44px; padding: 0 20px; border: 0; border-radius: 10px; background: #6a35ff; color: #fff; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+#intakeTab .ik-knop:hover { background: #5a28e6; }
+#intakeTab .ik-knop:disabled { opacity: .6; cursor: default; }
+#intakeTab .ik-grid { gap: 0 16px; }
+#intakeTab .ik-melding { margin-top: 12px; padding: 10px 14px; background: #eee8ff; border: 0; border-radius: 10px; color: #4b22c9; font-size: 13px; }
+#intakeTab .ik-hint { font-size: 12.5px; color: var(--p-tekst-zacht); line-height: 1.45; margin: 8px 0 0; }
+#intakeTab .ik-extra { margin-top: 12px; padding-top: 2px; border-top: 0; }
+#intakeTab .ik-schakel { display: flex !important; align-items: center; gap: 14px; margin: 16px 0 0 !important; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--p-vlak-2); font-size: 14px; font-weight: 600 !important; }
+#intakeTab .ik-spoor { order: 2; margin-left: auto; width: 40px; height: 24px; flex: 0 0 40px; border-radius: 12px; background: #d8dbe8; }
+#intakeTab .ik-spoor::after { top: 3px; left: 3px; width: 18px; height: 18px; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+#intakeTab .ik-schakel input:checked + .ik-spoor { background: #17885a; }
+#intakeTab .ik-schakel input:checked + .ik-spoor::after { left: 19px; }
+#intakeTab .ik-keuzes { gap: 12px; margin-top: 14px; }
+#intakeTab .ik-keuze { position: relative; }
+#intakeTab .ik-keuze-kaart { position: relative; gap: 6px; padding: 16px; border: 1.5px solid var(--border); border-radius: 14px; }
+#intakeTab .ik-keuze-kaart::before { content: ''; width: 36px; height: 36px; border-radius: 10px; margin-bottom: 4px; background: #e9eefd; }
+#intakeTab .ik-keuze:nth-child(2) .ik-keuze-kaart::before { background: var(--p-merk-zacht); }
+#intakeTab .ik-keuze:nth-child(3) .ik-keuze-kaart::before { background: #eee8ff; }
+#intakeTab .ik-keuze-kaart::after { content: ''; position: absolute; top: 16px; right: 16px; width: 18px; height: 18px; border: 1.5px solid #c5c9da; border-radius: 50%; background: #fff; box-sizing: border-box; }
+#intakeTab .ik-keuze-kaart b { font-size: 15px; font-weight: 600; }
+#intakeTab .ik-keuze-kaart small { font-size: 13px; color: var(--p-tekst-zacht); line-height: 1.45; }
+#intakeTab .ik-keuze input:checked + .ik-keuze-kaart { border-color: var(--p-merk); background: #fffafa; box-shadow: 0 0 0 4px var(--p-merk-zacht); }
+#intakeTab .ik-keuze input:checked + .ik-keuze-kaart::after { border: 5px solid var(--p-merk); }
+#intakeTab .ik-keuze input:focus-visible + .ik-keuze-kaart { outline: 2px solid var(--p-ai, #6a35ff); outline-offset: 2px; }
+#intakeTab .ik-zijbalk { top: 20px; padding: 22px; border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 1px 2px rgba(20,20,43,.04), 0 6px 24px rgba(20,20,43,.04); }
+#intakeTab .ik-zijbalk-kop { margin: 0 0 8px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--p-tekst-vaag); }
+#intakeTab .ik-zijbalk .ik-zijbalk-kop ~ .ik-zijbalk-kop { margin-top: 18px; }
+#intakeTab .ik-gebeurt { gap: 8px; margin-bottom: 4px; font-size: 13.5px; color: var(--p-tekst); }
+#intakeTab .ik-gebeurt li::before { content: ''; display: inline-block; width: 6px; height: 6px; margin: 0 10px 2px 2px; border-radius: 50%; background: #17885a; }
+#intakeTab .ik-voortgang-tekst { font-size: 14px; font-weight: 600; color: var(--p-tekst); margin-bottom: 10px; }
+#intakeTab .ik-balk { height: 8px; border-radius: 4px; background: #eceef5; }
+#intakeTab .ik-balk-vulling { border-radius: 4px; background: #17885a; }
+#intakeTab .ik-check { gap: 10px; margin: 16px 0 18px; font-size: 13.5px; }
+#intakeTab .ik-check li { gap: 10px; }
+#intakeTab .ik-vink { width: 18px; height: 18px; flex-basis: 18px; border: 2px solid #d8dbe8; font-size: 11px; font-weight: 700; box-sizing: border-box; }
+#intakeTab .ik-ok .ik-vink { background: #17885a; border-color: #17885a; }
+#intakeTab .ik-open .ik-vink { border-color: #b26a00; }
+#intakeTab .ik-open { color: #14142b; }
+#intakeTab .ik-optioneel { color: var(--p-tekst-zacht); }
+#intakeTab .ik-check em { color: var(--p-tekst-vaag); }
+#intakeTab .ik-opslaan { height: 48px; border: 0; border-radius: 10px; background: var(--p-merk); color: #fff; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+#intakeTab .ik-opslaan:hover { background: var(--p-merk-donker); }
+#intakeTab .ik-opslaan:disabled { opacity: .6; cursor: default; }
+#intakeTab .ik-zijbalk .ik-hint { text-align: center; margin-top: 12px; }
+@media (max-width: 860px) {
+  #intakeTab .ik-layout { grid-template-columns: 1fr; }
+  #intakeTab .ik-kaart { padding: 20px 18px; }
+}
+#intakeTab .ik-keuze-kaart::before { background-repeat: no-repeat; background-position: center; background-size: 18px 18px; }
+#intakeTab .ik-keuze:nth-child(1) .ik-keuze-kaart::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233a5fd9' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 4h16v16H4zM8 9h8M8 13h8M8 17h5'/%3E%3C/svg%3E"); }
+#intakeTab .ik-keuze:nth-child(2) .ik-keuze-kaart::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e0263e' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='16' rx='2'/%3E%3Cpath d='M3 9h18M8 14h8'/%3E%3C/svg%3E"); }
+#intakeTab .ik-keuze:nth-child(3) .ik-keuze-kaart::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236a35ff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 15.6 7.1 18.2 8 12.7 4 8.8l5.5-.8z'/%3E%3C/svg%3E"); }

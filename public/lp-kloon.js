@@ -19,6 +19,38 @@
     .kloon-foto img { width: 64px; height: 48px; object-fit: cover; border-radius: 6px; }
     .kloon-resultaat { border: 1px solid #cfe6d0; background: #f3faf3; border-radius: 12px; padding: 12px 14px; }
     .kloon-resultaat.controle { border-color: #e7e2d9; background: #faf8f4; }
+    #lpKloonTab .wp-kaart-kop h2, #lpKloonTab .kl-kop h2 { font-size: 17px; font-weight: 600; margin: 0; }
+    .kl-kop { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    .kl-titelrij { display: flex; align-items: center; gap: 10px; }
+    .kl-teller { font-size: 12px; font-weight: 600; color: #62657f; background: #f1f2f7; padding: 3px 9px; border-radius: 999px; }
+    .kl-gereedschap { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    .kl-filter { display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: #f1f2f7; }
+    .kl-tab { height: 32px; padding: 0 14px; border: 0; border-radius: 8px; background: transparent; font: inherit; font-size: 13px; font-weight: 500; color: #62657f; cursor: pointer; }
+    .kl-tab.aan { background: #fff; color: #14142b; font-weight: 600; box-shadow: 0 1px 2px rgba(20,20,43,.12); }
+    .kl-zoek { width: 220px; height: 40px; box-sizing: border-box; padding: 0 14px; border: 1px solid #dfe2ec; border-radius: 10px; background: #fff; font: inherit; font-size: 14px; }
+    .kl-zoek:focus { outline: 0; border-color: #ff3951; box-shadow: 0 0 0 4px #ffeef0; }
+    .kl-ververs { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #dfe2ec; border-radius: 10px; background: #fff; color: #14142b; cursor: pointer; }
+    .kl-ververs:hover { background: #f8f9fc; }
+    .kl-lijst { border-top: 1px solid #e6e8f1; font-size: 14px; color: #62657f; }
+    .kl-leeg { padding: 28px 8px; text-align: center; color: #62657f; }
+    .kl-rij { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 16px 4px; border-bottom: 1px solid #e6e8f1; }
+    .kl-rij:last-child { border-bottom: 0; }
+    .kl-thumb { flex: none; width: 72px; height: 52px; border-radius: 9px; display: flex; align-items: flex-end; gap: 4px; padding: 6px; box-sizing: border-box; }
+    .kl-thumb span { flex: 1; background: #fff; border-radius: 3px; }
+    .kl-tekst { flex: 1 1 260px; min-width: 0; }
+    .kl-naamrij { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    .kl-naam { font-size: 15px; font-weight: 600; color: #14142b; }
+    .kl-pil { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+    .kl-pil i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .kl-pil.live { background: #e5f5ed; color: #17885a; }
+    .kl-pil.concept { background: #fff2db; color: #b26a00; }
+    .kl-meta { font-size: 13px; color: #62657f; margin-top: 4px; }
+    .kl-acties { display: flex; flex-wrap: wrap; gap: 8px; }
+    .kl-acties a { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border: 1px solid #dfe2ec; border-radius: 10px; background: #fff; color: #14142b; font-size: 13.5px; font-weight: 500; text-decoration: none; }
+    .kl-acties a:hover { background: #f8f9fc; }
+    #lpKloonTab .wp-links input[type=text], #lpKloonTab .wp-links select { height: 44px; padding: 0 14px; border: 1px solid #dfe2ec; border-radius: 10px; font: inherit; font-size: 14px; }
+    #lpKloonTab .wp-links textarea { padding: 12px 14px; border: 1px solid #dfe2ec; border-radius: 10px; font: inherit; font-size: 14px; line-height: 1.5; }
+    #lpKloonTab .wp-links input:focus, #lpKloonTab .wp-links select:focus, #lpKloonTab .wp-links textarea:focus { outline: 0; border-color: #ff3951; box-shadow: 0 0 0 4px #ffeef0; }
   `;
   document.head.appendChild(stijl);
 
@@ -55,31 +87,65 @@
     return isNaN(d) ? '' : d.toLocaleString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   }
 
+  const THUMBS = ['#f9d634', '#8bd7fd', '#ffb4a2', '#b5e48c', '#cdb4ff', '#ffd6a5'];
+  const HOOGTES = [[60, 85, 45], [70, 50, 80], [45, 75, 60], [80, 55, 70]];
+  function hash(t) { let h = 0; for (const c of String(t)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; }
+  function thumb(titel) {
+    const h = hash(titel);
+    return el('div', { class: 'kl-thumb', style: `background:${THUMBS[h % THUMBS.length]}`, 'aria-hidden': 'true' },
+      HOOGTES[h % HOOGTES.length].map((p) => el('span', { style: `height:${p}%` })));
+  }
+  const IKONEN = {
+    oog: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    uit: '<path d="M7 17L17 7M8 7h9v9"/>',
+    pen: '<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+    builder: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>'
+  };
+  function actie(tekst, url, ikoon) {
+    const a = el('a', { href: url, target: '_blank', rel: 'noopener' });
+    a.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IKONEN[ikoon]}</svg>`;
+    a.appendChild(document.createTextNode(tekst));
+    return a;
+  }
+  const lijstFilter = { status: 'alle', zoek: '' };
   function renderLijst(klonen) {
     const houder = $('lpKloonLijst');
     houder.innerHTML = '';
-    if (!klonen.length) { houder.textContent = 'Nog geen klonen gemaakt.'; return; }
-    const tabel = el('table', { class: 'admin-table' });
-    tabel.appendChild(el('thead', {}, [el('tr', {}, ['Pagina', 'Status', 'Gemaakt', 'Bron', 'Links'].map((t) => el('th', { text: t })))]));
-    const body = el('tbody');
-    klonen.forEach((k) => {
-      const links = el('td');
-      [['Builder', k.builderUrl], ['Bewerken', k.bewerkUrl], [k.status === 'publish' ? 'Bekijken' : 'Voorbeeld', k.url]].forEach(([tekst, url]) => {
-        if (!url) return;
-        links.appendChild(el('a', { href: url, target: '_blank', rel: 'noopener', text: tekst }));
-        links.appendChild(document.createTextNode('  '));
-      });
-      body.appendChild(el('tr', {}, [
-        el('td', { text: `${k.titel} (nr. ${k.id})` }),
-        el('td', { text: k.statusNaam }),
-        el('td', { text: datumTekst(k.datum) }),
-        el('td', { text: k.bronTitel || (k.bron ? `nr. ${k.bron}` : '') }),
-        links
+    $('lpKloonAantal').textContent = String(klonen.length);
+    if (!klonen.length) { houder.appendChild(el('div', { class: 'kl-leeg', text: 'Nog geen kopieën gemaakt voor deze klant.' })); return; }
+    const zoek = lijstFilter.zoek.trim().toLowerCase();
+    const zichtbaar = klonen.filter((k) => {
+      const live = k.status === 'publish';
+      if (lijstFilter.status === 'live' && !live) return false;
+      if (lijstFilter.status === 'concept' && live) return false;
+      return !zoek || `${k.titel} ${k.bronTitel || ''}`.toLowerCase().includes(zoek);
+    });
+    if (!zichtbaar.length) { houder.appendChild(el('div', { class: 'kl-leeg', text: 'Geen kopieën die hierbij passen.' })); return; }
+    zichtbaar.forEach((k) => {
+      const live = k.status === 'publish';
+      const bron = k.bronTitel || (k.bron ? `nr. ${k.bron}` : '');
+      const meta = [bron ? `Kopie van ${bron}` : '', datumTekst(k.datum), `nr. ${k.id}`].filter(Boolean).join(' \u00b7 ');
+      const pil = el('span', { class: `kl-pil ${live ? 'live' : 'concept'}` }, [el('i'), live ? 'Live' : (k.statusNaam || 'Concept')]);
+      const acties = el('div', { class: 'kl-acties' });
+      if (k.url) acties.appendChild(live ? actie('Bekijken', k.url, 'uit') : actie('Voorbeeld', k.url, 'oog'));
+      if (k.bewerkUrl) acties.appendChild(actie('Bewerken', k.bewerkUrl, 'pen'));
+      if (k.builderUrl) acties.appendChild(actie('Builder', k.builderUrl, 'builder'));
+      houder.appendChild(el('div', { class: 'kl-rij' }, [
+        thumb(k.titel),
+        el('div', { class: 'kl-tekst' }, [
+          el('div', { class: 'kl-naamrij' }, [el('span', { class: 'kl-naam', text: k.titel }), pil]),
+          el('div', { class: 'kl-meta', text: meta })
+        ]),
+        acties
       ]));
     });
-    tabel.appendChild(body);
-    houder.appendChild(tabel);
   }
+  document.querySelectorAll('[data-kl-filter]').forEach((b) => b.addEventListener('click', () => {
+    lijstFilter.status = b.dataset.klFilter;
+    document.querySelectorAll('[data-kl-filter]').forEach((x) => x.classList.toggle('aan', x === b));
+    renderLijst(state.klonen || []);
+  }));
+  $('lpKloonZoek').addEventListener('input', (e) => { lijstFilter.zoek = e.target.value; renderLijst(state.klonen || []); });
 
   async function laadLijst() {
     const klant = $('lpKloonKlant').value || (state.klanten[0] && state.klanten[0].id);
