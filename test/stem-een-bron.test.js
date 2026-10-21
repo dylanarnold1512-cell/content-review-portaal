@@ -79,3 +79,20 @@ test('lengtecontrole: een veel kortere kop of intro dan op het voorbeeld wordt a
   const goed = tekstControle({ heroIntro: 'Heb je een lekkage in huis en wil je dat die snel wordt verholpen? Hirs Installaties zoekt de oorzaak en lost die voor je op.' }, { voorbeeldSlotData: voorbeeld });
   assert.strictEqual(goed.length, 0);
 });
+
+const Module = require('module');
+function laadKlantgegevens() {
+  const echt = Module._load;
+  Module._load = function (request, ...rest) {
+    if (request === '@notionhq/client') return { Client: function () {} };
+    return echt.call(this, request, ...rest);
+  };
+  try { return require('../src/lp/klantgegevens'); } finally { Module._load = echt; }
+}
+const kg = laadKlantgegevens();
+test('klantgegevens bewaart de voorbeeldpagina per sjabloon en houdt hem als hij niet wordt meegestuurd', () => {
+  const p = kg.schoonProfiel({ naam: 'X', voorbeeldPaginas: { 'dienst-in-plaats': 'abc-123', leeg: '' } });
+  assert.deepStrictEqual(p.voorbeeldPaginas, { 'dienst-in-plaats': 'abc-123' });
+  assert.strictEqual(kg.schoonProfiel({ naam: 'X' }).voorbeeldPaginas, undefined);
+  assert.ok(kg.PROFIEL_VELDEN.includes('voorbeeldPaginas'));
+});
