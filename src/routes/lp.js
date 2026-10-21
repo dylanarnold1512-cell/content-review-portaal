@@ -1668,6 +1668,7 @@ function redactiePunten(page, blueprint, client) {
     const feitenLijst = [...gebruikteFeitIds(page.feitensheet, client.feiten).map((id) => feitenById.get(id)).filter(Boolean), ...(((page.feitensheet || {}).extra) || [])];
     punten.push(...tekstControle(slotData, {
       derdePersoon: client.profile.schrijfvorm === 'derde',
+      nietNoemen: client.profile.nietNoemen || [],
       toegestaneTekst: JSON.stringify([feitenLijst, client.feiten || [], inv, client.profile.bedrijf || {}]),
       reviewsBevestigd: client.profile.reviewsBevestigd !== false
     }));

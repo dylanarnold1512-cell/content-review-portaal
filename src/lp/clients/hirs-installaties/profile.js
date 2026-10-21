@@ -26,10 +26,12 @@ const profile = {
     email: 'info@hirs-installaties.nl',
     werkgebied: ['Haarlem en omgeving']
   },
-  // Hirs schrijft in de derde persoon over het bedrijf (Hirs Installaties, Nick), nooit wij of ons. Zie src/lp/klantverhaal.js (derdePersoonBlok).
+  // Hirs schrijft in de derde persoon over het bedrijf (Hirs Installaties), nooit wij of ons. Zie src/lp/klantverhaal.js (derdePersoonBlok).
   schrijfvorm: 'derde',
   // Harde tekstcontrole na het schrijven aan (hij, Wie, getallen buiten de feiten, claims, reviews). Zie src/lp/tekstcontrole.js.
   tekstControle: true,
+  // Namen van personen die op de pagina's nooit genoemd worden: Pagr. schrijft altijd over het bedrijf Hirs Installaties.
+  nietNoemen: ['Nick'],
   // Reviews staan pas op een pagina als Nick ze bevestigd heeft.
   reviewsBevestigd: false,
   tokensId: 'hirs-installaties',

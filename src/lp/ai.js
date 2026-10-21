@@ -41,7 +41,7 @@ ${niet.length ? `Dit mag NIET:\n${niet.map((n) => `- ${n}`).join('\n')}` : ''}
 ${profile.toonNotitie ? `Toon: ${profile.toonNotitie}` : ''}
 Controleer de tekst voordat je antwoordt tegen elke regel hierboven. Staat er iets in dat niet mag, schrijf die zin dan opnieuw.`);
     }
-    if (profile && profile.schrijfvorm === 'derde') delen.push(derdePersoonBlok(bedrijfsnaam || (profile.bedrijf && profile.bedrijf.naam) || profile.naam));
+    if (profile && profile.schrijfvorm === 'derde') delen.push(derdePersoonBlok(bedrijfsnaam || (profile.bedrijf && profile.bedrijf.naam) || profile.naam, profile.nietNoemen));
     return delen.join('\n\n');
   } catch (err) { /* onbekende klant: geen override */ }
   return '';

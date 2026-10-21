@@ -264,12 +264,13 @@ const PAGINA_OPBOUW_REGELS = `OPBOUW VAN DE PAGINA (rode draad voor elke klant):
 
 // Klanten die over zichzelf in de derde persoon schrijven (profile.schrijfvorm === 'derde') krijgen dit blok na de
 // algemene opbouwregels. Het gaat voor op alles wat daar over "wij" staat.
-function derdePersoonBlok(bedrijfsnaam) {
+function derdePersoonBlok(bedrijfsnaam, nietNoemen) {
   const naam = bedrijfsnaam || 'het bedrijf';
+  const namen = (Array.isArray(nietNoemen) ? nietNoemen : []).filter(Boolean);
   return `AANSPREEKVORM VOOR DEZE KLANT (gaat voor op elke regel hierboven en in het klantverhaal die "wij", "we" of "ons" noemt):
-- Schrijf over ${naam} in de derde persoon: de bedrijfsnaam, de voornaam van de eigenaar of "het team" (alleen als dat in de feiten staat). NOOIT "wij", "we", "ons", "onze", "jullie" of de ik-vorm.
+- Schrijf over ${naam} in de derde persoon, altijd over het BEDRIJF en nooit over een persoon: gebruik de bedrijfsnaam, "het bedrijf" of "de installateur". Noem geen eigenaar of medewerker bij naam${namen.length ? ` (noem dus nooit: ${namen.join(', ')})` : ''} en gebruik geen "hij", "hem" of "zij" voor het bedrijf. NOOIT "wij", "we", "ons", "onze", "jullie" of de ik-vorm.
 - De bezoeker spreek je wel direct aan met "je" of "jij". Open de hero met de situatie of vraag van de bezoeker en vertel daarna wat ${naam} daarvoor doet.
-- Zorg dat de bedrijfsnaam niet in elke alinea staat: wissel af met de voornaam van de eigenaar, "de installateur" of begin de zin bij de bezoeker ("Je krijgt...", "Bij een lekkage...").
+- Zorg dat de bedrijfsnaam niet in elke alinea staat: wissel af met "het bedrijf", "de installateur" of begin de zin bij de bezoeker ("Je krijgt...", "Bij een lekkage...").
 - Schrijf een rijke pagina: elk onderdeel vertelt iets nieuws en neemt de bezoeker mee van herkenning naar actie. Een onderdeel met alleen een algemene zin is te kaal. Gebruik alle feiten die bij het onderdeel passen, en verzin niets.`;
 }
 
