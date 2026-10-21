@@ -327,6 +327,13 @@ const SECTIE_INTRO_REGELS = `INTRO ONDER EEN SECTIEKOP (slots die eindigen op "I
 - De intro bij projecten (projectsIntro) gaat over de getoonde projecten zelf, nooit over de ervaring of het aantal jaren van het bedrijf. Dat staat al in de hero of bij waarom klanten kiezen.
 - Heb je voor zo'n intro geen bron of niets concreets te zeggen, laat het veld dan leeg (""). Een lege intro is beter dan een vulzin.`;
 
+// Volledige zinnen (21-10-2026): een kop, label of intro is een zin die op zichzelf klopt. Geen losse zinsdelen als
+// "zonder zelf alle vakmensen te organiseren?" (dat is de helft van een zin met een vraagteken erachter).
+const VOLLEDIGE_ZINNEN_REGELS = `VOLLEDIGE ZINNEN (geldt voor elk tekstveld):
+- Elke zin staat op zichzelf en klopt grammaticaal. Een zin begint met een hoofdletter en heeft een onderwerp en een werkwoord, tenzij het een kort label of een kop is.
+- Schrijf nooit een los zinsdeel met een vraagteken, zoals "zonder zelf alle vakmensen te organiseren?". Een vraag is een echte vraag ("Wil je ... ?", "Hoe ... ?"), anders schrijf je een gewone zin.
+- Lees elk veld na voordat je antwoordt, alsof een bezoeker het voor het eerst leest. Klopt de zin niet of mist er iets, schrijf hem dan opnieuw.`;
+
 function buildTemplateSystemPrompt() {
   return `Je bent een senior webdesigner/frontend-developer voor een Nederlands marketingbureau. Je
 ontwerpt een COMPLEET, BESPOKE HTML+CSS-sjabloon voor een terugkerend paginatype — niet de inhoud van
@@ -798,6 +805,8 @@ geen adressen, prijzen, data of andere harde feiten.
 ${SITE_BRON_REGELS}
 
 ${SECTIE_INTRO_REGELS}
+
+${VOLLEDIGE_ZINNEN_REGELS}
 
 ${PAGINA_OPBOUW_REGELS}
 

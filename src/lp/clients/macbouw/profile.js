@@ -5,6 +5,8 @@
 // de feiten), per pagina hoort in Notion. Zie besluiten.md, besluit 4.
 
 const profile = {
+  // De harde tekstcontrole (src/lp/tekstcontrole.js) staat standaard aan voor nieuwe klanten, voor deze bestaande klant uit.
+  tekstControle: false,
   id: 'macbouw',
   naam: 'MAC Bouw',
   taal: 'nl',
