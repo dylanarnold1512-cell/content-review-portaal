@@ -27,11 +27,22 @@ const { verwijderReviewAanhalingstekens } = require('./aanhalingstekens');
 const { PAGINA_OPBOUW_REGELS, bouwKlantverhaalBlok, derdePersoonBlok } = require('./klantverhaal');
 
 // Schrijft deze klant in de derde persoon? Dan gaat derdePersoonBlok mee in elke schrijfopdracht.
+// Geeft ook de eigen regels van de klant mee (Klantgegevens: wat niet mag en de toon). Die gingen eerder alleen naar de
+// WordPress en festival flows en niet naar de paginatekst, waardoor Hirs wij-vorm, reviews en superlatieven kreeg (21-10-2026).
 function derdePersoonVoor(klant, bedrijfsnaam) {
   try {
     const { getLpClient } = require('./clients');
     const profile = getLpClient(klant).profile;
-    if (profile && profile.schrijfvorm === 'derde') return derdePersoonBlok(bedrijfsnaam || (profile.bedrijf && profile.bedrijf.naam) || profile.naam);
+    const delen = [];
+    const niet = (profile && Array.isArray(profile.nietToegestaan) ? profile.nietToegestaan : []).filter(Boolean);
+    if (niet.length || (profile && profile.toonNotitie)) {
+      delen.push(`REGELS VAN DEZE KLANT (harde voorwaarden, gaan voor op alles hierboven):
+${niet.length ? `Dit mag NIET:\n${niet.map((n) => `- ${n}`).join('\n')}` : ''}
+${profile.toonNotitie ? `Toon: ${profile.toonNotitie}` : ''}
+Controleer de tekst voordat je antwoordt tegen elke regel hierboven. Staat er iets in dat niet mag, schrijf die zin dan opnieuw.`);
+    }
+    if (profile && profile.schrijfvorm === 'derde') delen.push(derdePersoonBlok(bedrijfsnaam || (profile.bedrijf && profile.bedrijf.naam) || profile.naam));
+    return delen.join('\n\n');
   } catch (err) { /* onbekende klant: geen override */ }
   return '';
 }
