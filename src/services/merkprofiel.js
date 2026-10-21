@@ -521,6 +521,18 @@ async function saveBeoordeling(clientNaam, { regelId: id, status, opmerking, reg
   return { datum: vandaag };
 }
 
+// Standaardregels die voor elke klant gelden. Ze staan onderaan elk Kennisdocument,
+// dus schrijver, herschrijver en QA Gate lezen ze zonder dat een workflow is aangepast.
+// Een nieuwe algemene regel voeg je hier toe; hij werkt voor alle klanten zodra hun
+// Kennisdocument opnieuw is samengesteld (Naar blogs of een reactie van de klant).
+const STANDAARD_REGELS_TITEL = 'Standaardregels voor alle blogs (gelden voor elke klant)';
+const STANDAARD_REGELS = [
+  'Noem het adres, de ligging of de bereikbaarheid van de klant maximaal een keer in de hele blog.',
+  'Noem de ligging alleen onder een kop of in een FAQ vraag die daar zelf over gaat, bijvoorbeeld Waar vind ik de klant.',
+  'Zet de ligging nooit aan het eind van een alinea over een ander onderwerp en nooit onder een kop die over iets anders gaat.',
+  'Past er geen locatievraag in de blog, laat de ligging dan helemaal weg.'
+];
+
 // Stelt de tekst van het Kennisdocument samen uit het profiel en de reacties
 // van de klant: uitgesloten feiten en onbeantwoorde open punten vallen weg,
 // aangepaste feiten krijgen de tekst van de klant.
@@ -554,6 +566,7 @@ function bouwKennisdocument(secties, beoordelingen) {
     });
     regels.push(`${s.nr}. ${s.titel}`, ...uit, '');
   });
+  regels.push(STANDAARD_REGELS_TITEL, ...STANDAARD_REGELS, '');
   return regels.join('\n').trim() + '\n';
 }
 
@@ -686,6 +699,8 @@ module.exports = {
   getProfielStatus,
   startProfiel,
   bouwKennisdocument,
+  STANDAARD_REGELS,
+  STANDAARD_REGELS_TITEL,
   syncKennisdocument,
   isTegenstrijdigheid,
   leesTegenstrijdigheid,

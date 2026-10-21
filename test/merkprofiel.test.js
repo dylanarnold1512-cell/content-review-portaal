@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
-const { parseProfiel, regelId, splitsHerkomst, parseSamenvatting, bouwSamenvatting, bouwWeergave, bouwKennisdocument, leesTegenstrijdigheid, KOPJES } = require('../src/services/merkprofiel');
+const { parseProfiel, regelId, splitsHerkomst, parseSamenvatting, bouwSamenvatting, bouwWeergave, bouwKennisdocument, STANDAARD_REGELS, STANDAARD_REGELS_TITEL, leesTegenstrijdigheid, KOPJES } = require('../src/services/merkprofiel');
 
 const tekst = fs.readFileSync(path.join(__dirname, 'fixtures', 'basecamp-profiel.txt'), 'utf8');
 
@@ -331,4 +331,14 @@ test('niet noemen laat een waarschuwing in het Kennisdocument staan en telt als 
   assert.strictEqual(w.tegenstrijdigheden[0].besluit, 'niet_noemen');
   const doc = bouwKennisdocument(secties, beoordelingen);
   assert.ok(/Onzeker, de klant koos om dit niet te noemen in blogs: Website wijkt af/.test(doc));
+});
+
+test('bouwKennisdocument zet de standaardregels (ligging) onderaan, voor elke klant, een keer', () => {
+  const secties = parseProfiel(tekst);
+  const doc = bouwKennisdocument(secties, {});
+  assert.ok(doc.includes(STANDAARD_REGELS_TITEL));
+  STANDAARD_REGELS.forEach((r) => assert.ok(doc.includes(r)));
+  assert.equal(doc.split(STANDAARD_REGELS_TITEL).length - 1, 1);
+  assert.ok(doc.trimEnd().endsWith(STANDAARD_REGELS[STANDAARD_REGELS.length - 1]));
+  assert.ok(doc.startsWith('1. Over het bedrijf'));
 });
