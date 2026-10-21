@@ -389,7 +389,8 @@ function status() {
 
 // Bewaart profiel en feiten van een klant in Notion (maakt de rij aan als die er nog niet is) en past ze direct toe.
 async function bewaar(klantIdInvoer, { profiel, feiten, nieuw = false } = {}) {
-  const id = schoonKlantId(klantIdInvoer);
+  // Een bestaande klant gaat op zijn eigen id (hirs-installaties heeft een streepje, schoonKlantId haalt die weg).
+  const id = !nieuw && clients[String(klantIdInvoer)] ? String(klantIdInvoer) : schoonKlantId(klantIdInvoer);
   if (!id) throw new Error('Geef de klant een korte naam zonder spaties of streepjes, bijvoorbeeld "jansen".');
   if (nieuw && clients[id]) throw new Error('Deze klant bestaat al.');
   if (!nieuw && !clients[id]) throw new Error('Onbekende klant.');

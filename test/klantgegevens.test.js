@@ -225,3 +225,8 @@ test('aantal offertebalken: ongeldige waarden worden niet bewaard', () => {
   assert.strictEqual(kg.schoonProfiel({ naam: 'X' }).ctaBalken, undefined);
   assert.deepStrictEqual(kg.schoonProfiel({ naam: 'X', ctaBalken: { aantal: '2' } }).ctaBalken, { aantal: 2 });
 });
+
+test('bewaar vindt een bestaande klant met een streepje in het id (hirs-installaties)', async () => {
+  const k = await kg.bewaar('hirs-installaties', { profiel: { naam: 'Hirs Installaties' }, feiten: [{ label: 'Een', waarde: 'w', bron: 'b' }] });
+  assert.strictEqual(k.id, 'hirs-installaties');
+});
