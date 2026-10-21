@@ -31,3 +31,25 @@ test('contentprompt volgt de gekozen stem', () => {
   assert.ok(/derde persoon/.test(ai.buildContentSystemPrompt(t, { derde: true })));
   assert.ok(/in "wij" wat jullie/.test(ai.buildContentSystemPrompt(t, {})));
 });
+
+const { tekstControle } = require('../src/lp/tekstcontrole');
+const pf = require('../src/lp/projectFotos');
+
+test('derde persoon: bedrijfsnaam moet het onderwerp zijn, lege FAQ wordt aangewezen', () => {
+  const sd = { directAnswer: 'De installateur doet badkamers.', introText: 'Het bedrijf werkt in Haarlem. De installateur luistert.', faqItems: [] };
+  const punten = tekstControle(sd, { derdePersoon: true, bedrijfsnaam: 'Hirs Installaties' });
+  assert.ok(punten.some((p) => /Hirs Installaties/.test(p.aanwijzing)));
+  assert.ok(punten.some((p) => p.slots.includes('faqItems')));
+  const goed = { a: 'Hirs Installaties doet badkamers.', b: 'Hirs Installaties werkt in Haarlem.', c: 'Hirs Installaties luistert.', d: 'Hirs Installaties levert op.', e: 'Hirs Installaties denkt mee.', faqItems: [1, 2, 3, 4, 5, 6].map((n) => ({ question: `Vraag ${n}?`, answer: 'Antwoord.' })) };
+  assert.strictEqual(tekstControle(goed, { derdePersoon: true, bedrijfsnaam: 'Hirs Installaties' }).length, 0);
+});
+
+test('projectkaart zonder tekst verdwijnt als er projecten met tekst zijn', () => {
+  const tpl = { slots: [{ key: 'projectItems', type: 'list', itemFields: ['title', 'text', 'imageSrc', 'imageAlt'] }] };
+  const d = { projectItems: [{ title: 'A', text: 'x', imageSrc: '1' }, { title: 'B', text: 'y', imageSrc: '2' }, { title: '', text: '', imageSrc: '3' }] };
+  pf.ruimOpProjectItems(tpl, d);
+  assert.strictEqual(d.projectItems.length, 2);
+  const alleenFoto = { projectItems: [1, 2, 3].map((n) => ({ title: '', text: '', imageSrc: String(n) })) };
+  pf.ruimOpProjectItems(tpl, alleenFoto);
+  assert.strictEqual(alleenFoto.projectItems.length, 3);
+});

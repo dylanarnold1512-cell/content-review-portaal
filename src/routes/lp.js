@@ -1657,7 +1657,7 @@ function redactiePunten(page, blueprint, client) {
     plaats: gelijk.plaatsWaarde(inv),
     onderwerpWoorden,
     aanspreekvorm: kv && kv.stem ? kv.stem.aanspreekvorm : null,
-    derdePersoon: client.profile.schrijfvorm === 'derde',
+    derdePersoon: client.profile.schrijfvorm === 'derde', bedrijfsnaam: (client.profile.bedrijf || {}).naam || client.profile.naam,
     nietGebruiken: kv ? kv.nietGebruiken : []
   });
   punten.push(...verhaal.ontbrekendBewijs(blueprint, slotData, kvRuw));

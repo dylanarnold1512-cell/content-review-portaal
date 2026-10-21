@@ -141,6 +141,41 @@ function tekstControle(slotData, opties) {
       });
     }
   }
+
+  // 8. Derde persoon: de bedrijfsnaam is het onderwerp van de pagina. "De installateur" en "het bedrijf" zijn hooguit een
+  // afwisseling, en de naam hoort in de belangrijkste onderdelen te staan (SEO en herkenbaarheid).
+  if (o.derdePersoon && o.bedrijfsnaam) {
+    const naamRegex = new RegExp(String(o.bedrijfsnaam).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'), 'gi');
+    const GENERIEK = /\b(de installateur|het bedrijf|de aannemer|de vakman)\b/gi;
+    const tel = (re, t) => (String(t).match(re) || []).length;
+    let naamTotaal = 0;
+    let generiek = 0;
+    const metGeneriek = [];
+    velden.forEach((v) => {
+      naamTotaal += tel(naamRegex, v.tekst);
+      const g = tel(GENERIEK, v.tekst);
+      generiek += g;
+      if (g) metGeneriek.push(v.slot);
+    });
+    if (naamTotaal < 5 || generiek > naamTotaal) {
+      punten.push({
+        soort: 'toon',
+        tekst: `De bedrijfsnaam "${o.bedrijfsnaam}" staat ${naamTotaal} keer op de pagina en "de installateur" of "het bedrijf" ${generiek} keer. De naam moet het onderwerp zijn.`,
+        slots: uniek(metGeneriek).slice(0, 8),
+        aanwijzing: `Gebruik de bedrijfsnaam "${o.bedrijfsnaam}" als onderwerp van de zin in de hero of het antwoordblok, de intro, waarom, de werkwijze en de projecten. Vervang "de installateur" en "het bedrijf" door de naam. Een afwisseling met "het bedrijf" mag af en toe, maar nooit vaker dan de naam zelf.`
+      });
+    }
+  }
+
+  // 9. De veelgestelde vragen mogen niet leeg of bijna leeg zijn.
+  if (Array.isArray(slotData.faqItems) && slotData.faqItems.length < 4) {
+    punten.push({
+      soort: 'inhoud',
+      tekst: `Er staan maar ${slotData.faqItems.length} veelgestelde vragen op de pagina.`,
+      slots: ['faqItems'],
+      aanwijzing: 'Schrijf zes veelgestelde vragen met antwoord, alleen over het onderwerp van deze pagina. Haal ze uit de feiten, de bronteksten en de zoekvragen. Een antwoord mag feiten van de pagina gebruiken, maar in eigen woorden en met een eigen invalshoek.'
+    });
+  }
   return punten;
 }
 

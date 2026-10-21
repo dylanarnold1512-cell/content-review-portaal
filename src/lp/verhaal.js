@@ -265,7 +265,7 @@ function redactieControle(slotData, opties) {
   if (re) {
     const metNaam = velden.filter((v) => tel(re, v.tekst) > 0);
     const totaal = metNaam.reduce((n, v) => n + tel(re, v.tekst), 0);
-    const drempel = o.derdePersoon ? 6 : 2;
+    const drempel = o.derdePersoon ? 14 : 2;
     if (totaal > drempel) {
       punten.push({
         soort: 'toon',

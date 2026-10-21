@@ -294,8 +294,10 @@ const SEO_GEO_CONTENT_REGELS = `SEO EN GEO BIJ HET SCHRIJVEN (elke pagina moet o
   uitziet nooit als feit.
   ONDERWERP VAN DE FAQ: alle vragen gaan over het onderwerp van deze pagina (bij een badkamerpagina dus over badkamers en
   sanitair, bij een lekkagepagina over lekkages). Een vraag of "Veelgestelde vraag"-feit over een andere dienst van het bedrijf
-  (zoals een cv-ketel op een badkamerpagina) gebruik je niet, ook niet als de bron er een antwoord op heeft. Zijn er te weinig
-  passende vragen, schrijf dan minder vragen in plaats van vragen over een ander onderwerp.
+  (zoals een cv-ketel op een badkamerpagina) gebruik je niet, ook niet als de bron er een antwoord op heeft. Schrijf altijd
+  minstens vier en liefst zes vragen over het onderwerp. Zijn er te weinig kant en klare vragen, maak ze dan zelf uit de feiten,
+  de bronteksten en de zoekvragen (kosten, doorlooptijd, werkgebied, aanpak, merken, offerte). Een antwoord mag feiten van de
+  pagina gebruiken, in eigen woorden. Een lege FAQ is nooit goed.
 - Entiteiten kloppen: gebruik de bedrijfsnaam, het werkgebied en de contactgegevens EXACT zoals in de feiten. Noem
   geen andere plaatsen, wijken, straten, klanten of projecten die niet in de feiten, de bronteksten of de invoer staan.
 - Lokale relevantie zonder verzinsels: maak elke pagina uniek met wat je echt weet over deze plaats uit de invoer

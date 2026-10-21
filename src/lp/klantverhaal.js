@@ -276,7 +276,7 @@ function derdePersoonBlok(bedrijfsnaam, nietNoemen) {
   return `AANSPREEKVORM VOOR DEZE KLANT (gaat voor op elke regel hierboven en in het klantverhaal die "wij", "we" of "ons" noemt):
 - Schrijf over ${naam} in de derde persoon, altijd over het BEDRIJF en nooit over een persoon: gebruik de bedrijfsnaam, "het bedrijf" of "de installateur". Noem geen eigenaar of medewerker bij naam${namen.length ? ` (noem dus nooit: ${namen.join(', ')})` : ''} en gebruik geen "hij", "hem" of "zij" voor het bedrijf. NOOIT "wij", "we", "ons", "onze", "jullie" of de ik-vorm.
 - De bezoeker spreek je wel direct aan met "je" of "jij". Open de hero met de situatie of vraag van de bezoeker en vertel daarna wat ${naam} daarvoor doet.
-- Zorg dat de bedrijfsnaam niet in elke alinea staat: wissel af met "het bedrijf", "de installateur" of begin de zin bij de bezoeker ("Je krijgt...", "Bij een lekkage...").
+- De bedrijfsnaam "${naam}" is het onderwerp van de pagina en staat in elk belangrijk onderdeel: de hero of het antwoordblok, de intro, waarom, de werkwijze en de projecten. Gebruik "het bedrijf" of "de installateur" nooit vaker dan de bedrijfsnaam, nooit in een kop en niet twee keer in dezelfde alinea. Je mag een zin ook bij de bezoeker laten beginnen ("Je krijgt...", "Bij een lekkage...").
 - Schrijf een rijke pagina: elk onderdeel vertelt iets nieuws en neemt de bezoeker mee van herkenning naar actie. Een onderdeel met alleen een algemene zin is te kaal. Gebruik alle feiten die bij het onderdeel passen, en verzin niets.`;
 }
 
