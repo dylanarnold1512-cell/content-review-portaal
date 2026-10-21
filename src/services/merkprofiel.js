@@ -533,10 +533,26 @@ const STANDAARD_REGELS = [
   'Past er geen locatievraag in de blog, laat de ligging dan helemaal weg.'
 ];
 
+// Extra schrijfregels die Dylan via de leerlus (Telegram Akkoord) heeft goedgekeurd.
+// Ze staan in de n8n tabel schrijfregels (klant of ALGEMEEN). De workflow Leerlus Besluit
+// zet ze bij Akkoord meteen in het Kennisdocument; hier worden ze bij elke nieuwe opbouw
+// van het Kennisdocument opnieuw toegevoegd, zodat ze niet verdwijnen.
+const SCHRIJFREGELS_TABLE_ID = process.env.N8N_SCHRIJFREGELS_TABLE_ID || '8VmPW6otgBl5z87Y';
+const EXTRA_REGELS_TITEL = 'Extra schrijfregels (door jou goedgekeurd via de leerlus)';
+
+async function getExtraRegels(clientNaam) {
+  const result = await n8nRows(SCHRIJFREGELS_TABLE_ID, '/rows?limit=250');
+  const regels = [];
+  (result.data || []).forEach((r) => {
+    if ((r.klant === clientNaam || r.klant === 'ALGEMEEN') && r.regel && !regels.includes(r.regel)) regels.push(r.regel);
+  });
+  return regels;
+}
+
 // Stelt de tekst van het Kennisdocument samen uit het profiel en de reacties
 // van de klant: uitgesloten feiten en onbeantwoorde open punten vallen weg,
 // aangepaste feiten krijgen de tekst van de klant.
-function bouwKennisdocument(secties, beoordelingen) {
+function bouwKennisdocument(secties, beoordelingen, extraRegels = []) {
   const regels = [];
   secties.forEach((s) => {
     // Alleen voor Advertisr en de klant: concurrenten (staan in Clients) komen niet bij de schrijver.
@@ -567,6 +583,7 @@ function bouwKennisdocument(secties, beoordelingen) {
     regels.push(`${s.nr}. ${s.titel}`, ...uit, '');
   });
   regels.push(STANDAARD_REGELS_TITEL, ...STANDAARD_REGELS, '');
+  if (extraRegels.length) regels.push(EXTRA_REGELS_TITEL, ...extraRegels, '');
   return regels.join('\n').trim() + '\n';
 }
 
@@ -603,7 +620,13 @@ async function syncKennisdocument(clientNaam) {
   const secties = parseProfiel(rij.concept);
   if (!secties) throw new Error('Het profiel heeft niet de vaste kopjes.');
   const beoordelingen = await getBeoordelingen(clientNaam);
-  const tekst = bouwKennisdocument(secties, beoordelingen);
+  let extraRegels = [];
+  try {
+    extraRegels = await getExtraRegels(clientNaam);
+  } catch (err) {
+    // Lukt het lezen niet, bouw dan zonder extra regels in plaats van de sync te laten falen.
+  }
+  const tekst = bouwKennisdocument(secties, beoordelingen, extraRegels);
   const huidig = await kennisdocument.getKennisdocument(clientNaam);
   const backup = await bewaarBackup(clientNaam, huidig);
   const result = await kennisdocument.saveKennisdocument(clientNaam, tekst, SYNC_BRON);
@@ -701,6 +724,7 @@ module.exports = {
   bouwKennisdocument,
   STANDAARD_REGELS,
   STANDAARD_REGELS_TITEL,
+  EXTRA_REGELS_TITEL,
   syncKennisdocument,
   isTegenstrijdigheid,
   leesTegenstrijdigheid,
