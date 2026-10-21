@@ -31,7 +31,14 @@ function rich(waarde) {
 function normaliseerRij(page) {
   const p = page.properties || {};
   const nr = p.Nr && typeof p.Nr.number === 'number' ? p.Nr.number : null;
-  const sjabloon = STAPPEN.find((s) => s.nr === nr) || PAGR_STAPPEN.find((s) => s.nr === nr) || {};
+  let sjabloon = STAPPEN.find((s) => s.nr === nr) || PAGR_STAPPEN.find((s) => s.nr === nr) || {};
+  // Rijen van klanten die voor de herordening van 21-10-2026 zijn aangemaakt hebben nog het oude nummer.
+  // Klopt de titel in Notion niet met het nummer, dan zoeken we de uitleg op titel.
+  const rijTitel = tekst(p.Stap && p.Stap.title);
+  if (sjabloon.titel && rijTitel && sjabloon.titel !== rijTitel) {
+    const opTitel = STAPPEN.find((s) => s.titel === rijTitel) || PAGR_STAPPEN.find((s) => s.titel === rijTitel);
+    if (opTitel) sjabloon = opTitel;
+  }
   return {
     id: page.id,
     nr,

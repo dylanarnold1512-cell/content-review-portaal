@@ -99,3 +99,20 @@ test('ontbrekendeStappen vult alleen aan wat er mist', () => {
   assert.equal(ontbrekendeStappen('Blogr.', blog).length, 0);
   assert.equal(ontbrekendeStappen('Beide', []).length, require('../src/config/onboardingStappen').stappenVoor('Beide').length);
 });
+
+test('portaal en login staat als stap 11 direct na de Notion database', () => {
+  const nrs = STAPPEN.map((s) => s.nr);
+  assert.deepStrictEqual(nrs, Array.from({ length: 21 }, (_, i) => i + 1));
+  assert.strictEqual(STAPPEN.find((s) => s.nr === 10).titel, 'Notion content database');
+  assert.strictEqual(STAPPEN.find((s) => s.nr === 11).titel, 'Portaal en login');
+  assert.strictEqual(STAPPEN.find((s) => s.nr === 12).titel, 'WordPress');
+});
+
+test('een oude rij met het oude nummer krijgt toch de juiste uitleg via de titel', () => {
+  const { normaliseerRij } = require('../src/services/onboarding');
+  const oud = normaliseerRij({ id: 'x', properties: { Nr: { number: 11 }, Stap: { title: [{ plain_text: 'WordPress' }] }, Status: { select: { name: 'Klaar' } } } });
+  assert.strictEqual(oud.titel, 'WordPress');
+  assert.match(oud.uitleg, /REST test/);
+  const nieuw = normaliseerRij({ id: 'y', properties: { Nr: { number: 11 }, Stap: { title: [{ plain_text: 'Portaal en login' }] } } });
+  assert.match(nieuw.uitleg, /PORTAL_PASSWORD/);
+});
