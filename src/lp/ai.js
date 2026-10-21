@@ -292,6 +292,10 @@ const SEO_GEO_CONTENT_REGELS = `SEO EN GEO BIJ HET SCHRIJVEN (elke pagina moet o
   bijvoorbeeld over het werkgebied, de aanpak of de offerte, zodat de FAQ ook nieuwe zoekvragen dekt. Ook die
   antwoorden moeten door de feiten of bronteksten gedekt zijn. Behandel een zin uit een klant FAQ die er niet klopt of onvolledig
   uitziet nooit als feit.
+  ONDERWERP VAN DE FAQ: alle vragen gaan over het onderwerp van deze pagina (bij een badkamerpagina dus over badkamers en
+  sanitair, bij een lekkagepagina over lekkages). Een vraag of "Veelgestelde vraag"-feit over een andere dienst van het bedrijf
+  (zoals een cv-ketel op een badkamerpagina) gebruik je niet, ook niet als de bron er een antwoord op heeft. Zijn er te weinig
+  passende vragen, schrijf dan minder vragen in plaats van vragen over een ander onderwerp.
 - Entiteiten kloppen: gebruik de bedrijfsnaam, het werkgebied en de contactgegevens EXACT zoals in de feiten. Noem
   geen andere plaatsen, wijken, straten, klanten of projecten die niet in de feiten, de bronteksten of de invoer staan.
 - Lokale relevantie zonder verzinsels: maak elke pagina uniek met wat je echt weet over deze plaats uit de invoer
@@ -869,7 +873,7 @@ function bouwVragenBlok({ zoekvragen, zusterVragen } = {}) {
   if (!echte.length && !bezet.length) return '';
   let tekst = '';
   if (echte.length) {
-    tekst += `\n\nECHTE ZOEKVRAGEN bij deze dienst (Google suggesties, dit zoeken mensen echt):\n${echte.map((v) => `- ${v}`).join('\n')}\nBouw de veelgestelde vragen hier vooral uit op: kies er drie tot vijf die bij deze pagina passen en herschrijf ze natuurlijk (voeg de plaats toe als dat logisch is). Beantwoord alleen wat de bronteksten, de feiten of de invoer dekken. Is een vraag niet te beantwoorden zonder te verzinnen, sla hem dan over.`;
+    tekst += `\n\nECHTE ZOEKVRAGEN bij deze dienst (Google suggesties, dit zoeken mensen echt):\n${echte.map((v) => `- ${v}`).join('\n')}\nBouw de veelgestelde vragen hier vooral uit op: kies er drie tot vijf die bij deze pagina passen en herschrijf ze natuurlijk (voeg de plaats toe als dat logisch is). Gebruik alleen vragen die over het onderwerp van deze pagina gaan en sla vragen over andere diensten van het bedrijf over. Beantwoord alleen wat de bronteksten, de feiten of de invoer dekken. Is een vraag niet te beantwoorden zonder te verzinnen, sla hem dan over.`;
   }
   if (bezet.length) {
     tekst += `\n\nVRAGEN DIE AL OP ZUSTERPAGINA'S STAAN (gebruik deze NIET opnieuw, ook niet met alleen een andere plaatsnaam):\n${bezet.slice(0, 40).map((v) => `- ${v}`).join('\n')}\nHooguit een vraag mag er sterk op lijken, namelijk de vraag of het bedrijf in deze plaats werkt. Alle andere vragen moeten anders zijn.`;
@@ -996,6 +1000,7 @@ Beoordeel in deze volgorde van belang:
 4. Is er bewijs (echte reviews, echte projecten, echte cijfers) of alleen beweringen?
 5. Staan er lege zinnen die niets zeggen, of beloften zonder feit?
 6. Wordt een echte twijfel van de bezoeker (kosten, planning, overlast, vergunning) beantwoord?
+7. Gaat elke veelgestelde vraag over het onderwerp van de pagina? Een vraag over een andere dienst (cv-ketel op een badkamerpagina) is een verbetering: wijs de FAQ-slots aan en vraag om vragen over het onderwerp, of om minder vragen.
 
 REGELS
 - Geef maximaal 5 verbeteringen, de belangrijkste eerst. Liever 2 raak dan 5 vaag. Is de pagina goed, geef dan een lege lijst.
