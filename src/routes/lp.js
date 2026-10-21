@@ -20,7 +20,7 @@ const { zorgVoorProjectItems, ruimOpProjectItems } = require('../lp/projectFotos
 const { beschrijfSecties } = require('../lp/sectieRefine');
 const { berekenOverrides, zetVerborgen } = require('../lp/overrides');
 const { gebruikteFeitIds } = require('../lp/feitenDefaults');
-const { tekstControle } = require('../lp/tekstcontrole');
+const { tekstControle, scrubPersoonsnamen } = require('../lp/tekstcontrole');
 const { bouwKopie } = require('../lp/dupliceer');
 const gelijk = require('../lp/gelijkenis');
 const { verzamelTekst } = gelijk;
@@ -1375,6 +1375,12 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
     }
   } catch (aiErr) { /* de AI vragen zijn een extra bron, nooit blokkerend */ }
   const zusterVragen = [...new Set(zusters.flatMap((z) => (z.content ? vragenUitContent(z.content) : [])))];
+  // Het goedgekeurde voorbeeld: een zusterpagina met het vinkje Voorbeeld in Notion, anders de meest recent bewerkte gepubliceerde.
+  const metInhoud = zusters.filter((z) => z.content && z.content.slotData);
+  const voorbeeldPagina = metInhoud.find((z) => z.voorbeeld)
+    || metInhoud.filter((z) => z.status === 'Gepubliceerd').sort((a, b) => String(b.laatstGewijzigd).localeCompare(String(a.laatstGewijzigd)))[0]
+    || null;
+  const voorbeeld = voorbeeldPagina ? { titel: voorbeeldPagina.titel, slotData: voorbeeldPagina.content.slotData } : null;
 
   watGaatDezePaginaOver = watGaatDezePaginaOver || onderwerpTekst(invoer, page.titel);
   const result = await ai.generatePageContent({
@@ -1390,7 +1396,8 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
     zusterVragen,
     klantverhaal: client.profile.klantverhaal,
     bedrijfsnaam: (client.profile.bedrijf || {}).naam || client.profile.naam,
-    zusterInhoud: zusters.filter((z) => z.content).map((z) => ({ titel: z.titel, tekst: verzamelTekst(z.content).join('\n').slice(0, 2500) }))
+    voorbeeld,
+    zusterInhoud: zusters.filter((z) => z.content && (!voorbeeldPagina || z.id !== voorbeeldPagina.id)).map((z) => ({ titel: z.titel, tekst: verzamelTekst(z.content).join('\n').slice(0, 2500) }))
   });
 
   // Automatische redactieronde: de mechanische controle leest de nieuwe tekst en alleen de aangewezen onderdelen
@@ -1404,8 +1411,8 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
     const kvRuw = client.profile.klantverhaal;
     let eerste = [];
     let rest = [];
-    for (let ronde = 1; ronde <= 2; ronde += 1) {
-      const punten = bepaal(result.slotData).slice(0, 6);
+    for (let ronde = 1; ronde <= 4; ronde += 1) {
+      const punten = bepaal(result.slotData).slice(0, 8);
       if (ronde === 1) eerste = punten;
       rest = punten;
       if (!punten.length) break;
@@ -1421,10 +1428,17 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
         klantverhaal: kvRuw && kvRuw.status === 'goedgekeurd' ? kvRuw : null,
         bedrijfsnaam: (client.profile.bedrijf || {}).naam || client.profile.naam,
         feiten,
-        siteTeksten
+        siteTeksten,
+        voorbeeld
       });
       result.slotData = herschreven.slotData;
       rest = bepaal(result.slotData);
+    }
+    // Harde poort: wat de herschrijfrondes niet oplosten en wat mechanisch te herstellen is (namen van personen),
+    // gaat nooit door naar de klant. Zie scrubPersoonsnamen in tekstcontrole.js.
+    if (client.profile.tekstControle !== false && client.profile.schrijfvorm === 'derde') {
+      const vervangen = scrubPersoonsnamen(result.slotData, { nietNoemen: client.profile.nietNoemen || [], bedrijfsnaam: (client.profile.bedrijf || {}).naam || client.profile.naam });
+      if (vervangen) console.warn(`[redactie] ${vervangen} persoonsnaam/-namen mechanisch vervangen door de bedrijfsnaam`);
     }
     if (eerste.length) {
       redactieWaarschuwing = rest.length
@@ -1657,7 +1671,7 @@ function redactiePunten(page, blueprint, client) {
     plaats: gelijk.plaatsWaarde(inv),
     onderwerpWoorden,
     aanspreekvorm: kv && kv.stem ? kv.stem.aanspreekvorm : null,
-    derdePersoon: client.profile.schrijfvorm === 'derde', bedrijfsnaam: (client.profile.bedrijf || {}).naam || client.profile.naam,
+    derdePersoon: client.profile.schrijfvorm === 'derde',
     nietGebruiken: kv ? kv.nietGebruiken : []
   });
   punten.push(...verhaal.ontbrekendBewijs(blueprint, slotData, kvRuw));
@@ -1666,8 +1680,10 @@ function redactiePunten(page, blueprint, client) {
   if (client.profile.tekstControle !== false) {
     const feitenById = new Map((client.feiten || []).map((f) => [f.id, f]));
     const feitenLijst = [...gebruikteFeitIds(page.feitensheet, client.feiten).map((id) => feitenById.get(id)).filter(Boolean), ...(((page.feitensheet || {}).extra) || [])];
-    punten.push(...tekstControle(slotData, {
+    // De harde punten staan vooraan: ze worden altijd als eerste herschreven en vallen nooit buiten de lijst.
+    punten.unshift(...tekstControle(slotData, {
       derdePersoon: client.profile.schrijfvorm === 'derde',
+      bedrijfsnaam: bedrijf.naam || client.profile.naam,
       nietNoemen: client.profile.nietNoemen || [],
       toegestaneTekst: JSON.stringify([feitenLijst, client.feiten || [], inv, client.profile.bedrijf || {}]),
       reviewsBevestigd: client.profile.reviewsBevestigd !== false

@@ -160,6 +160,7 @@ function summarize(page) {
     wpUrl: readProperty(page, 'WP URL'),
     liveDatum: readProperty(page, 'Live datum'),
     adsActief: readProperty(page, 'Ads actief'),
+    voorbeeld: readProperty(page, 'Voorbeeld') === true,
     laatstGewijzigd: page.last_edited_time,
     aangemaakt: page.created_time
   };

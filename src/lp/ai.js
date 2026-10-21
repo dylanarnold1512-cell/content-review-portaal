@@ -854,9 +854,28 @@ Antwoord ALLEEN met een JSON-object met exact één veld, geen tekst erbuiten:
 { "slotData": <object met per slot-key de ingevulde waarde (tekst of array van items)> }`;
 }
 
+// Goedgekeurd voorbeeld (21-10-2026): een pagina van deze klant en dit sjabloon die door Dylan is aangepast en goedgekeurd.
+// Voorbeelden werken beter dan regels: de AI kopieert opbouw, stem, naamgebruik, lengtes en detailniveau van het voorbeeld
+// en wijzigt alleen onderwerp, plaats en feiten. Elke verbetering in het voorbeeld geldt zo voor elke volgende pagina.
+function bouwVoorbeeldBlok(voorbeeld) {
+  if (!voorbeeld || !voorbeeld.slotData) return '';
+  const velden = {};
+  verhaal.tekstVelden(voorbeeld.slotData).forEach((v) => { velden[v.pad] = v.tekst; });
+  const tekst = JSON.stringify(velden, null, 1);
+  if (tekst.length < 50) return '';
+  return `\n\nGOEDGEKEURD VOORBEELD (pagina "${voorbeeld.titel || ''}", door de klant en de opdrachtgever zelf aangepast en goedgekeurd; pad: tekst):
+${tekst.slice(0, 12000)}
+
+Dit voorbeeld gaat voor op alle andere stijlregels. Schrijf de nieuwe pagina op dezelfde manier:
+- Zelfde opbouw en dezelfde soort inhoud per onderdeel. Zelfde aanspreekvorm en dezelfde manier om het bedrijf te noemen, inclusief hoe vaak en waar de bedrijfsnaam staat.
+- Koppen, labels en intro's even lang en met dezelfde zinsbouw als in het voorbeeld. Zelfde aantal items per lijst, tenzij de feiten minder of meer toelaten.
+- Dezelfde toon, hetzelfde detailniveau en dezelfde manier om veelgestelde vragen en antwoorden te formuleren.
+- Wijzig alleen het onderwerp, de plaats en de feiten die bij deze pagina horen. Kopieer geen zinnen letterlijk: elke zin die over de dienst of de plaats gaat schrijf je opnieuw. Heeft het voorbeeld iets dat niet bij dit onderwerp past (een andere dienst), neem dat dan niet over.`;
+}
+
 // Teksten van zusterpagina's (zelfde klant en sjabloon), zodat de nieuwe pagina er niet op gaat lijken.
 // Pagina's die alleen in de plaatsnaam verschillen zijn slecht voor SEO en GEO (doorway pagina's).
-function bouwZusterBlok(zusterInhoud) {
+function bouwZusterBlok(zusterInhoud, { metVoorbeeld } = {}) {
   const lijst = Array.isArray(zusterInhoud) ? zusterInhoud.filter((z) => z && z.tekst) : [];
   if (!lijst.length) return '';
   return `
@@ -864,7 +883,7 @@ function bouwZusterBlok(zusterInhoud) {
 Bestaande zusterpagina's van deze klant met hetzelfde sjabloon (alleen ter vergelijking):
 ${lijst.map((z) => `--- ${z.titel} ---\n${z.tekst}`).join('\n\n')}
 
-Belangrijk voor SEO en GEO: deze nieuwe pagina mag NIET op deze zusterpagina's lijken. Gebruik andere zinnen, een andere volgorde van argumenten, andere voorbeelden en andere kopjes. Kopieer geen zinnen en verander niet alleen de plaatsnaam. Onderscheid de pagina met wat er specifiek is voor deze plaats of dit onderwerp, maar alleen als dat in de feiten staat (zoals "Lokale informatie"). Noem geen plaatsnamen van de zusterpagina's, tenzij de feiten dat vragen.`;
+Belangrijk voor SEO en GEO: deze nieuwe pagina mag NIET op deze zusterpagina's lijken. ${metVoorbeeld ? 'Opbouw, stem en lengtes volgen het goedgekeurde voorbeeld. Gebruik wel andere zinnen en andere voorbeelden dan deze zusterpagina\'s.' : 'Gebruik andere zinnen, een andere volgorde van argumenten, andere voorbeelden en andere kopjes.'} Kopieer geen zinnen en verander niet alleen de plaatsnaam. Onderscheid de pagina met wat er specifiek is voor deze plaats of dit onderwerp, maar alleen als dat in de feiten staat (zoals "Lokale informatie"). Noem geen plaatsnamen van de zusterpagina's, tenzij de feiten dat vragen.`;
 }
 
 // Echte zoekvragen en de vragen die al op zusterpagina's staan (Pagr., 14-10-2026). Zie zoekvragen.js.
@@ -1062,7 +1081,7 @@ ANTWOORD ALLEEN MET JSON: { "slotData": { "<slotnaam>": ... } }`;
 
 const NIET_HERSCHRIJFBAAR_RE = /^(meta|cta|links)|(Href|Src|Alt)$/i;
 
-async function herschrijfOnderdelen({ klant, template, slotData, slots, aanwijzing, klantverhaal, bedrijfsnaam, feiten, siteTeksten }) {
+async function herschrijfOnderdelen({ klant, template, slotData, slots, aanwijzing, klantverhaal, bedrijfsnaam, feiten, siteTeksten, voorbeeld }) {
   const definitie = new Map((Array.isArray(template && template.slots) ? template.slots : []).map((x) => [x.key, x]));
   const gevraagd = [...new Set(Array.isArray(slots) ? slots : [])].filter((k) => definitie.has(k) && !NIET_HERSCHRIJFBAAR_RE.test(k) && slotData && slotData[k] !== undefined);
   if (!gevraagd.length) throw new Error('Er is geen onderdeel gekozen dat herschreven kan worden.');
@@ -1089,6 +1108,8 @@ ${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam, derde: schrijftInDerdePerso
 ${derdePersoonVoor(klant, bedrijfsnaam)}
 
 ${paginaOpbouwRegels({ derde: schrijftInDerdePersoon(klant) })}
+
+${bouwVoorbeeldBlok(voorbeeld)}
 
 ${siteTeksten ? `Bronteksten van de klantsite (ingekort):\n${String(siteTeksten).slice(0, 14000)}` : ''}`;
   const ruw = await callOpenAi({ systemPrompt: HERSCHRIJF_SYSTEEMPROMPT.replace('{{STEM_REGEL}}', schrijftInDerdePersoon(klant)
@@ -1163,7 +1184,7 @@ function verdeelIconen(slotData) {
   });
 }
 
-async function generatePageContent({ klant, template, invoer, feiten, watGaatDezePaginaOver, ctaOverride, linkKandidaten, zusterInhoud, siteTeksten, zoekvragen, zusterVragen, klantverhaal, bedrijfsnaam, zonderPlan }) {
+async function generatePageContent({ klant, template, invoer, feiten, watGaatDezePaginaOver, ctaOverride, linkKandidaten, zusterInhoud, siteTeksten, zoekvragen, zusterVragen, klantverhaal, bedrijfsnaam, zonderPlan, voorbeeld }) {
   const systemPrompt = buildContentSystemPrompt(template, { derde: schrijftInDerdePersoon(klant) });
   // Ronde 1: een plan per onderdeel. Mislukt het, dan schrijven we gewoon zonder plan.
   let schrijfplan = null;
@@ -1202,14 +1223,14 @@ ${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam, derde: schrijftInDerdePerso
 
 ${derdePersoonVoor(klant, bedrijfsnaam)}
 
-${bouwSchrijfplanBlok(schrijfplan)}
+${bouwSchrijfplanBlok(schrijfplan)}${bouwVoorbeeldBlok(voorbeeld)}
 
 Feiten met "standaard": true zijn vaste praktische gegevens van de klant (bv. in- en uitchecktijden, kamertypes, ligging). Neem ze op in de praktische informatie en de kamertypes van de pagina, voor zover het sjabloon daar een plek voor heeft, en gebruik de formulering (bv. namen van kamertypes en tijden) precies zoals ze er staan.
 
 Beschikbare linkbestemmingen (zusterpagina: true = andere landingspagina van deze klant binnen LP
 Fabriek, zusterpagina: false = een echte, bestaande pagina op de eigen live website — behandel beide
 even serieus, gebruik uitsluitend de opgegeven url, kies alleen wat inhoudelijk relevant is):
-${JSON.stringify(linkKandidaten || [], null, 2)}${bouwZusterBlok(zusterInhoud)}${bouwVragenBlok({ zoekvragen, zusterVragen })}`;
+${JSON.stringify(linkKandidaten || [], null, 2)}${bouwZusterBlok(zusterInhoud, { metVoorbeeld: Boolean(voorbeeld && voorbeeld.slotData) })}${bouwVragenBlok({ zoekvragen, zusterVragen })}`;
 
   const result = await callOpenAi({ systemPrompt, userPrompt });
   if (!result || typeof result !== 'object' || !result.slotData) {
@@ -1461,6 +1482,7 @@ module.exports = {
   redactieReview,
   herschrijfOnderdelen,
   bouwZusterBlok,
+  bouwVoorbeeldBlok,
   bouwVragenBlok,
   formatKlantBronnenVoorSjabloon,
   getImageSlots,
