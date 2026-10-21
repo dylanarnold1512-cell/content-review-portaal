@@ -24,7 +24,17 @@ const { INLINE_LINK_RE, forEachTextLeaf, ICON_NAMES, findUnknownIcons } = requir
 // 1, vraag 3). Hero, CTA en interne links zijn altijd al verplicht via de
 // vaste slot-namen/regels hieronder, dus die staan hier expres niet in.
 const { verwijderReviewAanhalingstekens } = require('./aanhalingstekens');
-const { PAGINA_OPBOUW_REGELS, bouwKlantverhaalBlok } = require('./klantverhaal');
+const { PAGINA_OPBOUW_REGELS, bouwKlantverhaalBlok, derdePersoonBlok } = require('./klantverhaal');
+
+// Schrijft deze klant in de derde persoon? Dan gaat derdePersoonBlok mee in elke schrijfopdracht.
+function derdePersoonVoor(klant, bedrijfsnaam) {
+  try {
+    const { getLpClient } = require('./clients');
+    const profile = getLpClient(klant).profile;
+    if (profile && profile.schrijfvorm === 'derde') return derdePersoonBlok(bedrijfsnaam || (profile.bedrijf && profile.bedrijf.naam) || profile.naam);
+  } catch (err) { /* onbekende klant: geen override */ }
+  return '';
+}
 const verhaal = require('./verhaal');
 const VASTE_ONDERDELEN_OPTIES = ['usps', 'stappen', 'aanbod', 'praktisch', 'reviews', 'faq', 'doelgroep', 'galerij'];
 
@@ -938,6 +948,7 @@ Feiten (alleen wat hier of in het klantverhaal of de bronteksten staat mag gebru
 ${JSON.stringify(feiten || [])}
 
 ${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam }) || 'Er is geen goedgekeurd klantverhaal.'}
+${derdePersoonVoor(klant, bedrijfsnaam)}
 
 ${siteTeksten ? `Bronteksten van de klantsite (ingekort):\n${String(siteTeksten).slice(0, 14000)}` : 'Er zijn geen bronteksten van de klantsite.'}`;
   const ruw = await callOpenAi({ systemPrompt: SCHRIJFPLAN_SYSTEEMPROMPT, userPrompt });
@@ -981,6 +992,7 @@ De pagina (pad: tekst):
 ${JSON.stringify(pagina, null, 2)}
 
 ${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam }) || 'Er is geen goedgekeurd klantverhaal.'}
+${derdePersoonVoor(klant, bedrijfsnaam)}
 
 Al gevonden door de automatische controle (herhaal deze niet):
 ${(alGevonden || []).map((t) => `- ${t}`).join('\n') || '(niets)'}
@@ -1036,6 +1048,7 @@ ${JSON.stringify(rest, null, 2)}
 Feiten: ${JSON.stringify(feiten || [])}
 
 ${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam }) || 'Er is geen goedgekeurd klantverhaal.'}
+${derdePersoonVoor(klant, bedrijfsnaam)}
 
 ${PAGINA_OPBOUW_REGELS}
 
@@ -1146,6 +1159,8 @@ ${JSON.stringify(feiten || [], null, 2)}
 ${siteTeksten ? `Bronteksten van de eigen website van de klant (automatisch gelezen, ${siteTeksten.split('\n--- ').length} pagina's). Dit is je hoofdbron voor de inhoud, volg de regels voor brontekst hierboven:\n${siteTeksten}` : 'Er zijn geen bronteksten van de klantsite beschikbaar, werk alleen met de feiten en de invoer.'}
 
 ${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam }) || 'Er is voor deze klant nog geen goedgekeurd klantverhaal, volg de opbouwregels hierboven en werk alleen met de bronteksten en de feiten.'}
+
+${derdePersoonVoor(klant, bedrijfsnaam)}
 
 ${bouwSchrijfplanBlok(schrijfplan)}
 
