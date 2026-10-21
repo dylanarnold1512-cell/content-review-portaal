@@ -173,10 +173,11 @@ const clients = [
     naam: 'Hirs Installaties',
     producten: 'Beide',
     notionTokenEnv: 'NOTION_TOKEN_HIRS',
+    performanceV2: true,
     databaseId: '62a42a66f0af4a28919a65359ce77dbd', // "Hirs Installaties Content Planning"
     // Shared klant met Blogr. en Pagr., onboarding gestart op 13-10-2026. Dylan is de reviewer (logt in met
     // PORTAL_PASSWORD_HIRS) tot de eerste blog gecontroleerd is, daarna krijgt Nick de reviewlink via
-    // notification_email in de Clients tabel. performanceV2 volgt bij onboarding stap 14 (GA4).
+    // notification_email in de Clients tabel.
     reviewEnabled: true,
     ideaEnrichmentEnabled: false,
     loginPasswordEnv: 'PORTAL_PASSWORD_HIRS',
