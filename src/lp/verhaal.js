@@ -269,9 +269,9 @@ function redactieControle(slotData, opties) {
     if (totaal > drempel) {
       punten.push({
         soort: 'toon',
-        tekst: `De bedrijfsnaam staat ${totaal} keer voluit op de pagina. Dat klinkt als een brochure. ${o.derdePersoon ? 'Wissel af met de voornaam van de eigenaar, "de installateur" of begin de zin bij de bezoeker.' : 'Gebruik "wij", "we" of "ons" na de eerste keer.'}`,
+        tekst: `De bedrijfsnaam staat ${totaal} keer voluit op de pagina. Dat klinkt als een brochure. ${o.derdePersoon ? 'Wissel af met "het bedrijf", "de installateur" of begin de zin bij de bezoeker.' : 'Gebruik "wij", "we" of "ons" na de eerste keer.'}`,
         slots: uniek(metNaam.map((v) => v.slot)).slice(0, 6),
-        aanwijzing: o.derdePersoon ? 'Noem de bedrijfsnaam niet in elk onderdeel. Wissel af met de voornaam van de eigenaar, "de installateur" of een zin die bij de bezoeker begint. Nooit wij of ons.' : `Noem de bedrijfsnaam hooguit een keer voluit (in de intro). Schrijf in de andere onderdelen "wij", "we" of "ons".`
+        aanwijzing: o.derdePersoon ? 'Noem de bedrijfsnaam niet in elk onderdeel. Wissel af met "het bedrijf", "de installateur" of een zin die bij de bezoeker begint. Nooit wij of ons en nooit een persoonsnaam.' : `Noem de bedrijfsnaam hooguit een keer voluit (in de intro). Schrijf in de andere onderdelen "wij", "we" of "ons".`
       });
     }
   }
@@ -397,12 +397,12 @@ function redactieControle(slotData, opties) {
     const tekst = hero.map((v) => v.tekst).join(' ');
     const aangesproken = tel(JE_RE, tekst) + tel(U_RE, tekst) > 0;
     const wij = o.derdePersoon || /\b(wij|we|ons|onze)\b/i.test(tekst);
-    if (!aangesproken || !wij) {
+    if (o.derdePersoon ? !aangesproken : (!aangesproken || !wij)) {
       punten.push({
         soort: 'toon',
         tekst: `De intro bovenaan klinkt afstandelijk: ${!aangesproken ? 'de bezoeker wordt niet direct aangesproken' : 'het bedrijf spreekt niet over zichzelf als "wij"'}.`,
         slots: uniek(hero.map((v) => v.slot)),
-        aanwijzing: `Schrijf de intro persoonlijk: spreek de bezoeker aan met "${doel}" en schrijf als bedrijf "wij" of "we". Voorbeeld van de toon: "Wij helpen woningeigenaren met ... We luisteren naar je plannen en denken praktisch mee."`
+        aanwijzing: o.derdePersoon ? `Schrijf de intro persoonlijk: spreek de bezoeker aan met "${doel}" en schrijf over het bedrijf in de derde persoon (nooit wij of we).` : `Schrijf de intro persoonlijk: spreek de bezoeker aan met "${doel}" en schrijf als bedrijf "wij" of "we". Voorbeeld van de toon: "Wij helpen woningeigenaren met ... We luisteren naar je plannen en denken praktisch mee."`
       });
     }
   }
