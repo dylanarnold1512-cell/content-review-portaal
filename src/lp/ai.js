@@ -24,11 +24,16 @@ const { INLINE_LINK_RE, forEachTextLeaf, ICON_NAMES, findUnknownIcons } = requir
 // 1, vraag 3). Hero, CTA en interne links zijn altijd al verplicht via de
 // vaste slot-namen/regels hieronder, dus die staan hier expres niet in.
 const { verwijderReviewAanhalingstekens } = require('./aanhalingstekens');
-const { PAGINA_OPBOUW_REGELS, bouwKlantverhaalBlok, derdePersoonBlok } = require('./klantverhaal');
+const { PAGINA_OPBOUW_REGELS, paginaOpbouwRegels, bouwKlantverhaalBlok, derdePersoonBlok } = require('./klantverhaal');
 
 // Schrijft deze klant in de derde persoon? Dan gaat derdePersoonBlok mee in elke schrijfopdracht.
 // Geeft ook de eigen regels van de klant mee (Klantgegevens: wat niet mag en de toon). Die gingen eerder alleen naar de
 // WordPress en festival flows en niet naar de paginatekst, waardoor Hirs wij-vorm, reviews en superlatieven kreeg (21-10-2026).
+// De stem van een klant is op een plek bepaald: schrijfvorm 'derde' in het profiel. Elke stap leest het hier.
+function schrijftInDerdePersoon(klant) {
+  try { return require('./clients').getLpClient(klant).profile.schrijfvorm === 'derde'; } catch (err) { return false; }
+}
+
 function derdePersoonVoor(klant, bedrijfsnaam) {
   try {
     const { getLpClient } = require('./clients');
@@ -287,6 +292,10 @@ const SEO_GEO_CONTENT_REGELS = `SEO EN GEO BIJ HET SCHRIJVEN (elke pagina moet o
   bijvoorbeeld over het werkgebied, de aanpak of de offerte, zodat de FAQ ook nieuwe zoekvragen dekt. Ook die
   antwoorden moeten door de feiten of bronteksten gedekt zijn. Behandel een zin uit een klant FAQ die er niet klopt of onvolledig
   uitziet nooit als feit.
+  ONDERWERP VAN DE FAQ: alle vragen gaan over het onderwerp van deze pagina (bij een badkamerpagina dus over badkamers en
+  sanitair, bij een lekkagepagina over lekkages). Een vraag of "Veelgestelde vraag"-feit over een andere dienst van het bedrijf
+  (zoals een cv-ketel op een badkamerpagina) gebruik je niet, ook niet als de bron er een antwoord op heeft. Zijn er te weinig
+  passende vragen, schrijf dan minder vragen in plaats van vragen over een ander onderwerp.
 - Entiteiten kloppen: gebruik de bedrijfsnaam, het werkgebied en de contactgegevens EXACT zoals in de feiten. Noem
   geen andere plaatsen, wijken, straten, klanten of projecten die niet in de feiten, de bronteksten of de invoer staan.
 - Lokale relevantie zonder verzinsels: maak elke pagina uniek met wat je echt weet over deze plaats uit de invoer
@@ -750,7 +759,7 @@ function getImageSlots(template, slotData) {
   return result;
 }
 
-function buildContentSystemPrompt(template) {
+function buildContentSystemPrompt(template, { derde } = {}) {
   const slots = Array.isArray(template.slots) ? template.slots : [];
   const tekstSlots = slots.filter((s) => !IMAGE_SRC_RE.test(s.key) && !IMAGE_ALT_RE.test(s.key));
   // Zowel losse afbeelding-slots als een afbeelding-itemveld binnen een lijst (bv.
@@ -808,7 +817,7 @@ ${SECTIE_INTRO_REGELS}
 
 ${VOLLEDIGE_ZINNEN_REGELS}
 
-${PAGINA_OPBOUW_REGELS}
+${paginaOpbouwRegels({ derde: Boolean(derde) })}
 
 Slots die gevuld moeten worden:
 ${slotBeschrijving}${afbeeldingNotitie}${galerijNotitie}${iconNotitie}
@@ -864,7 +873,7 @@ function bouwVragenBlok({ zoekvragen, zusterVragen } = {}) {
   if (!echte.length && !bezet.length) return '';
   let tekst = '';
   if (echte.length) {
-    tekst += `\n\nECHTE ZOEKVRAGEN bij deze dienst (Google suggesties, dit zoeken mensen echt):\n${echte.map((v) => `- ${v}`).join('\n')}\nBouw de veelgestelde vragen hier vooral uit op: kies er drie tot vijf die bij deze pagina passen en herschrijf ze natuurlijk (voeg de plaats toe als dat logisch is). Beantwoord alleen wat de bronteksten, de feiten of de invoer dekken. Is een vraag niet te beantwoorden zonder te verzinnen, sla hem dan over.`;
+    tekst += `\n\nECHTE ZOEKVRAGEN bij deze dienst (Google suggesties, dit zoeken mensen echt):\n${echte.map((v) => `- ${v}`).join('\n')}\nBouw de veelgestelde vragen hier vooral uit op: kies er drie tot vijf die bij deze pagina passen en herschrijf ze natuurlijk (voeg de plaats toe als dat logisch is). Gebruik alleen vragen die over het onderwerp van deze pagina gaan en sla vragen over andere diensten van het bedrijf over. Beantwoord alleen wat de bronteksten, de feiten of de invoer dekken. Is een vraag niet te beantwoorden zonder te verzinnen, sla hem dan over.`;
   }
   if (bezet.length) {
     tekst += `\n\nVRAGEN DIE AL OP ZUSTERPAGINA'S STAAN (gebruik deze NIET opnieuw, ook niet met alleen een andere plaatsnaam):\n${bezet.slice(0, 40).map((v) => `- ${v}`).join('\n')}\nHooguit een vraag mag er sterk op lijken, namelijk de vraag of het bedrijf in deze plaats werkt. Alle andere vragen moeten anders zijn.`;
@@ -906,7 +915,7 @@ REGELS
 - Schrijf per onderdeel wat het voor de bezoeker oplevert (rust, tijd, zekerheid) en niet alleen wat het bedrijf doet.
 - Gebruik bij bewijs alleen echte reviews en projecten uit het klantverhaal of de bronteksten. Is er geen bewijs, zeg dat dan bij "bewijs" en laat het onderdeel zo kort mogelijk.
 - Zijn er twijfels van klanten bekend (klantverhaal), laat dan de twijfel-onderdelen die beantwoorden. Anders de gebruikelijke zorgen bij dit soort werk, alleen als de bronteksten er iets over zeggen.
-- Kies voor de hero een persoonlijke opening: de bezoeker direct aanspreken en het bedrijf als "wij".
+{{HERO_STEM}}
 - Schrijf eenvoudig Nederlands. Gebruik geen streepjes als leesteken.
 
 ANTWOORD ALLEEN MET JSON:
@@ -967,11 +976,14 @@ ${JSON.stringify(overzicht, null, 2)}
 Feiten (alleen wat hier of in het klantverhaal of de bronteksten staat mag gebruikt worden):
 ${JSON.stringify(feiten || [])}
 
-${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam }) || 'Er is geen goedgekeurd klantverhaal.'}
+${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam, derde: schrijftInDerdePersoon(klant) }) || 'Er is geen goedgekeurd klantverhaal.'}
 ${derdePersoonVoor(klant, bedrijfsnaam)}
 
 ${siteTeksten ? `Bronteksten van de klantsite (ingekort):\n${String(siteTeksten).slice(0, 14000)}` : 'Er zijn geen bronteksten van de klantsite.'}`;
-  const ruw = await callOpenAi({ systemPrompt: SCHRIJFPLAN_SYSTEEMPROMPT, userPrompt });
+  const derde = schrijftInDerdePersoon(klant);
+  const ruw = await callOpenAi({ systemPrompt: SCHRIJFPLAN_SYSTEEMPROMPT.replace('{{HERO_STEM}}', derde
+    ? '- Kies voor de hero een persoonlijke opening: de bezoeker direct aanspreken met "je" en het bedrijf in de derde persoon. Nooit "wij".'
+    : '- Kies voor de hero een persoonlijke opening: de bezoeker direct aanspreken en het bedrijf als "wij".'), userPrompt });
   const plan = schoonPlan(ruw, template);
   if (!plan) console.warn('[schrijfplan] geen bruikbaar plan, ruwe uitvoer:', JSON.stringify(ruw).slice(0, 800));
   return plan;
@@ -982,12 +994,13 @@ ${siteTeksten ? `Bronteksten van de klantsite (ingekort):\n${String(siteTeksten)
 const REDACTIE_SYSTEEMPROMPT = `Je bent een kritische eindredacteur die een landingspagina leest zoals een bezoeker: iemand die een aanvraag overweegt en twijfelt. Je hebt de pagina niet geschreven en je bent niet aardig voor de schrijver.
 
 Beoordeel in deze volgorde van belang:
-1. Spreekt de pagina de bezoeker persoonlijk aan, of klinkt het als een brochure (bedrijfsnaam voluit, "het bedrijf", lijdende vorm)?
+1. {{STEM_VRAAG}}
 2. Staat dezelfde boodschap op meer dan twee plekken, of beginnen onderdelen met hetzelfde idee?
 3. Klopt de verhaallijn: eerst herkenning, dan wat het bedrijf doet, waarom zij, hoe het werkt, bewijs, twijfels, actie? Staat iets op een verkeerde plek of ontbreekt een stap?
 4. Is er bewijs (echte reviews, echte projecten, echte cijfers) of alleen beweringen?
 5. Staan er lege zinnen die niets zeggen, of beloften zonder feit?
 6. Wordt een echte twijfel van de bezoeker (kosten, planning, overlast, vergunning) beantwoord?
+7. Gaat elke veelgestelde vraag over het onderwerp van de pagina? Een vraag over een andere dienst (cv-ketel op een badkamerpagina) is een verbetering: wijs de FAQ-slots aan en vraag om vragen over het onderwerp, of om minder vragen.
 
 REGELS
 - Geef maximaal 5 verbeteringen, de belangrijkste eerst. Liever 2 raak dan 5 vaag. Is de pagina goed, geef dan een lege lijst.
@@ -1011,14 +1024,17 @@ ${JSON.stringify(sectieOverzichtVoorPrompt(template), null, 2)}
 De pagina (pad: tekst):
 ${JSON.stringify(pagina, null, 2)}
 
-${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam }) || 'Er is geen goedgekeurd klantverhaal.'}
+${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam, derde: schrijftInDerdePersoon(klant) }) || 'Er is geen goedgekeurd klantverhaal.'}
 ${derdePersoonVoor(klant, bedrijfsnaam)}
 
 Al gevonden door de automatische controle (herhaal deze niet):
 ${(alGevonden || []).map((t) => `- ${t}`).join('\n') || '(niets)'}
 
 Toegestane slotnamen voor "slots": ${sleutels.join(', ')}`;
-  const ruw = await callOpenAi({ systemPrompt: REDACTIE_SYSTEEMPROMPT, userPrompt });
+  const derde = schrijftInDerdePersoon(klant);
+  const ruw = await callOpenAi({ systemPrompt: REDACTIE_SYSTEEMPROMPT.replace('{{STEM_VRAAG}}', derde
+    ? 'Spreekt de pagina de bezoeker direct aan met "je", terwijl het bedrijf in de derde persoon blijft (de bedrijfsnaam of "het bedrijf", nooit wij, we of onze, nooit een persoon)? Laat de stem zoals hij is en beoordeel alleen of de tekst concreet en leesbaar is in plaats van een opsomming van beweringen.'
+    : 'Spreekt de pagina de bezoeker persoonlijk aan, of klinkt het als een brochure (bedrijfsnaam voluit, "het bedrijf", lijdende vorm)?'), userPrompt });
   const toegestaan = new Set(sleutels);
   const tekst = (v, max) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, max);
   return (Array.isArray(ruw && ruw.verbeteringen) ? ruw.verbeteringen : [])
@@ -1038,7 +1054,7 @@ REGELS
 - Gebruik alleen feiten uit de feiten, het klantverhaal en de bronteksten. Verzin geen cijfers, namen of beloften. Reviews blijven letterlijk zoals ze zijn.
 - Vul geen afbeeldingvelden in. Laat die velden weg.
 - Behoud links in de vorm [tekst](url) alleen als de url al in de huidige tekst staat.
-- Schrijf persoonlijk en direct, eenvoudig Nederlands, zonder streepjes als leesteken.
+- {{STEM_REGEL}} Eenvoudig Nederlands, zonder streepjes als leesteken.
 
 ANTWOORD ALLEEN MET JSON: { "slotData": { "<slotnaam>": ... } }`;
 
@@ -1067,13 +1083,15 @@ ${JSON.stringify(rest, null, 2)}
 
 Feiten: ${JSON.stringify(feiten || [])}
 
-${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam }) || 'Er is geen goedgekeurd klantverhaal.'}
+${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam, derde: schrijftInDerdePersoon(klant) }) || 'Er is geen goedgekeurd klantverhaal.'}
 ${derdePersoonVoor(klant, bedrijfsnaam)}
 
-${PAGINA_OPBOUW_REGELS}
+${paginaOpbouwRegels({ derde: schrijftInDerdePersoon(klant) })}
 
 ${siteTeksten ? `Bronteksten van de klantsite (ingekort):\n${String(siteTeksten).slice(0, 14000)}` : ''}`;
-  const ruw = await callOpenAi({ systemPrompt: HERSCHRIJF_SYSTEEMPROMPT, userPrompt });
+  const ruw = await callOpenAi({ systemPrompt: HERSCHRIJF_SYSTEEMPROMPT.replace('{{STEM_REGEL}}', schrijftInDerdePersoon(klant)
+    ? 'Spreek de bezoeker direct aan met "je" en schrijf over het bedrijf in de derde persoon. Nooit wij, we, ons, onze of een persoonsnaam.'
+    : 'Schrijf persoonlijk en direct.'), userPrompt });
   const nieuw = ruw && typeof ruw.slotData === 'object' && ruw.slotData ? ruw.slotData : null;
   if (!nieuw) throw new Error('Het AI-antwoord miste het veld "slotData". Er is niets veranderd.');
   const resultaat = {};
@@ -1144,7 +1162,7 @@ function verdeelIconen(slotData) {
 }
 
 async function generatePageContent({ klant, template, invoer, feiten, watGaatDezePaginaOver, ctaOverride, linkKandidaten, zusterInhoud, siteTeksten, zoekvragen, zusterVragen, klantverhaal, bedrijfsnaam, zonderPlan }) {
-  const systemPrompt = buildContentSystemPrompt(template);
+  const systemPrompt = buildContentSystemPrompt(template, { derde: schrijftInDerdePersoon(klant) });
   // Ronde 1: een plan per onderdeel. Mislukt het, dan schrijven we gewoon zonder plan.
   let schrijfplan = null;
   let planWaarschuwing = null;
@@ -1178,7 +1196,7 @@ ${JSON.stringify(feiten || [], null, 2)}
 
 ${siteTeksten ? `Bronteksten van de eigen website van de klant (automatisch gelezen, ${siteTeksten.split('\n--- ').length} pagina's). Dit is je hoofdbron voor de inhoud, volg de regels voor brontekst hierboven:\n${siteTeksten}` : 'Er zijn geen bronteksten van de klantsite beschikbaar, werk alleen met de feiten en de invoer.'}
 
-${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam }) || 'Er is voor deze klant nog geen goedgekeurd klantverhaal, volg de opbouwregels hierboven en werk alleen met de bronteksten en de feiten.'}
+${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam, derde: schrijftInDerdePersoon(klant) }) || 'Er is voor deze klant nog geen goedgekeurd klantverhaal, volg de opbouwregels hierboven en werk alleen met de bronteksten en de feiten.'}
 
 ${derdePersoonVoor(klant, bedrijfsnaam)}
 

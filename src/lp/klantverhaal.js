@@ -246,21 +246,27 @@ async function bouwKlantverhaalVoorstel({ url, bedrijfsnaam, uitsluit, taal, cal
 // ---- Naar de AI van Content genereren ----
 
 // Regels voor de opbouw van elke pagina, ook als er (nog) geen klantverhaal is. Staat in de systeemprompt van generatePageContent.
-const PAGINA_OPBOUW_REGELS = `OPBOUW VAN DE PAGINA (rode draad voor elke klant):
-- Elke sectie heeft een eigen taak in het verhaal van de bezoeker: herkenning en belofte (hero), wat we voor je doen (diensten of aanbod), waarom bij ons, zo gaat het (werkwijze), bewijs (reviews en projecten), twijfels weg (veelgestelde vragen), actie (formulier). Een sectie herhaalt niet wat een eerdere al zei, maar bouwt erop voort.
+// De stem (wij-vorm of derde persoon) is op EEN plek bepaald, hier en in derdePersoonBlok. Alle andere prompts en controles
+// lezen dezelfde keuze (opties.derde), zodat geen enkele regel het tegenovergestelde voorschrijft (21-10-2026: de oude regels
+// zeiden op tien plekken "wij" en "noem de eigenaar" naast een losse regel die dat verbood, waardoor de AI bleef wisselen).
+function paginaOpbouwRegels({ derde } = {}) {
+  return `OPBOUW VAN DE PAGINA (rode draad voor elke klant):
+- Elke sectie heeft een eigen taak in het verhaal van de bezoeker: herkenning en belofte (hero), ${derde ? 'wat het bedrijf voor je doet' : 'wat we voor je doen'} (diensten of aanbod), ${derde ? 'waarom dit bedrijf' : 'waarom bij ons'}, zo gaat het (werkwijze), bewijs (reviews en projecten), twijfels weg (veelgestelde vragen), actie (formulier). Een sectie herhaalt niet wat een eerdere al zei, maar bouwt erop voort.
 - Een feit of voordeel staat op hooguit twee plekken: een keer uitgebreid en hooguit een keer kort terug (bijvoorbeeld in de hero en bij de veelgestelde vragen). Geef elk voordeel een eigen onderwerp en eigen woorden: vier voordelen die dezelfde reden herhalen zijn een voordeel.
-- Vertel bij een voordeel wat het voor de bezoeker betekent (rust, tijd, zekerheid), niet alleen wat het bedrijf doet. Spreek de bezoeker direct aan en schrijf als een persoon, niet als een brochure. Gebruik niet steeds de bedrijfsnaam voluit.
-- Staat bij het gezicht of bij het bewijs een zin van de eigenaar zelf in de ik-vorm (bijvoorbeeld "Met meer dan 20 jaar ervaring heb ik..."), gebruik die dan letterlijk als citaat met naam, bijvoorbeeld in de hero of bij waarom klanten kiezen. Zet zo'n zin NOOIT in een reviewblok: reviews zijn alleen uitspraken van klanten, niet van het bedrijf zelf. Laat ook geen echte review weg om ruimte te maken.
-- Redenen om te kiezen haal je uit wat klanten zelf zeggen in reviews (bijvoorbeeld duidelijke communicatie, dagelijks doorwerken, netjes opgeleverd) en uit het gezicht van het bedrijf. "Sinds jaartal" of "ervaren" is op zichzelf geen reden en staat hooguit een keer kort op de pagina.
+- Vertel bij een voordeel wat het voor de bezoeker betekent (rust, tijd, zekerheid), niet alleen wat het bedrijf doet. ${derde ? 'Spreek de bezoeker direct aan met "je" en schrijf over het bedrijf in de derde persoon. Wissel de bedrijfsnaam af met "het bedrijf".' : 'Spreek de bezoeker direct aan en schrijf als een persoon, niet als een brochure. Gebruik niet steeds de bedrijfsnaam voluit.'}
+${derde ? '- Zinnen van de eigenaar in de ik-vorm gebruik je niet als citaat en je noemt de eigenaar niet. Zet zo\'n zin ook NOOIT in een reviewblok: reviews zijn alleen uitspraken van klanten. Laat geen echte review weg om ruimte te maken.' : '- Staat bij het gezicht of bij het bewijs een zin van de eigenaar zelf in de ik-vorm (bijvoorbeeld "Met meer dan 20 jaar ervaring heb ik..."), gebruik die dan letterlijk als citaat met naam, bijvoorbeeld in de hero of bij waarom klanten kiezen. Zet zo\'n zin NOOIT in een reviewblok: reviews zijn alleen uitspraken van klanten, niet van het bedrijf zelf. Laat ook geen echte review weg om ruimte te maken.'}
+- Redenen om te kiezen haal je uit wat klanten zelf zeggen in reviews (bijvoorbeeld duidelijke communicatie, dagelijks doorwerken, netjes opgeleverd) en uit wat het bedrijf zelf doet. "Sinds jaartal" of "ervaren" is op zichzelf geen reden en staat hooguit een keer kort op de pagina.
 - Geen lege woorden zoals "hoogwaardig", "professioneel", "kwaliteit" of "excellentie" zonder dat er een concreet feit achter staat.
 - Wissel op een pagina niet tussen "je" en "u".
-- Hero en antwoordblok: gebruik hier de bedrijfsnaam niet. Open met de situatie of vraag van de bezoeker ("Wil je...", "Heb je...") en zeg direct daarna in "wij" wat jullie voor die vraag doen. Dus niet "Bedrijf X helpt je met...".
+${derde ? '- Hero en antwoordblok: open met de situatie of vraag van de bezoeker ("Wil je...", "Heb je...") en vertel direct daarna in de derde persoon wat het bedrijf voor die vraag doet. Gebruik de bedrijfsnaam hooguit een keer.' : '- Hero en antwoordblok: gebruik hier de bedrijfsnaam niet. Open met de situatie of vraag van de bezoeker ("Wil je...", "Heb je...") en zeg direct daarna in "wij" wat jullie voor die vraag doen. Dus niet "Bedrijf X helpt je met...".'}
 - Een badge of label op een foto (bijvoorbeeld heroBadgeTitle en heroBadgeText) is een kort, hard feit: een jaartal, een aantal jaren ervaring, een werkgebied of een beoordeling. Zet er nooit de introductie van een persoon in ("Mitchell, eigenaar"), want op de foto staat die persoon niet.
-- Een bijschrift bij een foto (heroImageCaption) vertelt in een korte zin wat jullie doen of wat het sterke punt is, bijvoorbeeld "Verbouw, renovatie en onderhoud in Hillegom". Het is geen naam of functie van een persoon.
+- Een bijschrift bij een foto (heroImageCaption) vertelt in een korte zin wat ${derde ? 'het bedrijf doet' : 'jullie doen'} of wat het sterke punt is, bijvoorbeeld "Verbouw, renovatie en onderhoud in Hillegom". Het is geen naam of functie van een persoon.
 - Elke zin zegt iets nieuws. Schrijf geen vulzinnen die alleen herhalen wat er al staat, zoals "Dat maakt dit onderdeel van ons brede aanbod".
 - Beweer niets wat niet in de feiten, het klantverhaal of de bronteksten staat. Verzin dus geen beloften zoals "vast aanspreekpunt" of "van begin tot eind begeleiden".
 - Praktische gegevens (adres, telefoon, werkgebied, soorten projecten) zijn korte feiten. Neem geen reclamezinnen uit de website over ("wij hebben de expertise en ervaring...").
 - Schrijf correct Nederlands: "kies een werkzaamheid of combineer er meerdere", "een compleet tuinhuis".`;
+}
+const PAGINA_OPBOUW_REGELS = paginaOpbouwRegels({ derde: false });
 
 // Klanten die over zichzelf in de derde persoon schrijven (profile.schrijfvorm === 'derde') krijgen dit blok na de
 // algemene opbouwregels. Het gaat voor op alles wat daar over "wij" staat.
@@ -274,7 +280,7 @@ function derdePersoonBlok(bedrijfsnaam, nietNoemen) {
 - Schrijf een rijke pagina: elk onderdeel vertelt iets nieuws en neemt de bezoeker mee van herkenning naar actie. Een onderdeel met alleen een algemene zin is te kaal. Gebruik alle feiten die bij het onderdeel passen, en verzin niets.`;
 }
 
-function bouwKlantverhaalBlok(kv, { bedrijfsnaam } = {}) {
+function bouwKlantverhaalBlok(kv, { bedrijfsnaam, derde } = {}) {
   if (!kv || kv.status !== 'goedgekeurd' || !klantverhaalHeeftInhoud(kv)) return '';
   const naam = bedrijfsnaam || 'het bedrijf';
   const stem = kv.stem || {};
@@ -282,15 +288,17 @@ function bouwKlantverhaalBlok(kv, { bedrijfsnaam } = {}) {
   const delen = [];
   delen.push(`KLANTVERHAAL (door de opdrachtgever goedgekeurd, dit is de rode draad van de hele pagina; gebruik alleen wat hier of in de bronteksten staat):`);
 
-  const stemRegels = [
+  const stemRegels = derde ? [
+    `- Spreek de bezoeker aan met "${u ? 'u' : 'je'}". Wissel nooit tussen "je" en "u". Schrijf over ${naam} in de derde persoon.`
+  ] : [
     `- Spreek de bezoeker aan met "${u ? 'u' : 'je'}" en praat als bedrijf over jezelf met "wij" of "we". Wissel nooit tussen "je" en "u".`,
     `- Noem de bedrijfsnaam "${naam}" hooguit een keer voluit, in de eerste alinea. Daarna "wij", "we" of "ons".`
   ];
   if ((stem.kenmerken || []).length) stemRegels.push(`- De toon is ${stem.kenmerken.join(', ')}.`);
-  if ((stem.voorbeeldzinnen || []).length) stemRegels.push(`- Zo praat dit bedrijf zelf (letterlijk van de eigen site). Dit is de stem van de klant zelf. Gebruik de beste van deze zinnen vrijwel letterlijk in de hero of bij waarom klanten kiezen (ze komen van de eigen site, dus het zijn echte feiten en echte woorden). Schrijf de rest van de pagina in dezelfde toon:\n${stem.voorbeeldzinnen.map((z) => `  * ${z.tekst}`).join('\n')}`);
+  if ((stem.voorbeeldzinnen || []).length) stemRegels.push(`- ${derde ? 'Zo klinkt de eigen site (alleen voor de toon en de feiten erin). Neem zinnen niet letterlijk over: schrijf de inhoud om naar de derde persoon, zonder wij, ons of onze:' : 'Zo praat dit bedrijf zelf (letterlijk van de eigen site). Dit is de stem van de klant zelf. Gebruik de beste van deze zinnen vrijwel letterlijk in de hero of bij waarom klanten kiezen (ze komen van de eigen site, dus het zijn echte feiten en echte woorden). Schrijf de rest van de pagina in dezelfde toon:'}\n${stem.voorbeeldzinnen.map((z) => `  * ${z.tekst}`).join('\n')}`);
   delen.push(`STEM\n${stemRegels.join('\n')}`);
 
-  if (kv.gezicht && (kv.gezicht.naam || kv.gezicht.tekst)) {
+  if (!derde && kv.gezicht && (kv.gezicht.naam || kv.gezicht.tekst)) {
     delen.push(`GEZICHT (maak de pagina persoonlijk, noem deze persoon waar dat natuurlijk past, bijvoorbeeld bij het advies of de werkwijze)\n- ${[kv.gezicht.naam, kv.gezicht.rol].filter(Boolean).join(', ')}${kv.gezicht.tekst ? `: ${kv.gezicht.tekst}` : ''}`);
   }
   if ((kv.waaromKiezen || []).length) delen.push(`WAAROM KLANTEN KIEZEN (gebruik elk punt hooguit een keer uitgebreid)\n${kv.waaromKiezen.map((w) => `- ${w.punt}${w.uitleg ? `: ${w.uitleg}` : ''}`).join('\n')}`);
@@ -310,6 +318,7 @@ function bouwKlantverhaalBlok(kv, { bedrijfsnaam } = {}) {
 module.exports = {
   EIGEN,
   PAGINA_OPBOUW_REGELS,
+  paginaOpbouwRegels,
   derdePersoonBlok,
   KLANTVERHAAL_SYSTEEMPROMPT,
   schoonKlantverhaal,
