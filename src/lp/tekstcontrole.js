@@ -179,4 +179,29 @@ function tekstControle(slotData, opties) {
   return punten;
 }
 
-module.exports = { tekstControle, getallenIn };
+// Laatste vangnet: namen van personen die de klant niet genoemd wil hebben worden mechanisch vervangen door de bedrijfsnaam.
+// Werkt op alle tekstvelden, ook alt-teksten en meta, behalve links en afbeeldingsbronnen. Geeft het aantal vervangingen terug.
+function scrubPersoonsnamen(slotData, { nietNoemen, bedrijfsnaam } = {}) {
+  const namen = (Array.isArray(nietNoemen) ? nietNoemen : []).map((n) => String(n || '').trim()).filter(Boolean);
+  const bedrijf = String(bedrijfsnaam || '').trim();
+  if (!namen.length || !bedrijf || !slotData || typeof slotData !== 'object') return 0;
+  const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const rest = bedrijf.split(/\s+/).filter((w) => w.length > 2).map(esc);
+  const naamRe = new RegExp(`\\b(?:${namen.map(esc).join('|')})(?:\\s+(?:${rest.join('|') || 'x{9}'}))?(?:'s)?(?![\\w-])`, 'gi');
+  const dubbel = new RegExp(`(${esc(bedrijf)})(\\s+${esc(bedrijf)})+`, 'gi');
+  const OVERSLAAN = /^(href|src|url|imageSrc|ctaHref|icon)$|(Href|Src|Url)$/;
+  let aantal = 0;
+  const schoon = (t) => String(t).replace(naamRe, () => { aantal += 1; return bedrijf; }).replace(dubbel, '$1');
+  const loop = (obj) => {
+    for (const [k, v] of Object.entries(obj)) {
+      if (OVERSLAAN.test(k)) continue;
+      if (typeof v === 'string') obj[k] = schoon(v);
+      else if (Array.isArray(v)) v.forEach((item, i) => { if (typeof item === 'string') v[i] = schoon(item); else if (item && typeof item === 'object') loop(item); });
+      else if (v && typeof v === 'object') loop(v);
+    }
+  };
+  loop(slotData);
+  return aantal;
+}
+
+module.exports = { tekstControle, getallenIn, scrubPersoonsnamen };

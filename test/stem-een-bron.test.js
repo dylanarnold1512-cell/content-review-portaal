@@ -53,3 +53,20 @@ test('projectkaart zonder tekst verdwijnt als er projecten met tekst zijn', () =
   pf.ruimOpProjectItems(tpl, alleenFoto);
   assert.strictEqual(alleenFoto.projectItems.length, 3);
 });
+
+const { scrubPersoonsnamen } = require('../src/lp/tekstcontrole');
+
+test('scrub vervangt een persoonsnaam mechanisch door de bedrijfsnaam, ook in alt, maar niet in links', () => {
+  const sd = { a: 'Nick Hirs bespreekt de indeling. Nick werkt zelfstandig.', heroImageAlt: 'Nick Hirs monteert', ctaHref: '/nick', b: ['Hirs Installaties Nick Hirs'] };
+  const n = scrubPersoonsnamen(sd, { nietNoemen: ['Nick'], bedrijfsnaam: 'Hirs Installaties' });
+  assert.strictEqual(n, 4);
+  assert.ok(!/Nick/.test(sd.a + sd.heroImageAlt + sd.b[0]));
+  assert.strictEqual(sd.ctaHref, '/nick');
+  assert.strictEqual(sd.b[0], 'Hirs Installaties');
+});
+
+test('voorbeeldblok bevat de goedgekeurde tekst en de opdracht om de stijl te volgen', () => {
+  const blok = ai.bouwVoorbeeldBlok({ titel: 'Badkamer', slotData: { heroTitle: 'Badkamer renoveren in Haarlem', directAnswer: 'Hirs Installaties verzorgt badkamerverbouwingen in Haarlem en omgeving voor particulieren.' } });
+  assert.ok(/GOEDGEKEURD VOORBEELD/.test(blok) && /Badkamer renoveren in Haarlem/.test(blok) && /Kopieer geen zinnen letterlijk/.test(blok));
+  assert.strictEqual(ai.bouwVoorbeeldBlok(null), '');
+});
