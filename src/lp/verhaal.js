@@ -443,6 +443,7 @@ module.exports = {
   verhaalSecties,
   sjabloonRolWaarschuwingen,
   tekstVelden,
+  leesbaar,
   redactieControle,
   ontbrekendBewijs,
   woorden

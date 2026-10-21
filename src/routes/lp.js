@@ -20,6 +20,7 @@ const { zorgVoorProjectItems, ruimOpProjectItems } = require('../lp/projectFotos
 const { beschrijfSecties } = require('../lp/sectieRefine');
 const { berekenOverrides, zetVerborgen } = require('../lp/overrides');
 const { gebruikteFeitIds } = require('../lp/feitenDefaults');
+const { tekstControle } = require('../lp/tekstcontrole');
 const { bouwKopie } = require('../lp/dupliceer');
 const gelijk = require('../lp/gelijkenis');
 const { verzamelTekst } = gelijk;
@@ -1660,6 +1661,17 @@ function redactiePunten(page, blueprint, client) {
     nietGebruiken: kv ? kv.nietGebruiken : []
   });
   punten.push(...verhaal.ontbrekendBewijs(blueprint, slotData, kvRuw));
+  // Harde tekstcontrole (hij, Wie, getallen buiten de feiten, claims, reviews). Zie src/lp/tekstcontrole.js.
+  // Per klant aan te zetten met tekstControle: true in het profiel (nieuwe klanten zetten we standaard aan).
+  if (client.profile.tekstControle === true) {
+    const feitenById = new Map((client.feiten || []).map((f) => [f.id, f]));
+    const feitenLijst = [...gebruikteFeitIds(page.feitensheet, client.feiten).map((id) => feitenById.get(id)).filter(Boolean), ...(((page.feitensheet || {}).extra) || [])];
+    punten.push(...tekstControle(slotData, {
+      derdePersoon: client.profile.schrijfvorm === 'derde',
+      toegestaneTekst: JSON.stringify([feitenLijst, client.feiten || [], inv, client.profile.bedrijf || {}]),
+      reviewsBevestigd: client.profile.reviewsBevestigd !== false
+    }));
+  }
   return { punten, klantverhaalGoedgekeurd: Boolean(kv), klantverhaal: kv };
 }
 
