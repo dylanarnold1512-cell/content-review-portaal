@@ -68,14 +68,22 @@ function tekstControle(slotData, opties) {
     }
   }
 
-  // 1c. Labels boven een kop (kickers) zijn korte labels van een paar woorden, geen zin en geen vraag.
-  const kickers = velden.filter((v) => /Kicker$/.test(v.slot) && (/[?]/.test(v.tekst) || v.tekst.trim().split(/\s+/).length > 6));
-  if (kickers.length) {
+  // 1c. Onvolledige zinnen: een "vraag" die geen vraag is (bijvoorbeeld een zinsdeel met een vraagteken erachter) of een
+  // tekst die met een kleine letter begint. De lengte maakt niet uit.
+  const VRAAGWOORD_RE = /^(wat|hoe|waarom|wanneer|waar|wie|welke|welk|wanneer|kan|kun|kunnen|ben|bent|is|zijn|moet|moeten|wil|wilt|willen|heb|hebt|heeft|hebben|hoeveel|doe|doet|mag|mogen|zou|zoek|zoekt|ga|gaat|weet|weeg|overweeg|droom|twijfel)\b/i;
+  const onvolledig = velden.filter((v) => {
+    const t = v.tekst.trim();
+    if (!t) return false;
+    if (!v.pad.includes('[') && /^[a-zà-ÿ]/.test(t)) return true;
+    const eersteZin = t.split(/(?<=[.!?])\s+/)[0];
+    return /\?$/.test(eersteZin) && !VRAAGWOORD_RE.test(eersteZin);
+  });
+  if (onvolledig.length) {
     punten.push({
       soort: 'toon',
-      tekst: `Een label boven een kop is te lang of een vraag: "${kickers[0].tekst.trim().slice(0, 70)}" (bij ${verhaal.leesbaar(kickers[0].pad)}).`,
-      slots: uniek(kickers.map((k) => k.slot)),
-      aanwijzing: 'Een label boven een kop (kicker) is een kort label van 2 tot 4 woorden, zoals "Badkamer renoveren" of "Werkwijze". Het is geen zin, geen vraag en bevat geen vraagteken.'
+      tekst: `Een zin klopt niet of is niet af: "${onvolledig[0].tekst.trim().slice(0, 80)}" (bij ${verhaal.leesbaar(onvolledig[0].pad)}).`,
+      slots: uniek(onvolledig.map((k) => k.slot)),
+      aanwijzing: 'Schrijf dit veld als een zin die op zichzelf klopt, met een onderwerp en een werkwoord. Een vraagteken hoort alleen achter een echte vraag ("Wil je ... ?", "Hoe ... ?"), niet achter een los zinsdeel.'
     });
   }
 

@@ -57,9 +57,16 @@ test('persoonsnaam die niet genoemd mag worden wordt gemeld', () => {
   assert.ok(!ok.some((x) => /persoonsnaam/.test(x.tekst)));
 });
 
-test('een kicker die een vraag of een zin is wordt gemeld', () => {
+test('een zinsdeel met een vraagteken wordt gemeld, een lang label niet', () => {
   const p = tekstControle({ ...basis, heroKicker: 'Een complete badkamer, zonder zelf alle vakmensen te organiseren?' }, {});
-  assert.ok(p.some((x) => /label boven een kop/.test(x.tekst)));
-  const ok = tekstControle({ ...basis, heroKicker: 'Badkamer renoveren' }, {});
-  assert.ok(!ok.some((x) => /label boven een kop/.test(x.tekst)));
+  assert.ok(p.some((x) => /klopt niet of is niet af/.test(x.tekst)));
+  const lang = tekstControle({ ...basis, heroIntro: 'Wil je een nieuwe badkamer in Haarlem zonder gedoe met al die verschillende vakmensen en afspraken?' }, {});
+  assert.ok(!lang.some((x) => /klopt niet of is niet af/.test(x.tekst)));
+  const klein = tekstControle({ ...basis, heroKicker: 'zonder zelf te organiseren' }, {});
+  assert.ok(klein.some((x) => /klopt niet of is niet af/.test(x.tekst)));
+});
+
+test('praktische gegevens in een lijst beginnen mogen met een kleine letter', () => {
+  const p = tekstControle({ ...basis, practicalItems: [{ label: 'Bereikbaar', value: 'werkdagen van 09:00 tot 18:00' }] }, {});
+  assert.ok(!p.some((x) => /klopt niet of is niet af/.test(x.tekst)));
 });

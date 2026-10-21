@@ -1662,8 +1662,8 @@ function redactiePunten(page, blueprint, client) {
   });
   punten.push(...verhaal.ontbrekendBewijs(blueprint, slotData, kvRuw));
   // Harde tekstcontrole (hij, Wie, getallen buiten de feiten, claims, reviews). Zie src/lp/tekstcontrole.js.
-  // Per klant aan te zetten met tekstControle: true in het profiel (nieuwe klanten zetten we standaard aan).
-  if (client.profile.tekstControle === true) {
+  // Standaard aan voor elke klant. Bestaande klanten (roots, macbouw) staan met tekstControle: false in hun profiel op uit.
+  if (client.profile.tekstControle !== false) {
     const feitenById = new Map((client.feiten || []).map((f) => [f.id, f]));
     const feitenLijst = [...gebruikteFeitIds(page.feitensheet, client.feiten).map((id) => feitenById.get(id)).filter(Boolean), ...(((page.feitensheet || {}).extra) || [])];
     punten.push(...tekstControle(slotData, {
