@@ -40,7 +40,7 @@ test('derde persoon: bedrijfsnaam moet het onderwerp zijn, lege FAQ wordt aangew
   const punten = tekstControle(sd, { derdePersoon: true, bedrijfsnaam: 'Hirs Installaties' });
   assert.ok(punten.some((p) => /Hirs Installaties/.test(p.aanwijzing)));
   assert.ok(punten.some((p) => p.slots.includes('faqItems')));
-  const goed = { a: 'Hirs Installaties doet badkamers.', b: 'Hirs Installaties werkt in Haarlem.', c: 'Hirs Installaties luistert.', d: 'Hirs Installaties levert op.', e: 'Hirs Installaties denkt mee.', faqItems: [1, 2, 3, 4, 5, 6].map((n) => ({ question: `Vraag ${n}?`, answer: 'Antwoord.' })) };
+  const goed = { a: 'Hirs Installaties doet badkamers.', b: 'Hirs Installaties werkt in Haarlem.', c: 'Hirs Installaties luistert.', d: 'Hirs Installaties levert op.', e: 'Hirs Installaties denkt mee.', faqItems: [1, 2, 3, 4, 5, 6].map((n) => ({ question: `Hoe gaat stap ${n} van de renovatie?`, answer: 'Antwoord.' })) };
   assert.strictEqual(tekstControle(goed, { derdePersoon: true, bedrijfsnaam: 'Hirs Installaties' }).length, 0);
 });
 
