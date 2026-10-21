@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
-const { parseProfiel, regelId, splitsHerkomst, parseSamenvatting, bouwSamenvatting, bouwWeergave, bouwKennisdocument, STANDAARD_REGELS, STANDAARD_REGELS_TITEL, KLANT_REGELS, KLANT_REGELS_TITEL, leesTegenstrijdigheid, KOPJES } = require('../src/services/merkprofiel');
+const { parseProfiel, regelId, splitsHerkomst, parseSamenvatting, bouwSamenvatting, bouwWeergave, bouwKennisdocument, STANDAARD_REGELS, STANDAARD_REGELS_TITEL, EXTRA_REGELS_TITEL, leesTegenstrijdigheid, KOPJES } = require('../src/services/merkprofiel');
 
 const tekst = fs.readFileSync(path.join(__dirname, 'fixtures', 'basecamp-profiel.txt'), 'utf8');
 
@@ -343,12 +343,11 @@ test('bouwKennisdocument zet de standaardregels (ligging) onderaan, voor elke kl
   assert.ok(doc.startsWith('1. Over het bedrijf'));
 });
 
-test('bouwKennisdocument zet klantregels alleen bij de juiste klant', () => {
+test('bouwKennisdocument zet goedgekeurde extra regels onderaan, na de standaardregels', () => {
   const secties = parseProfiel(tekst);
-  const tbg = bouwKennisdocument(secties, {}, 'Trockenblumengrosshandel');
-  assert.ok(tbg.includes(KLANT_REGELS_TITEL));
-  KLANT_REGELS.Trockenblumengrosshandel.forEach((r) => assert.ok(tbg.includes(r)));
-  const andere = bouwKennisdocument(secties, {}, 'Basecamp Utrecht');
-  assert.ok(!andere.includes(KLANT_REGELS_TITEL));
-  assert.ok(andere.includes(STANDAARD_REGELS_TITEL));
+  const doc = bouwKennisdocument(secties, {}, ['Regel een.', 'Regel twee.']);
+  assert.ok(doc.includes(EXTRA_REGELS_TITEL));
+  assert.ok(doc.indexOf(EXTRA_REGELS_TITEL) > doc.indexOf(STANDAARD_REGELS_TITEL));
+  assert.ok(doc.trimEnd().endsWith('Regel twee.'));
+  assert.ok(!bouwKennisdocument(secties, {}).includes(EXTRA_REGELS_TITEL));
 });
