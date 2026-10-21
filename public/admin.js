@@ -280,7 +280,7 @@ function renderKlanten() {
     </div>
     <div class="ad-raster">${kaarten || '<p class="admin-footnote">Nog geen klanten.</p>'}</div>
     ${adminState.onboardingFout ? `<p class="admin-footnote">De onboarding kon niet worden geladen: ${escapeHtmlAdmin(adminState.onboardingFout)}</p>` : ''}
-    <p class="admin-footnote">Nieuwe klant nog niet in de lijst met modules? Voeg 'm toe in <code>src/config/clients.js</code>, dan verschijnt hij daar vanzelf. Dit is stap 15 van de onboarding.</p>
+    <p class="admin-footnote">Nieuwe klant nog niet in de lijst met modules? Voeg 'm toe in <code>src/config/clients.js</code>, dan verschijnt hij daar vanzelf. Dit is stap 11 van de onboarding.</p>
   </div>`;
   const root = document.getElementById('viewKlanten');
   root.querySelectorAll('[data-klant]').forEach((k) => k.addEventListener('click', () => gaNaar('klant', k.dataset.klant)));
