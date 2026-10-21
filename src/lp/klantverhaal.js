@@ -262,6 +262,17 @@ const PAGINA_OPBOUW_REGELS = `OPBOUW VAN DE PAGINA (rode draad voor elke klant):
 - Praktische gegevens (adres, telefoon, werkgebied, soorten projecten) zijn korte feiten. Neem geen reclamezinnen uit de website over ("wij hebben de expertise en ervaring...").
 - Schrijf correct Nederlands: "kies een werkzaamheid of combineer er meerdere", "een compleet tuinhuis".`;
 
+// Klanten die over zichzelf in de derde persoon schrijven (profile.schrijfvorm === 'derde') krijgen dit blok na de
+// algemene opbouwregels. Het gaat voor op alles wat daar over "wij" staat.
+function derdePersoonBlok(bedrijfsnaam) {
+  const naam = bedrijfsnaam || 'het bedrijf';
+  return `AANSPREEKVORM VOOR DEZE KLANT (gaat voor op elke regel hierboven en in het klantverhaal die "wij", "we" of "ons" noemt):
+- Schrijf over ${naam} in de derde persoon: de bedrijfsnaam, de voornaam van de eigenaar of "het team" (alleen als dat in de feiten staat). NOOIT "wij", "we", "ons", "onze", "jullie" of de ik-vorm.
+- De bezoeker spreek je wel direct aan met "je" of "jij". Open de hero met de situatie of vraag van de bezoeker en vertel daarna wat ${naam} daarvoor doet.
+- Zorg dat de bedrijfsnaam niet in elke alinea staat: wissel af met de voornaam van de eigenaar, "de installateur" of begin de zin bij de bezoeker ("Je krijgt...", "Bij een lekkage...").
+- Schrijf een rijke pagina: elk onderdeel vertelt iets nieuws en neemt de bezoeker mee van herkenning naar actie. Een onderdeel met alleen een algemene zin is te kaal. Gebruik alle feiten die bij het onderdeel passen, en verzin niets.`;
+}
+
 function bouwKlantverhaalBlok(kv, { bedrijfsnaam } = {}) {
   if (!kv || kv.status !== 'goedgekeurd' || !klantverhaalHeeftInhoud(kv)) return '';
   const naam = bedrijfsnaam || 'het bedrijf';
@@ -298,6 +309,7 @@ function bouwKlantverhaalBlok(kv, { bedrijfsnaam } = {}) {
 module.exports = {
   EIGEN,
   PAGINA_OPBOUW_REGELS,
+  derdePersoonBlok,
   KLANTVERHAAL_SYSTEEMPROMPT,
   schoonKlantverhaal,
   klantverhaalHeeftInhoud,

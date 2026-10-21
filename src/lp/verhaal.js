@@ -13,7 +13,7 @@ const ROLLEN = ['hero', 'aanbod', 'waarom', 'werkwijze', 'bewijs', 'twijfels', '
 
 // De vaste verhaallijn. De volgorde is de volgorde waarin een bezoeker de vragen stelt.
 const ROL_TAKEN = {
-  hero: { naam: 'Herkenning', taak: 'De bezoeker herkent zijn eigen vraag en voelt dat dit bedrijf hem helpt. Persoonlijk, direct, met "je" of "u" en "wij". Eindigt met wat hij hier krijgt, niet met een slogan.' },
+  hero: { naam: 'Herkenning', taak: 'De bezoeker herkent zijn eigen vraag en voelt dat dit bedrijf hem helpt. Persoonlijk, direct, met "je" of "u" (en "wij", tenzij de klant in de derde persoon schrijft). Eindigt met wat hij hier krijgt, niet met een slogan.' },
   aanbod: { naam: 'Aanbod', taak: 'Wat het bedrijf concreet voor deze bezoeker doet. Eerst wat hij krijgt, nog niet hoe het werkt.' },
   waarom: { naam: 'Waarom wij', taak: 'Een paar echte redenen om voor dit bedrijf te kiezen, elk met een eigen onderwerp en met wat het de bezoeker oplevert (rust, tijd, zekerheid).' },
   werkwijze: { naam: 'Zo gaat het', taak: 'Wat er na de aanvraag gebeurt, stap voor stap. Haalt de onzekerheid weg over wat hij kan verwachten.' },
@@ -265,12 +265,13 @@ function redactieControle(slotData, opties) {
   if (re) {
     const metNaam = velden.filter((v) => tel(re, v.tekst) > 0);
     const totaal = metNaam.reduce((n, v) => n + tel(re, v.tekst), 0);
-    if (totaal > 2) {
+    const drempel = o.derdePersoon ? 6 : 2;
+    if (totaal > drempel) {
       punten.push({
         soort: 'toon',
-        tekst: `De bedrijfsnaam staat ${totaal} keer voluit op de pagina. Dat klinkt als een brochure. Gebruik "wij", "we" of "ons" na de eerste keer.`,
+        tekst: `De bedrijfsnaam staat ${totaal} keer voluit op de pagina. Dat klinkt als een brochure. ${o.derdePersoon ? 'Wissel af met de voornaam van de eigenaar, "de installateur" of begin de zin bij de bezoeker.' : 'Gebruik "wij", "we" of "ons" na de eerste keer.'}`,
         slots: uniek(metNaam.map((v) => v.slot)).slice(0, 6),
-        aanwijzing: `Noem de bedrijfsnaam hooguit een keer voluit (in de intro). Schrijf in de andere onderdelen "wij", "we" of "ons".`
+        aanwijzing: o.derdePersoon ? 'Noem de bedrijfsnaam niet in elk onderdeel. Wissel af met de voornaam van de eigenaar, "de installateur" of een zin die bij de bezoeker begint. Nooit wij of ons.' : `Noem de bedrijfsnaam hooguit een keer voluit (in de intro). Schrijf in de andere onderdelen "wij", "we" of "ons".`
       });
     }
   }
@@ -313,7 +314,8 @@ function redactieControle(slotData, opties) {
   }
 
   // 6b. De hero noemt het bedrijf voluit bij naam in de derde persoon ("Aannemersbedrijf X helpt je"): dat is een brochure.
-  if (re) {
+  // Niet voor klanten die bewust in de derde persoon schrijven.
+  if (re && !o.derdePersoon) {
     const heroNaam = velden.filter((v) => /^hero(Intro|Subtitle|Tekst|Text)/i.test(v.slot) && tel(re, v.tekst) > 0);
     if (heroNaam.length) {
       punten.push({
@@ -375,12 +377,26 @@ function redactieControle(slotData, opties) {
     }
   });
 
+  // 6c. Klanten in de derde persoon: wij, we, ons, onze en jullie mogen nergens staan.
+  if (o.derdePersoon) {
+    const WIJ_RE = /\b(wij|we|ons|onze|jullie)\b/i;
+    const fout = velden.filter((v) => !/^(meta|cta|links)|(Href|Src|Alt)$/i.test(v.slot) && WIJ_RE.test(v.tekst));
+    if (fout.length) {
+      punten.push({
+        soort: 'toon',
+        tekst: `Deze klant schrijft in de derde persoon, maar de pagina gebruikt wij, we, ons, onze of jullie (${uniek(fout.map((v) => leesbaar(v.pad))).slice(0, 4).join(', ')}).`,
+        slots: uniek(fout.map((v) => v.slot)).slice(0, 8),
+        aanwijzing: 'Schrijf over het bedrijf in de derde persoon (de bedrijfsnaam, de voornaam van de eigenaar of "de installateur"). Nooit wij, we, ons, onze of jullie. De bezoeker blijft "je".'
+      });
+    }
+  }
+
   // 7. De hero is afstandelijk: de bezoeker wordt niet direct aangesproken of het bedrijf spreekt niet als "wij".
   const hero = velden.filter((v) => /^hero(Intro|Subtitle|Tekst|Text)/i.test(v.slot));
   if (hero.length) {
     const tekst = hero.map((v) => v.tekst).join(' ');
     const aangesproken = tel(JE_RE, tekst) + tel(U_RE, tekst) > 0;
-    const wij = /\b(wij|we|ons|onze)\b/i.test(tekst);
+    const wij = o.derdePersoon || /\b(wij|we|ons|onze)\b/i.test(tekst);
     if (!aangesproken || !wij) {
       punten.push({
         soort: 'toon',
