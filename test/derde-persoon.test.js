@@ -27,3 +27,9 @@ test('standaard klanten behouden de wij-eis', () => {
 test('blok verbiedt wij', () => {
   assert.match(derdePersoonBlok('Hirs Installaties'), /NOOIT "wij"/);
 });
+
+test('blok verbiedt persoonsnamen en noemt ze', () => {
+  const t = derdePersoonBlok('Hirs Installaties', ['Nick']);
+  assert.match(t, /nooit over een persoon/);
+  assert.match(t, /noem dus nooit: Nick/);
+});

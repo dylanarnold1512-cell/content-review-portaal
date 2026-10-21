@@ -52,6 +52,33 @@ function tekstControle(slotData, opties) {
     }
   }
 
+  // 1b. Personen die nooit genoemd worden (Pagr. schrijft over het bedrijf, niet over de eigenaar).
+  const namen = (Array.isArray(o.nietNoemen) ? o.nietNoemen : []).map((n) => String(n || '').trim()).filter(Boolean);
+  if (namen.length) {
+    const naamRe = new RegExp('\\b(' + namen.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')\\b');
+    const hits = velden.filter((v) => naamRe.test(v.tekst));
+    if (hits.length) {
+      const m = hits[0].tekst.match(naamRe);
+      punten.push({
+        soort: 'toon',
+        tekst: `Er staat de persoonsnaam "${m[1]}" in de tekst, bij ${verhaal.leesbaar(hits[0].pad)}. De pagina gaat over het bedrijf, niet over een persoon.`,
+        slots: uniek(hits.map((h) => h.slot)),
+        aanwijzing: `Noem nergens de naam ${namen.join(' of ')}. Schrijf over het bedrijf (de bedrijfsnaam, "het bedrijf" of "de installateur"), of schrijf de zin om zodat de bezoeker centraal staat.`
+      });
+    }
+  }
+
+  // 1c. Labels boven een kop (kickers) zijn korte labels van een paar woorden, geen zin en geen vraag.
+  const kickers = velden.filter((v) => /Kicker$/.test(v.slot) && (/[?]/.test(v.tekst) || v.tekst.trim().split(/\s+/).length > 6));
+  if (kickers.length) {
+    punten.push({
+      soort: 'toon',
+      tekst: `Een label boven een kop is te lang of een vraag: "${kickers[0].tekst.trim().slice(0, 70)}" (bij ${verhaal.leesbaar(kickers[0].pad)}).`,
+      slots: uniek(kickers.map((k) => k.slot)),
+      aanwijzing: 'Een label boven een kop (kicker) is een kort label van 2 tot 4 woorden, zoals "Badkamer renoveren" of "Werkwijze". Het is geen zin, geen vraag en bevat geen vraagteken.'
+    });
+  }
+
   // 2. Stijve zinnen die met "Wie" beginnen, buiten de veelgestelde vragen.
   const wie = velden.filter((v) => !FAQ_SLOT_RE.test(v.slot) && WIE_RE.test(v.tekst));
   if (wie.length) {

@@ -49,3 +49,17 @@ test('reviews zonder bevestiging worden gemeld', () => {
   const ok = tekstControle({ ...basis, reviewItems: [{ quote: 'Top', name: 'A' }] }, { reviewsBevestigd: true });
   assert.ok(!ok.some((x) => /reviews/.test(x.tekst)));
 });
+
+test('persoonsnaam die niet genoemd mag worden wordt gemeld', () => {
+  const p = tekstControle({ ...basis, directAnswer: 'Nick werkt zelfstandig aan je badkamer.' }, { nietNoemen: ['Nick'] });
+  assert.ok(p.some((x) => /persoonsnaam "Nick"/.test(x.tekst)));
+  const ok = tekstControle({ ...basis, directAnswer: 'Hirs Installaties verzorgt complete badkamers in Haarlem.' }, { nietNoemen: ['Nick'] });
+  assert.ok(!ok.some((x) => /persoonsnaam/.test(x.tekst)));
+});
+
+test('een kicker die een vraag of een zin is wordt gemeld', () => {
+  const p = tekstControle({ ...basis, heroKicker: 'Een complete badkamer, zonder zelf alle vakmensen te organiseren?' }, {});
+  assert.ok(p.some((x) => /label boven een kop/.test(x.tekst)));
+  const ok = tekstControle({ ...basis, heroKicker: 'Badkamer renoveren' }, {});
+  assert.ok(!ok.some((x) => /label boven een kop/.test(x.tekst)));
+});
