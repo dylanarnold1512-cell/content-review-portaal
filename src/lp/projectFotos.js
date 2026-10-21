@@ -39,9 +39,11 @@ function ruimOpProjectItems(template, slotData) {
   for (const slot of projectLijsten(template)) {
     const beeldVeld = slot.itemFields.find((f) => IMAGE_SRC_RE.test(f));
     const items = (Array.isArray(slotData[slot.key]) ? slotData[slot.key] : []).filter((i) => i && String(i[beeldVeld] || '').trim());
-    slotData[slot.key] = items;
+    // Zijn er projecten met tekst, dan tonen we alleen die: een kaart met alleen een foto ziet er kapot uit (21-10-2026).
+    const metTekst = items.filter((i) => heeftTekst(i, slot));
+    slotData[slot.key] = metTekst.length ? metTekst : items;
     // Zonder projectteksten is een intro over "de projecten" leeg gebabbel: leegmaken (alleen als het veld niet verplicht is).
-    if (items.filter((i) => heeftTekst(i, slot)).length < 2) {
+    if (metTekst.length < 2) {
       const intro = slots.find((s) => s.key === slot.key.replace(/Items$/, 'Intro') && !s.verplicht);
       if (intro) slotData[intro.key] = '';
     }
