@@ -1405,7 +1405,7 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
   let redactieWaarschuwing = null;
   try {
     const NIET_AANRAKEN = /^(reviewItems|practicalItems)$/;
-    const bepaal = (slotData) => redactiePunten({ content: { slotData }, invoer, titel: page.titel }, blueprint, client).punten
+    const bepaal = (slotData) => redactiePunten({ content: { slotData }, invoer, titel: page.titel }, blueprint, client, voorbeeld && voorbeeld.slotData).punten
       .map((pt) => ({ ...pt, slots: (pt.slots || []).filter((k) => !NIET_AANRAKEN.test(k)) }))
       .filter((pt) => pt.slots.length && !(pt.soort === 'toon' && /^De bedrijfsnaam staat/.test(pt.tekst || '') && pt.slots.length < 2) && pt.soort !== 'bewijs');
     const kvRuw = client.profile.klantverhaal;
@@ -1659,7 +1659,7 @@ router.get('/pages/:pageId/controle', requireLpInternal, async (req, res) => {
 // Stap 3 van de verhaallijn (19-10-2026): de redactiecheck. Mechanisch (geen AI): herhaling, je of u, bedrijfsnaam,
 // lege woorden, claims die niet bruikbaar zijn, een afstandelijke intro en ontbrekend bewijs. Elk punt wijst naar de onderdelen
 // die herschreven kunnen worden.
-function redactiePunten(page, blueprint, client) {
+function redactiePunten(page, blueprint, client, voorbeeldSlotData) {
   const slotData = (page.content || {}).slotData || {};
   const kvRuw = client.profile.klantverhaal;
   const kv = kvRuw && kvRuw.status === 'goedgekeurd' ? kvRuw : null;
@@ -1684,6 +1684,7 @@ function redactiePunten(page, blueprint, client) {
     punten.unshift(...tekstControle(slotData, {
       derdePersoon: client.profile.schrijfvorm === 'derde',
       bedrijfsnaam: bedrijf.naam || client.profile.naam,
+      voorbeeldSlotData,
       nietNoemen: client.profile.nietNoemen || [],
       toegestaneTekst: JSON.stringify([feitenLijst, client.feiten || [], inv, client.profile.bedrijf || {}]),
       reviewsBevestigd: client.profile.reviewsBevestigd !== false

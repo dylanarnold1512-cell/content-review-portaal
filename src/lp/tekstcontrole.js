@@ -167,6 +167,28 @@ function tekstControle(slotData, opties) {
     }
   }
 
+  // 10. Lengte volgt het goedgekeurde voorbeeld: een kop, label of intro die minder dan de helft zo lang is als op het
+  // voorbeeld wordt uitgebreid. Alleen losse tekstvelden, zodat een kortere dienstnaam geen fout oplevert.
+  if (o.voorbeeldSlotData && typeof o.voorbeeldSlotData === 'object') {
+    const WOORDEN = (t) => String(t).trim().split(/\s+/).filter(Boolean).length;
+    const kort = [];
+    for (const [key, ref] of Object.entries(o.voorbeeldSlotData)) {
+      if (typeof ref !== 'string' || typeof slotData[key] !== 'string') continue;
+      if (/^(meta|cta)|(Href|Src|Alt)$/i.test(key)) continue;
+      const rw = WOORDEN(ref);
+      const nw = WOORDEN(slotData[key]);
+      if (rw >= 8 && nw < rw * 0.5) kort.push({ key, nw, rw });
+    }
+    if (kort.length) {
+      punten.push({
+        soort: 'toon',
+        tekst: `Deze velden zijn veel korter dan op het goedgekeurde voorbeeld: ${kort.map((k) => `${k.key} (${k.nw} woorden, voorbeeld ${k.rw})`).join(', ')}.`,
+        slots: kort.map((k) => k.key),
+        aanwijzing: `Schrijf deze velden even uitgebreid als op het goedgekeurde voorbeeld, met dezelfde opbouw: ${kort.map((k) => `${k.key} ongeveer ${k.rw} woorden`).join(', ')}. Vul aan met feiten over deze dienst en plaats, zonder te verzinnen.`
+      });
+    }
+  }
+
   // 9. De veelgestelde vragen mogen niet leeg of bijna leeg zijn.
   if (Array.isArray(slotData.faqItems) && slotData.faqItems.length < 4) {
     punten.push({

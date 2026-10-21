@@ -70,3 +70,12 @@ test('voorbeeldblok bevat de goedgekeurde tekst en de opdracht om de stijl te vo
   assert.ok(/GOEDGEKEURD VOORBEELD/.test(blok) && /Badkamer renoveren in Haarlem/.test(blok) && /Kopieer geen zinnen letterlijk/.test(blok));
   assert.strictEqual(ai.bouwVoorbeeldBlok(null), '');
 });
+
+test('lengtecontrole: een veel kortere kop of intro dan op het voorbeeld wordt aangewezen', () => {
+  const voorbeeld = { heroIntro: 'Wil je een badkamer die past bij hoe je de ruimte gebruikt? Hirs Installaties denkt met je mee over indeling, materialen en techniek.', heroTitle: 'Badkamer renoveren in Haarlem' };
+  const kort = tekstControle({ heroIntro: 'Een badkamerrenovatie kan veel brengen.', heroTitle: 'Lekkage Haarlem' }, { voorbeeldSlotData: voorbeeld });
+  assert.ok(kort.some((p) => p.slots.includes('heroIntro')));
+  assert.ok(!kort.some((p) => p.slots.includes('heroTitle')));
+  const goed = tekstControle({ heroIntro: 'Heb je een lekkage in huis en wil je dat die snel wordt verholpen? Hirs Installaties zoekt de oorzaak en lost die voor je op.' }, { voorbeeldSlotData: voorbeeld });
+  assert.strictEqual(goed.length, 0);
+});
