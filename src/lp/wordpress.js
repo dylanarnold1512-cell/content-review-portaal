@@ -298,6 +298,46 @@ async function listSitePages({ profile, maxPaginas }) {
   return alleItems.slice(0, limiet);
 }
 
+// Haalt de gepubliceerde blogs (berichten) van de klant op, alleen voor interne links vanaf Pagr. pagina's naar blogs
+// bij klanten met Blogr. Alleen lezen. Het aantal is beperkt, de nieuwste blogs eerst.
+async function listSiteBlogs({ profile, maxBlogs }) {
+  const { url, username, appPassword } = getWpConfig(profile);
+  const limiet = Number(maxBlogs) > 0 ? Math.min(Number(maxBlogs), 100) : 30;
+  const params = new URLSearchParams({
+    per_page: String(limiet),
+    status: 'publish',
+    orderby: 'date',
+    order: 'desc',
+    _fields: 'id,link,title,excerpt'
+  });
+  // Sommige sites (zoals Hirs Installaties) gebruiken Berichten ook voor andere inhoud, bijvoorbeeld projecten.
+  // Met profile.wordpress.blogCategorie (slug) halen we alleen de blogs uit die ene categorie op.
+  const categorieSlug = String((profile.wordpress && profile.wordpress.blogCategorie) || '').trim();
+  if (categorieSlug) {
+    const catRes = await fetch(`${url}/wp-json/wp/v2/categories?slug=${encodeURIComponent(categorieSlug)}&_fields=id`, {
+      headers: { Authorization: authHeader(username, appPassword) }
+    });
+    const cats = await catRes.json().catch(() => ([]));
+    const catId = Array.isArray(cats) && cats[0] ? cats[0].id : null;
+    // Bestaat de categorie niet (nog), dan geen blogs teruggeven in plaats van alle berichten.
+    if (!catId) return [];
+    params.set('categories', String(catId));
+  }
+  const res = await fetch(`${url}/wp-json/wp/v2/posts?${params.toString()}`, {
+    headers: { Authorization: authHeader(username, appPassword) }
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(`WordPress-fout bij ophalen van de blogs (${res.status}): ${data?.message || res.statusText}`);
+  }
+  return (Array.isArray(data) ? data : []).map((item) => ({
+    id: item.id,
+    url: item.link,
+    titel: item.title?.rendered || '',
+    omschrijving: stripHtml(item.excerpt?.rendered || '', 200)
+  }));
+}
+
 // Haalt de echte WordPress status (publish, draft, ...) op van een aantal pagina's in een keer.
 // Geeft een object { [id]: status } terug. Lukt het niet, dan een leeg object: de aanroeper toont dan "onbekend".
 async function haalPaginaStatussen({ profile, ids }) {
@@ -332,5 +372,6 @@ module.exports = {
   deletePage,
   searchMedia,
   uploadMedia,
-  listSitePages
+  listSitePages,
+  listSiteBlogs
 };

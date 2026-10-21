@@ -13,6 +13,7 @@
 // GPT-5.5 (overschrijfbaar via OPENAI_MODEL). Geen temperature-parameter —
 // GPT-5.5 accepteert alleen de standaardwaarde, zie besluiten.md.
 
+const { blogLinkRegels } = require('./blogLinks');
 const { getTokens } = require('./tokens');
 const { schoonScreenshots, screenshotUitleg } = require('./screenshots');
 const { fetchReferenceSummary } = require('./referenceFetch');
@@ -1154,7 +1155,7 @@ Feiten met "standaard": true zijn vaste praktische gegevens van de klant (bv. in
 Beschikbare linkbestemmingen (zusterpagina: true = andere landingspagina van deze klant binnen LP
 Fabriek, zusterpagina: false = een echte, bestaande pagina op de eigen live website — behandel beide
 even serieus, gebruik uitsluitend de opgegeven url, kies alleen wat inhoudelijk relevant is):
-${JSON.stringify(linkKandidaten || [], null, 2)}${bouwZusterBlok(zusterInhoud)}${bouwVragenBlok({ zoekvragen, zusterVragen })}`;
+${JSON.stringify(linkKandidaten || [], null, 2)}${blogLinkRegels(linkKandidaten) ? '\n\n' + blogLinkRegels(linkKandidaten) : ''}${bouwZusterBlok(zusterInhoud)}${bouwVragenBlok({ zoekvragen, zusterVragen })}`;
 
   const result = await callOpenAi({ systemPrompt, userPrompt });
   if (!result || typeof result !== 'object' || !result.slotData) {
