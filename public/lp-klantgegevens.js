@@ -3,7 +3,7 @@
 (function () {
   const $ = (id) => document.getElementById(id);
   const esc = (t) => String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const state = { geladen: false, klant: null, kv: null };
+  const state = { geladen: false, klant: null, kv: null, voorbeeld: {} };
 
   function fout(tekst) {
     const e = $('kgFout');
@@ -43,6 +43,8 @@
     $('kgFoto').value = p.fotoRichtlijn;
     $('kgNiet').value = (p.nietToegestaan || []).join('\n');
     $('kgCtaBalken').value = String((p.ctaBalken && p.ctaBalken.aantal) === 2 ? 2 : 1);
+    state.voorbeeld = { ...(k.profiel.voorbeeldPaginas || {}) };
+    laadVoorbeelden(k.id);
     state.kv = k.profiel.klantverhaal ? JSON.parse(JSON.stringify(k.profiel.klantverhaal)) : null;
     renderKv();
     $('kgKvMelding').textContent = '';
@@ -60,6 +62,40 @@
       ? `WordPress gegevens, formulier, SEO plugin en kleuren en lettertypen staan niet hier. De WordPress variabelen op Render zijn: ${vars}.`
       : 'WordPress gegevens, formulier, SEO plugin en kleuren en lettertypen staan niet hier.';
     status('');
+  }
+
+  // Voorbeeldpagina per sjabloon: een keuzelijst met de pagina's van de klant per sjabloon.
+  async function laadVoorbeelden(klantId) {
+    const el = $('kgVoorbeeldLijst');
+    if (!el) return;
+    el.textContent = 'Laden...';
+    try {
+      const [{ templates }, { pages }] = await Promise.all([
+        lpApi('/templates?klant=' + encodeURIComponent(klantId)),
+        lpApi('/pages?klant=' + encodeURIComponent(klantId))
+      ]);
+      if (!state.klant || state.klant.id !== klantId) return;
+      const perBlueprint = new Map();
+      (templates || []).filter((t) => t.status !== 'Gearchiveerd' && t.blueprintId).forEach((t) => { if (!perBlueprint.has(t.blueprintId)) perBlueprint.set(t.blueprintId, t.naam || t.blueprintId); });
+      if (!perBlueprint.size) { el.textContent = 'Deze klant heeft nog geen sjablonen.'; return; }
+      el.innerHTML = '';
+      perBlueprint.forEach((naam, blueprintId) => {
+        const eigen = (pages || []).filter((p) => p.blueprint === blueprintId);
+        const rij = document.createElement('div');
+        rij.className = 'wp-veld';
+        const huidig = state.voorbeeld[blueprintId] || '';
+        const opties = ['<option value="">Geen keuze (laatst gepubliceerde pagina)</option>']
+          .concat(eigen.map((p) => `<option value="${esc(p.id)}"${p.id.replace(/-/g, '') === huidig.replace(/-/g, '') ? ' selected' : ''}>${esc(p.titel)} (${esc(p.status)})</option>`));
+        rij.innerHTML = `<label>${esc(naam)}</label><select>${opties.join('')}</select>`;
+        rij.querySelector('select').addEventListener('change', (e) => {
+          if (e.target.value) state.voorbeeld[blueprintId] = e.target.value; else delete state.voorbeeld[blueprintId];
+          status('Vergeet niet op te slaan.');
+        });
+        el.appendChild(rij);
+      });
+    } catch (err) {
+      el.textContent = 'De pagina\'s konden niet geladen worden: ' + err.message;
+    }
   }
 
   function vulHuisstijl(h) {
@@ -238,6 +274,7 @@
         nietToegestaan: regels('kgNiet'),
         ctaBalken: { aantal: Number($('kgCtaBalken').value) === 2 ? 2 : 1 },
         klantverhaal: state.kv || undefined,
+        voorbeeldPaginas: state.voorbeeld,
         huisstijl: leesHuisstijl()
       },
       feiten: [...document.querySelectorAll('#kgFeiten .kg-feit')].map((r) => ({

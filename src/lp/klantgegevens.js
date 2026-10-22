@@ -26,7 +26,7 @@ const VERVERS_MS = 5 * 60 * 1000;
 const MAX_FEITEN = 200;
 
 // Wat uit Notion mag komen. Alles daarbuiten blijft uit de code.
-const PROFIEL_VELDEN = ['naam', 'bedrijf', 'nietToegestaan', 'toonNotitie', 'fotoRichtlijn', 'ctaBalken', 'klantverhaal'];
+const PROFIEL_VELDEN = ['naam', 'bedrijf', 'nietToegestaan', 'toonNotitie', 'fotoRichtlijn', 'ctaBalken', 'klantverhaal', 'voorbeeldPaginas'];
 
 const diepKopie = (v) => JSON.parse(JSON.stringify(v));
 
@@ -91,6 +91,16 @@ function schoonProfiel(invoer) {
   // Aantal offertebalken: 1 of 2. Alleen bewaren als het is meegestuurd, zodat de waarde uit de code blijft gelden.
   const balken = i.ctaBalken && typeof i.ctaBalken === 'object' ? Number(i.ctaBalken.aantal) : Number(i.ctaBalken);
   if (balken === 1 || balken === 2) uit.ctaBalken = { aantal: balken };
+  // Voorbeeldpagina per sjabloon (21-10-2026): { blueprintId: paginaId }. Alleen bewaren als het is meegestuurd.
+  if (i.voorbeeldPaginas !== undefined) {
+    const kaart = {};
+    Object.entries(i.voorbeeldPaginas && typeof i.voorbeeldPaginas === 'object' ? i.voorbeeldPaginas : {}).slice(0, 30).forEach(([sleutel, waarde]) => {
+      const s = tekst(sleutel, 80);
+      const w = tekst(waarde, 60);
+      if (s && w) kaart[s] = w;
+    });
+    uit.voorbeeldPaginas = kaart;
+  }
   // Klantverhaal: alleen bewaren als het is meegestuurd, zodat een bestaand klantverhaal niet per ongeluk verdwijnt.
   if (i.klantverhaal !== undefined) {
     const kv = schoonKlantverhaal(i.klantverhaal);
@@ -362,6 +372,7 @@ function bewerkbaar(id) {
       fotoRichtlijn: p.fotoRichtlijn || '',
       ctaBalken: { aantal: Number(p.ctaBalken && p.ctaBalken.aantal) === 2 ? 2 : 1 },
       klantverhaal: p.klantverhaal || null,
+      voorbeeldPaginas: p.voorbeeldPaginas || {},
       huisstijl: huisstijlUitTokens(getTokens(id))
     },
     huisstijlEigen: Boolean(notionData.get(id) && notionData.get(id).profiel && notionData.get(id).profiel.huisstijl && Object.keys(notionData.get(id).profiel.huisstijl).length),
@@ -399,6 +410,7 @@ async function bewaar(klantIdInvoer, { profiel, feiten, nieuw = false } = {}) {
   if (profiel && profiel.huisstijl === undefined) p.huisstijl = (bestaandProfiel && bestaandProfiel.huisstijl) || {};
   else p.huisstijl = alleenVerschil(p.huisstijl, id); // alleen wat afwijkt van de code of de standaard, zodat latere wijzigingen in code blijven gelden
   if (profiel && profiel.klantverhaal === undefined && bestaandProfiel && bestaandProfiel.klantverhaal) p.klantverhaal = bestaandProfiel.klantverhaal;
+  if (profiel && profiel.voorbeeldPaginas === undefined && bestaandProfiel && bestaandProfiel.voorbeeldPaginas) p.voorbeeldPaginas = bestaandProfiel.voorbeeldPaginas;
   if (!p.naam) throw new Error('Vul de naam van de klant in.');
   const f = schoonFeiten(feiten);
 

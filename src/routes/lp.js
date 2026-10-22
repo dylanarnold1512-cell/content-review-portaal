@@ -1375,9 +1375,21 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
     }
   } catch (aiErr) { /* de AI vragen zijn een extra bron, nooit blokkerend */ }
   const zusterVragen = [...new Set(zusters.flatMap((z) => (z.content ? vragenUitContent(z.content) : [])))];
-  // Het goedgekeurde voorbeeld: een zusterpagina met het vinkje Voorbeeld in Notion, anders de meest recent bewerkte gepubliceerde.
+  // Het goedgekeurde voorbeeld: de ingestelde pagina, anders een zusterpagina met het vinkje Voorbeeld in Notion, anders de meest recent bewerkte gepubliceerde.
   const metInhoud = zusters.filter((z) => z.content && z.content.slotData);
-  const voorbeeldPagina = metInhoud.find((z) => z.voorbeeld)
+  // Eerst de voorbeeldpagina die in het portaal bij Klantgegevens voor dit sjabloon is ingesteld.
+  const norm = (id) => String(id || '').replace(/-/g, '');
+  const gekozenId = ((client.profile.voorbeeldPaginas || {})[page.blueprint]) || '';
+  let gekozen = null;
+  if (gekozenId && norm(gekozenId) !== norm(page.id)) {
+    gekozen = metInhoud.find((z) => norm(z.id) === norm(gekozenId));
+    if (!gekozen) {
+      try { gekozen = await lpNotion.getPage(gekozenId); } catch (e) { gekozen = null; }
+    }
+    if (gekozen && !(gekozen.content && gekozen.content.slotData)) gekozen = null;
+  }
+  const voorbeeldPagina = gekozen
+    || metInhoud.find((z) => z.voorbeeld)
     || metInhoud.filter((z) => z.status === 'Gepubliceerd').sort((a, b) => String(b.laatstGewijzigd).localeCompare(String(a.laatstGewijzigd)))[0]
     || null;
   const voorbeeld = voorbeeldPagina ? { titel: voorbeeldPagina.titel, slotData: voorbeeldPagina.content.slotData } : null;
