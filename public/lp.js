@@ -460,7 +460,6 @@ function renderVoortgang(page, feitenCounts) {
 
   const stappen = [
     { label: 'Onderwerp', klaar: invoerIngevuld, sub: invoerIngevuld ? 'Ingevuld' : 'Nog leeg' },
-    { label: 'Feiten', klaar: feitenKlaar, sub: total ? `${gebruikt} van ${total} gebruikt` : 'Nog geen feiten beschikbaar' },
     { label: 'Tekst', klaar: contentKlaar, sub: contentKlaar ? 'Geschreven' : 'Nog niet geschreven' },
     { label: 'Controleren en live', klaar: gepubliceerd, sub: gepubliceerd ? 'Live' : 'Nog niet live' }
   ];
