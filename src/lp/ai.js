@@ -1130,6 +1130,8 @@ ${siteTeksten ? `Bronteksten van de klantsite (ingekort):\n${String(siteTeksten)
         const vorig = oud[i] && typeof oud[i] === 'object' ? oud[i] : {};
         Object.keys(vorig).forEach((veld) => {
           if (IMAGE_SRC_RE.test(veld) || IMAGE_ALT_RE.test(veld) || !(def.itemFields || []).includes(veld)) samen[veld] = vorig[veld];
+          // Een herschrijving mag nooit bestaande tekst wissen: komt een veld leeg terug, dan blijft de oude tekst staan.
+          else if (typeof vorig[veld] === 'string' && vorig[veld].trim() && !String(samen[veld] == null ? '' : samen[veld]).trim()) samen[veld] = vorig[veld];
         });
         return samen;
       });

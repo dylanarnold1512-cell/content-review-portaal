@@ -189,6 +189,32 @@ function tekstControle(slotData, opties) {
     }
   }
 
+  // 11. Een verplicht veld of de kop van een sectie met inhoud is leeg (bv. een FAQ met vragen maar zonder titel).
+  if (o.template && Array.isArray(o.template.slots)) {
+    const OVERSLAAN = /^(meta|cta)|(Href|Src|Alt|Icon)$|^icon$/i;
+    const leeg = (v) => (Array.isArray(v) ? v.length === 0 : !String(v == null ? '' : v).trim());
+    const gevonden = new Map();
+    const sleutels = new Set(o.template.slots.map((x) => x.key));
+    o.template.slots.forEach((x) => {
+      if (OVERSLAAN.test(x.key)) return;
+      if (x.verplicht && leeg(slotData[x.key])) gevonden.set(x.key, `"${x.label || x.key}" is leeg terwijl het verplicht is.`);
+      if (x.type === 'list' && !leeg(slotData[x.key]) && /Items$/.test(x.key)) {
+        ['Kicker', 'Title'].forEach((deel) => {
+          const kop = x.key.replace(/Items$/, deel);
+          if (sleutels.has(kop) && leeg(slotData[kop])) gevonden.set(kop, `De sectie heeft inhoud maar geen ${deel === 'Title' ? 'titel' : 'label'} (${kop}).`);
+        });
+      }
+    });
+    if (gevonden.size) {
+      punten.push({
+        soort: 'inhoud',
+        tekst: `Er ontbreekt tekst: ${[...gevonden.values()].join(' ')}`,
+        slots: [...gevonden.keys()],
+        aanwijzing: 'Vul deze velden in met een korte, volledige tekst die bij de sectie past: een label of titel voor de sectie, geschreven in dezelfde stem als de rest van de pagina. Verzin geen feiten.'
+      });
+    }
+  }
+
   // 9. De veelgestelde vragen mogen niet leeg of bijna leeg zijn.
   if (Array.isArray(slotData.faqItems) && slotData.faqItems.length < 4) {
     punten.push({

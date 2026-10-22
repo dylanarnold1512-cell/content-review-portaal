@@ -34,14 +34,22 @@ function heeftTekst(item, slot) {
   return slot.itemFields.some((f) => TEKSTVELDEN_RE.test(f) && String((item && item[f]) || '').trim());
 }
 
-function ruimOpProjectItems(template, slotData) {
+function ruimOpProjectItems(template, slotData, { fotoKaartenToestaan = true } = {}) {
   const slots = Array.isArray(template && template.slots) ? template.slots : [];
   for (const slot of projectLijsten(template)) {
     const beeldVeld = slot.itemFields.find((f) => IMAGE_SRC_RE.test(f));
     const items = (Array.isArray(slotData[slot.key]) ? slotData[slot.key] : []).filter((i) => i && String(i[beeldVeld] || '').trim());
     // Zijn er projecten met tekst, dan tonen we alleen die: een kaart met alleen een foto ziet er kapot uit (21-10-2026).
     const metTekst = items.filter((i) => heeftTekst(i, slot));
-    slotData[slot.key] = metTekst.length ? metTekst : items;
+    // Klant met fotoKaartenZonderTekst: false (Hirs): geen losse fotokaarten met een lege tekstbalk. De lijst blijft leeg, dan
+    // verdwijnt de hele sectie vanzelf (lege secties worden niet getoond) en ook de kop, kicker en intro worden leeggemaakt.
+    slotData[slot.key] = metTekst.length || !fotoKaartenToestaan ? metTekst : items;
+    if (!metTekst.length && !fotoKaartenToestaan) {
+      ['Kicker', 'Title', 'Intro'].forEach((deel) => {
+        const sleutel = slot.key.replace(/Items$/, deel);
+        if (sleutel !== slot.key && typeof slotData[sleutel] === 'string') slotData[sleutel] = '';
+      });
+    }
     // Zonder projectteksten is een intro over "de projecten" leeg gebabbel: leegmaken (alleen als het veld niet verplicht is).
     if (metTekst.length < 2) {
       const intro = slots.find((s) => s.key === slot.key.replace(/Items$/, 'Intro') && !s.verplicht);

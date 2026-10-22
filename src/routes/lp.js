@@ -1416,7 +1416,7 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
   // worden een keer herschreven. Reviews en praktische gegevens blijven zoals ze zijn. Nooit blokkerend.
   let redactieWaarschuwing = null;
   try {
-    const NIET_AANRAKEN = /^(reviewItems|practicalItems)$/;
+    const NIET_AANRAKEN = /^(reviewItems|practicalItems|projectItems)$/;
     const bepaal = (slotData) => redactiePunten({ content: { slotData }, invoer, titel: page.titel }, blueprint, client, voorbeeld && voorbeeld.slotData).punten
       .map((pt) => ({ ...pt, slots: (pt.slots || []).filter((k) => !NIET_AANRAKEN.test(k)) }))
       .filter((pt) => pt.slots.length && !(pt.soort === 'toon' && /^De bedrijfsnaam staat/.test(pt.tekst || '') && pt.slots.length < 2) && pt.soort !== 'bewijs');
@@ -1484,7 +1484,7 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
   } catch (imgErr) {
     imageWarning = `Automatisch afbeeldingen kiezen is niet gelukt (${imgErr.message}) — vul afbeeldingen zelf in via het voorbeeldscherm.`;
   }
-  ruimOpProjectItems(blueprint, result.slotData);
+  ruimOpProjectItems(blueprint, result.slotData, { fotoKaartenToestaan: client.profile.fotoKaartenZonderTekst !== false });
 
   // Controle op dubbele vragen: vragen die (zonder plaatsnaam) vrijwel gelijk zijn aan een vraag van een zusterpagina.
   let faqWarning = null;
@@ -1696,6 +1696,7 @@ function redactiePunten(page, blueprint, client, voorbeeldSlotData) {
     punten.unshift(...tekstControle(slotData, {
       derdePersoon: client.profile.schrijfvorm === 'derde',
       bedrijfsnaam: bedrijf.naam || client.profile.naam,
+      template: blueprint,
       voorbeeldSlotData,
       nietNoemen: client.profile.nietNoemen || [],
       toegestaneTekst: JSON.stringify([feitenLijst, client.feiten || [], inv, client.profile.bedrijf || {}]),
