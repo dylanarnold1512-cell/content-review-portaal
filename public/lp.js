@@ -1569,6 +1569,7 @@ document.getElementById('lpNewTemplateBtn').addEventListener('click', () => {
   document.getElementById('lpTplNewReferentieUrl').value = '';
   document.getElementById('lpTplNewPaginatype').value = '';
   document.querySelectorAll('#lpTplOnderdelenChecklist input[type="checkbox"]').forEach((cb) => { cb.checked = false; });
+  { const kader = document.getElementById('lpTplOnderdelenSamenvatting'); if (kader) kader.textContent = 'De AI bepaalt de opbouw. Vraag hierboven eerst advies, dan zie je hier welke onderdelen op elke pagina komen.'; }
   document.getElementById('lpTplNewVisueleRichting').value = '';
   document.getElementById('lpTplNewConversiedoel').value = '';
   document.getElementById('lpTplNewWens').value = '';

@@ -28,6 +28,7 @@ const { berekenOverrides, pasSectiesToe, filterSlotData } = require('./overrides
 const { pasFormulierCtaToe, FORMULIER_ID } = require('./formulierCta');
 const { themaCss, themaScript, versluierScripts } = require('./themaFix');
 const { pasGalerijToe, zorgVoorGalerijSlot } = require('./galerij');
+const { pasReviewsWidgetToe } = require('./reviewsWidget');
 
 function renderPageHtml(page, opts) {
   if (page && page.template) {
@@ -160,7 +161,8 @@ function renderSlotPageHtml(paginaRuw, opts) {
       )
     : galerij.html;
   const metFormulier = applyFormulierMarker(htmlTemplate, page.clientId, rootClass, opts);
-  const body = renderSlotTemplate(metFormulier.html, slotData, { verborgenItems: overrides.itemSets, forPreview });
+  const metReviews = pasReviewsWidgetToe(metFormulier.html, { profile: (clients[page.clientId] || {}).profile, rootClass, naarWordPress: naarWp });
+  const body = renderSlotTemplate(metReviews.html, slotData, { verborgenItems: overrides.itemSets, forPreview });
   // Het FAQ schema mag alleen tekst bevatten die ook echt op de pagina staat.
   const zichtbareSlotData = filterSlotData(slotData, overrides.itemSets, naSecties.verborgenLijsten);
   const schemas = collectSlotSchemas(zichtbareSlotData);
@@ -177,7 +179,7 @@ function renderSlotPageHtml(paginaRuw, opts) {
   const uit = `${baseStyle}
 <style>
 ${templateCss}
-</style>${metFormulier.css ? '\n' + metFormulier.css : ''}${cta.css ? '\n' + cta.css : ''}${galerij.css ? '\n' + galerij.css : ''}${naarWp ? '\n' + themaCss(rootClass) : ''}
+</style>${metFormulier.css ? '\n' + metFormulier.css : ''}${metReviews.css ? '\n' + metReviews.css : ''}${cta.css ? '\n' + cta.css : ''}${galerij.css ? '\n' + galerij.css : ''}${naarWp ? '\n' + themaCss(rootClass) : ''}
 <div class="${rootClass} lpt">
 ${body}
 </div>${naarWp ? '\n' + themaScript(rootClass) : ''}${metFormulier.script ? '\n' + metFormulier.script : ''}${schemaScript}`;

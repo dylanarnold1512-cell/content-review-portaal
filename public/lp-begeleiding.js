@@ -182,6 +182,11 @@
       if (advies.naam && !$('lpTplNewNaam').value.trim()) $('lpTplNewNaam').value = advies.naam;
       $('lpTplNewPaginatype').value = advies.paginatype || '';
       document.querySelectorAll('#lpTplOnderdelenChecklist input[type="checkbox"]').forEach((cb) => { cb.checked = (advies.onderdelen || []).includes(cb.value); });
+      {
+        const namen = Array.from(document.querySelectorAll('#lpTplOnderdelenChecklist input[type="checkbox"]:checked')).map((cb) => (cb.parentElement.textContent || cb.value).trim());
+        const kader = $('lpTplOnderdelenSamenvatting');
+        if (kader) kader.textContent = namen.length ? 'Opbouw volgens het advies van de AI: ' + namen.join(', ') + '. Elke pagina van dit sjabloon heeft deze vaste opbouw.' : 'De AI bepaalt zelf de opbouw van dit sjabloon.';
+      }
       $('lpTplNewVisueleRichting').value = advies.visueleRichting || '';
       $('lpTplNewConversiedoel').value = advies.conversiedoel || '';
       if (advies.wens && !$('lpTplNewWens').value.trim()) $('lpTplNewWens').value = advies.wens;
