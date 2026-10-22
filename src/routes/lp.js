@@ -16,7 +16,8 @@ const ai = require('../lp/ai');
 const { renderPageHtml } = require('../lp/render');
 const { buildRenderPage, contentIsEmpty } = require('../lp/pageRender');
 const { zorgVoorGalerijSlot } = require('../lp/galerij');
-const { zorgVoorProjectItems, ruimOpProjectItems } = require('../lp/projectFotos');
+const { zorgVoorProjectItems, ruimOpProjectItems, projectLijsten } = require('../lp/projectFotos');
+const { haalProjecten, kiesProjecten, vulProjectItems } = require('../lp/projecten');
 const { beschrijfSecties } = require('../lp/sectieRefine');
 const { berekenOverrides, zetVerborgen } = require('../lp/overrides');
 const { gebruikteFeitIds } = require('../lp/feitenDefaults');
@@ -1483,6 +1484,29 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
     }
   } catch (imgErr) {
     imageWarning = `Automatisch afbeeldingen kiezen is niet gelukt (${imgErr.message}) — vul afbeeldingen zelf in via het voorbeeldscherm.`;
+  }
+  // Projecten van de klantsite: echte titels, foto's en links in plaats van losse foto's (22-10-2026).
+  try {
+    const plaatsNaam = String(gelijk.plaatsWaarde(invoer) || '').toLowerCase();
+    const plaatsDelen = verhaal.woorden(plaatsNaam);
+    const onderwerp = verhaal.woorden([invoer.dienstFocus, invoer.dienst, invoer.onderwerp, page.titel].filter(Boolean).join(' ')).filter((w) => !plaatsDelen.includes(w));
+    const lijsten = projectLijsten(blueprint);
+    if (lijsten.length && client.profile.projectenVanSite !== false) {
+      const gekozen = kiesProjecten(await haalProjecten(client.profile), { onderwerpWoorden: onderwerp, plaats: plaatsNaam, max: 3 });
+      if (gekozen.length) {
+        let teksten = {};
+        try { teksten = await ai.schrijfProjectTeksten({ klant: page.klant, bedrijfsnaam: (client.profile.bedrijf || {}).naam || client.profile.naam, projecten: gekozen }); } catch (e) { console.warn('[projecten] teksten schrijven mislukt:', e.message); }
+        const derde = client.profile.schrijfvorm === 'derde';
+        if (derde) {
+          const WIJ_RE = /\b(wij|we|ons|onze|jullie|hij|hem)\b/i;
+          Object.keys(teksten).forEach((id) => { if (WIJ_RE.test(teksten[id])) delete teksten[id]; });
+        }
+        lijsten.forEach((slot) => vulProjectItems(slot, result.slotData, gekozen, teksten));
+        if (derde) scrubPersoonsnamen(result.slotData, { nietNoemen: client.profile.nietNoemen || [], bedrijfsnaam: (client.profile.bedrijf || {}).naam || client.profile.naam });
+      }
+    }
+  } catch (projErr) {
+    console.warn('[projecten] niet gelukt:', projErr.message);
   }
   ruimOpProjectItems(blueprint, result.slotData, { fotoKaartenToestaan: client.profile.fotoKaartenZonderTekst !== false });
 

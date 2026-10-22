@@ -19,6 +19,7 @@
 
 const { callOpenAi } = require('./ai');
 const { extractStructureOutline } = require('./referenceFetch');
+const { detecteerReviewWidget } = require('./reviewsWidget');
 
 const FETCH_TIMEOUT_MS = 8000;
 
@@ -333,6 +334,7 @@ async function verzamelRuweSiteData(url, contactUrl) {
     formulieren: detecteerFormulieren(gecombineerdeHtml),
     bedrijfsgegevens: vindBedrijfsgegevens(gecombineerdeHtml),
     seoPlugin: detecteerSeoPlugin(gecombineerdeHtml),
+    reviewWidget: detecteerReviewWidget(gecombineerdeHtml),
     faq: vindFaq(html),
     structuur: extractStructureOutline(html)
   };
@@ -386,6 +388,10 @@ function bouwZekereFeiten(ruweData, datum) {
     bron: `${domein}, veelgestelde vragen op de site (${f.vorm}), gecontroleerd ${datum}`
   }));
   if (ruweData.seoPlugin) feiten.push({ label: 'SEO plugin op site', waarde: ruweData.seoPlugin, bron: `${domein}, signatuur in de HTML-head, gecontroleerd ${datum}` });
+  if (ruweData.reviewWidget) {
+    const w = ruweData.reviewWidget;
+    feiten.push({ label: 'Google recensies widget op site', waarde: `${w.naam}${w.shortcode ? `, shortcode ${w.shortcode}` : (w.kanTonen ? ', widget id nog invullen (Klantgegevens)' : ', niet automatisch te tonen op Pagr. pagina\'s')}`, bron: `${domein}, signatuur in de HTML, gecontroleerd ${datum}` });
+  }
   return feiten;
 }
 
@@ -429,6 +435,7 @@ ${ruweData.contactFout ? `\n(Contactpagina ${ruweData.contactUrl} kon niet opgeh
     // Zekere feiten, deterministisch uit de HTML (niet via de AI): zie vindBedrijfsgegevens en detecteerSeoPlugin.
     zekereFeiten: bouwZekereFeiten(ruweData, vandaag),
     seoPlugin: ruweData.seoPlugin,
+    reviewWidget: ruweData.reviewWidget,
     twijfels: Array.isArray(result.twijfels) ? result.twijfels : [],
     ruweData
   };

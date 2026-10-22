@@ -26,7 +26,7 @@ const VERVERS_MS = 5 * 60 * 1000;
 const MAX_FEITEN = 200;
 
 // Wat uit Notion mag komen. Alles daarbuiten blijft uit de code.
-const PROFIEL_VELDEN = ['naam', 'bedrijf', 'nietToegestaan', 'toonNotitie', 'fotoRichtlijn', 'ctaBalken', 'klantverhaal', 'voorbeeldPaginas'];
+const PROFIEL_VELDEN = ['naam', 'bedrijf', 'nietToegestaan', 'toonNotitie', 'fotoRichtlijn', 'ctaBalken', 'klantverhaal', 'voorbeeldPaginas', 'reviewsWidget'];
 
 const diepKopie = (v) => JSON.parse(JSON.stringify(v));
 
@@ -100,6 +100,12 @@ function schoonProfiel(invoer) {
       if (s && w) kaart[s] = w;
     });
     uit.voorbeeldPaginas = kaart;
+  }
+  // Google recensies widget (22-10-2026): { plugin, shortcode, titel }. Leeg shortcode = widget uit.
+  if (i.reviewsWidget !== undefined) {
+    const w = i.reviewsWidget && typeof i.reviewsWidget === 'object' ? i.reviewsWidget : {};
+    const shortcode = tekst(w.shortcode, 200);
+    uit.reviewsWidget = shortcode && /^\[[^\]]+\]$/.test(shortcode) ? { plugin: tekst(w.plugin, 40) || 'grw', shortcode, ...(tekst(w.titel, 80) ? { titel: tekst(w.titel, 80) } : {}) } : null;
   }
   // Klantverhaal: alleen bewaren als het is meegestuurd, zodat een bestaand klantverhaal niet per ongeluk verdwijnt.
   if (i.klantverhaal !== undefined) {
@@ -373,6 +379,7 @@ function bewerkbaar(id) {
       ctaBalken: { aantal: Number(p.ctaBalken && p.ctaBalken.aantal) === 2 ? 2 : 1 },
       klantverhaal: p.klantverhaal || null,
       voorbeeldPaginas: p.voorbeeldPaginas || {},
+      reviewsWidget: p.reviewsWidget || null,
       huisstijl: huisstijlUitTokens(getTokens(id))
     },
     huisstijlEigen: Boolean(notionData.get(id) && notionData.get(id).profiel && notionData.get(id).profiel.huisstijl && Object.keys(notionData.get(id).profiel.huisstijl).length),
@@ -411,6 +418,7 @@ async function bewaar(klantIdInvoer, { profiel, feiten, nieuw = false } = {}) {
   else p.huisstijl = alleenVerschil(p.huisstijl, id); // alleen wat afwijkt van de code of de standaard, zodat latere wijzigingen in code blijven gelden
   if (profiel && profiel.klantverhaal === undefined && bestaandProfiel && bestaandProfiel.klantverhaal) p.klantverhaal = bestaandProfiel.klantverhaal;
   if (profiel && profiel.voorbeeldPaginas === undefined && bestaandProfiel && bestaandProfiel.voorbeeldPaginas) p.voorbeeldPaginas = bestaandProfiel.voorbeeldPaginas;
+  if (profiel && profiel.reviewsWidget === undefined && bestaandProfiel && bestaandProfiel.reviewsWidget) p.reviewsWidget = bestaandProfiel.reviewsWidget;
   if (!p.naam) throw new Error('Vul de naam van de klant in.');
   const f = schoonFeiten(feiten);
 

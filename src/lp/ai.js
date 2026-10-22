@@ -1150,6 +1150,28 @@ ${siteTeksten ? `Bronteksten van de klantsite (ingekort):\n${String(siteTeksten)
   return { slotData: { ...slotData, ...resultaat }, gewijzigd: Object.keys(resultaat) };
 }
 
+
+// Korte projectteksten in de stem van de klant (22-10-2026). Bron is alleen het uittreksel van de klantsite:
+// niets erbij verzinnen, geen cijfers of plaatsen die er niet staan. Geeft { [projectId]: tekst }.
+async function schrijfProjectTeksten({ klant, bedrijfsnaam, projecten }) {
+  if (!Array.isArray(projecten) || !projecten.length) return {};
+  const derde = schrijftInDerdePersoon(klant);
+  const stem = derde
+    ? `Schrijf in de derde persoon met de bedrijfsnaam "${bedrijfsnaam}" als onderwerp. Nooit wij, we, ons, onze, jullie of een persoonsnaam.`
+    : 'Schrijf persoonlijk en direct, wij mag.';
+  const systemPrompt = `Je schrijft voor een Nederlandse landingspagina bij elk project van een bedrijf een korte tekst van een of twee volledige zinnen (maximaal 35 woorden).
+Gebruik ALLEEN wat in het uittreksel staat. Verzin niets, noem geen cijfers, prijzen, plaatsen of materialen die niet in het uittreksel staan. Gebruik geen superlatieven.
+Elke zin is grammaticaal compleet. ${stem}
+Heeft een uittreksel te weinig inhoud, geef dan een lege tekst.
+Antwoord ALLEEN met JSON: { "teksten": { "<id>": "<tekst>" } }`;
+  const userPrompt = `Projecten:\n${JSON.stringify(projecten.map((p) => ({ id: String(p.id), titel: p.titel, uittreksel: p.tekst })), null, 2)}`;
+  const ruw = await callOpenAi({ systemPrompt, userPrompt });
+  const teksten = ruw && typeof ruw.teksten === 'object' && ruw.teksten ? ruw.teksten : {};
+  const uit = {};
+  projecten.forEach((p) => { const t = teksten[String(p.id)]; if (typeof t === 'string' && t.trim()) uit[p.id] = t.trim(); });
+  return uit;
+}
+
 // Binnen een lijst (bijvoorbeeld de dienstkaarten) krijgt elk item een eigen icoon. Dubbele iconen worden vervangen door
 // het best passende icoon dat nog vrij is, op basis van woorden in de titel en tekst van het item.
 const ICOON_TREFWOORDEN = [
@@ -1459,6 +1481,7 @@ async function callOpenAiVision({ systemPrompt, contentParts }) {
 }
 
 module.exports = {
+  schrijfProjectTeksten,
   verdeelIconen,
   bouwFocusBlok,
   VASTE_ONDERDELEN_OPTIES,

@@ -36,6 +36,8 @@ const profile = {
   nietNoemen: ['Nick'],
   // Reviews staan pas op een pagina als Nick ze bevestigd heeft.
   reviewsBevestigd: false,
+  // Google recensies widget die ook op hirs-installaties.nl staat (Widget Plugin for Google Reviews). Zie src/lp/reviewsWidget.js.
+  reviewsWidget: { plugin: 'grw', shortcode: '[grw id=2306]' },
   tokensId: 'hirs-installaties',
   nietToegestaan: [
     'Aannames doen die je niet kunt verifiëren.'
