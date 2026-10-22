@@ -96,3 +96,42 @@ test('klantgegevens bewaart de voorbeeldpagina per sjabloon en houdt hem als hij
   assert.strictEqual(kg.schoonProfiel({ naam: 'X' }).voorbeeldPaginas, undefined);
   assert.ok(kg.PROFIEL_VELDEN.includes('voorbeeldPaginas'));
 });
+
+test('lege titel bij een FAQ met vragen wordt aangewezen, een verplicht leeg veld ook', () => {
+  const template = { slots: [
+    { key: 'faqKicker', type: 'text' }, { key: 'faqTitle', type: 'text', verplicht: true }, { key: 'faqItems', type: 'list', verplicht: true, itemFields: ['question', 'answer'] },
+    { key: 'ctaHref', type: 'text', verplicht: true }
+  ] };
+  const slotData = { faqKicker: '', faqTitle: '', faqItems: [{ question: 'Hoe lang duurt het?', answer: 'Een week.' }] };
+  const punten = tekstControle(slotData, { template });
+  const p = punten.find((x) => x.soort === 'inhoud');
+  assert.ok(p && p.slots.includes('faqTitle') && p.slots.includes('faqKicker'));
+  assert.ok(!p.slots.includes('ctaHref'));
+  const compleet = tekstControle({ faqKicker: 'Veelgestelde vragen', faqTitle: 'Vragen over badkamers', faqItems: [1, 2, 3, 4].map((n) => ({ question: `Hoe gaat stap ${n}?`, answer: 'Zo.' })) }, { template });
+  assert.ok(!compleet.some((x) => x.soort === 'inhoud'));
+});
+
+test('projecten zonder tekst: lijst en kop worden leeggemaakt, projecten met tekst blijven', () => {
+  const tpl = { slots: [
+    { key: 'projectKicker', type: 'text' }, { key: 'projectTitle', type: 'text' }, { key: 'projectIntro', type: 'text' },
+    { key: 'projectItems', type: 'list', itemFields: ['title', 'text', 'imageSrc', 'imageAlt'] }
+  ] };
+  const d = { projectKicker: 'Projecten', projectTitle: 'Eerder werk', projectIntro: '', projectItems: [1, 2, 3].map((n) => ({ title: '', text: '', imageSrc: String(n), imageAlt: '' })) };
+  pf.ruimOpProjectItems(tpl, d, { fotoKaartenToestaan: false });
+  assert.deepStrictEqual(d.projectItems, []);
+  assert.strictEqual(d.projectKicker, '');
+  assert.strictEqual(d.projectTitle, '');
+});
+
+test('herschrijven wist geen bestaande tekst in een lijst', async () => {
+  const echt = global.fetch;
+  process.env.OPENAI_API_KEY = 'test';
+  global.fetch = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({ slotData: { faqItems: [{ question: 'Hoe lang duurt het?', answer: '' }] } }) } }] }) });
+  try {
+    const template = { slots: [{ key: 'faqItems', type: 'list', itemFields: ['question', 'answer'] }, { key: 'faqTitle', type: 'text' }] };
+    const slotData = { faqTitle: 'Titel', faqItems: [{ question: 'Hoe lang?', answer: 'Een week.' }] };
+    const r = await ai.herschrijfOnderdelen({ klant: 'Test', template, slotData, slots: ['faqItems'], aanwijzing: 'x', feiten: [] });
+    assert.strictEqual(r.slotData.faqItems[0].answer, 'Een week.');
+    assert.strictEqual(r.slotData.faqItems[0].question, 'Hoe lang duurt het?');
+  } finally { global.fetch = echt; }
+});

@@ -30,6 +30,8 @@ const profile = {
   schrijfvorm: 'derde',
   // Harde tekstcontrole na het schrijven aan (hij, Wie, getallen buiten de feiten, claims, reviews). Zie src/lp/tekstcontrole.js.
   tekstControle: true,
+  // Geen fotokaarten zonder tekst bij projecten: zonder projectteksten verdwijnt de sectie.
+  fotoKaartenZonderTekst: false,
   // Namen van personen die op de pagina's nooit genoemd worden: Pagr. schrijft altijd over het bedrijf Hirs Installaties.
   nietNoemen: ['Nick'],
   // Reviews staan pas op een pagina als Nick ze bevestigd heeft.
