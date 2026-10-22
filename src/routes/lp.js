@@ -1432,7 +1432,7 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
       const aanwijzing = punten.map((pt, i) => `${i + 1}. ${pt.aanwijzing || pt.tekst}`).join('\n')
         + '\nSchrijf de aangewezen onderdelen echt anders: een andere invalshoek en andere woorden dan de rest van de pagina. Kopieer geen zinnen van andere onderdelen.';
       const herschreven = await ai.herschrijfOnderdelen({
-        klant: client.profile.naam,
+        klant: page.klant,
         template: blueprint,
         slotData: result.slotData,
         slots,
@@ -1747,7 +1747,7 @@ router.post('/pages/:pageId/herschrijf', requireLpInternal, async (req, res) => 
     } catch (e) { siteTeksten = ''; }
     const kvRuw = client.profile.klantverhaal;
     const r = await ai.herschrijfOnderdelen({
-      klant: client.profile.naam,
+      klant: page.klant,
       template: blueprint,
       slotData: content.slotData,
       slots,

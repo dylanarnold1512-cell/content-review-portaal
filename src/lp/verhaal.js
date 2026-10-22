@@ -269,9 +269,9 @@ function redactieControle(slotData, opties) {
     if (totaal > drempel) {
       punten.push({
         soort: 'toon',
-        tekst: `De bedrijfsnaam staat ${totaal} keer voluit op de pagina. Dat klinkt als een brochure. ${o.derdePersoon ? 'Wissel af met "het bedrijf", "de installateur" of begin de zin bij de bezoeker.' : 'Gebruik "wij", "we" of "ons" na de eerste keer.'}`,
+        tekst: `De bedrijfsnaam staat ${totaal} keer voluit op de pagina. Dat klinkt als een brochure. ${o.derdePersoon ? 'Begin sommige zinnen bij de bezoeker, maar laat de bedrijfsnaam het onderwerp blijven.' : 'Gebruik "wij", "we" of "ons" na de eerste keer.'}`,
         slots: uniek(metNaam.map((v) => v.slot)).slice(0, 6),
-        aanwijzing: o.derdePersoon ? 'Noem de bedrijfsnaam niet in elk onderdeel. Wissel af met "het bedrijf", "de installateur" of een zin die bij de bezoeker begint. Nooit wij of ons en nooit een persoonsnaam.' : `Noem de bedrijfsnaam hooguit een keer voluit (in de intro). Schrijf in de andere onderdelen "wij", "we" of "ons".`
+        aanwijzing: o.derdePersoon ? 'Begin sommige zinnen bij de bezoeker in plaats van bij de bedrijfsnaam. Nooit wij of ons en nooit een persoonsnaam.' : `Noem de bedrijfsnaam hooguit een keer voluit (in de intro). Schrijf in de andere onderdelen "wij", "we" of "ons".`
       });
     }
   }

@@ -135,3 +135,11 @@ test('herschrijven wist geen bestaande tekst in een lijst', async () => {
     assert.strictEqual(r.slotData.faqItems[0].question, 'Hoe lang duurt het?');
   } finally { global.fetch = echt; }
 });
+
+test('herschrijven krijgt de klant-id mee, zodat de derde persoon ook bij herschrijven geldt', () => {
+  const fs = require('fs');
+  const src = fs.readFileSync(require('path').join(__dirname, '..', 'src', 'routes', 'lp.js'), 'utf8');
+  const calls = src.split('ai.herschrijfOnderdelen(').slice(1);
+  assert.equal(calls.length, 2);
+  calls.forEach((c) => assert.match(c.slice(0, 120), /klant: page\.klant/));
+});
