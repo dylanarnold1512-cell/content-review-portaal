@@ -84,7 +84,7 @@
   function chipHtml(stand) {
     if (stand.soort === 'bevestigd') return '<span class="mp-chip mp-chip-ok">Bevestigd</span>';
     if (stand.soort === 'aanvullen') return `<span class="mp-chip mp-chip-aanvullen">Aanvullen (${stand.aanvullen})</span>`;
-    return '<span class="mp-chip mp-chip-controleren">Nog te controleren</span>';
+    return '<span class="mp-chip mp-chip-controleren">Door ons ingevuld</span>';
   }
 
   function feitHtml(f) {
@@ -208,7 +208,7 @@
 
   function zichtbaar(s) {
     const soort = sectieStand(s).soort;
-    if (filter === 'todo') return soort !== 'bevestigd';
+    if (filter === 'todo') return soort === 'aanvullen';
     if (filter === 'bevestigd') return soort === 'bevestigd';
     return true;
   }
@@ -304,7 +304,7 @@
       if (f.status === 'niet_gebruiken') weg += 1;
     }));
     const kaarten = [
-      { label: 'Onderdelen bevestigd', icoon: 'vinkje', waarde: `${t.bevestigd} van ${totaal}`, vergelijking: t.bevestigd === totaal ? 'Alles is bevestigd' : 'Open een onderdeel om te controleren' },
+      { label: 'Door jullie bevestigd', icoon: 'vinkje', waarde: `${t.bevestigd} van ${totaal}`, vergelijking: 'Bevestigen is niet verplicht' },
       { label: 'Gegevens over jullie', icoon: 'blad', waarde: String(gegevens), vergelijking: 'Hier schrijven wij blogs op' },
       { label: 'Door jullie aangepast', icoon: 'mensen', waarde: String(aangepast), vergelijking: 'Jullie eigen aanvullingen' },
       { label: 'Weggelaten', icoon: 'oog', waarde: String(weg), vergelijking: 'Noemen wij niet in blogs' }
@@ -317,7 +317,7 @@
     if (!root || !profiel) return;
     const t = tellingen();
     const totaal = profiel.secties.length;
-    const todo = t.aanvullen + t.controleren;
+    const todo = t.aanvullen;
     if (filter === null || (todo === 0 && filter === 'todo')) filter = todo > 0 ? 'todo' : 'alles';
     const naam = esc(profiel.klantNaam || '');
     const procent = Math.round((t.bevestigd / totaal) * 100);
@@ -326,7 +326,7 @@
       if (f.open && f.status !== 'klopt' && f.status !== 'aangepast') openFeiten.push({ nr: s.nr, titel: s.titel, f });
     }));
     const openHtml = openFeiten.length
-      ? `<div class="mp-open"><h3>Dit hebben we nog van jullie nodig</h3><ul>${openFeiten.slice(0, 8).map((v) => `<li><span class="mp-open-tekst"><strong>${esc(v.titel)}:</strong> ${esc(v.f.tekst)}</span><button type="button" class="btn-save-sm" data-actie="ga-naar" data-sectie="${v.nr}" data-id="${esc(v.f.id)}">Invullen</button></li>`).join('')}</ul></div>`
+      ? `<div class="mp-open"><h3>Dit missen we nog</h3><p class="mp-uitleg">Wij hebben alles ingevuld wat we over jullie weten. Alleen dit konden we niet zelf vinden.</p><ul>${openFeiten.slice(0, 8).map((v) => `<li><span class="mp-open-tekst"><strong>${esc(v.titel)}:</strong> ${esc(v.f.tekst)}</span><button type="button" class="btn-save-sm" data-actie="ga-naar" data-sectie="${v.nr}" data-id="${esc(v.f.id)}">Invullen</button></li>`).join('')}</ul></div>`
       : '';
     const tabs = [
       ['todo', `Nog te doen (${todo})`],
@@ -338,10 +338,11 @@
       ? '<div class="mp-klaar"><strong>Alles is bevestigd.</strong> Bedankt. Wij schrijven jullie blogs op basis van dit profiel. Wil je later nog iets wijzigen, dan kan dat hier altijd.</div>'
       : '';
     const klaarZin = todo === 0 && !(profiel.aantalOpenTegenstrijdigheden > 0);
-    const zin = klaarZin ? 'Het merkprofiel is bevestigd' : (todo === 1 ? '1 onderdeel wacht op jouw controle' : `${todo} onderdelen wachten op jouw controle`);
+    const aantalPunten = openFeiten.length + (profiel.aantalOpenTegenstrijdigheden || 0);
+    const zin = klaarZin ? 'Het merkprofiel staat klaar' : (aantalPunten === 1 ? 'Nog 1 punt waar we jullie hulp bij nodig hebben' : `Nog ${aantalPunten} punten waar we jullie hulp bij nodig hebben`);
     const toelichting = klaarZin
-      ? 'Bedankt. Wij schrijven jullie blogs op basis van dit profiel. Wil je later nog iets wijzigen, dan kan dat hier altijd.'
-      : `Vastgesteld${profiel.bijgewerkt ? ' op ' + esc(datumLang(profiel.bijgewerkt)) : ''}${profiel.aantalPaginas ? ` uit ${profiel.aantalPaginas} pagina's van jullie website` : ' uit jullie website'}, aangevuld met jullie eigen informatie. Open een onderdeel en kies "Dit klopt allemaal", of pas aan wat niet klopt.`;
+      ? 'Wij hebben alles ingevuld wat we over jullie weten en schrijven de blogs op basis hiervan. Kijk het gerust door. Klopt er iets niet, dan pas je het hier altijd aan.'
+      : `Vastgesteld${profiel.bijgewerkt ? ' op ' + esc(datumLang(profiel.bijgewerkt)) : ''}${profiel.aantalPaginas ? ` uit ${profiel.aantalPaginas} pagina's van jullie website` : ' uit jullie website'}, aangevuld met jullie eigen informatie. Jullie hoeven alleen aan te vullen wat nog mist en te kiezen waar website en eigen informatie elkaar tegenspreken.`;
     const filterHtml = todo > 0 ? `<div class="mp-tabs">${tabs}</div>` : '';
     root.innerHTML = `
       <div class="p-ov-kop"><div><h1>Merkprofiel</h1><p>Zo zien wij ${naam}. Hier baseren we jullie blogs op.</p></div></div>
