@@ -596,7 +596,7 @@ function wpTekenResultaten(live, voorstellen) {
     const r = wpResultaatTekst(p);
     const pg = paginaVan.get(p.id) || {};
     const url = String(pg.wpUrl || '').replace(/^https?:\/\//, '');
-    const sinds = p.liveDatum ? new Date(p.liveDatum).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : '';
+    const sinds = (p.liveDatum || p.laatstGewijzigd) ? new Date(p.liveDatum || p.laatstGewijzigd).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : '';
     return `<tr class="lp-row" data-pagina="${wpEsc(p.id)}"><td><strong>${wpEsc(p.titel)}</strong>${url ? `<small class="wp-muted wp-blok">${wpEsc(url)}</small>` : ''}</td><td class="wp-muted">${wpEsc(sjabloonNaam.get(pg.blueprint) || '')}</td><td class="wp-muted">${sinds}</td><td class="wp-muted">${wpEsc(r.google)}</td><td class="wp-muted">${wpEsc(r.ai || 'Nog geen AI meting')}</td><td class="wp-muted">${wpEsc(adviesVan(p.id) || 'Nog niets')}</td></tr>`;
   }).join('')}</tbody></table></div>`;
   el.querySelectorAll('[data-pagina]').forEach((tr) => tr.addEventListener('click', () => wpOpenPagina(tr.dataset.pagina)));
