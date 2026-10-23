@@ -36,11 +36,11 @@ p { font-size: 9.5pt; line-height: 1.55; margin: 0 0 3mm; color: var(--ink); }
 .cover .scherm { margin-top: auto; margin-right: -17mm; border-radius: 10px 0 0 0; }
 
 /* Schermafbeeldingen in een venster */
-.venster { background: var(--wit); border: 1px solid var(--rand); border-radius: 8px; overflow: hidden; box-shadow: 0 1px 2px rgba(20,20,43,.04), 0 4px 14px rgba(20,20,43,.05); }
+.venster { background: var(--wit); border: 1px solid var(--rand); border-radius: 8px; overflow: hidden;  }
 .venster .balk { height: 6mm; border-bottom: 1px solid var(--rand); display: flex; align-items: center; gap: 1.2mm; padding: 0 3mm; font-size: 6pt; color: var(--vaag); }
 .venster .balk i { width: 1.6mm; height: 1.6mm; border-radius: 50%; background: #d8dbe8; display: inline-block; }
 .venster .balk span { margin-left: 2mm; }
-.venster img { display: block; width: 100%; }
+.venster img { display: block; width: 100%; image-rendering: auto; }
 .venster.uitsnede img { object-fit: cover; object-position: top; }
 
 /* Kaarten en rijen */
@@ -85,7 +85,7 @@ ul.punten li b { color: var(--ink); }
 .tijdlijn .wanneer { font-family: var(--mono); font-size: 7pt; letter-spacing: .06em; text-transform: uppercase; color: var(--rood); }
 .tijdlijn p { margin: 0; font-size: 8.8pt; }
 
-.cta { background: var(--rood); color: #fff; border-radius: 10px; padding: 4.5mm 7mm; margin-top: auto; }
+.cta { background: var(--rood); color: #fff; border-radius: 10px; padding: 4.5mm 7mm; margin-top: 5mm; }
 .cta h2 { color: #fff; font-size: 15pt; margin-bottom: 2mm; }
 .cta p { color: #ffe3e7; margin: 0 0 2mm; }
 .cta .mail { font-weight: 700; color: #fff; font-size: 9.5pt; }
@@ -100,7 +100,7 @@ ul.punten li b { color: var(--ink); }
   <div class="titel">{{productTitel}}</div>
   <div class="ondertitel">Zo werkt jullie portaal, {{klant}}.</div>
   <div class="uitleg">Alles wat je nodig hebt om te starten: waar je inlogt, wat je in elk onderdeel van het portaal vindt en wat we van jullie vragen. Lees het in tien minuten, daarna kun je zelf aan de slag.</div>
-  <div class="venster scherm"><div class="balk"><i></i><i></i><i></i><span>portaal.advertisr.nl/{{slug}}</span></div><img src="schermen/overzicht.jpg" alt=""></div>
+  <div class="venster scherm"><div class="balk"><i></i><i></i><i></i><span>portaal.advertisr.nl/{{slug}}</span></div><img src="schermen/overzicht.png" alt=""></div>
 </section>
 
 <!-- 2. Praktische gegevens -->
@@ -165,7 +165,7 @@ ul.punten li b { color: var(--ink); }
           <li><b>Wat er gebeurde:</b> een korte lijst met de laatste updates.</li>
         </ul>
       </div>
-      <div class="venster uitsnede" style="max-height:46mm"><div class="balk"><i></i><i></i><i></i><span>Overzicht</span></div><img src="schermen/overzicht.jpg" alt=""></div>
+      <div class="venster uitsnede" style="max-height:46mm"><div class="balk"><i></i><i></i><i></i><span>Overzicht</span></div><img src="schermen/overzicht.png" alt=""></div>
     </div>
   </div>
 
@@ -173,7 +173,7 @@ ul.punten li b { color: var(--ink); }
   <div class="blok">
     <span class="tab">Blogs</span>
     <div class="rij omgekeerd">
-      <div class="venster uitsnede" style="max-height:52mm"><div class="balk"><i></i><i></i><i></i><span>Blogs</span></div><img src="schermen/review.jpg" alt=""></div>
+      <div class="venster uitsnede" style="max-height:52mm"><div class="balk"><i></i><i></i><i></i><span>Blogs</span></div><img src="schermen/blogs.png" alt=""></div>
       <div>
         <h2>Lees, keur goed of geef feedback.</h2>
         <p>Hier staan alle blogs, van idee tot live. Kies links een blog en lees rechts de volledige tekst, met de titel en omschrijving die Google toont en het zoekwoord waar de blog op gericht is.</p>
@@ -212,7 +212,7 @@ ul.punten li b { color: var(--ink); }
           <li><b>Google en AI:</b> per pagina zie je later hoe vaak hij getoond wordt.</li>
         </ul>
       </div>
-      <div class="venster uitsnede" style="max-height:44mm"><div class="balk"><i></i><i></i><i></i><span>Pagina's</span></div><img src="schermen/paginas.jpg" alt=""></div>
+      <div class="venster uitsnede" style="max-height:44mm"><div class="balk"><i></i><i></i><i></i><span>Pagina's</span></div><img src="schermen/paginas.png" alt=""></div>
     </div>
   </div>
   <!--endif-->
@@ -220,7 +220,7 @@ ul.punten li b { color: var(--ink); }
   <div class="blok">
     <span class="tab">Google</span>
     <div class="rij omgekeerd">
-      <div class="venster uitsnede" style="max-height:44mm"><div class="balk"><i></i><i></i><i></i><span>Google</span></div><img src="schermen/google.jpg" alt=""></div>
+      <div class="venster uitsnede" style="max-height:44mm"><div class="balk"><i></i><i></i><i></i><span>Google</span></div><img src="schermen/google.png" alt=""></div>
       <div>
         <h2>Zien wat Google doet met jullie blogs.</h2>
         <p>Hoe vaak jullie getoond worden, hoeveel bezoekers dat oplevert en op welke plek jullie staan. De cijfers lopen twee tot drie dagen achter. Een nieuwe blog heeft meestal een paar weken nodig voordat Google hem oppakt, dus de eerste weken is het rustig.</p>
@@ -237,14 +237,14 @@ ul.punten li b { color: var(--ink); }
         <p>Steeds meer mensen stellen hun vraag aan AI in plaats van aan Google. Wij stellen elke week dezelfde vragen aan ChatGPT en Gemini en tellen hoe vaak jullie bedrijf voorkomt. Zo zie je of jullie zichtbaarheid groeit.</p>
         <div class="tip"><p>De eerste meting volgt in de eerste week. Tot dan staat hier een melding.</p></div>
       </div>
-      <div class="venster uitsnede" style="max-height:24mm"><div class="balk"><i></i><i></i><i></i><span>Ai zichtbaarheid</span></div><img src="schermen/ai.jpg" alt=""></div>
+      <div class="venster uitsnede" style="max-height:24mm"><div class="balk"><i></i><i></i><i></i><span>Ai zichtbaarheid</span></div><img src="schermen/ai.png" alt=""></div>
     </div>
   </div>
 
   <div class="blok">
     <span class="tab">Maandrapporten</span>
     <div class="rij omgekeerd">
-      <div class="venster uitsnede" style="max-height:24mm"><div class="balk"><i></i><i></i><i></i><span>Maandrapporten</span></div><img src="schermen/rapporten.jpg" alt=""></div>
+      <div class="venster uitsnede" style="max-height:24mm"><div class="balk"><i></i><i></i><i></i><span>Maandrapporten</span></div><img src="schermen/rapporten.png" alt=""></div>
       <div>
         <h2>Elke maand een vast overzicht.</h2>
         <p>Op de 4e van de maand verschijnt het rapport over de maand ervoor, met een terugblik, de cijfers die vastliggen en een vooruitblik. Je kunt het als PDF downloaden en delen. De actuele stand zie je altijd bij Google.</p>
@@ -272,14 +272,14 @@ ul.punten li b { color: var(--ink); }
           <li><b>Een keuze maken:</b> spreken website en eigen informatie elkaar tegen, dan kies je wat geldt.</li>
         </ul>
       </div>
-      <div class="venster uitsnede" style="max-height:72mm"><div class="balk"><i></i><i></i><i></i><span>Merkprofiel</span></div><img src="schermen/merkprofiel.jpg" alt=""></div>
+      <div class="venster uitsnede" style="max-height:72mm"><div class="balk"><i></i><i></i><i></i><span>Merkprofiel</span></div><img src="schermen/merkprofiel.png" alt=""></div>
     </div>
   </div>
 
   <div class="blok">
     <span class="tab">Kennisdocument</span>
     <div class="rij omgekeerd">
-      <div class="venster uitsnede" style="max-height:48mm"><div class="balk"><i></i><i></i><i></i><span>Kennisdocument</span></div><img src="schermen/kennisdocument.jpg" alt=""></div>
+      <div class="venster uitsnede" style="max-height:48mm"><div class="balk"><i></i><i></i><i></i><span>Kennisdocument</span></div><img src="schermen/kennisdocument.png" alt=""></div>
       <div>
         <h2>Jullie eigen achtergrondkennis.</h2>
         <p>Heb je een folder, werkwijze of prijsafspraken die de schrijver moet kennen? Upload een Word, PDF of tekstbestand, of pas de tekst zelf aan. De blogs gebruiken het spaarzaam en alleen waar het natuurlijk past, nooit als checklist.</p>
@@ -295,7 +295,7 @@ ul.punten li b { color: var(--ink); }
         <p>Eigen foto's maken blogs en pagina's veel sterker dan stockfoto's. Sleep ze hier naartoe. Wij verkleinen ze, geven ze een passende naam en beschrijving en zetten ze in de juiste map. Jullie hoeven niets te sorteren.</p>
         <div class="tip"><p><b>Tip:</b> projectfoto's van een badkamer, ketel of installatie werken het beste. Geen foto's? Dan gebruiken we beelden uit de bibliotheek.</p></div>
       </div>
-      <div class="venster uitsnede" style="max-height:60mm"><div class="balk"><i></i><i></i><i></i><span>Beeldbank</span></div><img src="schermen/beeldbank.jpg" alt=""></div>
+      <div class="venster uitsnede" style="max-height:60mm"><div class="balk"><i></i><i></i><i></i><span>Beeldbank</span></div><img src="schermen/beeldbank.png" alt=""></div>
     </div>
   </div>
 </section>
