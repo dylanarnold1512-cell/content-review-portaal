@@ -152,6 +152,21 @@ function isOpenPunt(tekst) {
   return /niet gevonden op de website|nog te bevestigen|nog niet bevestigd/i.test(tekst);
 }
 
+// Een voorzorgsregel is een "niet beweren dat..." die wij zelf invullen omdat iets niet op de website staat.
+// Die hoeft de klant niet eerst aan te vullen: de regel geldt meteen, de klant kan hem aanpassen.
+function isVoorzorgsregel(tekst) {
+  return /^niet\s+(beweren|noemen|claimen|vermelden|suggereren)\b/i.test(String(tekst || '').trim());
+}
+
+// Haalt de vraag aan de klant uit een voorzorgsregel, zodat die als ingevuld regel getoond wordt.
+function schoneVoorzorgsregel(tekst) {
+  const kaal = String(tekst || '')
+    .replace(/\s*[;,.]?\s*(dit|het)\s+is\s+niet\s+gevonden\s+op\s+de\s+website,?\s*(vraag\s+(het\s+)?aan\s+de\s+klant)?\s*\.?\s*$/i, '')
+    .replace(/\s*[;,.]?\s*vraag\s+(het\s+)?aan\s+de\s+klant\s*\.?\s*$/i, '')
+    .trim();
+  return /[.!?]$/.test(kaal) ? kaal : kaal + '.';
+}
+
 // Zet de profieltekst om in tien secties. Geeft null terug als de tekst niet
 // de vaste kopjes heeft, zodat het tabblad dan "nog niet vastgesteld" toont.
 function parseProfiel(tekst) {
@@ -179,13 +194,15 @@ function parseProfiel(tekst) {
       subkop = schoon;
       continue;
     }
+    const voorzorg = isVoorzorgsregel(schoon);
     huidig.feiten.push({
       id: regelId(schoon),
-      tekst: schoon,
+      tekst: voorzorg ? schoneVoorzorgsregel(schoon) : schoon,
       herkomst,
       subkop,
       intern: /^prijzen/i.test(subkop),
-      open: isOpenPunt(schoon)
+      voorzorg,
+      open: isOpenPunt(schoon) && !voorzorg
     });
   }
   if (secties.length !== KOPJES.length) return null;
@@ -730,6 +747,8 @@ module.exports = {
   leesTegenstrijdigheid,
   KOPJES,
   parseProfiel,
+  isVoorzorgsregel,
+  schoneVoorzorgsregel,
   regelId,
   splitsHerkomst,
   parseSamenvatting,
