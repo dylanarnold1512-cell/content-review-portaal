@@ -36,3 +36,22 @@ test('Geen van beide is een geldig product zonder Blogr. of Pagr.', () => {
   assert.equal(s.normaliseerProducten('Geen van beide'), 'Geen van beide');
   assert.equal(s.normaliseerProducten(''), 'Blogr.');
 });
+
+test('aantalDezeMaand telt alleen echt gemaakte pagina\'s van die maand, geen voorstellen (Idee)', () => {
+  const m = require('../src/lp/maandplan');
+  const lijst = [
+    { aangemaakt: '2026-10-21T10:00:00Z', status: 'Gepubliceerd' },
+    { aangemaakt: '2026-10-22T10:00:00Z', status: 'Gepubliceerd' },
+    { aangemaakt: '2026-10-23T08:00:00Z', status: 'Idee' },
+    { aangemaakt: '2026-09-30T10:00:00Z', status: 'Gepubliceerd' }
+  ];
+  assert.strictEqual(m.aantalDezeMaand(lijst, '2026-10'), 2);
+});
+
+test('planMaand: is het aantal van deze maand gemaakt, dan is het plan voor de maand erna', () => {
+  const m = require('../src/lp/maandplan');
+  assert.strictEqual(m.planMaand('2026-10', 2, 2), '2026-11');
+  assert.strictEqual(m.planMaand('2026-10', 1, 2), '2026-10');
+  assert.strictEqual(m.planMaand('2026-10', 5, 0), '2026-10');
+  assert.strictEqual(m.volgendeMaand('2026-12'), '2027-01');
+});
