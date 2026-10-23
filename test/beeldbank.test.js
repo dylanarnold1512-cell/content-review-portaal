@@ -20,3 +20,21 @@ test('een verkeerd bestandstype of lege afbeelding gaat niet naar n8n', async ()
   const fout3 = await stuurAfbeelding('Test', { mime: 'image/webp', dataBase64: 'A'.repeat(6000001) });
   assert.equal(fout3.status, 'fout');
 });
+
+test('verwijderen stuurt de juiste actie en weigert een ongeldig bestandsnummer', async () => {
+  const { verwijderAfbeelding, ruimOp } = require('../src/services/beeldbank');
+  const ongeldig = await verwijderAfbeelding('Test', '../x');
+  assert.equal(ongeldig.status, 'fout');
+  const orig = global.fetch;
+  const aanroepen = [];
+  global.fetch = async (url, opties) => { aanroepen.push({ url, body: JSON.parse(opties.body) }); return { ok: true, status: 200, text: async () => JSON.stringify({ status: 'verwijderd' }) }; };
+  try {
+    const a = await verwijderAfbeelding('Hirs Installaties', '1AbCdEfGhIjKlMn');
+    assert.equal(a.status, 'verwijderd');
+    assert.equal(aanroepen[0].body.actie, 'verwijder');
+    assert.equal(aanroepen[0].body.driveFileId, '1AbCdEfGhIjKlMn');
+    assert.match(aanroepen[0].url, /beeldbank-verwijder$/);
+    await ruimOp('Hirs Installaties');
+    assert.equal(aanroepen[1].body.actie, 'opschonen');
+  } finally { global.fetch = orig; }
+});

@@ -115,14 +115,47 @@
     }
   }
 
+  let huidigeLijst = [];
+
   function tekenLijst(afbeeldingen) {
+    huidigeLijst = afbeeldingen;
     const lijst = el('bbLijst');
     if (!lijst) return;
     if (!afbeeldingen.length) {
-      lijst.innerHTML = '<tr><td colspan="3" class="kd-leeg">Er staan nog geen afbeeldingen in de beeldbank.</td></tr>';
+      lijst.innerHTML = '<tr><td colspan="4" class="kd-leeg">Er staan nog geen afbeeldingen in de beeldbank.</td></tr>';
       return;
     }
-    lijst.innerHTML = afbeeldingen.map((a) => '<tr><td>' + esc(a.map) + '</td><td>' + esc(a.bestandsnaam) + '</td><td>' + esc(a.alt) + '</td></tr>').join('');
+    lijst.innerHTML = afbeeldingen.map((a) => '<tr><td>' + esc(a.map) + '</td><td>' + esc(a.bestandsnaam) + '</td><td>' + esc(a.alt) + '</td><td class="bb-acties">'
+      + (a.driveFileId ? '<button type="button" class="mp-link bb-verwijder" data-bb-verwijder="' + esc(a.driveFileId) + '">Verwijderen</button>' : '')
+      + '</td></tr>').join('');
+  }
+
+  // Twee stappen: eerst "Zeker weten?", dan pas verwijderen. De afbeelding gaat naar de Drive prullenbak,
+  // dus een vergissing is daar nog terug te halen.
+  async function verwijder(knop) {
+    const id = knop.dataset.bbVerwijder;
+    if (!id) return;
+    if (knop.dataset.bbZeker !== '1') {
+      knop.dataset.bbZeker = '1';
+      knop.textContent = 'Zeker weten?';
+      setTimeout(() => { if (knop.isConnected) { knop.dataset.bbZeker = ''; knop.textContent = 'Verwijderen'; } }, 5000);
+      return;
+    }
+    knop.disabled = true;
+    knop.textContent = 'Bezig...';
+    try {
+      const antwoord = await apiBb('/' + clientId + '/beeldbank/verwijder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ driveFileId: id }) });
+      if (antwoord.status === 'verwijderd' || antwoord.status === 'niet_gevonden') {
+        tekenLijst(huidigeLijst.filter((a) => a.driveFileId !== id));
+      } else {
+        throw new Error(antwoord.melding || 'Verwijderen lukte niet.');
+      }
+    } catch (err) {
+      knop.disabled = false;
+      knop.textContent = 'Lukte niet, probeer het later opnieuw';
+      knop.dataset.bbZeker = '';
+      knop.title = err.message;
+    }
   }
 
   async function laadLijst() {
@@ -131,11 +164,28 @@
       tekenLijst(data.afbeeldingen || []);
     } catch (err) {
       const lijst = el('bbLijst');
-      if (lijst) lijst.innerHTML = '<tr><td colspan="3" class="kd-leeg">De lijst laadt even niet.</td></tr>';
+      if (lijst) lijst.innerHTML = '<tr><td colspan="4" class="kd-leeg">De lijst laadt even niet.</td></tr>';
+      return;
     }
+    // Daarna op de achtergrond regels weghalen waarvan het bestand al uit Drive is verdwenen.
+    try {
+      const op = await apiBb('/' + clientId + '/beeldbank/opschonen', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      if (op && op.verwijderd > 0) {
+        const data = await apiBb('/' + clientId + '/beeldbank');
+        tekenLijst(data.afbeeldingen || []);
+      }
+    } catch (err) { /* opschonen is een extraatje, de lijst blijft staan */ }
   }
 
   function koppel() {
+    const tabel = el('bbLijst');
+    if (tabel && !tabel.dataset.gekoppeld) {
+      tabel.dataset.gekoppeld = '1';
+      tabel.addEventListener('click', (e) => {
+        const knop = e.target.closest('[data-bb-verwijder]');
+        if (knop) verwijder(knop);
+      });
+    }
     const invoer = el('bbBestand');
     if (invoer && !invoer.dataset.gekoppeld) {
       invoer.dataset.gekoppeld = '1';

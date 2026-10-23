@@ -325,6 +325,28 @@ router.post('/:clientId/beeldbank/upload', requireLogin, async (req, res) => {
   }
 });
 
+router.post('/:clientId/beeldbank/verwijder', requireLogin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    if (!beeldbankService.beeldbankAan(config)) return res.status(404).json({ error: 'De beeldbank staat niet aan voor deze klant.' });
+    const antwoord = await beeldbankService.verwijderAfbeelding(config.naam, (req.body || {}).driveFileId);
+    res.json(antwoord);
+  } catch (err) {
+    res.status(500).json({ status: 'fout', melding: err.message });
+  }
+});
+
+// Haalt regels weg waarvan het bestand al uit Drive is verdwenen. Het tabblad roept dit na het laden van de lijst aan.
+router.post('/:clientId/beeldbank/opschonen', requireLogin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    if (!beeldbankService.beeldbankAan(config)) return res.status(404).json({ error: 'De beeldbank staat niet aan voor deze klant.' });
+    res.json(await beeldbankService.ruimOp(config.naam));
+  } catch (err) {
+    res.status(500).json({ status: 'fout', melding: err.message });
+  }
+});
+
 // Kennisdocument: achtergrondinformatie die de AI spaarzaam gebruikt bij het
 // schrijven van blogs (zie src/services/kennisdocument.js voor waar dit
 // vandaan komt). Matcht op de klantnaam zoals die in clients.js staat, dus
