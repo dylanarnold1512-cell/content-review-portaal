@@ -270,6 +270,7 @@ async function zetNieuweKlant(clientId, naam, velden = {}) {
 }
 
 module.exports = {
+  getSettingsMap,
   zetNieuweKlant,
   getClientSettings,
   listAllSettings,

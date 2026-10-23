@@ -493,6 +493,7 @@ function renderInstellingen(c, inhoud) {
       </select>
     </div>
   </section>
+  ${heeftBlogr(c) ? '<div id="wgKaart" class="wg-houder"><section class="p-kaart ad-blok"><div class="ad-regel"><div class="ad-regel-tekst"><b>Gegevens voor de workflows</b><span>Laden…</span></div></div></section></div>' : ''}
   <section class="p-kaart ad-blok">
     <div class="ad-regel">
       <div class="ad-regel-tekst"><b>Product</b><span>Blogr. toont het blogportaal, Pagr. de landingspagina's. Bij Beide staat er een extra onderdeel in het menu van de klant. Geen van beide: de klant heeft geen product, maar je kunt hieronder Automatisering intern aanzetten voor eigen werk.</span></div>
@@ -529,6 +530,68 @@ function renderInstellingen(c, inhoud) {
   </section>
   ${c.inNotion ? '' : '<p class="admin-footnote">Deze klant heeft nog geen rij in de Notion database Portaal Instellingen. Die wordt automatisch aangemaakt bij de eerste wijziging.</p>'}`;
   bindInstellingen(inhoud);
+  const wgHouder = inhoud.querySelector('#wgKaart');
+  if (wgHouder) laadWorkflowGegevens(c, wgHouder);
+}
+
+async function laadWorkflowGegevens(c, houder) {
+  try {
+    const data = await adminApi(`/klantgegevens/${encodeURIComponent(c.id)}`);
+    tekenWorkflowGegevens(c, houder, data);
+  } catch (err) {
+    houder.innerHTML = `<section class="p-kaart ad-blok"><div class="ad-regel"><div class="ad-regel-tekst"><b>Gegevens voor de workflows</b><span>Kon de gegevens niet ophalen: ${escapeHtmlAdmin(err.message)}</span></div></div></section>`;
+  }
+}
+
+function tekenWorkflowGegevens(c, houder, data) {
+  const kritiekOpen = data.controle.filter((r) => !r.ok && r.kritiek).length;
+  const adviesOpen = data.controle.filter((r) => !r.ok && !r.kritiek).length;
+  const kop = kritiekOpen
+    ? `<span class="p-pil p-pil-let-op">${kritiekOpen} ${kritiekOpen === 1 ? 'punt' : 'punten'} open voor livegang</span>`
+    : `<span class="p-pil p-pil-goed">Klaar voor livegang</span>`;
+  const controle = `<section class="p-kaart ad-blok">
+    <header class="ad-blok-kop"><h2>Controle voor livegang ${kop}</h2><p>Dit komt uit de Clients tabel in n8n. Pas hieronder aan wat ontbreekt.${adviesOpen ? ` Er ${adviesOpen === 1 ? 'is' : 'zijn'} ${adviesOpen} ${adviesOpen === 1 ? 'aandachtspunt' : 'aandachtspunten'}.` : ''}</p></header>
+    <ul class="wg-controle">${data.controle.map((r) => `<li class="${r.ok ? 'ok' : (r.kritiek ? 'fout' : 'let-op')}"><span aria-hidden="true">${r.ok ? '&#10003;' : '!'}</span>${escapeHtmlAdmin(r.tekst)}</li>`).join('')}</ul>
+  </section>`;
+  if (!data.gevonden) { houder.innerHTML = controle; return; }
+  const groepen = data.groepen.map((g) => {
+    const velden = g.velden.map((v) => {
+      const w = data.waarden[v.veld];
+      const id = `wg-${v.veld}`;
+      let invoer;
+      if (v.type === 'schakelaar') {
+        invoer = toggleSwitch(id, c.id, v.veld, w, false, '').replace('data-client=', 'data-wg="1" data-client=');
+      } else if (v.type === 'lang') {
+        invoer = `<textarea class="wg-invoer wg-lang" rows="3" data-wg="${v.veld}" aria-label="${escapeHtmlAdmin(v.label)}">${escapeHtmlAdmin(w)}</textarea>`;
+      } else if (v.type === 'getal') {
+        invoer = `<input type="number" class="wg-invoer wg-kort" data-wg="${v.veld}" value="${w == null ? '' : w}"${v.min !== undefined ? ` min="${v.min}"` : ''}${v.max !== undefined ? ` max="${v.max}"` : ''} aria-label="${escapeHtmlAdmin(v.label)}">`;
+      } else {
+        invoer = `<input type="text" class="wg-invoer" data-wg="${v.veld}" value="${escapeHtmlAdmin(w)}"${v.placeholder ? ` placeholder="${escapeHtmlAdmin(v.placeholder)}"` : ''} aria-label="${escapeHtmlAdmin(v.label)}">`;
+      }
+      return `<div class="ad-regel wg-regel"><div class="ad-regel-tekst"><b>${v.label}</b>${v.tip ? `<span>${v.tip}</span>` : ''}</div>${invoer}</div>`;
+    }).join('');
+    const geheimen = (g.geheimen || []).map((x) => `<div class="ad-regel wg-regel"><div class="ad-regel-tekst"><b>${x.label}</b><span>Wordt om veiligheidsredenen niet getoond en niet via het portaal aangepast.</span></div><span class="p-pil ${data.geheimen[x.veld] ? 'p-pil-goed' : 'p-pil-let-op'}">${data.geheimen[x.veld] ? 'Ingevuld' : 'Ontbreekt'}</span></div>`).join('');
+    return `<section class="p-kaart ad-blok"><header class="ad-blok-kop"><h2>${g.titel}</h2></header>${velden}${geheimen}</section>`;
+  }).join('');
+  houder.innerHTML = controle + groepen;
+  const opslaan = async (veld, waarde, terug) => {
+    try {
+      await adminApi(`/klantgegevens/${encodeURIComponent(c.id)}`, { method: 'POST', body: JSON.stringify({ field: veld, value: waarde }) });
+      renderError('');
+      await laadWorkflowGegevens(c, houder);
+    } catch (err) {
+      if (terug) terug();
+      renderError(err.message);
+    }
+  };
+  houder.querySelectorAll('input[data-wg], textarea[data-wg]').forEach((el) => {
+    if (el.type === 'checkbox') return;
+    const begin = el.value;
+    el.addEventListener('change', () => opslaan(el.dataset.wg, el.value, () => { el.value = begin; }));
+  });
+  houder.querySelectorAll('input[type="checkbox"][data-wg]').forEach((el) => {
+    el.addEventListener('change', () => opslaan(el.dataset.field, el.checked, () => { el.checked = !el.checked; }));
+  });
 }
 
 function bindInstellingen(root) {
