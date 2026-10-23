@@ -256,3 +256,13 @@ html #lpKlantgegevensTab .kg-kleurrij input[type="text"] { min-width: 0; flex: 1
 .wp-plandatum { min-width: 92px; font-weight: 600; font-size: 13px; }
 .wp-plan-rij { cursor: pointer; align-items: center; }
 .wp-kleinkop { margin: 12px 0 4px; }
+
+/* Werkplaats: Klant en knoppen blijven rechtsboven staan, ook als er veel labels onder de titel komen (bv. bij Hirs). */
+#lpWerkplaatsTab .wp-kop { flex-wrap: nowrap; align-items: flex-start; }
+#lpWerkplaatsTab .wp-kop > div:first-child { flex: 1 1 0; min-width: 0; }
+#lpWerkplaatsTab .wp-kop > .wp-kies { flex: none; width: max-content; min-width: 260px; }
+#lpWerkplaatsTab .wp-kop-knoppen { flex-wrap: nowrap; }
+@media (max-width: 760px) {
+  #lpWerkplaatsTab .wp-kop { flex-wrap: wrap; }
+  #lpWerkplaatsTab .wp-kop > .wp-kies { width: 100%; }
+}
