@@ -6,6 +6,9 @@
 //    tot de rand van het scherm lopen en er witte randen om ons ontwerp staan. Fix: de pagina loopt over
 //    de volle schermbreedte (viewport breakout). Het kader om de inhoud regelt het sjabloon zelf (shell).
 //    body:has(.lpt) zorgt dat horizontaal scrollen nooit kan ontstaan, alleen op onze pagina's.
+//    Aanvulling 23-10-2026 (Hirs, thema Astra): sommige thema's zetten een maximale breedte (Astra: 1200 px, gecentreerd) op het
+//    eerste blok binnen onze pagina. Dan zijn donkere vlakken smaller dan het scherm. Daarom krijgt het eerste blok binnen onze
+//    pagina altijd de volle breedte, ongeacht het thema.
 // 2. Het thema toont boven de content een eigen titelbalk met de paginatitel als H1 (bij Roots
 //    header.fl-post-header, bij MAC Bouw de balk "reactheme-breadcrumbs"). Dat is lelijk en geeft een
 //    tweede H1 naast de H1 van onze hero. Fix: een klein script zoekt elke H1 buiten onze pagina, klimt
@@ -23,6 +26,7 @@ function themaCss(rootClass) {
   return `<style>
 body:has(.${rootClass}) { overflow-x: clip; }
 .${rootClass} { width: 100vw; max-width: 100vw; margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw); }
+html body .${rootClass} > * { max-width: none !important; width: 100% !important; margin-left: 0 !important; margin-right: 0 !important; }
 </style>`;
 }
 
