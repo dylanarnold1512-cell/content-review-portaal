@@ -53,6 +53,21 @@ function wpKopPillen(inst, pages) {
   return pillen;
 }
 
+// Wat gebeurt er na akkoord op het plan? Drie stappen in gewone woorden, afhankelijk van automatisch live.
+function wpNaAkkoordStappen(inst, live) {
+  const i = inst || {};
+  const n = Number(live) || 0;
+  let laatste;
+  if (i.autoLive === true && n >= 5) laatste = 'Een schone pagina gaat meteen na de controle automatisch live. Er is geen vaste datum: elke pagina gaat live zodra hij klaar is.';
+  else if (i.autoLive === true) laatste = `Automatisch live staat aan, maar werkt pas vanaf 5 live pagina's (nu ${n}). Tot dan zet jij schone pagina's live met de knop Zet live.`;
+  else laatste = 'Automatisch live staat uit: jij zet schone pagina\'s live met de knop Zet live bij Wacht op jou. Er is dus geen vaste datum. Een pagina gaat pas live als jij dat doet.';
+  return [
+    'Schrijven: het systeem begint direct, een pagina per keer. Ze komen eerst in de kolom Gepland en in de maak.',
+    'Controle: een pagina zonder open punten wordt Klaar voor live. Een pagina met een punt komt bij Wacht op jou om te controleren.',
+    laatste
+  ];
+}
+
 // Wat staat er voor volgende maand klaar? Voorstellen van het plan met plan.maand van volgende maand.
 function wpVolgendeInfo(voorstellen, nu) {
   const volgende = wpVolgendeMaand(wpMaandSleutel(nu));
@@ -428,7 +443,7 @@ function wpTekenWacht(pages) {
   });
   const voorgesteld = (lpState.wpVoorgesteld && lpState.wpVoorgesteld.voorstellen) || [];
   if (voorgesteld.length) {
-    items.push({ soort: 'Plan ' + (lpState.wpVoorgesteld.maand || ''), klasse: 'plan', titel: `${voorgesteld.length} voorstel${voorgesteld.length === 1 ? '' : 'len'} ${voorgesteld.length === 1 ? 'staat' : 'staan'} klaar`, tekst: 'De AI heeft een plan klaargezet. Vink aan wat je wilt en keur goed.', knoppen: [{ label: `Keur ${voorgesteld.length === 1 ? 'het' : 'alle'} ${voorgesteld.length === 1 ? 'voorstel' : voorgesteld.length + ' voorstellen'} goed`, hoofd: true, actie: (b) => wpKeurAlleVoorstellen(b) }, { label: 'Bekijk het plan', actie: () => { const k = document.getElementById('wpMaandplanKaart'); if (k) k.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }] });
+    items.push({ soort: 'Plan ' + (lpState.wpVoorgesteld.maand || ''), klasse: 'plan', titel: `${voorgesteld.length} voorstel${voorgesteld.length === 1 ? '' : 'len'} ${voorgesteld.length === 1 ? 'staat' : 'staan'} klaar`, tekst: 'De AI heeft een plan klaargezet. Na akkoord schrijft het systeem de pagina\'s en controleert ze. Live zetten doe jij, tenzij automatisch live aan staat.', knoppen: [{ label: `Keur ${voorgesteld.length === 1 ? 'het' : 'alle'} ${voorgesteld.length === 1 ? 'voorstel' : voorgesteld.length + ' voorstellen'} goed`, hoofd: true, actie: (b) => wpKeurAlleVoorstellen(b) }, { label: 'Bekijk het plan', actie: () => { const k = document.getElementById('wpMaandplanKaart'); if (k) k.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }] });
   }
   (lpState.wpIdeeen || []).forEach((i) => {
     items.push({ soort: 'Idee van de klant', klasse: 'idee', titel: i.titel, tekst: i.toelichting || 'De klant stelde deze pagina voor.', knoppen: [
@@ -515,7 +530,7 @@ function wpTekenVolgende() {
     el.innerHTML = inst.plan ? `<p class="wp-muted">Nog geen voorstel. Het systeem zet het plan voor ${wpEsc(info.naam)} zelf klaar. Je ziet het hier en bij Wacht op jou.</p>` : '<p class="wp-muted">Deze klant heeft geen plan.</p>';
     return;
   }
-  el.innerHTML = `<p><b>${info.voorstellen.length}</b> ${info.voorstellen.length === 1 ? 'voorstel' : 'voorstellen'}. Na jouw akkoord schrijft het systeem de tekst en controleert hem. Daarna zie je ze bij Klaar voor live.</p><ul class="wp-volgende-lijst">${info.voorstellen.map((v) => `<li>${wpEsc(v.titel)}</li>`).join('')}</ul>`;
+  el.innerHTML = `<p><b>${info.voorstellen.length}</b> ${info.voorstellen.length === 1 ? 'voorstel' : 'voorstellen'}. Na jouw akkoord schrijft het systeem de tekst en controleert hem. Daarna zie je ze bij Klaar voor live.</p><ul class="wp-volgende-lijst">${info.voorstellen.map((v) => `<li>${wpEsc(v.titel)}</li>`).join('')}</ul><p class="wp-muted wp-kleinkop"><b>Wat gebeurt er na akkoord?</b></p><ol class="wp-stappenlijst wp-muted">${wpNaAkkoordStappen(inst, ((lpState.wpPages || []).filter((p) => p.status === 'Gepubliceerd')).length).map((t) => `<li>${wpEsc(t)}</li>`).join('')}</ol>`;
 }
 
 // Onderweg: de vijf kolommen. Een klik opent de pagina.
@@ -723,4 +738,4 @@ function wpBindVraag() {
   });
 }
 
-if (typeof module !== 'undefined') module.exports = { wpStandVan, wpStandPagina, wpBouwAdvies, WP_STAND, WP_STANDEN, wpVolgendeInfo, wpOnderwegKolommen, wpActiviteit, wpResultaatTekst, wpKopPillen, wpMaandSleutel, wpVolgendeMaand };
+if (typeof module !== 'undefined') module.exports = { wpStandVan, wpStandPagina, wpBouwAdvies, WP_STAND, WP_STANDEN, wpVolgendeInfo, wpOnderwegKolommen, wpActiviteit, wpResultaatTekst, wpKopPillen, wpNaAkkoordStappen, wpMaandSleutel, wpVolgendeMaand };

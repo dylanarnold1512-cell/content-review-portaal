@@ -107,3 +107,11 @@ test('kop van de werkplaats: pillen met automatisch live, plan en meting', () =>
   const aan = wpKopPillen({ automatisering: true, pagr: true, autoLive: true, paginameting: false }, pages).map((x) => x.tekst);
   assert.ok(aan.includes("Automatisch live aan vanaf 5 live pagina's (nu 2)"));
 });
+
+test('na akkoord: drie stappen, live hangt af van automatisch live', () => {
+  const { wpNaAkkoordStappen } = require('../public/lp-werkplaats.js');
+  assert.equal(wpNaAkkoordStappen({}, 2).length, 3);
+  assert.ok(wpNaAkkoordStappen({ autoLive: false }, 2)[2].includes('Automatisch live staat uit'));
+  assert.ok(wpNaAkkoordStappen({ autoLive: true }, 2)[2].includes('vanaf 5 live pagina'));
+  assert.ok(wpNaAkkoordStappen({ autoLive: true }, 6)[2].includes('automatisch live'));
+});
