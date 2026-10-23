@@ -168,6 +168,29 @@ function extractLettertypeCandidates(cssBlocks) {
     .slice(0, 8);
 }
 
+const EXTRA_METPAGINAS = 3;
+const MET_OVERSLAAN_RE = /\.(pdf|jpe?g|png|gif|webp|svg|zip|xml)(\?|$)|\/(wp-admin|wp-login|wp-json|feed|cart|checkout|winkelwagen|afrekenen|mijn-account|account|privacy|cookie|algemene-voorwaarden|disclaimer)(\/|$)/i;
+
+// Kiest tot 3 interne pagina's uit de links van de homepage, bij voorkeur uit verschillende secties van de site.
+function kiesExtraMetPaginas(html, basisUrl) {
+  let basis;
+  try { basis = new URL(basisUrl); } catch (err) { return []; }
+  const gekozen = [];
+  const sectiesGezien = new Set(['']);
+  for (const m of String(html).matchAll(/<a\s[^>]*href\s*=\s*["']([^"'#]+)["']/gi)) {
+    let u;
+    try { u = new URL(m[1], basis); } catch (err) { continue; }
+    if (u.hostname.replace(/^www\./, '') !== basis.hostname.replace(/^www\./, '')) continue;
+    if (MET_OVERSLAAN_RE.test(u.pathname + u.search) || u.pathname === '/' || u.pathname === basis.pathname) continue;
+    const sectie = u.pathname.split('/').filter(Boolean)[0] || '';
+    if (sectiesGezien.has(sectie)) continue;
+    sectiesGezien.add(sectie);
+    gekozen.push(`${u.origin}${u.pathname}`);
+    if (gekozen.length >= EXTRA_METPAGINAS) break;
+  }
+  return gekozen;
+}
+
 // Haalt de site op, verzamelt CSS (inline + gelinkte stylesheets) en levert
 // de ruwe bevindingen. Een mislukte losse stylesheet-ophaal blokkeert de rest
 // niet (zelfde aanpak als referenceFetch.js) — komt terug als "nietOpgehaald".
@@ -190,6 +213,23 @@ async function verzamelRuweHuisstijlData(url) {
     } else {
       nietOpgehaald.push({ url: sheetUrl, fout: res.fout });
     }
+  }
+
+  // Ook een paar andere pagina's meten (23-10-2026): thema's en paginabouwers zetten per pagina eigen CSS, bijvoorbeeld
+  // voor knoppen en secties die op de homepage niet voorkomen. Nooit blokkerend, mislukt het, dan blijft de homepage staan.
+  const gezien = new Set(stylesheetUrls);
+  for (const extraUrl of kiesExtraMetPaginas(html, url)) {
+    try {
+      const extra = await fetchText(extraUrl);
+      if (!extra.ok) continue;
+      inlineStyleBlocks.push(...[...extra.text.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map((m) => m[1]));
+      for (const sheetUrl of findStylesheetLinks(extra.text, extraUrl)) {
+        if (gezien.has(sheetUrl)) continue;
+        gezien.add(sheetUrl);
+        const res = await fetchText(sheetUrl, 6000);
+        if (res.ok) opgehaaldeCss.push(res.text);
+      }
+    } catch (err) { /* losse pagina overslaan */ }
   }
 
   const combinedCss = [...inlineStyleBlocks, ...opgehaaldeCss].join('\n');

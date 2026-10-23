@@ -535,7 +535,7 @@ Aantal afbeeldingen op de pagina: ${summary.structuur.aantalAfbeeldingen}`;
 // Aanleiding: het sjabloonvoorbeeld voor MAC Bouw toonde verzonnen tekst ("Dakkapel laten plaatsen in Amsterdam"),
 // omdat de AI alleen de huisstijl kreeg en niet wat de klant doet en waar. Nu krijgt hij bedrijf, plaats, werkgebied
 // en een deel van de teksten van de eigen site. Nooit blokkerend: lukt het niet, dan gaat het sjabloon door zonder.
-const SJABLOON_BRON_MAX_WOORDEN = 3500;
+const SJABLOON_BRON_MAX_WOORDEN = 9000; // gelijk aan MAX_WOORDEN_TOTAAL in siteTeksten.js (was 3500)
 
 // maxWoorden: standaard 3500 (sjablonen). De chat (Bouwen met chat) vraagt 9000, gelijk aan Content genereren,
 // omdat hij echte teksten schrijft en dus de hele site (tot 14 pagina's) als bron nodig heeft.
