@@ -110,7 +110,7 @@ function schoonProfiel(invoer) {
   }
   // Automatisch live zetten (23-10-2026): alleen bewaren als het is meegestuurd. Werkt pas na 5 live pagina's, zie klaarVoorLive.js.
   if (i.autoLive !== undefined) uit.autoLive = i.autoLive === true;
-  // Plan automatisch goedkeuren (23-10-2026): zelfde regel, werkt pas na 5 live pagina's. Zie klaarVoorLive.js.
+  // Plan zonder akkoord (23-10-2026): standaard plant het systeem zelf. Alleen false betekent dat Dylan het plan eerst goedkeurt. Zie planning.js.
   if (i.autoPlan !== undefined) uit.autoPlan = i.autoPlan === true;
   // Correcties van Dylan op teksten (23-10-2026): alleen bewaren als ze zijn meegestuurd. Zie leren.js.
   if (i.correcties !== undefined) uit.correcties = leren.schoonCorrecties(i.correcties);
@@ -388,7 +388,7 @@ function bewerkbaar(id) {
       voorbeeldPaginas: p.voorbeeldPaginas || {},
       reviewsWidget: p.reviewsWidget || null,
       autoLive: p.autoLive === true,
-      autoPlan: p.autoPlan === true,
+      autoPlan: p.autoPlan !== false,
       correcties: p.correcties || [],
       huisstijl: huisstijlUitTokens(getTokens(id))
     },

@@ -47,13 +47,13 @@ function isPlanVanMaand(page, maand) {
 }
 
 // Invoer van een voorgesteld (nog niet goedgekeurd) plan.
-function invoerVoorVoorgesteld(v, maand) {
+function invoerVoorVoorgesteld(v, maand, opties = {}) {
   return {
     plaatsnaam: v.plaats || '',
     dienstFocus: v.dienst || '',
     onderwerp: v.titel,
     _watGaatDezePaginaOver: onderwerpTekst({ dienstFocus: v.dienst, plaatsnaam: v.plaats, plan: { reden: v.reden } }, v.titel),
-    plan: { status: 'voorgesteld', maand, soort: v.soort || '', reden: v.reden || '', signaal: v.signaal == null ? null : v.signaal, volume: typeof v.volume === 'number' ? v.volume : null }
+    plan: { status: opties.status || 'voorgesteld', ...(opties.schrijfOp ? { schrijfOp: opties.schrijfOp } : {}), maand, soort: v.soort || '', reden: v.reden || '', signaal: v.signaal == null ? null : v.signaal, volume: typeof v.volume === 'number' ? v.volume : null }
   };
 }
 
