@@ -4,6 +4,7 @@ const merkprofielService = require('../services/merkprofiel');
 const intakeAnalyse = require('../services/intakeAnalyse');
 const intakeAdvies = require('../services/intakeAdvies');
 const settingsService = require('../services/settings');
+const workflowGegevens = require('../services/workflowGegevens');
 const notionService = require('../services/notion');
 const intakeService = require('../services/intake');
 const onboardingService = require('../services/onboarding');
@@ -98,6 +99,38 @@ router.post('/settings/:clientId', requireAdmin, async (req, res) => {
     res.json({ ok: true, melding });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Gegevens uit de Clients tabel in n8n (reviewmail, contactnaam, WordPress, enzovoort).
+router.get('/klantgegevens/:clientId', requireAdmin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    if (!config) return res.status(404).json({ error: 'Onbekende klant.' });
+    const map = await settingsService.getSettingsMap();
+    const inst = map.get(req.params.clientId);
+    const data = await workflowGegevens.leesGegevens({
+      clientId: req.params.clientId,
+      naam: config.naam,
+      portaalStatus: inst ? inst.klantstatus : '',
+      portaalStatusIngesteld: inst ? inst.klantstatusIngesteld : false
+    });
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/klantgegevens/:clientId', requireAdmin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    if (!config) return res.status(404).json({ error: 'Onbekende klant.' });
+    const { field, value } = req.body || {};
+    await workflowGegevens.bewaarVeld({ clientId: req.params.clientId, naam: config.naam, veld: field, waarde: value });
+    res.json({ ok: true });
+  } catch (err) {
+    const fout = /moet|mag |geen geldig|te lang|kan niet via|beginnen met/.test(err.message);
+    res.status(fout ? 400 : 500).json({ error: err.message });
   }
 });
 

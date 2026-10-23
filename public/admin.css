@@ -112,3 +112,19 @@
 .ad-succes-prompt span { font-size: 13px; color: var(--p-tekst-zacht); }
 .ad-succes-prompt code { background: var(--panel); border-radius: 8px; padding: 6px 10px; font-size: 14px; overflow-wrap: anywhere; }
 .ad-succes-acties { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+
+/* Gegevens voor de workflows (Clients tabel in n8n) */
+.wg-houder { display: flex; flex-direction: column; gap: 16px; margin-bottom: 16px; }
+.wg-controle { list-style: none; margin: 0; padding: 8px 20px 16px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.wg-controle li { display: flex; gap: 10px; align-items: flex-start; }
+.wg-controle li span { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; flex: none; font-size: 12px; font-weight: 700; }
+.wg-controle li.ok span { background: var(--p-goed-zacht); color: var(--p-goed); }
+.wg-controle li.fout span { background: var(--p-let-op-zacht); color: var(--p-let-op); }
+.wg-controle li.let-op span { background: var(--p-ai-zacht); color: var(--p-ai); }
+.wg-invoer { width: 320px; max-width: 100%; padding: 8px 10px; border: 1px solid var(--p-raster); border-radius: 8px; font: inherit; font-size: 14px; background: var(--panel); color: inherit; }
+.wg-invoer.wg-kort { width: 110px; }
+.wg-invoer.wg-lang { width: 420px; min-height: 72px; resize: vertical; }
+@media (max-width: 700px) {
+  .wg-regel { flex-direction: column; align-items: stretch; }
+  .wg-invoer, .wg-invoer.wg-lang { width: 100%; }
+}
