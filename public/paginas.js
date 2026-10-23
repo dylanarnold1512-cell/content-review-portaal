@@ -40,7 +40,7 @@
         <td><span class="p-pil ${KLASSE[p.stand] || 'p-pil-neutraal'}">${esc(p.stand)}</span></td>
         <td class="pg-gemeten">${googleTekst(p, data.meting)}</td>
         <td class="pg-gemeten">${aiTekst(p, data.meting)}</td>
-        <td>${esc(datum(p.stand === 'Live' ? (p.liveDatum || p.bijgewerkt) : p.bijgewerkt))}</td>
+        <td>${p.schrijfOp ? `Wordt geschreven rond ${esc(datum(p.schrijfOp))}` : esc(datum(p.stand === 'Live' ? (p.liveDatum || p.bijgewerkt) : p.bijgewerkt))}</td>
       </tr>`).join('');
     return `
       <div class="p-kerncijfers">
@@ -108,7 +108,7 @@
     return { live: live.length, metGoogle: metGoogle.length, klikken, vertoningen, genoemd };
   }
   function volgende(paginas, aantal = 3) {
-    return (paginas || []).filter((p) => p.stand === 'Gepland').slice(0, aantal);
+    return (paginas || []).filter((p) => p.stand === 'Gepland').sort((a, b) => (a.schrijfOp || '9999').localeCompare(b.schrijfOp || '9999')).slice(0, aantal);
   }
   function recentLive(paginas, aantal = 3) {
     return (paginas || []).filter((p) => p.stand === 'Live')
@@ -151,7 +151,7 @@
         </div>
         <div class="pg-twee">
           <section class="p-kaart pg-blok"><h2>Hierna</h2>
-            ${komt.length ? komt.map((p) => `<div class="pg-regel"><strong>${esc(p.titel)}</strong>${p.reden ? `<div class="pg-reden">${esc(p.reden)}</div>` : ''}</div>`).join('') : '<p class="pg-gemeten">Er staat op dit moment niets gepland. Heb je zelf een idee, dan hoor ik het graag.</p>'}
+            ${komt.length ? komt.map((p) => `<div class="pg-regel"><strong>${esc(p.titel)}</strong>${p.schrijfOp ? `<div class="pg-reden">Wordt geschreven rond ${esc(datum(p.schrijfOp))}</div>` : ''}${p.reden ? `<div class="pg-reden">${esc(p.reden)}</div>` : ''}</div>`).join('') : '<p class="pg-gemeten">Er staat op dit moment niets gepland. Heb je zelf een idee, dan hoor ik het graag.</p>'}
           </section>
           <section class="p-kaart pg-blok"><h2>Net live</h2>
             ${live.length ? live.map((p) => `<div class="pg-regel"><strong>${paginaLink(p)}</strong><div class="pg-reden">${esc(datum(p.liveDatum || p.bijgewerkt))}</div></div>`).join('') : '<p class="pg-gemeten">Er staat nog geen pagina live.</p>'}
