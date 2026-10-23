@@ -829,7 +829,14 @@ async function ververWachtTeller() {
     const n = res.ok ? Number(data.totaal) || 0 : 0;
     el.textContent = String(n);
     el.classList.toggle('hidden', !n);
-    el.title = (data.klanten || []).map((k) => `${k.naam}: ${k.totaal}`).join(', ');
+    el.title = (data.klanten || []).map((k) => {
+      const delen = [];
+      if (k.controleren && k.controleren.length) delen.push(`${k.controleren.length} te controleren`);
+      if (k.fout && k.fout.length) delen.push(`${k.fout.length} mislukt`);
+      if (k.voorstellen) delen.push(`${k.voorstellen} ${k.voorstellen === 1 ? 'voorstel' : 'voorstellen'}`);
+      if (k.ideeen) delen.push(`${k.ideeen} ${k.ideeen === 1 ? 'idee van de klant' : 'ideeën van de klant'}`);
+      return `${k.naam}: ${delen.join(', ') || k.totaal}`;
+    }).join('\n');
   } catch (e) { el.classList.add('hidden'); }
 }
 setInterval(ververWachtTeller, 5 * 60 * 1000);

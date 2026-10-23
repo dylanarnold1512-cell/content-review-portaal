@@ -20,6 +20,7 @@
 .wp-muted { color: var(--text-muted); }
 .wp-pil { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 500; white-space: nowrap; }
 .wp-stip { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.wp-voorstel { background: #fdeef3; color: #b3235c; }
 .wp-gepland { background: #e9eefd; color: #3a5fd9; }
 .wp-maak { background: #f1eefc; color: #6a35ff; }
 .wp-controle { background: #fdf1dc; color: #b26a00; }
