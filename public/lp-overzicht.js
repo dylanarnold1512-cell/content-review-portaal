@@ -41,6 +41,7 @@ function ovKerncijfers(t) {
 function ovRijHtml(k) {
   const d = k.dezeMaand;
   const auto = ovAutoLiveTekst(k.autoLive);
+  const plan = ovAutoLiveTekst(k.autoPlan);
   const onderweg = [];
   if (k.inDeMaak || k.gepland) onderweg.push(`<span class="wp-pil wp-maak"><span class="wp-stip"></span>${k.inDeMaak + k.gepland} in de maak</span>`);
   if (k.controleren) onderweg.push(`<span class="wp-pil wp-controle"><span class="wp-stip"></span>${k.controleren} controle</span>`);
@@ -50,7 +51,7 @@ function ovRijHtml(k) {
   const voorstelDezeMaand = d.voorstellen ? `<small class="wp-muted">${ovMv(d.voorstellen, 'voorstel', 'voorstellen')} te keuren</small>` : '';
   const volgende = k.volgendeMaand.voorstellen ? `<span class="wp-pil wp-voorstel"><span class="wp-stip"></span>${ovMv(k.volgendeMaand.voorstellen, 'voorstel', 'voorstellen')}</span>` : '<span class="wp-muted">Nog niet gepland</span>';
   const laatst = k.laatst ? new Date(k.laatst).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : '';
-  return `<tr data-ov-klant="${ovEsc(k.id)}"><td><strong>${ovEsc(k.naam)}</strong><small class="wp-muted">${k.live} live</small></td><td><b>${maandTekst}</b>${voorstelDezeMaand}</td><td>${volgende}</td><td><div class="ov-pillen">${onderweg.join('') || '<span class="wp-muted">Niets onderweg</span>'}</div></td><td><span class="wp-pil ${auto.klasse}"><span class="wp-stip"></span>${ovEsc(auto.tekst)}</span></td><td class="wp-muted">${laatst}</td><td><button type="button" class="btn btn-plain" data-ov-open="${ovEsc(k.id)}">Open werkplaats</button></td></tr>`;
+  return `<tr data-ov-klant="${ovEsc(k.id)}"><td><strong>${ovEsc(k.naam)}</strong><small class="wp-muted">${k.live} live</small></td><td><b>${maandTekst}</b>${voorstelDezeMaand}</td><td>${volgende}</td><td><div class="ov-pillen">${onderweg.join('') || '<span class="wp-muted">Niets onderweg</span>'}</div></td><td><span class="wp-pil ${auto.klasse}"><span class="wp-stip"></span>Live: ${ovEsc(auto.tekst)}</span><span class="wp-pil ${plan.klasse} ov-tweede"><span class="wp-stip"></span>Plan: ${ovEsc(plan.tekst)}</span></td><td class="wp-muted">${laatst}</td><td><button type="button" class="btn btn-plain" data-ov-open="${ovEsc(k.id)}">Open werkplaats</button></td></tr>`;
 }
 
 function ovOpenWerkplaats(klant) {

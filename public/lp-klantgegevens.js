@@ -44,6 +44,7 @@
     $('kgNiet').value = (p.nietToegestaan || []).join('\n');
     $('kgCtaBalken').value = String((p.ctaBalken && p.ctaBalken.aantal) === 2 ? 2 : 1);
     $('kgAutoLiveAan').checked = p.autoLive === true;
+    $('kgAutoPlanAan').checked = p.autoPlan === true;
     laadAutoLive(k.id);
     state.correcties = (k.profiel.correcties || []).map((c) => ({ ...c }));
     tekenCorrecties();
@@ -90,6 +91,10 @@
       vink.disabled = !genoeg && !vink.checked;
       uitleg.dataset.live = String(live);
       uitleg.textContent = uitleg.textContent.replace(/ Nu staan er \d+ live\.$/, '') + ` Nu staan er ${live} live.`;
+      const planVink = $('kgAutoPlanAan');
+      const planUitleg = $('kgAutoPlanUitleg');
+      planVink.disabled = !genoeg && !planVink.checked;
+      planUitleg.textContent = planUitleg.textContent.replace(/ Nu staan er \d+ live\.$/, '') + ` Nu staan er ${live} live.`;
     } catch (err) { /* de uitleg blijft staan, de server bewaakt de regel */ }
   }
 
@@ -305,6 +310,7 @@
         klantverhaal: state.kv || undefined,
         voorbeeldPaginas: state.voorbeeld,
         autoLive: $('kgAutoLiveAan').checked,
+        autoPlan: $('kgAutoPlanAan').checked,
         correcties: state.correcties,
         huisstijl: leesHuisstijl()
       },

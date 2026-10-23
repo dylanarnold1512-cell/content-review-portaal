@@ -5,7 +5,7 @@ const { huidigeMaand, volgendeMaand, aantalDezeMaand } = require('./maandplan');
 const { AUTO_LIVE_MIN_LIVE } = require('./klaarVoorLive');
 
 // soort 'pagr' = klant betaalt voor Pagr. 'eigen' = alleen interne automatisering (eigen werk van Dylan).
-function bouwKlantRij({ id, naam, soort, paginasPerMaand, autoLive, pages, tel, nu }) {
+function bouwKlantRij({ id, naam, soort, paginasPerMaand, autoLive, autoPlan, pages, tel, nu }) {
   const lijst = pages || [];
   const t = tel || { ideeen: 0, voorstellen: 0, voorstellenPerMaand: {} };
   const maand = huidigeMaand(nu);
@@ -29,6 +29,7 @@ function bouwKlantRij({ id, naam, soort, paginasPerMaand, autoLive, pages, tel, 
     dezeMaand: { gemaakt: aantalDezeMaand(lijst, maand), doel, voorstellen: perMaand[maand] || 0 },
     volgendeMaand: { voorstellen: perMaand[volgende] || 0 },
     autoLive: { aan: autoLive === true, live, nodig: AUTO_LIVE_MIN_LIVE, actief: autoLive === true && live >= AUTO_LIVE_MIN_LIVE },
+    autoPlan: { aan: autoPlan === true, live, nodig: AUTO_LIVE_MIN_LIVE, actief: autoPlan === true && live >= AUTO_LIVE_MIN_LIVE },
     laatst: laatstGewijzigd,
     wacht: controleren + fout + klaar + (t.voorstellen || 0) + (t.ideeen || 0)
   };

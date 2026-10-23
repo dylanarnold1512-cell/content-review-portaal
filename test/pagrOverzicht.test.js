@@ -63,3 +63,13 @@ test('rij html escapet de klantnaam', () => {
   const rij = bouwKlantRij({ id: 'x', naam: '<b>Evil</b>', soort: 'pagr', pages: [], nu });
   assert.ok(!ovRijHtml(rij).includes('<b>Evil</b>'));
 });
+
+test('rij kent de schakelaar plan automatisch goedkeuren', () => {
+  const vijf = Array.from({ length: 5 }, () => pagina('Gepubliceerd'));
+  const aan = bouwKlantRij({ id: 'a', naam: 'A', soort: 'pagr', autoPlan: true, pages: vijf, nu });
+  assert.equal(aan.autoPlan.actief, true);
+  const wacht = bouwKlantRij({ id: 'a', naam: 'A', soort: 'pagr', autoPlan: true, pages: vijf.slice(0, 1), nu });
+  assert.equal(wacht.autoPlan.aan, true);
+  assert.equal(wacht.autoPlan.actief, false);
+  assert.ok(ovRijHtml(aan).includes('Plan: Aan'));
+});
