@@ -250,3 +250,4 @@ html #lpKlantgegevensTab .kg-kleurrij input[type="text"] { min-width: 0; flex: 1
 @media (max-width: 1100px) { .wp-kolommen { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 760px) { .wp-maanden { grid-template-columns: minmax(0, 1fr); } .wp-kolommen { grid-template-columns: minmax(0, 1fr); } }
 #wpOnderwegKaart #wpTellers { display: none; }
+.wp-pillen-rij { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; } .wp-blok { display: block; margin-top: 2px; } .wp-kolom-item small { display: block; color: var(--text-muted); margin-top: 2px; }

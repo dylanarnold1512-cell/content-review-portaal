@@ -5,9 +5,10 @@ const path = require('path');
 
 const lees = (f) => fs.readFileSync(path.join(__dirname, '..', 'public', f), 'utf8');
 
+// Nieuwe pagina staat bewust niet meer in het menu (design 23-10-2026): je start hem met de knop in de werkplaats.
 test('de admin zijbalk heeft een onderdeel per LP tab', () => {
   const html = lees('admin.html');
-  ['werkplaats', 'nieuw', 'sjablonen', 'paginas', 'kloon', 'vervang', 'klantgegevens'].forEach((tab) => {
+  ['overzicht', 'werkplaats', 'sjablonen', 'paginas', 'kloon', 'vervang', 'klantgegevens'].forEach((tab) => {
     assert.ok(html.includes(`data-pagr-tab="${tab}"`), tab);
     // Elke tab bestaat ook echt als knop in de LP.
     assert.ok(lees('lp.html').includes(`data-lp-tab="${tab}"`), tab);

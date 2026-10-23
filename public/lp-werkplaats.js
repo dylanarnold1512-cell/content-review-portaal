@@ -38,6 +38,21 @@ function wpMaandSleutel(nu) {
 function wpVolgendeMaand(sleutel) { const [j, m] = String(sleutel).split('-').map(Number); return m === 12 ? `${j + 1}-01` : `${j}-${String(m + 1).padStart(2, '0')}`; }
 function wpMaandNaam(sleutel) { return WP_MAAND_NAMEN[Number(String(sleutel).split('-')[1]) - 1] || sleutel; }
 
+// Pillen onder de kop van de werkplaats: wat is aan, hoeveel per maand, automatisch live en plan, paginameting.
+function wpKopPillen(inst, pages) {
+  const i = inst || {};
+  const live = (pages || []).filter((p) => p.status === 'Gepubliceerd').length;
+  const pillen = [];
+  if (i.automatisering) pillen.push({ klasse: 'wp-live', tekst: i.intern && !i.pagr ? 'Eigen werk, automatisering draait' : 'Pagr. aan, automatisering draait' });
+  else pillen.push({ klasse: 'wp-controle', tekst: 'Pagr. uit, je maakt pagina\'s zelf' });
+  if (i.paginasPerMaand) pillen.push({ klasse: 'wp-gepland', tekst: `${i.paginasPerMaand} pagina's per maand` });
+  const auto = (naam, aan) => (aan ? (live >= 5 ? { klasse: 'wp-live', tekst: `${naam} aan` } : { klasse: 'wp-gepland', tekst: `${naam} aan vanaf 5 live pagina's (nu ${live})` }) : { klasse: 'wp-controle', tekst: `${naam} uit: ${live} van 5 live pagina's` });
+  pillen.push(auto('Automatisch live', i.autoLive === true));
+  if (i.plan) pillen.push(auto('Plan automatisch goedkeuren', i.autoPlan === true));
+  pillen.push(i.paginameting ? { klasse: 'wp-live', tekst: 'Paginameting aan' } : { klasse: 'wp-controle', tekst: 'Paginameting uit' });
+  return pillen;
+}
+
 // Wat staat er voor volgende maand klaar? Voorstellen van het plan met plan.maand van volgende maand.
 function wpVolgendeInfo(voorstellen, nu) {
   const volgende = wpVolgendeMaand(wpMaandSleutel(nu));
@@ -48,15 +63,15 @@ function wpVolgendeInfo(voorstellen, nu) {
 // Vijf kolommen van voorstel tot live. Gepland en In de maak zitten samen in een kolom. Live toont de laatste vijf.
 function wpOnderwegKolommen(pages, maxLive) {
   const kolommen = [
-    { naam: 'Voorstel', klasse: 'wp-voorstel', paginas: [] },
-    { naam: 'Gepland en in de maak', klasse: 'wp-maak', paginas: [] },
-    { naam: 'Ter controle', klasse: 'wp-controle', paginas: [] },
-    { naam: 'Klaar voor live', klasse: 'wp-klaar', paginas: [] },
-    { naam: 'Live', klasse: 'wp-live', paginas: [] }
+    { naam: 'Voorstel', klasse: 'wp-voorstel', leeg: 'Hier staat het plan van het systeem tot jij het goedkeurt.', paginas: [] },
+    { naam: 'Gepland en in de maak', klasse: 'wp-maak', leeg: 'Na akkoord begint het schrijven vanzelf.', paginas: [] },
+    { naam: 'Ter controle', klasse: 'wp-controle', leeg: 'Alleen pagina\'s met een open punt komen hier.', paginas: [] },
+    { naam: 'Klaar voor live', klasse: 'wp-klaar', leeg: 'Schoon door de controle.', paginas: [] },
+    { naam: 'Live', klasse: 'wp-live', leeg: 'Nog niets live.', paginas: [] }
   ];
   const plek = { 'Voorstel': 0, 'Gepland': 1, 'In de maak': 1, 'Ter controle': 2, 'Klaar voor live': 3, 'Live': 4 };
   (pages || []).forEach((p) => {
-    kolommen[plek[wpStandPagina(p)]].paginas.push({ id: p.id, titel: p.titel || '(zonder titel)', fout: p.status === 'Fout' || p.status === 'Afgewezen', bijgewerkt: p.laatstGewijzigd || '' });
+    kolommen[plek[wpStandPagina(p)]].paginas.push({ id: p.id, titel: p.titel || '(zonder titel)', fout: p.status === 'Fout' || p.status === 'Afgewezen', bijgewerkt: p.laatstGewijzigd || '', liveDatum: p.liveDatum || '', voorstel: wpStandPagina(p) === 'Voorstel' });
   });
   const live = kolommen[4];
   live.paginas.sort((a, b) => String(b.bijgewerkt).localeCompare(String(a.bijgewerkt)));
@@ -243,6 +258,12 @@ async function wpStart() {
   document.getElementById('wpNieuwePagina').addEventListener('click', () => {
     switchLpTab('nieuw');
     const k = document.getElementById('lpNewKlant');
+    if (k) { k.value = sel.value; k.dispatchEvent(new Event('change')); }
+  });
+  document.getElementById('wpTerug').addEventListener('click', () => switchLpTab('overzicht'));
+  document.getElementById('wpNaarKlantgegevens').addEventListener('click', () => {
+    switchLpTab('klantgegevens');
+    const k = document.getElementById('kgKlant');
     if (k) { k.value = sel.value; k.dispatchEvent(new Event('change')); }
   });
   document.getElementById('wpNieuwSjabloon').addEventListener('click', () => {
@@ -471,8 +492,9 @@ function wpTekenMaand(pages, inst) {
   const naam = maand.charAt(0).toUpperCase() + maand.slice(1);
   const totaal = dezeMaand.length;
   const noemer = Math.max(doel, totaal, 1);
-  document.getElementById('wpMaandTitel').textContent = doel ? `${naam}: ${totaal} van ${doel} pagina's` : `${naam}: ${totaal} pagina${totaal === 1 ? '' : "'s"}`;
-  document.getElementById('wpMaandSub').textContent = doel ? "Volgens de klantinstelling Pagina's per maand" : "Stel Pagina's per maand in bij Instellingen om een doel te zien";
+  document.getElementById('wpMaandTitel').textContent = naam;
+  const afgerond = doel > 0 && tel.live >= doel;
+  document.getElementById('wpMaandSub').innerHTML = `<span class="wp-pil ${afgerond ? 'wp-live' : 'wp-maak'}"><span class="wp-stip"></span>${afgerond ? 'Afgerond' : 'Bezig'}</span> ${doel ? `${tel.live} van ${doel} live` : `${tel.live} live`}`;
   const deel = (n) => (n / noemer * 100).toFixed(1) + '%';
   document.getElementById('wpMaandBalk').innerHTML = `<span class="wp-maand-live" style="width:${deel(tel.live)}"></span><span class="wp-maand-controle" style="width:${deel(tel.controle)}"></span><span class="wp-maand-maak" style="width:${deel(tel.maak + tel.gepland)}"></span>`;
   document.getElementById('wpMaandBalk').setAttribute('aria-label', `${tel.live} live, ${tel.controle} ter controle, ${tel.maak + tel.gepland} in de maak of gepland`);
@@ -488,12 +510,12 @@ function wpTekenVolgende() {
   const inst = lpState.wpInst || {};
   const naam = info.naam.charAt(0).toUpperCase() + info.naam.slice(1);
   document.getElementById('wpVolgendeTitel').textContent = naam;
-  document.getElementById('wpVolgendeSub').textContent = inst.paginasPerMaand ? `Doel ${inst.paginasPerMaand} pagina's` : '';
+  document.getElementById('wpVolgendeSub').innerHTML = info.voorstellen.length ? '<span class="wp-pil wp-voorstel"><span class="wp-stip"></span>Plan wacht op akkoord</span>' : (inst.paginasPerMaand ? `Doel ${inst.paginasPerMaand} pagina's` : '');
   if (!info.voorstellen.length) {
     el.innerHTML = inst.plan ? `<p class="wp-muted">Nog geen voorstel. Het systeem zet het plan voor ${wpEsc(info.naam)} zelf klaar. Je ziet het hier en bij Wacht op jou.</p>` : '<p class="wp-muted">Deze klant heeft geen plan.</p>';
     return;
   }
-  el.innerHTML = `<p><b>${info.voorstellen.length}</b> ${info.voorstellen.length === 1 ? 'voorstel wacht' : 'voorstellen wachten'} op jouw goedkeuring.</p><ul class="wp-volgende-lijst">${info.voorstellen.map((v) => `<li>${wpEsc(v.titel)}</li>`).join('')}</ul>`;
+  el.innerHTML = `<p><b>${info.voorstellen.length}</b> ${info.voorstellen.length === 1 ? 'voorstel' : 'voorstellen'}. Na jouw akkoord schrijft het systeem de tekst en controleert hem. Daarna zie je ze bij Klaar voor live.</p><ul class="wp-volgende-lijst">${info.voorstellen.map((v) => `<li>${wpEsc(v.titel)}</li>`).join('')}</ul>`;
 }
 
 // Onderweg: de vijf kolommen. Een klik opent de pagina.
@@ -501,7 +523,7 @@ function wpTekenOnderweg(pages) {
   const el = document.getElementById('wpOnderweg');
   if (!el) return;
   const kolommen = wpOnderwegKolommen(pages, 5);
-  el.innerHTML = kolommen.map((k, i) => `<div class="wp-kolom"><div class="wp-kolom-kop"><span class="wp-pil ${k.klasse}"><span class="wp-stip"></span>${wpEsc(k.naam)} <b>${k.paginas.length + (k.meer || 0)}</b></span></div>${k.paginas.map((p, j) => `<button type="button" class="wp-kolom-item${p.fout ? ' fout' : ''}" data-kol="${i}" data-pag="${j}">${wpEsc(p.titel)}${p.fout ? ' (mislukt)' : ''}</button>`).join('') || '<span class="wp-muted wp-kolom-leeg">Leeg</span>'}${k.meer ? `<span class="wp-muted wp-kolom-leeg">en nog ${k.meer}</span>` : ''}</div>`).join('');
+  el.innerHTML = kolommen.map((k, i) => `<div class="wp-kolom"><div class="wp-kolom-kop"><span class="wp-pil ${k.klasse}"><span class="wp-stip"></span>${wpEsc(k.naam)} <b>${k.paginas.length + (k.meer || 0)}</b></span></div>${k.paginas.map((p, j) => `<button type="button" class="wp-kolom-item${p.fout ? ' fout' : ''}" data-kol="${i}" data-pag="${j}">${wpEsc(p.titel)}${p.fout ? ' (mislukt)' : ''}${p.voorstel ? '<small>wacht op akkoord</small>' : ''}${i === 4 && (p.liveDatum || p.bijgewerkt) ? `<small>sinds ${new Date(p.liveDatum || p.bijgewerkt).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}</small>` : ''}</button>`).join('') || `<span class="wp-muted wp-kolom-leeg">${wpEsc(k.leeg)}</span>`}${k.meer ? `<span class="wp-muted wp-kolom-leeg">en nog ${k.meer}</span>` : ''}</div>`).join('');
   el.querySelectorAll('[data-kol]').forEach((b) => b.addEventListener('click', () => wpOpenPagina(kolommen[Number(b.dataset.kol)].paginas[Number(b.dataset.pag)].id)));
 }
 
@@ -512,13 +534,25 @@ function wpTekenLog(pages) {
   el.innerHTML = lijst.length ? lijst.map((a) => `<div class="wp-wrij"><div class="wp-wtekst"><b>${wpEsc(a.titel)}</b><span class="${a.fout ? '' : 'wp-muted'}">${wpEsc(a.tekst)}</span></div><span class="wp-muted">${new Date(a.op).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}</span></div>`).join('') : '<p class="wp-muted">Nog geen activiteit.</p>';
 }
 
-// Live pagina's met wat ze opleveren. Zonder meting staat er waarom er nog niets is.
-function wpTekenResultaten(live) {
+// Live pagina's met wat ze opleveren: sjabloon, live sinds, Google, AI en advies. Zonder meting staat er waarom nog niets.
+function wpTekenResultaten(live, voorstellen) {
   const el = document.getElementById('wpResultaten');
   if (!el) return;
   const lijst = live || [];
+  const klantNaam = (document.getElementById('wpKlant').selectedOptions[0] || {}).textContent || 'deze klant';
+  const sub = document.getElementById('wpResultSub');
+  if (sub) sub.textContent = `Alle pagina's van ${klantNaam}`;
   if (!lijst.length) { el.innerHTML = '<p class="wp-muted">Nog geen live pagina\'s.</p>'; return; }
-  el.innerHTML = `<div class="wp-tabel-wrap"><table class="lp-table wp-tabel"><thead><tr><th>Pagina</th><th>Google, 28 dagen</th><th>AI</th></tr></thead><tbody>${lijst.map((p) => { const r = wpResultaatTekst(p); return `<tr class="lp-row" data-pagina="${wpEsc(p.id)}"><td><strong>${wpEsc(p.titel)}</strong></td><td class="wp-muted">${wpEsc(r.google)}</td><td class="wp-muted">${wpEsc(r.ai || '')}</td></tr>`; }).join('')}</tbody></table></div>`;
+  const paginaVan = new Map((lpState.wpPages || []).map((p) => [p.id, p]));
+  const sjabloonNaam = new Map((lpState.wpTemplates || []).map((t) => [t.blueprintId, t.naam]));
+  const adviesVan = (id) => (voorstellen || []).filter((v) => v.paginaId === id).map((v) => v.reden).join(' ');
+  el.innerHTML = `<div class="wp-tabel-wrap"><table class="lp-table wp-tabel"><thead><tr><th>Pagina</th><th>Sjabloon</th><th>Live sinds</th><th>Google, 28 dagen</th><th>Genoemd door AI</th><th>Advies</th></tr></thead><tbody>${lijst.map((p) => {
+    const r = wpResultaatTekst(p);
+    const pg = paginaVan.get(p.id) || {};
+    const url = String(pg.wpUrl || '').replace(/^https?:\/\//, '');
+    const sinds = p.liveDatum ? new Date(p.liveDatum).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : '';
+    return `<tr class="lp-row" data-pagina="${wpEsc(p.id)}"><td><strong>${wpEsc(p.titel)}</strong>${url ? `<small class="wp-muted wp-blok">${wpEsc(url)}</small>` : ''}</td><td class="wp-muted">${wpEsc(sjabloonNaam.get(pg.blueprint) || '')}</td><td class="wp-muted">${sinds}</td><td class="wp-muted">${wpEsc(r.google)}</td><td class="wp-muted">${wpEsc(r.ai || 'Nog geen AI meting')}</td><td class="wp-muted">${wpEsc(adviesVan(p.id) || 'Nog niets')}</td></tr>`;
+  }).join('')}</tbody></table></div>`;
   el.querySelectorAll('[data-pagina]').forEach((tr) => tr.addEventListener('click', () => wpOpenPagina(tr.dataset.pagina)));
 }
 
@@ -600,9 +634,11 @@ async function wpLaadMaandplan(klant, pagr) {
 function wpTekenModule(inst) {
   const el = document.getElementById('wpModule');
   if (!el) return;
+  const pillen = document.getElementById('wpPillen');
+  if (pillen) pillen.innerHTML = wpKopPillen(inst, lpState.wpPages).map((x) => `<span class="wp-pil ${x.klasse}"><span class="wp-stip"></span>${wpEsc(x.tekst)}</span>`).join('');
   const aan = Boolean(inst && inst.automatisering);
   const intern = Boolean(inst && inst.intern && !inst.pagr);
-  el.className = 'wp-module ' + (aan ? 'aan' : 'uit');
+  el.className = 'wp-module ' + (aan ? 'aan hidden' : 'uit');
   el.innerHTML = aan
     ? (intern
       ? '<strong>Automatisering aan voor eigen werk</strong><span>De AI schrijft de tekst vanzelf en de rest van de automatisering draait. De klant heeft Pagr. niet en ziet het niet in zijn portaal.</span>'
@@ -640,7 +676,7 @@ function wpTekenIdeeen(ideeen) {
 
 function wpTekenBijhouden(data) {
   lpState.wpBijhouden = data;
-  wpTekenResultaten(data.live || []);
+  wpTekenResultaten(data.live || [], data.voorstellen || []);
   const el = document.getElementById('wpBijhouden');
   const meld = [];
   if (data.metingUit) {
@@ -687,4 +723,4 @@ function wpBindVraag() {
   });
 }
 
-if (typeof module !== 'undefined') module.exports = { wpStandVan, wpStandPagina, wpBouwAdvies, WP_STAND, WP_STANDEN, wpVolgendeInfo, wpOnderwegKolommen, wpActiviteit, wpResultaatTekst, wpMaandSleutel, wpVolgendeMaand };
+if (typeof module !== 'undefined') module.exports = { wpStandVan, wpStandPagina, wpBouwAdvies, WP_STAND, WP_STANDEN, wpVolgendeInfo, wpOnderwegKolommen, wpActiviteit, wpResultaatTekst, wpKopPillen, wpMaandSleutel, wpVolgendeMaand };

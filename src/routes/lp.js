@@ -692,6 +692,8 @@ router.get('/plan/instellingen', requireLpInternal, async (req, res) => {
       automatisering: Boolean(inst.pagr || inst.internAutomatisering),
       plan: Boolean(inst.pagr),
       paginameting: Boolean(inst.paginameting),
+      autoLive: getLpClient(klant).profile.autoLive === true,
+      autoPlan: getLpClient(klant).profile.autoPlan === true,
       volumeBeschikbaar: Boolean(inst.paginameting) && require('../lp/zoekvolume').beschikbaar()
     });
   } catch (err) {
@@ -729,7 +731,9 @@ router.get('/pagr-overzicht', requireLpInternal, async (req, res) => {
       if (!inst.pagr && !inst.internAutomatisering) continue;
       const pages = await lpNotion.listPages({ klant });
       const tel = pages.some((p) => p.status === 'Idee') ? await telKlantIdeeen(klant) : undefined;
-      rijen.push(bouwKlantRij({ id: klant, naam: lpClients[klant].profile.naam, soort: inst.pagr ? 'pagr' : 'eigen', paginasPerMaand: inst.paginasPerMaand, autoLive: lpClients[klant].profile.autoLive, autoPlan: lpClients[klant].profile.autoPlan, pages, tel }));
+      const google = inst.paginameting ? await meting.haalGoogle(klant).catch(() => null) : null;
+      const product = inst.producten === 'Beide' ? 'Blogr. en Pagr.' : (inst.pagr ? 'Pagr.' : 'Eigen werk');
+      rijen.push(bouwKlantRij({ id: klant, naam: lpClients[klant].profile.naam, soort: inst.pagr ? 'pagr' : 'eigen', product, paginameting: Boolean(inst.paginameting), google, paginasPerMaand: inst.paginasPerMaand, autoLive: lpClients[klant].profile.autoLive, autoPlan: lpClients[klant].profile.autoPlan, pages, tel }));
     }
     const data = { maand: maandplan.huidigeMaand(), klanten: rijen, totalen: bouwTotalen(rijen) };
     overzichtCache = { op: Date.now(), data };

@@ -98,3 +98,12 @@ test('fase 3: resultaat van een live pagina zonder meting legt uit waarom', () =
   assert.equal(r.google, '120 vertoningen, 7 klikken, positie 8.4');
   assert.equal(r.ai, '2x genoemd');
 });
+
+test('kop van de werkplaats: pillen met automatisch live, plan en meting', () => {
+  const { wpKopPillen } = require('../public/lp-werkplaats.js');
+  const pages = [{ status: 'Gepubliceerd' }, { status: 'Gepubliceerd' }];
+  const t = wpKopPillen({ automatisering: true, pagr: true, plan: true, paginasPerMaand: 2, autoLive: false, autoPlan: false, paginameting: true }, pages).map((x) => x.tekst);
+  assert.deepEqual(t, ['Pagr. aan, automatisering draait', "2 pagina's per maand", "Automatisch live uit: 2 van 5 live pagina's", "Plan automatisch goedkeuren uit: 2 van 5 live pagina's", 'Paginameting aan']);
+  const aan = wpKopPillen({ automatisering: true, pagr: true, autoLive: true, paginameting: false }, pages).map((x) => x.tekst);
+  assert.ok(aan.includes("Automatisch live aan vanaf 5 live pagina's (nu 2)"));
+});
