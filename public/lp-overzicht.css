@@ -18,3 +18,4 @@
 @media (max-width: 520px) { .ov-kern { grid-template-columns: minmax(0, 1fr); } }
 .ov-tweede { margin-top: 6px; }
 .ov-tabel td .wp-pil { display: flex; width: fit-content; }
+.ov-wanneer { min-width: 64px; }
