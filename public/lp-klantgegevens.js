@@ -3,7 +3,7 @@
 (function () {
   const $ = (id) => document.getElementById(id);
   const esc = (t) => String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const state = { geladen: false, klant: null, kv: null, voorbeeld: {} };
+  const state = { geladen: false, klant: null, kv: null, voorbeeld: {}, correcties: [] };
 
   function fout(tekst) {
     const e = $('kgFout');
@@ -45,6 +45,8 @@
     $('kgCtaBalken').value = String((p.ctaBalken && p.ctaBalken.aantal) === 2 ? 2 : 1);
     $('kgAutoLiveAan').checked = p.autoLive === true;
     laadAutoLive(k.id);
+    state.correcties = (k.profiel.correcties || []).map((c) => ({ ...c }));
+    tekenCorrecties();
     state.voorbeeld = { ...(k.profiel.voorbeeldPaginas || {}) };
     laadVoorbeelden(k.id);
     state.kv = k.profiel.klantverhaal ? JSON.parse(JSON.stringify(k.profiel.klantverhaal)) : null;
@@ -68,6 +70,16 @@
 
   // Automatisch live zetten werkt pas na 5 live pagina's. Hier alleen de uitleg en de blokkade in het scherm,
   // de server controleert het aantal zelf nog een keer (src/lp/klaarVoorLive.js).
+  // Correcties die het systeem onthoudt (leren.js). Verwijderen kan hier, het bewaren gaat met Opslaan.
+  function tekenCorrecties() {
+    const el = $('kgCorrectiesLijst');
+    if (!el) return;
+    if (!state.correcties.length) { el.textContent = 'Nog geen correcties.'; return; }
+    const esc = (t) => String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    el.innerHTML = state.correcties.map((c, i) => `<div class="wp-wrij"><div class="wp-wtekst"><span class="wp-muted">${esc(c.datum)}</span><b>Voor:</b> ${esc(c.voor)}<br><b>Na:</b> ${esc(c.na)}</div><div class="wp-idee-knoppen"><button type="button" class="btn btn-plain" data-corr="${i}">Verwijder</button></div></div>`).join('');
+    el.querySelectorAll('[data-corr]').forEach((b) => b.addEventListener('click', () => { state.correcties.splice(Number(b.dataset.corr), 1); tekenCorrecties(); }));
+  }
+
   async function laadAutoLive(klantId) {
     const vink = $('kgAutoLiveAan');
     const uitleg = $('kgAutoLiveUitleg');
@@ -293,6 +305,7 @@
         klantverhaal: state.kv || undefined,
         voorbeeldPaginas: state.voorbeeld,
         autoLive: $('kgAutoLiveAan').checked,
+        correcties: state.correcties,
         huisstijl: leesHuisstijl()
       },
       feiten: [...document.querySelectorAll('#kgFeiten .kg-feit')].map((r) => ({

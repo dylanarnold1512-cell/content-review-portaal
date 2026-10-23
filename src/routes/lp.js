@@ -44,6 +44,7 @@ const { haalSiteTeksten, formatSiteTekstenVoorPrompt } = require('../lp/siteTeks
 const { bouwKlantverhaalVoorstel } = require('../lp/klantverhaal');
 const { waarschuwingGefilterd } = require('../lp/bronFilter');
 const verhaal = require('../lp/verhaal');
+const leren = require('../lp/leren');
 const plan = require('../lp/plan');
 const { onderwerpTekst, metOnderwerp, maakWachtrij } = require('../lp/autoPagina');
 const begeleiding = require('../lp/begeleiding');
@@ -1235,9 +1236,22 @@ router.put('/pages/:pageId/feitensheet', requireLpInternal, async (req, res) => 
   }
 });
 
+function onthoudCorrecties(voor, nieuweContent) {
+  (async () => {
+    if (!voor || !voor.klant || !voor.content || !voor.content.slotData || !nieuweContent || !nieuweContent.slotData) return;
+    const nieuwe = leren.verschillen(voor.content.slotData, nieuweContent.slotData);
+    if (!nieuwe.length) return;
+    await klantgegevens.voegCorrectiesToe(voor.klant, nieuwe, { pagina: voor.id, datum: new Date().toISOString().slice(0, 10) });
+  })().catch((err) => console.warn('[leren] correcties onthouden mislukt:', err.message));
+}
+
 router.put('/pages/:pageId/content', requireLpInternal, async (req, res) => {
   try {
+    // Wat Dylan in de tekst aanpast onthouden we per klant (leren.js). Nooit blokkerend: opslaan gaat altijd voor.
+    let voor = null;
+    try { voor = await lpNotion.getPage(req.params.pageId); } catch (e) { voor = null; }
     const page = await lpNotion.updateSection(req.params.pageId, 'content', req.body?.content ?? null);
+    onthoudCorrecties(voor, req.body && req.body.content);
     res.json({ page });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -1394,7 +1408,12 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
     || metInhoud.find((z) => z.voorbeeld)
     || metInhoud.filter((z) => z.status === 'Gepubliceerd').sort((a, b) => String(b.laatstGewijzigd).localeCompare(String(a.laatstGewijzigd)))[0]
     || null;
-  const voorbeeld = voorbeeldPagina ? { titel: voorbeeldPagina.titel, slotData: voorbeeldPagina.content.slotData } : null;
+  // Leren van live pagina's (23-10-2026): het hoofdvoorbeeld bepaalt de opbouw, maximaal twee andere live pagina's laten de stijl zien.
+  const voorbeeldLijst = leren.kiesVoorbeelden({ hoofd: voorbeeldPagina, kandidaten: metInhoud, paginaId: page.id });
+  const voorbeeld = voorbeeldLijst.length
+    ? { titel: voorbeeldLijst[0].titel, slotData: voorbeeldLijst[0].content.slotData, extra: voorbeeldLijst.slice(1).map((z) => ({ titel: z.titel, slotData: z.content.slotData })) }
+    : null;
+  const correcties = client.profile.correcties || [];
 
   watGaatDezePaginaOver = watGaatDezePaginaOver || onderwerpTekst(invoer, page.titel);
   const result = await ai.generatePageContent({
@@ -1411,7 +1430,8 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
     klantverhaal: client.profile.klantverhaal,
     bedrijfsnaam: (client.profile.bedrijf || {}).naam || client.profile.naam,
     voorbeeld,
-    zusterInhoud: zusters.filter((z) => z.content && (!voorbeeldPagina || z.id !== voorbeeldPagina.id)).map((z) => ({ titel: z.titel, tekst: verzamelTekst(z.content).join('\n').slice(0, 2500) }))
+    correcties,
+    zusterInhoud: zusters.filter((z) => z.content && !voorbeeldLijst.some((v) => v.id === z.id)).map((z) => ({ titel: z.titel, tekst: verzamelTekst(z.content).join('\n').slice(0, 2500) }))
   });
 
   // Automatische redactieronde: de mechanische controle leest de nieuwe tekst en alleen de aangewezen onderdelen
@@ -1443,7 +1463,8 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
         bedrijfsnaam: (client.profile.bedrijf || {}).naam || client.profile.naam,
         feiten,
         siteTeksten,
-        voorbeeld
+        voorbeeld,
+        correcties
       });
       result.slotData = herschreven.slotData;
       rest = bepaal(result.slotData);
@@ -1783,7 +1804,8 @@ router.post('/pages/:pageId/herschrijf', requireLpInternal, async (req, res) => 
       klantverhaal: kvRuw && kvRuw.status === 'goedgekeurd' ? kvRuw : null,
       bedrijfsnaam: (client.profile.bedrijf || {}).naam || client.profile.naam,
       feiten,
-      siteTeksten
+      siteTeksten,
+      correcties: client.profile.correcties || []
     });
     await lpNotion.updateSection(page.id, 'content', { ...content, slotData: r.slotData });
     res.json({ slotData: r.slotData, gewijzigd: r.gewijzigd });
