@@ -537,7 +537,9 @@ Aantal afbeeldingen op de pagina: ${summary.structuur.aantalAfbeeldingen}`;
 // en een deel van de teksten van de eigen site. Nooit blokkerend: lukt het niet, dan gaat het sjabloon door zonder.
 const SJABLOON_BRON_MAX_WOORDEN = 3500;
 
-async function formatKlantBronnenVoorSjabloon(klant) {
+// maxWoorden: standaard 3500 (sjablonen). De chat (Bouwen met chat) vraagt 9000, gelijk aan Content genereren,
+// omdat hij echte teksten schrijft en dus de hele site (tot 14 pagina's) als bron nodig heeft.
+async function formatKlantBronnenVoorSjabloon(klant, { maxWoorden = SJABLOON_BRON_MAX_WOORDEN } = {}) {
   let profile = null;
   try {
     const { getLpClient } = require('./clients');
@@ -556,7 +558,7 @@ async function formatKlantBronnenVoorSjabloon(klant) {
   try {
     const { haalSiteTeksten, formatSiteTekstenVoorPrompt, kapAfOpWoorden } = require('./siteTeksten');
     const site = await haalSiteTeksten({ url: bedrijf.url });
-    teksten = kapAfOpWoorden(formatSiteTekstenVoorPrompt(site), SJABLOON_BRON_MAX_WOORDEN);
+    teksten = kapAfOpWoorden(formatSiteTekstenVoorPrompt(site), maxWoorden);
   } catch (err) {
     teksten = '';
   }

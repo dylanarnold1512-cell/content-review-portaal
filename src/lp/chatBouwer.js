@@ -10,6 +10,8 @@
 
 const MAX_BERICHTEN_IN_PROMPT = 16;
 const MAX_BERICHTEN_BEWAARD = 60;
+// Zelfde bronruimte als Content genereren (MAX_WOORDEN_TOTAAL in siteTeksten.js): de chat leest de hele site.
+const CHAT_BRON_MAX_WOORDEN = 9000;
 const ACTIES = ['geen', 'tekst', 'bouw'];
 const IMAGE_SRC_RE = /imagesrc$/i;
 const IMAGE_ALT_RE = /imagealt$/i;
@@ -101,7 +103,7 @@ async function bouwGebruikersPrompt({ klant, client, huidig, berichten, bericht,
   const bedrijf = profiel.bedrijf || {};
   const [site, bronnen] = await Promise.all([
     ai.formatKlantSiteVoorPrompt(klant).catch(() => ''),
-    ai.formatKlantBronnenVoorSjabloon(klant).catch(() => '')
+    ai.formatKlantBronnenVoorSjabloon(klant, { maxWoorden: CHAT_BRON_MAX_WOORDEN }).catch(() => '')
   ]);
   const kv = profiel.klantverhaal;
   const kvBlok = deps.bouwKlantverhaalBlok ? deps.bouwKlantverhaalBlok(kv && kv.status === 'goedgekeurd' ? kv : null, { bedrijfsnaam: bedrijf.naam || profiel.naam }) : '';
