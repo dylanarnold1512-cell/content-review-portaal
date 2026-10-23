@@ -34,9 +34,9 @@ function bouwKlantRij({ id, naam, soort, product, paginameting, google, paginasP
     dezeMaand: { gemaakt: aantalDezeMaand(lijst, maand), live: livePerMaand(lijst, maand), doel, voorstellen: perMaand[maand] || 0 },
     google: googleTekst({ paginameting, google, live: lijst.filter((p) => p.status === 'Gepubliceerd'), nu }),
     activiteit: bouwActiviteit(lijst, t, maandNaam(volgende)),
-    volgendeMaand: { voorstellen: perMaand[volgende] || 0 },
+    volgendeMaand: { voorstellen: perMaand[volgende] || 0, ingepland: (t.ingeplandPerMaand || {})[volgende] || 0, eerste: t.eerstvolgende || '' },
     autoLive: { aan: autoLive === true, live, nodig: AUTO_LIVE_MIN_LIVE, actief: autoLive === true && live >= AUTO_LIVE_MIN_LIVE },
-    autoPlan: { aan: autoPlan === true, live, nodig: AUTO_LIVE_MIN_LIVE, actief: autoPlan === true && live >= AUTO_LIVE_MIN_LIVE },
+    autoPlan: { aan: autoPlan !== false },
     laatst: laatstGewijzigd,
     wacht: controleren + fout + klaar + (t.voorstellen || 0) + (t.ideeen || 0)
   };

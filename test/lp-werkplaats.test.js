@@ -102,8 +102,8 @@ test('fase 3: resultaat van een live pagina zonder meting legt uit waarom', () =
 test('kop van de werkplaats: pillen met automatisch live, plan en meting', () => {
   const { wpKopPillen } = require('../public/lp-werkplaats.js');
   const pages = [{ status: 'Gepubliceerd' }, { status: 'Gepubliceerd' }];
-  const t = wpKopPillen({ automatisering: true, pagr: true, plan: true, paginasPerMaand: 2, autoLive: false, autoPlan: false, paginameting: true }, pages).map((x) => x.tekst);
-  assert.deepEqual(t, ['Pagr. aan, automatisering draait', "2 pagina's per maand", "Automatisch live uit: 2 van 5 live pagina's", "Plan automatisch goedkeuren uit: 2 van 5 live pagina's", 'Paginameting aan']);
+  const t = wpKopPillen({ automatisering: true, pagr: true, plan: true, paginasPerMaand: 2, autoLive: false, autoPlan: true, paginameting: true }, pages).map((x) => x.tekst);
+  assert.deepEqual(t, ['Pagr. aan, automatisering draait', "2 pagina's per maand", "Automatisch live uit: 2 van 5 live pagina's", 'Planning: het systeem plant zelf', 'Paginameting aan']);
   const aan = wpKopPillen({ automatisering: true, pagr: true, autoLive: true, paginameting: false }, pages).map((x) => x.tekst);
   assert.ok(aan.includes("Automatisch live aan vanaf 5 live pagina's (nu 2)"));
 });
@@ -114,4 +114,18 @@ test('na akkoord: drie stappen, live hangt af van automatisch live', () => {
   assert.ok(wpNaAkkoordStappen({ autoLive: false }, 2)[2].includes('Automatisch live staat uit'));
   assert.ok(wpNaAkkoordStappen({ autoLive: true }, 2)[2].includes('vanaf 5 live pagina'));
   assert.ok(wpNaAkkoordStappen({ autoLive: true }, 6)[2].includes('automatisch live'));
+  assert.ok(wpNaAkkoordStappen({}, 2, true)[0].includes('Jij hoeft niets goed te keuren'));
+  assert.ok(wpNaAkkoordStappen({}, 2, false)[0].includes('na jouw akkoord'));
+});
+
+test('planning: komt eraan op datum, al geschreven nieuwste eerst', () => {
+  const { wpPlanningGroepen, wpPlanningStatus } = require('../public/lp-werkplaats.js');
+  const g = wpPlanningGroepen([
+    { id: 'b', stand: 'Gepland', schrijfOp: '2026-11-19' }, { id: 'a', stand: 'Gepland', schrijfOp: '2026-11-09' },
+    { id: 'c', stand: 'Live', schrijfOp: '2026-10-05' }, { id: 'd', stand: 'Ter controle', schrijfOp: '2026-10-20' }
+  ]);
+  assert.deepEqual(g.komt.map((x) => x.id), ['a', 'b']);
+  assert.deepEqual(g.klaar.map((x) => x.id), ['d', 'c']);
+  assert.equal(wpPlanningStatus({ stand: 'Gepland', wacht: true }).tekst, 'Wacht op akkoord');
+  assert.equal(wpPlanningStatus({ stand: 'Gepland' }).tekst, 'Ingepland');
 });

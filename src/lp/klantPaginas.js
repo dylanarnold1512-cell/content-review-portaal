@@ -17,6 +17,7 @@ function maakKlantLijst(paginas, details = {}) {
       stand,
       vanKlant,
       reden: stand === 'Gepland' ? (vanKlant ? 'Jullie idee, wij beoordelen het.' : (plan.reden || '')) : '',
+      schrijfOp: stand === 'Gepland' && plan.schrijfOp && !vanKlant ? plan.schrijfOp : '',
       url: stand === 'Live' && p.wpUrl ? p.wpUrl : '',
       liveDatum: stand === 'Live' ? (p.liveDatum || '') : '',
       bijgewerkt: p.laatstGewijzigd || ''

@@ -18,7 +18,9 @@ const { buildRenderPage, contentIsEmpty } = require('../lp/pageRender');
 const { zorgVoorGalerijSlot } = require('../lp/galerij');
 const { zorgVoorProjectItems, ruimOpProjectItems, projectLijsten } = require('../lp/projectFotos');
 const { haalProjecten, kiesProjecten, vulProjectItems } = require('../lp/projecten');
-const { beslisKlaar, autoLiveToegestaan, autoPlanToegestaan, STATUS_KLAAR } = require('../lp/klaarVoorLive');
+const { beslisKlaar, autoLiveToegestaan, STATUS_KLAAR } = require('../lp/klaarVoorLive');
+const planning = require('../lp/planning');
+const { standVan } = require('../lp/standen');
 const { beschrijfSecties } = require('../lp/sectieRefine');
 const { berekenOverrides, zetVerborgen } = require('../lp/overrides');
 const { gebruikteFeitIds } = require('../lp/feitenDefaults');
@@ -693,7 +695,7 @@ router.get('/plan/instellingen', requireLpInternal, async (req, res) => {
       plan: Boolean(inst.pagr),
       paginameting: Boolean(inst.paginameting),
       autoLive: getLpClient(klant).profile.autoLive === true,
-      autoPlan: getLpClient(klant).profile.autoPlan === true,
+      autoPlan: planning.planZelfstandig(getLpClient(klant).profile),
       volumeBeschikbaar: Boolean(inst.paginameting) && require('../lp/zoekvolume').beschikbaar()
     });
   } catch (err) {
@@ -733,7 +735,7 @@ router.get('/pagr-overzicht', requireLpInternal, async (req, res) => {
       const tel = pages.some((p) => p.status === 'Idee') ? await telKlantIdeeen(klant) : undefined;
       const google = inst.paginameting ? await meting.haalGoogle(klant).catch(() => null) : null;
       const product = inst.producten === 'Beide' ? 'Blogr. en Pagr.' : (inst.pagr ? 'Pagr.' : 'Eigen werk');
-      rijen.push(bouwKlantRij({ id: klant, naam: lpClients[klant].profile.naam, soort: inst.pagr ? 'pagr' : 'eigen', product, paginameting: Boolean(inst.paginameting), google, paginasPerMaand: inst.paginasPerMaand, autoLive: lpClients[klant].profile.autoLive, autoPlan: lpClients[klant].profile.autoPlan, pages, tel }));
+      rijen.push(bouwKlantRij({ id: klant, naam: lpClients[klant].profile.naam, soort: inst.pagr ? 'pagr' : 'eigen', product, paginameting: Boolean(inst.paginameting), google, paginasPerMaand: inst.paginasPerMaand, autoLive: lpClients[klant].profile.autoLive, autoPlan: planning.planZelfstandig(lpClients[klant].profile), pages, tel }));
     }
     const data = { maand: maandplan.huidigeMaand(), klanten: rijen, totalen: bouwTotalen(rijen) };
     overzichtCache = { op: Date.now(), data };
@@ -745,11 +747,15 @@ router.get('/pagr-overzicht', requireLpInternal, async (req, res) => {
 
 async function telKlantIdeeen(klant) {
   const paginas = (await lpNotion.listPages({ klant, status: 'Idee' })).slice(0, 25);
-  const tel = { ideeen: 0, voorstellen: 0, voorstellenPerMaand: {} };
+  const tel = { ideeen: 0, voorstellen: 0, voorstellenPerMaand: {}, ingepland: 0, ingeplandPerMaand: {}, eerstvolgende: '' };
   for (const p of paginas) {
     const inv = (await lpNotion.getPage(p.id)).invoer || {};
     if (inv.plan && inv.plan.status === 'idee van klant') tel.ideeen += 1;
-    else if (inv.plan && inv.plan.status === 'voorgesteld') {
+    else if (inv.plan && inv.plan.status === 'ingepland') {
+      tel.ingepland += 1;
+      if (inv.plan.maand) tel.ingeplandPerMaand[inv.plan.maand] = (tel.ingeplandPerMaand[inv.plan.maand] || 0) + 1;
+      if (inv.plan.schrijfOp && (!tel.eerstvolgende || inv.plan.schrijfOp < tel.eerstvolgende)) tel.eerstvolgende = inv.plan.schrijfOp;
+    } else if (inv.plan && inv.plan.status === 'voorgesteld') {
       tel.voorstellen += 1;
       if (inv.plan.maand) tel.voorstellenPerMaand[inv.plan.maand] = (tel.voorstellenPerMaand[inv.plan.maand] || 0) + 1;
     }
@@ -801,32 +807,78 @@ async function maakMaandPlan(klant, { forceer } = {}) {
   }
   if (!sjabloonInfo.length) sjabloonInfo.push({ blueprintId: actieveLijst[0].blueprintId, naam: actieveLijst[0].naam, onderwerp: '' });
   const gekozen = await begeleiding.kiesSjablonenVoorVoorstellen({ klantNaam: getLpClient(klant).profile.naam, voorstellen: uit.voorstellen, sjablonen: sjabloonInfo, aiFn: ai.callOpenAi });
+  // Planning (23-10-2026): standaard plant het systeem zelf met een schrijfdatum per pagina, zonder akkoord van Dylan. Alleen
+  // een klant met autoPlan op false houdt de oude gang: voorstellen die Dylan eerst goedkeurt.
+  const zelfstandig = planning.planZelfstandig(getLpClient(klant).profile);
+  const datums = zelfstandig ? planning.schrijfDatums(uit.voorstellen.length, maand, planning.vandaagAms()) : [];
   let n = 0;
-  const nieuweIds = [];
   for (const [i, v] of uit.voorstellen.entries()) {
-    const page = await lpNotion.createPage({ klant, blueprint: gekozen[i], titel: String(v.titel), invoer: maandplan.invoerVoorVoorgesteld(v, maand) });
+    const opties = zelfstandig ? { status: 'ingepland', schrijfOp: datums[i] } : {};
+    const page = await lpNotion.createPage({ klant, blueprint: gekozen[i], titel: String(v.titel), invoer: maandplan.invoerVoorVoorgesteld(v, maand, opties) });
     await lpNotion.setStatus(page.id, 'Idee');
-    nieuweIds.push(page.id);
     n += 1;
   }
   maandplanGedaan.add(sleutel);
-  // Plan automatisch goedkeuren (fase 4): alleen in de automatische ronde, met de schakelaar aan en genoeg live pagina's.
-  // Mislukt het goedkeuren, dan blijft het plan gewoon wachten bij Wacht op jou.
-  let automatischGoedgekeurd = 0;
-  if (!forceer && nieuweIds.length && autoPlanToegestaan(getLpClient(klant).profile, bestaandePaginas.filter((p) => p.status === 'Gepubliceerd').length)) {
-    try {
-      automatischGoedgekeurd = (await keurVoorstellen({ klant, goedkeuren: nieuweIds, afwijzen: [] })).goedgekeurd;
-      console.log(`[auto-plan] ${automatischGoedgekeurd} voorstellen voor ${klant} automatisch goedgekeurd`);
-    } catch (e) { console.warn(`Automatisch goedkeuren voor ${klant} mislukt:`, e.message); }
+  return { aantal: n, maand, ingepland: zelfstandig };
+}
+
+// Voorstellen van een klant die zelfstandig plant (bijvoorbeeld van voor deze regel) krijgen alsnog een schrijfdatum, zodat
+// niets blijft liggen op een akkoord dat niet nodig is. Daarna schrijft het systeem de pagina's waarvan de datum is gekomen.
+async function planRonde(klant) {
+  if (!(await planAan(klant)) || !planning.planZelfstandig(getLpClient(klant).profile)) return { ingepland: 0, geschreven: 0 };
+  const vandaag = planning.vandaagAms();
+  const paginas = (await lpNotion.listPages({ klant, status: 'Idee' })).slice(0, 40);
+  const volledig = [];
+  for (const p of paginas) volledig.push(await lpNotion.getPage(p.id));
+  // 1. voorstellen zonder akkoord krijgen een datum, per maand gespreid
+  const perMaand = new Map();
+  volledig.forEach((pg) => { const plan = (pg.invoer || {}).plan; if (plan && plan.status === 'voorgesteld') { const m = plan.maand || maandplan.huidigeMaand(); perMaand.set(m, [...(perMaand.get(m) || []), pg]); } });
+  let ingepland = 0;
+  for (const [m, lijst] of perMaand) {
+    const datums = planning.schrijfDatums(lijst.length, m, vandaag);
+    for (const [i, pg] of lijst.entries()) {
+      const inv = pg.invoer || {};
+      await lpNotion.updateSection(pg.id, 'invoer', { ...inv, plan: { ...inv.plan, status: 'ingepland', schrijfOp: datums[i] } });
+      pg.invoer = { ...inv, plan: { ...inv.plan, status: 'ingepland', schrijfOp: datums[i] } };
+      ingepland += 1;
+    }
   }
-  return { aantal: n, maand, automatischGoedgekeurd };
+  // 2. pagina's waarvan de schrijfdatum is gekomen
+  let geschreven = 0;
+  for (const pg of volledig) {
+    const inv = pg.invoer || {};
+    if (!planning.isRijp(inv.plan, vandaag)) continue;
+    await lpNotion.updateSection(pg.id, 'invoer', { ...inv, plan: { ...inv.plan, status: 'goedgekeurd', goedgekeurdOp: vandaag } });
+    startAutoTekst(pg.id);
+    geschreven += 1;
+  }
+  return { ingepland, geschreven };
 }
 
 async function maandPlanRonde() {
   for (const klant of Object.keys(lpClients)) {
     try { await maakMaandPlan(klant); } catch (e) { console.warn(`Maandplan voor ${klant} mislukt:`, e.message); }
+    try { const r = await planRonde(klant); if (r.ingepland || r.geschreven) console.log(`[planning] ${klant}: ${r.ingepland} ingepland, ${r.geschreven} gestart met schrijven`); } catch (e) { console.warn(`Planning voor ${klant} mislukt:`, e.message); }
   }
 }
+
+// De agenda van een klant: welke pagina wanneer geschreven wordt en waarom. Voor Dylan (hier) en voor de klant (api.js).
+router.get('/plan/planning', requireLpInternal, async (req, res) => {
+  try {
+    const klant = String(req.query.klant || '');
+    getLpClient(klant);
+    const paginas = await lpNotion.listPages({ klant });
+    const recent = Date.now() - 60 * 24 * 3600 * 1000;
+    const kandidaten = paginas.filter((p) => p.status === 'Idee' || (p.aangemaakt && new Date(p.aangemaakt).getTime() >= recent)).slice(0, 40);
+    const metInvoer = [];
+    for (const p of kandidaten) {
+      try { metInvoer.push({ id: p.id, titel: p.titel, stand: standVan(p.status), status: p.status, invoer: (await lpNotion.getPage(p.id)).invoer || {} }); } catch (e) { /* pagina overslaan */ }
+    }
+    res.json({ planning: planning.bouwPlanning(metInvoer), zelfstandig: planning.planZelfstandig(getLpClient(klant).profile) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Wordt vanuit server.js gestart: een eerste ronde kort na het opstarten en daarna elke 6 uur.
 router.startMaandPlan = function () {
