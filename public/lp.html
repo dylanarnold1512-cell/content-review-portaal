@@ -289,11 +289,17 @@
       <div id="wpModule" class="wp-module" aria-live="polite"></div>
       <div id="wpStappen" class="hidden"></div>
       <div class="wp-links">
-        <section class="wp-kaart" id="wpMaandKaart" aria-labelledby="wpMaandTitel">
-          <div class="wp-kaart-kop"><h2 id="wpMaandTitel">Deze maand</h2><span class="wp-muted" id="wpMaandSub"></span></div>
-          <div id="wpMaandBalk" class="wp-maand-balk" role="img"></div>
-          <div id="wpMaandTel" class="wp-maand-tel"></div>
-        </section>
+        <div class="wp-maanden">
+          <section class="wp-kaart" id="wpMaandKaart" aria-labelledby="wpMaandTitel">
+            <div class="wp-kaart-kop"><h2 id="wpMaandTitel">Deze maand</h2><span class="wp-muted" id="wpMaandSub"></span></div>
+            <div id="wpMaandBalk" class="wp-maand-balk" role="img"></div>
+            <div id="wpMaandTel" class="wp-maand-tel"></div>
+          </section>
+          <section class="wp-kaart" id="wpVolgendeKaart" aria-labelledby="wpVolgendeTitel">
+            <div class="wp-kaart-kop"><h2 id="wpVolgendeTitel">Volgende maand</h2><span class="wp-muted" id="wpVolgendeSub"></span></div>
+            <div id="wpVolgende"></div>
+          </section>
+        </div>
 
         <section class="wp-kaart" id="wpWachtKaart" aria-labelledby="wpWachtTitel">
           <div class="wp-kaart-kop"><h2 id="wpWachtTitel">Wacht op jou</h2><span class="wp-muted">Belangrijkste eerst</span></div>
@@ -307,6 +313,26 @@
           <div class="wp-plan-actie"><button type="button" id="wpMaandplanKeur" class="btn btn-approve">Keur geselecteerde goed</button><span id="wpMaandplanStatus" class="wp-muted"></span></div>
         </section>
 
+        <section class="wp-kaart" id="wpOnderwegKaart" aria-labelledby="wpOnderwegTitel">
+          <div class="wp-kaart-kop"><h2 id="wpOnderwegTitel">Onderweg</h2><span class="wp-muted">Van voorstel tot live</span></div>
+          <div id="wpTellers" class="wp-tellers"></div>
+          <div id="wpOnderweg" class="wp-kolommen"></div>
+        </section>
+
+        <section class="wp-kaart" id="wpResultKaart" aria-labelledby="wpResultTitel">
+          <div class="wp-kaart-kop"><h2 id="wpResultTitel">Live pagina's</h2><span class="wp-muted">Wat ze opleveren in Google en AI</span></div>
+          <div id="wpResultaten"></div>
+        </section>
+
+        <section class="wp-kaart" id="wpLogKaart" aria-labelledby="wpLogTitel">
+          <div class="wp-kaart-kop"><h2 id="wpLogTitel">Wat het systeem deed</h2><span class="wp-muted">Laatste activiteit per pagina</span></div>
+          <div id="wpLog"></div>
+        </section>
+
+        <details class="wp-rest" id="wpZelfDoen">
+        <summary>Zelf doen: pagina's handmatig plannen en maken</summary>
+        <div class="wp-links">
+        <div id="wpBulk" class="wp-bulk hidden"></div>
         <section class="wp-kaart" id="wpPlanKaart">
           <div class="wp-kaart-kop"><h2>Plan</h2></div>
           <div id="wpPlanUit" class="wp-plan-uit hidden"></div>
@@ -327,11 +353,13 @@
           <div class="wp-kaart-kop"><h2>Ideeën van de klant</h2></div>
           <div id="wpIdeeen"></div>
         </section>
+        </div>
+        </details>
 
+        <details class="wp-rest" id="wpLijstDetails">
+        <summary>Alle pagina's als lijst, selecteren en verwijderen</summary>
         <section class="wp-kaart" aria-labelledby="wpPaginasTitel">
           <div class="wp-kaart-kop"><h2 id="wpPaginasTitel">Pagina's van deze klant</h2><span class="wp-kaart-acties"><button type="button" id="wpKloonKnop" class="btn btn-plain">Kopie van een bestaande pagina</button></span></div>
-          <div id="wpTellers" class="wp-tellers"></div>
-          <div id="wpBulk" class="wp-bulk hidden"></div>
           <div class="wp-selbalk" id="wpPaginaSelBalk">
             <label class="wp-vink"><input type="checkbox" id="wpPaginaSelAlles"> Alles selecteren</label>
             <span id="wpPaginaSelTel" class="wp-muted"></span>
@@ -341,6 +369,7 @@
           <div class="wp-tabel-wrap"><table class="lp-table wp-tabel"><thead><tr><th></th><th>Pagina</th><th>Stand</th><th>Laatst bijgewerkt</th></tr></thead><tbody id="wpPaginas"></tbody></table></div>
           <div class="wp-meer-rij"><button type="button" id="wpPaginasMeer" class="btn btn-plain hidden"></button></div>
         </section>
+        </details>
 
         <section class="wp-kaart hidden" id="wpVerwijderdKaart">
           <div class="wp-kaart-kop"><h2>Onlangs verwijderd</h2><span class="wp-muted">Terug te zetten tot een week na het verwijderen</span></div>
