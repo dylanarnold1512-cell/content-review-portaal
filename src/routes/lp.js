@@ -18,7 +18,7 @@ const { buildRenderPage, contentIsEmpty } = require('../lp/pageRender');
 const { zorgVoorGalerijSlot } = require('../lp/galerij');
 const { zorgVoorProjectItems, ruimOpProjectItems, projectLijsten } = require('../lp/projectFotos');
 const { haalProjecten, kiesProjecten, vulProjectItems } = require('../lp/projecten');
-const { beslisKlaar, autoLiveToegestaan, STATUS_KLAAR } = require('../lp/klaarVoorLive');
+const { beslisKlaar, autoLiveToegestaan, autoPlanToegestaan, STATUS_KLAAR } = require('../lp/klaarVoorLive');
 const { beschrijfSecties } = require('../lp/sectieRefine');
 const { berekenOverrides, zetVerborgen } = require('../lp/overrides');
 const { gebruikteFeitIds } = require('../lp/feitenDefaults');
@@ -729,7 +729,7 @@ router.get('/pagr-overzicht', requireLpInternal, async (req, res) => {
       if (!inst.pagr && !inst.internAutomatisering) continue;
       const pages = await lpNotion.listPages({ klant });
       const tel = pages.some((p) => p.status === 'Idee') ? await telKlantIdeeen(klant) : undefined;
-      rijen.push(bouwKlantRij({ id: klant, naam: lpClients[klant].profile.naam, soort: inst.pagr ? 'pagr' : 'eigen', paginasPerMaand: inst.paginasPerMaand, autoLive: lpClients[klant].profile.autoLive, pages, tel }));
+      rijen.push(bouwKlantRij({ id: klant, naam: lpClients[klant].profile.naam, soort: inst.pagr ? 'pagr' : 'eigen', paginasPerMaand: inst.paginasPerMaand, autoLive: lpClients[klant].profile.autoLive, autoPlan: lpClients[klant].profile.autoPlan, pages, tel }));
     }
     const data = { maand: maandplan.huidigeMaand(), klanten: rijen, totalen: bouwTotalen(rijen) };
     overzichtCache = { op: Date.now(), data };
@@ -798,13 +798,24 @@ async function maakMaandPlan(klant, { forceer } = {}) {
   if (!sjabloonInfo.length) sjabloonInfo.push({ blueprintId: actieveLijst[0].blueprintId, naam: actieveLijst[0].naam, onderwerp: '' });
   const gekozen = await begeleiding.kiesSjablonenVoorVoorstellen({ klantNaam: getLpClient(klant).profile.naam, voorstellen: uit.voorstellen, sjablonen: sjabloonInfo, aiFn: ai.callOpenAi });
   let n = 0;
+  const nieuweIds = [];
   for (const [i, v] of uit.voorstellen.entries()) {
     const page = await lpNotion.createPage({ klant, blueprint: gekozen[i], titel: String(v.titel), invoer: maandplan.invoerVoorVoorgesteld(v, maand) });
     await lpNotion.setStatus(page.id, 'Idee');
+    nieuweIds.push(page.id);
     n += 1;
   }
   maandplanGedaan.add(sleutel);
-  return { aantal: n, maand };
+  // Plan automatisch goedkeuren (fase 4): alleen in de automatische ronde, met de schakelaar aan en genoeg live pagina's.
+  // Mislukt het goedkeuren, dan blijft het plan gewoon wachten bij Wacht op jou.
+  let automatischGoedgekeurd = 0;
+  if (!forceer && nieuweIds.length && autoPlanToegestaan(getLpClient(klant).profile, bestaandePaginas.filter((p) => p.status === 'Gepubliceerd').length)) {
+    try {
+      automatischGoedgekeurd = (await keurVoorstellen({ klant, goedkeuren: nieuweIds, afwijzen: [] })).goedgekeurd;
+      console.log(`[auto-plan] ${automatischGoedgekeurd} voorstellen voor ${klant} automatisch goedgekeurd`);
+    } catch (e) { console.warn(`Automatisch goedkeuren voor ${klant} mislukt:`, e.message); }
+  }
+  return { aantal: n, maand, automatischGoedgekeurd };
 }
 
 async function maandPlanRonde() {
@@ -850,32 +861,37 @@ router.get('/plan/voorgesteld', requireLpInternal, async (req, res) => {
 });
 
 // Keurt gekozen voorstellen goed en haalt de rest weg. De tekst start vanzelf bij klanten met Pagr.
+// Voorstellen goedkeuren of weghalen. Gebruikt door de route hieronder en door het automatisch goedkeuren van het maandplan.
+async function keurVoorstellen({ klant, goedkeuren, afwijzen, sjablonen: gekozenSjablonen }) {
+  const automatisch = await pagrModuleAan(klant);
+  const actiefNu = new Set((await templates.listTemplates({ klant, status: 'Actief' }).catch(() => [])).map((t) => t.blueprintId));
+  let goed = 0;
+  for (const id of Array.isArray(goedkeuren) ? goedkeuren : []) {
+    let page = await lpNotion.getPage(id);
+    const nieuwSjabloon = gekozenSjablonen && gekozenSjablonen[id];
+    if (nieuwSjabloon && nieuwSjabloon !== page.blueprint && actiefNu.has(nieuwSjabloon)) {
+      await lpNotion.setBlueprint(id, nieuwSjabloon);
+      page = await lpNotion.getPage(id);
+    }
+    const inv = page.invoer || {};
+    if (!inv.plan || inv.plan.status !== 'voorgesteld') continue;
+    await lpNotion.updateSection(id, 'invoer', { ...inv, plan: { ...inv.plan, status: 'goedgekeurd', goedgekeurdOp: new Date().toISOString().slice(0, 10) } });
+    const tpl = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint).catch(() => null);
+    if (automatisch && tpl && tpl.templateFormat === 'slots') startAutoTekst(id);
+    goed += 1;
+  }
+  let weg = 0;
+  for (const id of Array.isArray(afwijzen) ? afwijzen : []) {
+    const inv = (await lpNotion.getPage(id)).invoer || {};
+    if (inv.plan && inv.plan.status === 'voorgesteld') { await lpNotion.deletePage(id); weg += 1; }
+  }
+  return { goedgekeurd: goed, weggehaald: weg };
+}
+
 router.post('/plan/voorgesteld/keur', requireLpInternal, async (req, res) => {
   try {
-    const { klant, goedkeuren, afwijzen, sjablonen: gekozenSjablonen } = req.body || {};
-    const automatisch = await pagrModuleAan(klant);
-    const actiefNu = new Set((await templates.listTemplates({ klant, status: 'Actief' }).catch(() => [])).map((t) => t.blueprintId));
-    let goed = 0;
-    for (const id of Array.isArray(goedkeuren) ? goedkeuren : []) {
-      let page = await lpNotion.getPage(id);
-      const nieuwSjabloon = gekozenSjablonen && gekozenSjablonen[id];
-      if (nieuwSjabloon && nieuwSjabloon !== page.blueprint && actiefNu.has(nieuwSjabloon)) {
-        await lpNotion.setBlueprint(id, nieuwSjabloon);
-        page = await lpNotion.getPage(id);
-      }
-      const inv = page.invoer || {};
-      if (!inv.plan || inv.plan.status !== 'voorgesteld') continue;
-      await lpNotion.updateSection(id, 'invoer', { ...inv, plan: { ...inv.plan, status: 'goedgekeurd', goedgekeurdOp: new Date().toISOString().slice(0, 10) } });
-      const tpl = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint).catch(() => null);
-      if (automatisch && tpl && tpl.templateFormat === 'slots') startAutoTekst(id);
-      goed += 1;
-    }
-    let weg = 0;
-    for (const id of Array.isArray(afwijzen) ? afwijzen : []) {
-      const inv = (await lpNotion.getPage(id)).invoer || {};
-      if (inv.plan && inv.plan.status === 'voorgesteld') { await lpNotion.deletePage(id); weg += 1; }
-    }
-    res.json({ goedgekeurd: goed, weggehaald: weg });
+    const { klant, goedkeuren, afwijzen, sjablonen } = req.body || {};
+    res.json(await keurVoorstellen({ klant, goedkeuren, afwijzen, sjablonen }));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

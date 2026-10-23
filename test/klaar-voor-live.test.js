@@ -25,3 +25,12 @@ test('Klaar voor live heeft een eigen stand', () => {
   assert.strictEqual(standVan('Klaar voor live'), 'Klaar voor live');
   assert.strictEqual(standVan('Content klaar'), 'Ter controle');
 });
+
+test('plan automatisch goedkeuren werkt alleen met de schakelaar en genoeg live pagina\'s', () => {
+  const { autoPlanToegestaan } = require('../src/lp/klaarVoorLive');
+  assert.equal(autoPlanToegestaan({ autoPlan: true }, 5), true);
+  assert.equal(autoPlanToegestaan({ autoPlan: true }, 4), false);
+  assert.equal(autoPlanToegestaan({ autoPlan: false }, 20), false);
+  assert.equal(autoPlanToegestaan({}, 20), false);
+  assert.equal(autoPlanToegestaan(null, 20), false);
+});
