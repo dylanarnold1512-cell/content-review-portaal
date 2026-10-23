@@ -723,6 +723,11 @@
           <p class="wp-muted wp-uitleg">Kies per sjabloon de pagina die jij hebt aangepast en goedgekeurd. Elke nieuwe pagina van dit sjabloon, ook de pagina's die automatisch worden klaargezet, volgt de opbouw, toon, zinsbouw, lengtes en het naamgebruik van die pagina. Wat je in het voorbeeld verbetert, geldt daarna voor alle nieuwe pagina's. Pas het voorbeeld eerst aan en maak daarna nieuwe pagina's. Kies je niets, dan gebruikt het systeem de laatst bewerkte gepubliceerde pagina van het sjabloon, als die er is.</p>
           <div id="kgVoorbeeldLijst" class="wp-muted">Laden...</div>
         </section>
+        <section class="wp-kaart" id="kgAutoLive">
+          <div class="wp-kaart-kop"><h2>Automatisch live zetten</h2></div>
+          <div class="wp-veld"><label class="wp-vink"><input type="checkbox" id="kgAutoLiveAan"> Pagina's die schoon door de controle komen meteen live zetten</label></div>
+          <p class="wp-muted wp-uitleg" id="kgAutoLiveUitleg">Uit is de standaard: een schone pagina krijgt de stand Klaar voor live en jij zet ze met een knop live. Aanzetten werkt pas als er al 5 pagina's van deze klant live staan, zodat je eerst hebt gezien dat de teksten goed gaan. Een pagina met een punt uit de controle gaat nooit automatisch live. Terugzetten kan per pagina met Naar WordPress als concept.</p>
+        </section>
         <section class="wp-kaart">
           <div class="wp-kaart-kop"><h2>Offertebalken op de pagina's</h2></div>
           <div class="wp-veld"><label for="kgCtaBalken">Aantal offertebalken</label><select id="kgCtaBalken"><option value="1">1 balk (standaard)</option><option value="2">2 balken (tweede na de klantervaringen)</option></select></div>
@@ -1374,6 +1379,7 @@
             <option value="Content klaar">Ter controle: tekst klaar</option>
             <option value="Ter review">Ter controle</option>
             <option value="Goedgekeurd">Ter controle: goedgekeurd</option>
+            <option value="Klaar voor live">Klaar voor live</option>
             <option value="Afgewezen">In de maak: afgewezen</option>
             <option value="Gepubliceerd">Live</option>
             <option value="Fout">In de maak: er ging iets mis</option>

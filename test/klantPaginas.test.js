@@ -4,8 +4,9 @@ const assert = require('node:assert/strict');
 const { maakKlantLijst, telKerncijfers } = require('../src/lp/klantPaginas');
 const { standVan, STAND } = require('../src/lp/standen');
 
-test('standen: alle negen Notion statussen hebben een stand van de klant', () => {
-  assert.equal(Object.keys(STAND).length, 9);
+test('standen: alle tien Notion statussen hebben een stand van de klant', () => {
+  assert.equal(Object.keys(STAND).length, 10);
+  assert.equal(standVan('Klaar voor live'), 'Klaar voor live');
   assert.equal(standVan('Gepubliceerd'), 'Live');
   assert.equal(standVan('Idee'), 'Gepland');
   assert.equal(standVan('Ter review'), 'Ter controle');

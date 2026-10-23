@@ -43,6 +43,8 @@
     $('kgFoto').value = p.fotoRichtlijn;
     $('kgNiet').value = (p.nietToegestaan || []).join('\n');
     $('kgCtaBalken').value = String((p.ctaBalken && p.ctaBalken.aantal) === 2 ? 2 : 1);
+    $('kgAutoLiveAan').checked = p.autoLive === true;
+    laadAutoLive(k.id);
     state.voorbeeld = { ...(k.profiel.voorbeeldPaginas || {}) };
     laadVoorbeelden(k.id);
     state.kv = k.profiel.klantverhaal ? JSON.parse(JSON.stringify(k.profiel.klantverhaal)) : null;
@@ -62,6 +64,21 @@
       ? `WordPress gegevens, formulier, SEO plugin en kleuren en lettertypen staan niet hier. De WordPress variabelen op Render zijn: ${vars}.`
       : 'WordPress gegevens, formulier, SEO plugin en kleuren en lettertypen staan niet hier.';
     status('');
+  }
+
+  // Automatisch live zetten werkt pas na 5 live pagina's. Hier alleen de uitleg en de blokkade in het scherm,
+  // de server controleert het aantal zelf nog een keer (src/lp/klaarVoorLive.js).
+  async function laadAutoLive(klantId) {
+    const vink = $('kgAutoLiveAan');
+    const uitleg = $('kgAutoLiveUitleg');
+    try {
+      const { pages } = await lpApi('/pages?klant=' + encodeURIComponent(klantId));
+      const live = pages.filter((p) => p.status === 'Gepubliceerd').length;
+      const genoeg = live >= 5;
+      vink.disabled = !genoeg && !vink.checked;
+      uitleg.dataset.live = String(live);
+      uitleg.textContent = uitleg.textContent.replace(/ Nu staan er \d+ live\.$/, '') + ` Nu staan er ${live} live.`;
+    } catch (err) { /* de uitleg blijft staan, de server bewaakt de regel */ }
   }
 
   // Voorbeeldpagina per sjabloon: een keuzelijst met de pagina's van de klant per sjabloon.
@@ -275,6 +292,7 @@
         ctaBalken: { aantal: Number($('kgCtaBalken').value) === 2 ? 2 : 1 },
         klantverhaal: state.kv || undefined,
         voorbeeldPaginas: state.voorbeeld,
+        autoLive: $('kgAutoLiveAan').checked,
         huisstijl: leesHuisstijl()
       },
       feiten: [...document.querySelectorAll('#kgFeiten .kg-feit')].map((r) => ({

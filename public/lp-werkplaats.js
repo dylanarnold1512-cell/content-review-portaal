@@ -9,12 +9,13 @@ const WP_STAND = {
   'Content klaar': 'Ter controle',
   'Ter review': 'Ter controle',
   'Goedgekeurd': 'Ter controle',
+  'Klaar voor live': 'Klaar voor live',
   'Afgewezen': 'In de maak',
   'Fout': 'In de maak',
   'Gepubliceerd': 'Live'
 };
-const WP_STAND_KLASSE = { 'Gepland': 'wp-gepland', 'In de maak': 'wp-maak', 'Ter controle': 'wp-controle', 'Live': 'wp-live' };
-const WP_STANDEN = ['Gepland', 'In de maak', 'Ter controle', 'Live'];
+const WP_STAND_KLASSE = { 'Gepland': 'wp-gepland', 'In de maak': 'wp-maak', 'Ter controle': 'wp-controle', 'Klaar voor live': 'wp-klaar', 'Live': 'wp-live' };
+const WP_STANDEN = ['Gepland', 'In de maak', 'Ter controle', 'Klaar voor live', 'Live'];
 
 function wpStandVan(status) { return WP_STAND[status] || 'In de maak'; }
 function wpEsc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
@@ -22,7 +23,7 @@ function wpEsc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, (c) => 
 // Advies uit de echte gegevens van de klant. Geeft een lijst { tekst, knop, actie } terug.
 function wpBouwAdvies({ pages, templates }) {
   const actief = templates.filter((t) => t.status === 'Actief');
-  const tellers = { 'Gepland': 0, 'In de maak': 0, 'Ter controle': 0, 'Live': 0 };
+  const tellers = { 'Gepland': 0, 'In de maak': 0, 'Ter controle': 0, 'Klaar voor live': 0, 'Live': 0 };
   pages.forEach((p) => { tellers[wpStandVan(p.status)] += 1; });
   const fout = pages.filter((p) => p.status === 'Fout' || p.status === 'Afgewezen');
   const advies = [];
@@ -32,6 +33,11 @@ function wpBouwAdvies({ pages, templates }) {
   if (fout.length) {
     advies.push({ soort: 'fout', tekst: fout.length === 1 ? 'Een pagina is mislukt of afgewezen en wacht op jou.' : `${fout.length} pagina's zijn mislukt of afgewezen en wachten op jou.`, knop: 'Bekijk', pagina: fout[0].id });
   }
+  if (tellers['Klaar voor live']) {
+    const n = tellers['Klaar voor live'];
+    advies.push({ soort: 'plan', tekst: n === 1 ? 'Een pagina is schoon door de controle gekomen en staat klaar voor live.' : `${n} pagina's zijn schoon door de controle gekomen en staan klaar voor live.`, knop: n === 1 ? 'Zet live' : 'Zet alle live', actie: 'zet-live-bulk' });
+  }
+  if (typeof lpState !== 'undefined' && lpState.wpLiveMelding) advies.push({ soort: 'goed', tekst: lpState.wpLiveMelding });
   if (tellers['Ter controle']) {
     const eerste = pages.find((p) => wpStandVan(p.status) === 'Ter controle');
     advies.push({ soort: 'plan', tekst: tellers['Ter controle'] === 1 ? 'Een pagina wacht op jouw controle voordat hij live kan.' : `${tellers['Ter controle']} pagina's wachten op jouw controle voordat ze live kunnen.`, knop: 'Controleren', pagina: eerste && eerste.id });
@@ -103,6 +109,7 @@ function wpTeken() {
     const a = uit.advies[Number(b.dataset.adv)];
     b.addEventListener('click', () => {
       if (a.pagina) { lpState.laatsteLijst = 'werkplaats'; openPageDetail(a.pagina); return; }
+      if (a.actie === 'zet-live-bulk') { wpZetSchoneLive(klantId, b); return; }
       if (a.actie === 'sjabloon') { switchLpTab('sjablonen'); document.getElementById('lpNewTemplateBtn')?.click(); return; }
       if (a.actie === 'pagina') {
         switchLpTab('nieuw');
@@ -111,6 +118,24 @@ function wpTeken() {
       }
     });
   });
+}
+
+// Alle schone pagina's van de klant live zetten. Elke pagina wordt vlak voor het live gaat opnieuw gecontroleerd.
+async function wpZetSchoneLive(klantId, knop) {
+  const n = (lpState.wpPages || []).filter((p) => wpStandVan(p.status) === 'Klaar voor live').length;
+  if (!n || !window.confirm(`${n} ${n === 1 ? 'pagina' : "pagina's"} live zetten op de website van de klant?`)) return;
+  knop.disabled = true;
+  knop.textContent = 'Bezig...';
+  try {
+    const r = await lpApi(`/clients/${encodeURIComponent(klantId)}/zet-schone-live`, { method: 'POST', body: JSON.stringify({ bevestigd: true }) });
+    const delen = [`${r.gelukt.length} live gezet`];
+    if (r.overgeslagen.length) delen.push(`${r.overgeslagen.length} terug naar controleren (${r.overgeslagen.map((o) => `${o.titel}: ${o.reden}`).join('; ')})`);
+    if (r.fouten.length) delen.push(`${r.fouten.length} mislukt (${r.fouten.map((f) => `${f.titel}: ${f.fout}`).join('; ')})`);
+    lpState.wpLiveMelding = delen.join('. ') + '.';
+  } catch (err) {
+    lpState.wpLiveMelding = `Live zetten is niet gelukt: ${err.message}`;
+  }
+  await wpLaad();
 }
 
 async function wpLaad() {

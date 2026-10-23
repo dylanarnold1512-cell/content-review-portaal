@@ -1,4 +1,4 @@
-// De vier standen van een landingspagina zoals Dylan en de klant ze zien (Pagr., 14-10-2026). De negen statussen in
+// De vijf standen van een landingspagina zoals Dylan en de klant ze zien (Pagr., 14-10-2026). De negen statussen in
 // Notion blijven ongewijzigd. Dezelfde indeling staat in public/lp-werkplaats.js voor het beheerscherm.
 const STAND = {
   'Idee': 'Gepland',
@@ -7,6 +7,7 @@ const STAND = {
   'Content klaar': 'Ter controle',
   'Ter review': 'Ter controle',
   'Goedgekeurd': 'Ter controle',
+  'Klaar voor live': 'Klaar voor live',
   'Afgewezen': 'In de maak',
   'Fout': 'In de maak',
   'Gepubliceerd': 'Live'
