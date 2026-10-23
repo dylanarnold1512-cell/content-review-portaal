@@ -8,7 +8,7 @@ const lees = (f) => fs.readFileSync(path.join(__dirname, '..', 'public', f), 'ut
 // Nieuwe pagina staat bewust niet meer in het menu (design 23-10-2026): je start hem met de knop in de werkplaats.
 test('de admin zijbalk heeft een onderdeel per LP tab', () => {
   const html = lees('admin.html');
-  ['overzicht', 'werkplaats', 'sjablonen', 'paginas', 'kloon', 'vervang', 'klantgegevens'].forEach((tab) => {
+  ['overzicht', 'werkplaats', 'chat', 'sjablonen', 'paginas', 'kloon', 'vervang', 'klantgegevens'].forEach((tab) => {
     assert.ok(html.includes(`data-pagr-tab="${tab}"`), tab);
     // Elke tab bestaat ook echt als knop in de LP.
     assert.ok(lees('lp.html').includes(`data-lp-tab="${tab}"`), tab);
@@ -17,7 +17,7 @@ test('de admin zijbalk heeft een onderdeel per LP tab', () => {
 
 test('de admin kent de Pagr. tabs in de hash en stuurt ze door naar de LP', () => {
   const js = lees('admin.js');
-  assert.ok(js.includes("PAGR_TABS = ['overzicht', 'werkplaats', 'nieuw', 'sjablonen', 'paginas', 'kloon', 'vervang', 'klantgegevens']"));
+  assert.ok(js.includes("PAGR_TABS = ['overzicht', 'werkplaats', 'nieuw', 'chat', 'sjablonen', 'paginas', 'kloon', 'vervang', 'klantgegevens']"));
   assert.ok(js.includes("type: 'pagr-tab'"));
   assert.ok(js.includes("'pagr-hoogte'"));
 });
@@ -37,8 +37,8 @@ test('stap 13: de LP meldt zijn tab aan de admin en de admin volgt', () => {
   const admin = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin.js'), 'utf8');
   assert.ok(lp.includes("type: 'pagr-tab-actief'"));
   assert.ok(admin.includes("d.type === 'pagr-tab-actief'"));
-  // De speciale panelen (kloon, vervang, klantgegevens) worden ook bij een programmatische tabwissel getoond.
-  assert.ok(lp.includes("const speciaal = ['kloon', 'vervang', 'klantgegevens']"));
+  // De speciale panelen (kloon, vervang, klantgegevens, chat) worden ook bij een programmatische tabwissel getoond.
+  assert.ok(lp.includes("const speciaal = ['kloon', 'vervang', 'klantgegevens', 'chat']"));
 });
 
 test('stap 13: meerdere pagina\'s en sjablonen tegelijk verwijderen heeft endpoints en keuzevakjes', () => {

@@ -1509,6 +1509,10 @@ async function callOpenAiVision({ systemPrompt, contentParts }) {
 }
 
 module.exports = {
+  SLOT_SCHEMA_REFERENCE,
+  SITE_BRON_REGELS,
+  VOLLEDIGE_ZINNEN_REGELS,
+  formatKlantSiteVoorPrompt,
   schrijftInMix,
   schrijfProjectTeksten,
   verdeelIconen,

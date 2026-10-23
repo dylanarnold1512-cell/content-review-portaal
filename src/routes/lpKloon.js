@@ -11,6 +11,7 @@ const { bouwSjabloon, vindLayoutCssUrls, vindThemaCssUrls, vindInlineThemaCss } 
 const { validateTemplateStructure } = require('../lp/validator');
 const lpNotion = require('../lp/notion');
 const templates = require('../lp/templates');
+const { eigenSjabloonVan } = require('../lp/eigenSjabloon');
 const { lijstSecties, renderSectieHtml, zoekStijlvoorbeeld, schoonBlokHtml } = require('../lp/kloonBlokken');
 
 const router = express.Router();
@@ -82,7 +83,7 @@ router.get('/secties', requireLpInternal, async (req, res) => {
   try {
     const page = await lpNotion.getPage(req.query.pagina);
     if (page.klant !== req.query.klant) throw new Error('Deze pagina hoort niet bij deze klant.');
-    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const blueprint = eigenSjabloonVan(page) || await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
     res.json({ secties: lijstSecties(blueprint, page.content && page.content.slotData) });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -102,7 +103,7 @@ async function bouwBlokken(klant, blokken) {
     if (!b || !b.pagina) continue;
     const page = await lpNotion.getPage(b.pagina);
     if (page.klant !== klant) throw new Error('Een gekozen portaalpagina hoort niet bij deze klant.');
-    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const blueprint = eigenSjabloonVan(page) || await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
     const secties = lijstSecties(blueprint, page.content && page.content.slotData);
     const sec = secties.find((s) => s.index === Number(b.sectie)) || {};
     const heeftDeel = b.deel !== undefined && b.deel !== null && b.deel !== '';

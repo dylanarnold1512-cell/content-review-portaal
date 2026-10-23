@@ -5,6 +5,7 @@
 const express = require('express');
 const { renderPageHtml } = require('../lp/render');
 const { buildRenderPage, contentIsEmpty } = require('../lp/pageRender');
+const { eigenSjabloonVan } = require('../lp/eigenSjabloon');
 const share = require('../lp/share');
 
 function createShareRouter(deps = {}) {
@@ -40,7 +41,7 @@ function createShareRouter(deps = {}) {
           .send(share.messagePage('Deze voorbeeldlink is verlopen. Vraag de afzender om een nieuwe link.'));
       }
 
-      const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+      const blueprint = eigenSjabloonVan(page) || await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
       if (!blueprint || contentIsEmpty(blueprint, page.content)) return notFound();
 
       // Bewust zonder forPreview: de klant krijgt dezelfde schone HTML als WordPress, zonder de

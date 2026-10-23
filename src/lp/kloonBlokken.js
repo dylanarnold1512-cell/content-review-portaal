@@ -9,6 +9,7 @@
 const { vindSecties } = require('./overrides');
 const { beschrijfSecties } = require('./sectieRefine');
 const { renderPageHtml } = require('./render');
+const { eigenSjabloonVan } = require('./eigenSjabloon');
 
 const MAX_BLOK_BYTES = 200 * 1024;
 
@@ -125,7 +126,7 @@ async function zoekStijlvoorbeeld({ klant, lpNotion, templates, max = 8 }) {
   for (const p of paginas) {
     try {
       const page = await lpNotion.getPage(p.id);
-      const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+      const blueprint = eigenSjabloonVan(page) || await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
       const secties = lijstSecties(blueprint, page.content && page.content.slotData);
       for (const sec of secties) {
         const deel = (sec.delen || []).find((d) => STIJL_RE.test(d.label.trim().split(':')[0]) && !/(^|[-_])(wrap|wrapper|container|inner|tekst|text|copy|content)([-_]|$)/i.test(d.label.trim().split(':')[0]));

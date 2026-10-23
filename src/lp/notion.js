@@ -23,8 +23,12 @@ const { slugify, isOntbrekendeSelectOptie } = require('./utils');
 
 const LP_DATABASE_ID = process.env.LP_LANDINGSPAGINAS_DATABASE_ID || 'fb1c2997-0f01-4e1f-a1fe-e5049cb9e857';
 
-const SECTION_HEADINGS = ['Invoer', 'Feitensheet', 'Content JSON'];
-const SECTION_KEYS = ['invoer', 'feitensheet', 'content'];
+const SECTION_HEADINGS = ['Invoer', 'Feitensheet', 'Content JSON', 'Eigen sjabloon'];
+const SECTION_KEYS = ['invoer', 'feitensheet', 'content', 'sjabloon'];
+// De eerste drie secties staan op elke pagina. De vierde ("Eigen sjabloon", 23-10-2026) staat alleen op een pagina die in
+// de chat is gebouwd (src/lp/chatBouwer.js): die pagina heeft haar eigen sjabloon en het gesprek, geen sjabloon uit de
+// Sjablonen database. Op een gewone pagina ontbreekt het vierde blok en is page.sjabloon null.
+const VASTE_SECTIES = 3;
 
 let notion = null;
 function getNotionClient() {
@@ -98,6 +102,7 @@ function headingBlock(text) {
 function buildBodyBlocks(sections) {
   const blocks = [];
   SECTION_HEADINGS.forEach((heading, i) => {
+    if (i >= VASTE_SECTIES && (sections[SECTION_KEYS[i]] === undefined || sections[SECTION_KEYS[i]] === null)) return;
     blocks.push(headingBlock(heading));
     blocks.push(codeBlock(sections[SECTION_KEYS[i]] ?? null));
   });
@@ -132,7 +137,7 @@ async function replaceBody(pageId, sections) {
 async function readSections(pageId) {
   const client = getNotionClient();
   const children = await listChildrenAll(client, pageId);
-  const sections = { invoer: null, feitensheet: null, content: null };
+  const sections = { invoer: null, feitensheet: null, content: null, sjabloon: null };
   const codeBlocks = children.filter((b) => b.type === 'code');
   SECTION_KEYS.forEach((key, i) => {
     const block = codeBlocks[i];
@@ -202,7 +207,7 @@ async function getPage(pageId) {
   return { ...summarize(page), ...sections };
 }
 
-async function createPage({ klant, blueprint, titel, slug, invoer }) {
+async function createPage({ klant, blueprint, titel, slug, invoer, content, sjabloon }) {
   const client = getNotionClient();
   const finalSlug = slug || slugify(titel);
   const page = await client.pages.create({
@@ -215,7 +220,7 @@ async function createPage({ klant, blueprint, titel, slug, invoer }) {
       Slug: { rich_text: [{ text: { content: finalSlug } }] }
     }
   });
-  await replaceBody(page.id, { invoer: invoer ?? null, feitensheet: null, content: null });
+  await replaceBody(page.id, { invoer: invoer ?? null, feitensheet: null, content: content ?? null, sjabloon: sjabloon ?? null });
   return getPage(page.id);
 }
 
@@ -247,16 +252,19 @@ async function updateSection(pageId, sectionKey, value) {
   const children = await listChildrenAll(client, pageId);
   const codeBlocks = children.filter((b) => b.type === 'code');
 
-  if (codeBlocks.length === SECTION_KEYS.length) {
-    const targetIndex = SECTION_KEYS.indexOf(sectionKey);
+  const targetIndex = SECTION_KEYS.indexOf(sectionKey);
+  if (codeBlocks.length >= VASTE_SECTIES && targetIndex < codeBlocks.length) {
     const targetBlock = codeBlocks[targetIndex];
     await client.blocks.update({ block_id: targetBlock.id, ...buildSectionUpdatePayload(value) });
+  } else if (codeBlocks.length === VASTE_SECTIES && targetIndex === VASTE_SECTIES) {
+    // Eigen sjabloon op een pagina die het blok nog niet heeft: achteraan toevoegen, de andere blokken blijven staan.
+    await client.blocks.children.append({ block_id: pageId, children: [headingBlock(SECTION_HEADINGS[targetIndex]), codeBlock(value)] });
   } else {
     // Structuur ontbreekt of is onvolledig (bv. een beschadigde pagina) --
     // herstel de volledige body in een keer op basis van wat er nu al staat
     // plus de nieuwe waarde. Dit pad raakt de body alleen aan als die niet in
     // de verwachte vorm staat, dus geen extra race met een gezonde pagina.
-    const current = { invoer: null, feitensheet: null, content: null };
+    const current = { invoer: null, feitensheet: null, content: null, sjabloon: null };
     SECTION_KEYS.forEach((key, i) => {
       const block = codeBlocks[i];
       if (!block) return;

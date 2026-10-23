@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="/styles.css">
 <link rel="stylesheet" href="/lp-werkplaats.css">
 <link rel="stylesheet" href="/lp-overzicht.css">
+<link rel="stylesheet" href="/lp-chat.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -237,6 +238,7 @@
       <button type="button" class="tab-btn" data-lp-tab="overzicht">Overzicht</button>
       <button type="button" class="tab-btn active" data-lp-tab="werkplaats">Werkplaats</button>
       <button type="button" class="tab-btn" data-lp-tab="nieuw">Nieuwe pagina</button>
+      <button type="button" class="tab-btn" data-lp-tab="chat">Bouwen met chat</button>
       <button type="button" class="tab-btn" data-lp-tab="sjablonen">Sjablonen</button>
       <button type="button" class="tab-btn" data-lp-tab="paginas">Alle pagina's</button>
       <button type="button" class="tab-btn" data-lp-tab="intake">Nieuwe klant</button>
@@ -740,6 +742,49 @@
 
       <div class="modal-actions" style="margin-top:16px;">
         <button type="button" id="lpIntakeSubmitBtn" class="btn btn-approve">Intake verzenden</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="lpChatTab" class="tab-panel hidden">
+    <div class="lp-shell">
+      <div id="chFout" class="admin-error hidden"></div>
+      <div class="ch-kop">
+        <div>
+          <h1 class="lp-h1">Bouwen met chat</h1>
+          <p class="ch-sub">Beschrijf de pagina, de AI bouwt hem meteen in de huisstijl van de klant. Stuur bij in de chat en zet hem als concept in WordPress.</p>
+        </div>
+        <div class="ch-kies">
+          <label for="chKlant">Klant<select id="chKlant"></select></label>
+          <label for="chPagina">Pagina<select id="chPagina"><option value="__nieuw__">Nieuwe pagina</option></select></label>
+        </div>
+      </div>
+      <div class="ch-raster">
+        <section class="ch-gesprek" aria-label="Chat">
+          <div id="chBerichten" class="ch-berichten" aria-live="polite"></div>
+          <div class="ch-invoer">
+            <textarea id="chTekst" placeholder="Bijvoorbeeld: maak de kop korter en zet de reviews hoger op de pagina"></textarea>
+            <div class="ch-invoer-rij">
+              <span class="ch-hint">Ctrl of Cmd + Enter om te versturen</span>
+              <button type="button" id="chVerstuur" class="btn btn-approve">Verstuur</button>
+            </div>
+          </div>
+        </section>
+        <section class="ch-voorbeeldvlak" aria-label="Voorbeeld">
+          <div class="ch-balk">
+            <div class="ch-balk-links">
+              <div class="ch-apparaat" id="chApparaat"><button type="button" class="actief" data-apparaat="desktop">Desktop</button><button type="button" data-apparaat="mobiel">Mobiel</button></div>
+              <span id="chStatus" class="ch-status"></span>
+            </div>
+            <div class="ch-balk-rechts">
+              <button type="button" id="chVernieuw" class="btn btn-plain" disabled>Vernieuw</button>
+              <button type="button" id="chOpenDetail" class="btn btn-plain" disabled title="Foto's kiezen, teksten los aanpassen, controle en deellink">Foto's en details</button>
+              <button type="button" id="chPubliceer" class="btn btn-approve" disabled>Als concept naar WordPress</button>
+            </div>
+          </div>
+          <div id="chMeldingen" class="ch-meldingen hidden"></div>
+          <div id="chKader" class="ch-kader"></div>
+        </section>
       </div>
     </div>
   </div>
@@ -1677,5 +1722,6 @@
 <script src="/lp-vervang.js"></script>
 <script src="/lp-klantgegevens.js"></script>
 <script src="/lp-festival.js"></script>
+<script src="/lp-chat.js"></script>
 </body>
 </html>

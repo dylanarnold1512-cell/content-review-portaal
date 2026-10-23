@@ -15,6 +15,7 @@ const { buildFeitenVoorstel } = require('../lp/siteAnalyse');
 const ai = require('../lp/ai');
 const { renderPageHtml } = require('../lp/render');
 const { buildRenderPage, contentIsEmpty } = require('../lp/pageRender');
+const { eigenSjabloonVan } = require('../lp/eigenSjabloon');
 const { zorgVoorGalerijSlot } = require('../lp/galerij');
 const { zorgVoorProjectItems, ruimOpProjectItems, projectLijsten } = require('../lp/projectFotos');
 const { haalProjecten, kiesProjecten, vulProjectItems } = require('../lp/projecten');
@@ -117,6 +118,12 @@ router.post('/clients/:clientId/media/upload', requireLpInternal, async (req, re
 
 router.get('/clients/:clientId/blueprints/:blueprintId', requireLpInternal, async (req, res) => {
   try {
+    // Een pagina met een eigen sjabloon (gebouwd met chat): ?pagina=<id> geeft het sjabloon van die pagina.
+    if (req.query.pagina) {
+      const page = await lpNotion.getPage(String(req.query.pagina));
+      const eigen = page.klant === req.params.clientId ? eigenSjabloonVan(page) : null;
+      if (eigen) return res.json({ blueprint: eigen });
+    }
     const blueprint = await templates.getActiveTemplateByBlueprintId(req.params.clientId, req.params.blueprintId);
     res.json({ blueprint });
   } catch (err) {
@@ -932,7 +939,7 @@ async function keurVoorstellen({ klant, goedkeuren, afwijzen, sjablonen: gekozen
     const inv = page.invoer || {};
     if (!inv.plan || inv.plan.status !== 'voorgesteld') continue;
     await lpNotion.updateSection(id, 'invoer', { ...inv, plan: { ...inv.plan, status: 'goedgekeurd', goedgekeurdOp: new Date().toISOString().slice(0, 10) } });
-    const tpl = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint).catch(() => null);
+    const tpl = (eigenSjabloonVan(page) || await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint).catch(() => null));
     if (automatisch && tpl && tpl.templateFormat === 'slots') startAutoTekst(id);
     goed += 1;
   }
@@ -1421,7 +1428,7 @@ function isContentIngevuld(content) {
 
 // Maakt een content voorstel voor een pagina (AI, links, foto's). Slaat niets op.
 async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } = {}) {
-  const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+  const blueprint = eigenSjabloonVan(page) || await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
   if (blueprint.templateFormat !== 'slots') {
     throw new Error('AI-contentgeneratie is alleen beschikbaar voor sjablonen in het nieuwe (slot-gebaseerde) formaat.');
   }
@@ -1692,7 +1699,7 @@ router.post('/pages/:pageId/generate-content', requireLpInternal, async (req, re
 router.get('/pages/:pageId/preview', requireLpInternal, async (req, res) => {
   try {
     const page = await lpNotion.getPage(req.params.pageId);
-    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const blueprint = eigenSjabloonVan(page) || await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
     const content = page.content;
     if (contentIsEmpty(blueprint, content)) {
       return res.json({ html: '<p style="font-family:sans-serif;padding:2rem;color:#666;">Nog geen content JSON ingevuld.</p>' });
@@ -1711,7 +1718,7 @@ router.post('/pages/:pageId/verberg', requireLpInternal, async (req, res) => {
   try {
     const { type, lijst, index, verborgen } = req.body || {};
     const page = await lpNotion.getPage(req.params.pageId);
-    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const blueprint = eigenSjabloonVan(page) || await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
     if (contentIsEmpty(blueprint, page.content)) {
       return res.status(400).json({ error: 'Er is nog geen content om onderdelen van te verbergen.' });
     }
@@ -1730,7 +1737,7 @@ router.post('/pages/:pageId/kies-fotos', requireLpInternal, async (req, res) => 
     const lijst = String((req.body || {}).lijst || '');
     if (!/^[\w.]+$/.test(lijst)) return res.status(400).json({ error: 'Ongeldige lijst.' });
     const page = await lpNotion.getPage(req.params.pageId);
-    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const blueprint = eigenSjabloonVan(page) || await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
     const content = page.content || {};
     const slotData = JSON.parse(JSON.stringify(content.slotData || {}));
     const client = getLpClient(page.klant);
@@ -1766,7 +1773,7 @@ router.post('/pages/:pageId/kies-fotos', requireLpInternal, async (req, res) => 
 router.get('/pages/:pageId/validate', requireLpInternal, async (req, res) => {
   try {
     const page = await lpNotion.getPage(req.params.pageId);
-    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const blueprint = eigenSjabloonVan(page) || await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
     const result = validatePage({ blueprint, contentJson: page.content || {} });
     // Extra SEO en GEO waarschuwingen voor pagina's die op elkaar lijken (blokkeert nooit).
     try {
@@ -1786,7 +1793,7 @@ router.get('/pages/:pageId/validate', requireLpInternal, async (req, res) => {
 router.get('/pages/:pageId/controle', requireLpInternal, async (req, res) => {
   try {
     const page = await lpNotion.getPage(req.params.pageId);
-    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const blueprint = eigenSjabloonVan(page) || await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
     const result = validatePage({ blueprint, contentJson: page.content || {} });
     let seo = [];
     try {
@@ -1866,7 +1873,7 @@ function redactiePunten(page, blueprint, client, voorbeeldSlotData) {
 router.post('/pages/:pageId/redactie-check', requireLpInternal, async (req, res) => {
   try {
     const page = await lpNotion.getPage(req.params.pageId);
-    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const blueprint = eigenSjabloonVan(page) || await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
     const client = getLpClient(page.klant);
     const slotData = (page.content || {}).slotData;
     if (!slotData || !Object.keys(slotData).length) return res.status(400).json({ error: 'Deze pagina heeft nog geen tekst om te controleren.' });
@@ -1890,7 +1897,7 @@ router.post('/pages/:pageId/herschrijf', requireLpInternal, async (req, res) => 
   try {
     const { slots, aanwijzing } = req.body || {};
     const page = await lpNotion.getPage(req.params.pageId);
-    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const blueprint = eigenSjabloonVan(page) || await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
     const client = getLpClient(page.klant);
     const content = page.content || {};
     if (!content.slotData || !Object.keys(content.slotData).length) return res.status(400).json({ error: 'Deze pagina heeft nog geen tekst.' });
@@ -1988,7 +1995,9 @@ async function seoWaarschuwingen(page) {
 // nooit overgenomen (nieuwe pagina start als "Formulier ingevuld").
 async function maakKopie(origineel, opties) {
   const kopie = bouwKopie(origineel, opties);
-  const nieuw = await lpNotion.createPage({ klant: kopie.klant, blueprint: kopie.blueprint, titel: kopie.titel, slug: kopie.slug, invoer: kopie.invoer });
+  // Een pagina met een eigen sjabloon (gebouwd met chat) neemt dat sjabloon mee, zonder het gesprek.
+  const eigen = origineel.sjabloon && origineel.sjabloon.blueprint ? { blueprint: origineel.sjabloon.blueprint, berichten: [] } : undefined;
+  const nieuw = await lpNotion.createPage({ klant: kopie.klant, blueprint: kopie.blueprint, titel: kopie.titel, slug: kopie.slug, invoer: kopie.invoer, sjabloon: eigen });
   if (kopie.feitensheet) await lpNotion.updateSection(nieuw.id, 'feitensheet', kopie.feitensheet);
   if (kopie.content) await lpNotion.updateSection(nieuw.id, 'content', kopie.content);
   return { kopie, id: nieuw.id };
@@ -2088,7 +2097,7 @@ router.post('/pages/verwijder-meerdere', requireLpInternal, async (req, res) => 
 router.post('/pages/:pageId/publish', requireLpInternal, async (req, res) => {
   try {
     const page = await lpNotion.getPage(req.params.pageId);
-    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const blueprint = eigenSjabloonVan(page) || await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
     const content = page.content;
     if (contentIsEmpty(blueprint, content)) {
       return res.status(400).json({ error: 'Geen content JSON om te publiceren.' });
@@ -2121,7 +2130,7 @@ router.post('/pages/:pageId/publish', requireLpInternal, async (req, res) => {
 // Zet een pagina live in WordPress. Gooit een Error met een duidelijke melding als de controle faalt of WordPress het weigert.
 async function zetPaginaLive(pageId) {
   const page = await lpNotion.getPage(pageId);
-  const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+  const blueprint = eigenSjabloonVan(page) || await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
   const content = page.content;
   if (contentIsEmpty(blueprint, content)) throw new Error('Geen content om live te zetten.');
   const validation = validatePage({ blueprint, contentJson: content });
@@ -2166,7 +2175,7 @@ router.post('/pages/:pageId/zet-live', requireLpInternal, async (req, res) => {
 // ---- Klaar voor live (23-10-2026) ----
 // De controle van een pagina als geheel: is hij schoon? Gebruikt dezelfde controles als het scherm Controleren.
 async function beoordeelPagina(page) {
-  const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+  const blueprint = eigenSjabloonVan(page) || await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
   const content = page.content;
   const client = getLpClient(page.klant);
   if (contentIsEmpty(blueprint, content)) return beslisKlaar({ contentLeeg: true });
@@ -2307,7 +2316,7 @@ router.post('/pages/:pageId/tekst-vervangen', requireLpInternal, async (req, res
   try {
     const { zoek, vervang, slotKey, heleVeld, publiceer } = req.body || {};
     const page = await lpNotion.getPage(req.params.pageId);
-    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const blueprint = eigenSjabloonVan(page) || await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
     const content = page.content;
     if (contentIsEmpty(blueprint, content)) return res.status(400).json({ error: 'Deze pagina heeft nog geen content.' });
 
@@ -2372,7 +2381,7 @@ function startSchrijfOpnieuw(pageId, { publiceer }) {
     if (page.status !== 'Gepubliceerd') await zetStatusNaSchrijven(pageId);
     const uitkomst = { waarschuwing: [r.klantverhaalWarning, r.redactieWaarschuwing, r.planWaarschuwing].filter(Boolean).join(' '), wpStatus: null, wpMelding: null };
     if (publiceer && page.wpPaginaId) {
-      const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+      const blueprint = eigenSjabloonVan(page) || await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
       const validation = zonderMetaLengte(validatePage({ blueprint, contentJson: nieuweContent }));
       if (!validation.ok) {
         uitkomst.wpMelding = `De nieuwe tekst staat in het portaal, maar is niet naar WordPress gestuurd omdat de controle fouten gaf: ${validation.errors.join('; ')}`;
@@ -2446,7 +2455,7 @@ router.post('/pages/:pageId/opnieuw-publiceren', requireLpInternal, async (req, 
   try {
     const page = await lpNotion.getPage(req.params.pageId);
     if (!page.wpPaginaId) return res.status(400).json({ error: 'Deze pagina staat nog niet in WordPress. Publiceer hem eerst via het gewone scherm.' });
-    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const blueprint = eigenSjabloonVan(page) || await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
     const content = page.content;
     if (contentIsEmpty(blueprint, content)) return res.status(400).json({ error: 'Deze pagina heeft nog geen content.' });
     const validation = zonderMetaLengte(validatePage({ blueprint, contentJson: content }));
@@ -2509,7 +2518,7 @@ router.post('/clients/:clientId/onderdeel-overnemen/lijst', requireLpInternal, a
 router.get('/pages/:pageId/onderdelen', requireLpInternal, async (req, res) => {
   try {
     const page = await lpNotion.getPage(req.params.pageId);
-    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const blueprint = eigenSjabloonVan(page) || await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
     const slotData = (page.content && page.content.slotData) || {};
     const onderdelen = onderdeel.onderdelenVan(blueprint)
       .map((o) => ({ ...o, inhoud: onderdeel.samenvatting(slotData, o.slots) }))
@@ -2528,7 +2537,7 @@ router.post('/pages/:pageId/onderdeel-overnemen', requireLpInternal, async (req,
     const [bron, page] = await Promise.all([lpNotion.getPage(bronPageId), lpNotion.getPage(req.params.pageId)]);
     if (bron.klant !== page.klant) return res.status(400).json({ error: 'De voorbeeldpagina hoort bij een andere klant.' });
     if (bron.blueprint !== page.blueprint) return res.status(400).json({ error: `Andere opbouw (sjabloon ${page.blueprint || 'onbekend'}), daarom niet overgenomen.` });
-    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const blueprint = eigenSjabloonVan(page) || await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
     const gekozen = onderdeel.onderdelenVan(blueprint).find((o) => o.id === onderdeelId);
     if (!gekozen) return res.status(400).json({ error: 'Dit onderdeel bestaat niet in het sjabloon.' });
     if (contentIsEmpty(blueprint, page.content)) return res.status(400).json({ error: 'Deze pagina heeft nog geen content.' });
@@ -2603,7 +2612,7 @@ router.get('/pages/:pageId/deellink', requireLpInternal, async (req, res) => {
 router.post('/pages/:pageId/deellink', requireLpInternal, async (req, res) => {
   try {
     const page = await lpNotion.getPage(req.params.pageId);
-    const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+    const blueprint = eigenSjabloonVan(page) || await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
     if (contentIsEmpty(blueprint, page.content)) {
       return res.status(400).json({ error: 'Er is nog geen content om te delen. Genereer of vul eerst de content.' });
     }
@@ -2622,6 +2631,120 @@ router.delete('/pages/:pageId/deellink', requireLpInternal, async (req, res) => 
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
+});
+
+// ---- Bouwen met chat (23-10-2026, zie src/lp/chatBouwer.js) ----
+// Een bericht kan een tot drie minuten duren (de AI bouwt een hele pagina). Daarom start POST /chat/bericht een taak en
+// vraagt het scherm de uitkomst op met GET /chat/taak/:taakId. De taken staan alleen in het geheugen: na een herstart van
+// de server is een lopende taak weg, de pagina en het gesprek in Notion niet.
+const chatBouwer = require('../lp/chatBouwer');
+const { CHAT_BLUEPRINT } = require('../lp/eigenSjabloon');
+const chatTaken = new Map();
+const chatBezigPerPagina = new Set();
+const CHAT_TAAK_BEWAAR_MS = 30 * 60 * 1000;
+
+function ruimChatTakenOp() {
+  const grens = Date.now() - CHAT_TAAK_BEWAAR_MS;
+  for (const [id, t] of chatTaken) if (t.gestart < grens) chatTaken.delete(id);
+}
+
+async function voerChatBeurtUit({ klant, pageId, bericht, berichtenZonderPagina }) {
+  const client = getLpClient(klant);
+  const page = pageId ? await lpNotion.getPage(pageId) : null;
+  if (page && page.klant !== klant) throw new Error('Deze pagina hoort niet bij deze klant.');
+  const huidig = page && page.sjabloon && page.sjabloon.blueprint
+    ? { blueprint: page.sjabloon.blueprint, slotData: (page.content && page.content.slotData) || {} }
+    : null;
+  const berichten = page
+    ? ((page.sjabloon && page.sjabloon.berichten) || [])
+    : (Array.isArray(berichtenZonderPagina) ? berichtenZonderPagina.filter((b) => b && typeof b.tekst === 'string').map((b) => ({ rol: b.rol === 'ai' ? 'ai' : 'dylan', tekst: b.tekst.slice(0, 4000) })) : []);
+  const uit = await chatBouwer.chatBeurt({
+    klant, client, huidig, berichten, bericht,
+    deps: { ai, callOpenAi: ai.callOpenAi, validateTemplateStructure, verdeelIconen: ai.verdeelIconen, zorgVoorGalerijSlot, bouwKlantverhaalBlok: require('../lp/klantverhaal').bouwKlantverhaalBlok }
+  });
+  const waarschuwingen = [];
+  let slotData = uit.slotData;
+  if (uit.actie !== 'geen') {
+    // Lege foto's vullen uit de mediabibliotheek van de klant (zelfde keuze als bij een sjabloonvoorbeeld).
+    const r = await vulVoorbeeldAan({ klant, blueprint: uit.blueprint, slotData: slotData || {}, hervulTekst: false });
+    slotData = r.data;
+    waarschuwingen.push(...r.waarschuwingen);
+  }
+  const nu = new Date().toISOString();
+  const nieuweBerichten = chatBouwer.voegBerichtenToe(berichten,
+    { rol: 'dylan', tekst: bericht, tijd: nu },
+    { rol: 'ai', tekst: uit.antwoord, actie: uit.actie, tijd: nu });
+
+  if (!page) {
+    if (uit.actie === 'geen') return { pageId: null, antwoord: uit.antwoord, actie: uit.actie, berichten: nieuweBerichten, waarschuwingen };
+    const eersteVraag = (nieuweBerichten.find((b) => b.rol === 'dylan') || {}).tekst || bericht;
+    const nieuw = await lpNotion.createPage({
+      klant,
+      blueprint: CHAT_BLUEPRINT,
+      titel: uit.titel || `Chatpagina ${nu.slice(0, 10)}`,
+      slug: uit.slug || undefined,
+      invoer: { _gebouwdMetChat: true, _watGaatDezePaginaOver: String(eersteVraag).slice(0, 1500) },
+      content: { meta: { metaTitle: slotData.metaTitle || '', metaDescription: slotData.metaDescription || '' }, slotData, overrides: {} },
+      sjabloon: { blueprint: uit.blueprint, berichten: nieuweBerichten }
+    });
+    return { pageId: nieuw.id, antwoord: uit.antwoord, actie: uit.actie, berichten: nieuweBerichten, waarschuwingen };
+  }
+
+  if (uit.actie !== 'geen') {
+    await lpNotion.updateSection(page.id, 'content', { ...(page.content || {}), meta: { metaTitle: slotData.metaTitle || '', metaDescription: slotData.metaDescription || '' }, slotData });
+  }
+  await lpNotion.updateSection(page.id, 'sjabloon', { blueprint: uit.actie === 'bouw' ? uit.blueprint : page.sjabloon.blueprint, berichten: nieuweBerichten });
+  return { pageId: page.id, antwoord: uit.antwoord, actie: uit.actie, berichten: nieuweBerichten, waarschuwingen };
+}
+
+// Lijst van chatpagina's van een klant.
+router.get('/chat/lijst', requireLpInternal, async (req, res) => {
+  try {
+    const klant = String(req.query.klant || '');
+    if (!klant) return res.status(400).json({ error: 'Kies een klant.' });
+    const paginas = (await lpNotion.listPages({ klant })).filter((p) => p.blueprint === CHAT_BLUEPRINT);
+    res.json({ paginas });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Een chatpagina openen: het gesprek en de stand van de pagina.
+router.get('/chat/:pageId', requireLpInternal, async (req, res) => {
+  try {
+    const page = await lpNotion.getPage(req.params.pageId);
+    if (page.blueprint !== CHAT_BLUEPRINT || !page.sjabloon) return res.status(400).json({ error: 'Deze pagina is niet in de chat gebouwd.' });
+    res.json({ page: { id: page.id, titel: page.titel, klant: page.klant, status: page.status, slug: page.slug, wpUrl: page.wpUrl, wpPaginaId: page.wpPaginaId }, berichten: page.sjabloon.berichten || [] });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/chat/bericht', requireLpInternal, (req, res) => {
+  const { klant, pageId, bericht, berichten } = req.body || {};
+  const tekst = String(bericht || '').trim();
+  if (!klant) return res.status(400).json({ error: 'Kies een klant.' });
+  if (!tekst) return res.status(400).json({ error: 'Typ eerst een bericht.' });
+  try { getLpClient(klant); } catch (err) { return res.status(400).json({ error: err.message }); }
+  if (pageId && chatBezigPerPagina.has(pageId)) return res.status(409).json({ error: 'Er loopt al een bericht voor deze pagina. Wacht tot dat klaar is.' });
+  ruimChatTakenOp();
+  const taakId = `chat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  const taak = { status: 'bezig', gestart: Date.now() };
+  chatTaken.set(taakId, taak);
+  if (pageId) chatBezigPerPagina.add(pageId);
+  voerChatBeurtUit({ klant, pageId: pageId || null, bericht: tekst.slice(0, 4000), berichtenZonderPagina: berichten })
+    .then((resultaat) => { taak.status = 'klaar'; taak.resultaat = resultaat; })
+    .catch((err) => { taak.status = 'fout'; taak.fout = err.message; })
+    .finally(() => { if (pageId) chatBezigPerPagina.delete(pageId); });
+  res.json({ taakId });
+});
+
+router.get('/chat/taak/:taakId', requireLpInternal, (req, res) => {
+  const taak = chatTaken.get(req.params.taakId);
+  if (!taak) return res.status(404).json({ error: 'Deze taak is niet (meer) bekend. Mogelijk is de server herstart. Open de pagina opnieuw.' });
+  if (taak.status === 'fout') return res.json({ status: 'fout', fout: taak.fout });
+  if (taak.status === 'klaar') return res.json({ status: 'klaar', resultaat: taak.resultaat });
+  res.json({ status: 'bezig', seconden: Math.round((Date.now() - taak.gestart) / 1000) });
 });
 
 module.exports = router;

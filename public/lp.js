@@ -135,13 +135,13 @@ function switchLpTab(tab) {
   document.getElementById('lpIntakeTab').classList.toggle('hidden', tab !== 'intake');
   // Kopie van WordPress, Tekst vervangen en Klantgegevens schakelen zichzelf via een klik op hun tabknop. Bij een
   // programmatische aanroep (bijvoorbeeld de knop "Kopie van een bestaande pagina") doen we die klik hier.
-  const speciaal = ['kloon', 'vervang', 'klantgegevens'];
+  const speciaal = ['kloon', 'vervang', 'klantgegevens', 'chat'];
   if (speciaal.includes(tab) && !lpDoorKlik) {
     const knop = document.querySelector(`#lpTabNav .tab-btn[data-lp-tab="${tab}"]`);
     lpDoorKlik = true;
     try { if (knop) knop.click(); } finally { lpDoorKlik = false; }
   } else if (!speciaal.includes(tab)) {
-    ['lpKloonTab', 'lpVervangTab', 'lpKlantgegevensTab'].forEach((id) => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); });
+    ['lpKloonTab', 'lpVervangTab', 'lpKlantgegevensTab', 'lpChatTab'].forEach((id) => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); });
   }
   lpMeldTabAanAdmin(tab);
   document.getElementById('lpDetailSection').classList.add('hidden');
@@ -532,7 +532,7 @@ async function openPageDetail(pageId) {
 
   let blueprint = null;
   try {
-    const res = await lpApi(`/clients/${page.klant}/blueprints/${page.blueprint}`);
+    const res = await lpApi(`/clients/${page.klant}/blueprints/${page.blueprint}?pagina=${encodeURIComponent(page.id)}`);
     blueprint = res.blueprint;
   } catch (err) {
     // Wordt hieronder per subtab getoond als foutmelding waar relevant.
