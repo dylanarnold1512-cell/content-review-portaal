@@ -313,6 +313,12 @@ function wpTekenWacht(pages) {
   const el = document.getElementById('wpWacht');
   if (!el) return;
   const items = [];
+  const klaarLijst = (pages || []).filter((p) => wpStandVan(p.status) === 'Klaar voor live');
+  if (klaarLijst.length) {
+    const n = klaarLijst.length;
+    items.push({ soort: 'Live zetten', klasse: 'plan', titel: n === 1 ? klaarLijst[0].titel || '1 pagina' : `${n} pagina's staan klaar voor live`, tekst: n === 1 ? 'Deze pagina is door de controle gekomen. Zet hem live op de website.' : klaarLijst.map((p) => p.titel).join(', ') + '. Ze zijn door de controle gekomen. Elke pagina wordt vlak voor het live gaat nog eens gecontroleerd.', knoppen: [{ label: n === 1 ? 'Zet live' : 'Zet alle live', hoofd: true, actie: (b) => wpZetSchoneLive(document.getElementById('wpKlant').value, b) }] });
+  }
+  if (lpState.wpLiveMelding) items.push({ soort: 'Resultaat', klasse: 'goed', titel: 'Live zetten', tekst: lpState.wpLiveMelding, knoppen: [{ label: 'Sluiten', actie: () => { lpState.wpLiveMelding = ''; wpTekenWacht(lpState.wpPages); } }] });
   (pages || []).forEach((p) => {
     if (p.status === 'Fout' || p.status === 'Afgewezen') items.push({ soort: 'Mislukt', klasse: 'fout', titel: p.titel || '(zonder titel)', tekst: p.status === 'Fout' ? 'Er ging iets mis bij het schrijven.' : 'Deze pagina is afgewezen.', knoppen: [{ label: 'Bekijk', hoofd: true, actie: () => wpOpenPagina(p.id) }] });
   });
