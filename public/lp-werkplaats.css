@@ -23,6 +23,7 @@
 .wp-gepland { background: #e9eefd; color: #3a5fd9; }
 .wp-maak { background: #f1eefc; color: #6a35ff; }
 .wp-controle { background: #fdf1dc; color: #b26a00; }
+.wp-klaar { background: #e0f3f5; color: #0c7a8a; }
 .wp-live { background: #e5f5ed; color: #17885a; }
 .wp-sjabloon { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid #eceef5; cursor: pointer; }
 .wp-sjabloon:first-child { border-top: none; }

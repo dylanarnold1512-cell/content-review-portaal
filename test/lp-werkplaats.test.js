@@ -3,10 +3,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { wpStandVan, wpBouwAdvies, WP_STAND } = require('../public/lp-werkplaats.js');
 
-test('alle negen Notion-statussen vallen in een van de vier standen', () => {
-  const alle = ['Idee', 'Formulier ingevuld', 'Feitensheet ter review', 'Content klaar', 'Ter review', 'Goedgekeurd', 'Afgewezen', 'Gepubliceerd', 'Fout'];
-  alle.forEach((s) => assert.ok(['Gepland', 'In de maak', 'Ter controle', 'Live'].includes(wpStandVan(s)), s));
-  assert.equal(Object.keys(WP_STAND).length, 9);
+test('alle tien Notion-statussen vallen in een van de vijf standen', () => {
+  const alle = ['Idee', 'Formulier ingevuld', 'Feitensheet ter review', 'Content klaar', 'Ter review', 'Goedgekeurd', 'Klaar voor live', 'Afgewezen', 'Gepubliceerd', 'Fout'];
+  alle.forEach((s) => assert.ok(['Gepland', 'In de maak', 'Ter controle', 'Klaar voor live', 'Live'].includes(wpStandVan(s)), s));
+  assert.equal(Object.keys(WP_STAND).length, 10);
   assert.equal(wpStandVan('onbekend'), 'In de maak');
 });
 
@@ -29,4 +29,10 @@ test('advies: alles live geeft een positief advies met nieuwe pagina', () => {
   const { advies } = wpBouwAdvies({ templates: [{ status: 'Actief' }], pages: [{ id: 'c', status: 'Gepubliceerd' }] });
   assert.equal(advies[0].soort, 'goed');
   assert.equal(advies[0].actie, 'pagina');
+});
+
+test('advies: schone pagina\'s krijgen een knop om alles live te zetten', () => {
+  const { advies, tellers } = wpBouwAdvies({ templates: [{ status: 'Actief' }], pages: [{ id: 'a', status: 'Klaar voor live' }, { id: 'b', status: 'Klaar voor live' }] });
+  assert.equal(tellers['Klaar voor live'], 2);
+  assert.ok(advies.some((a) => a.actie === 'zet-live-bulk' && a.knop === 'Zet alle live'));
 });

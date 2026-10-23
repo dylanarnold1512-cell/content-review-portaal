@@ -293,6 +293,7 @@ const LP_PAGE_STATUS_BADGE = {
   'Content klaar': 'badge-in-generatie',
   'Ter review': 'badge-ter-review',
   'Goedgekeurd': 'badge-goedgekeurd',
+  'Klaar voor live': 'badge-goedgekeurd',
   'Afgewezen': 'badge-afgewezen',
   'Gepubliceerd': 'badge-gepubliceerd',
   'Fout': 'badge-fout'
@@ -325,7 +326,7 @@ function renderPagesTable() {
   const standVan = (st) => (typeof wpStandVan === 'function' ? wpStandVan(st) : st);
   const klasse = (stand) => (typeof WP_STAND_KLASSE !== 'undefined' && WP_STAND_KLASSE[stand]) || 'wp-maak';
   const klantNaam = (id) => ((lpState.clients || []).find((c) => c.id === id) || {}).naam || id || '';
-  const tellers = { 'Gepland': 0, 'In de maak': 0, 'Ter controle': 0, 'Live': 0 };
+  const tellers = { 'Gepland': 0, 'In de maak': 0, 'Ter controle': 0, 'Klaar voor live': 0, 'Live': 0 };
   lpState.pages.forEach((p) => { const st = standVan(p.status); if (tellers[st] != null) tellers[st] += 1; });
   document.getElementById('lpPaginaTellers').innerHTML = Object.keys(tellers)
     .map((st) => `<span class="wp-pil ${klasse(st)}"><span class="wp-stip"></span>${st} <b>${tellers[st]}</b></span>`).join('');

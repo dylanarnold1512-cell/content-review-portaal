@@ -26,7 +26,7 @@ const VERVERS_MS = 5 * 60 * 1000;
 const MAX_FEITEN = 200;
 
 // Wat uit Notion mag komen. Alles daarbuiten blijft uit de code.
-const PROFIEL_VELDEN = ['naam', 'bedrijf', 'nietToegestaan', 'toonNotitie', 'fotoRichtlijn', 'ctaBalken', 'klantverhaal', 'voorbeeldPaginas', 'reviewsWidget'];
+const PROFIEL_VELDEN = ['naam', 'bedrijf', 'nietToegestaan', 'toonNotitie', 'fotoRichtlijn', 'ctaBalken', 'klantverhaal', 'voorbeeldPaginas', 'reviewsWidget', 'autoLive'];
 
 const diepKopie = (v) => JSON.parse(JSON.stringify(v));
 
@@ -107,6 +107,8 @@ function schoonProfiel(invoer) {
     const shortcode = tekst(w.shortcode, 200);
     uit.reviewsWidget = shortcode && /^\[[^\]]+\]$/.test(shortcode) ? { plugin: tekst(w.plugin, 40) || 'grw', shortcode, ...(tekst(w.titel, 80) ? { titel: tekst(w.titel, 80) } : {}) } : null;
   }
+  // Automatisch live zetten (23-10-2026): alleen bewaren als het is meegestuurd. Werkt pas na 5 live pagina's, zie klaarVoorLive.js.
+  if (i.autoLive !== undefined) uit.autoLive = i.autoLive === true;
   // Klantverhaal: alleen bewaren als het is meegestuurd, zodat een bestaand klantverhaal niet per ongeluk verdwijnt.
   if (i.klantverhaal !== undefined) {
     const kv = schoonKlantverhaal(i.klantverhaal);
@@ -380,6 +382,7 @@ function bewerkbaar(id) {
       klantverhaal: p.klantverhaal || null,
       voorbeeldPaginas: p.voorbeeldPaginas || {},
       reviewsWidget: p.reviewsWidget || null,
+      autoLive: p.autoLive === true,
       huisstijl: huisstijlUitTokens(getTokens(id))
     },
     huisstijlEigen: Boolean(notionData.get(id) && notionData.get(id).profiel && notionData.get(id).profiel.huisstijl && Object.keys(notionData.get(id).profiel.huisstijl).length),
@@ -419,6 +422,7 @@ async function bewaar(klantIdInvoer, { profiel, feiten, nieuw = false } = {}) {
   if (profiel && profiel.klantverhaal === undefined && bestaandProfiel && bestaandProfiel.klantverhaal) p.klantverhaal = bestaandProfiel.klantverhaal;
   if (profiel && profiel.voorbeeldPaginas === undefined && bestaandProfiel && bestaandProfiel.voorbeeldPaginas) p.voorbeeldPaginas = bestaandProfiel.voorbeeldPaginas;
   if (profiel && profiel.reviewsWidget === undefined && bestaandProfiel && bestaandProfiel.reviewsWidget) p.reviewsWidget = bestaandProfiel.reviewsWidget;
+  if (profiel && profiel.autoLive === undefined && bestaandProfiel && bestaandProfiel.autoLive !== undefined) p.autoLive = bestaandProfiel.autoLive;
   if (!p.naam) throw new Error('Vul de naam van de klant in.');
   const f = schoonFeiten(feiten);
 
