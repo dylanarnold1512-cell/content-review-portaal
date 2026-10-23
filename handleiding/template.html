@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<title>Handleiding {{klant}} door Advertisr.</title>
+<style>
+@font-face { font-family: "Geist"; src: url("../public/fonts/Geist-Variable.woff2") format("woff2"); font-weight: 100 900; }
+:root {
+  --bg: #f5f7fc; --ink: #14142b; --zacht: #62657f; --vaag: #9a9db5; --rand: #e6e8f1;
+  --rood: #ff3951; --rood-zacht: #ffefef; --wit: #ffffff; --donker: #14142b;
+  --mono: "Geist Mono", "DejaVu Sans Mono", ui-monospace, monospace;
+}
+@page { size: A4; margin: 0; }
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: "Geist", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+.page { width: 210mm; height: 297mm; padding: 13mm 16mm 11mm; position: relative; overflow: hidden; page-break-after: always; background: var(--bg); display: flex; flex-direction: column; }
+.page:last-child { page-break-after: auto; }
+.kop { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 7.5pt; letter-spacing: .08em; color: var(--zacht); text-transform: uppercase; margin-bottom: 8mm; }
+.label { font-family: var(--mono); font-size: 7.5pt; letter-spacing: .1em; text-transform: uppercase; color: var(--rood); margin-bottom: 3mm; }
+h1 { font-size: 22pt; line-height: 1.12; letter-spacing: -.02em; margin: 0 0 4mm; font-weight: 700; }
+h2 { font-size: 13pt; letter-spacing: -.01em; margin: 0 0 1.5mm; font-weight: 700; }
+h3 { font-size: 10pt; margin: 0 0 1mm; font-weight: 700; }
+p { font-size: 9.5pt; line-height: 1.55; margin: 0 0 3mm; color: var(--ink); }
+.zacht { color: var(--zacht); }
+.dot { color: var(--rood); }
+.inleiding { font-size: 10.5pt; line-height: 1.6; color: var(--zacht); max-width: 150mm; margin-bottom: 4.5mm; }
+
+/* Voorblad */
+.cover { background: var(--bg); }
+.cover .merk { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 26mm; }
+.cover .merk b { font-size: 14pt; letter-spacing: -.02em; }
+.cover .merk span { font-family: var(--mono); font-size: 7.5pt; letter-spacing: .1em; color: var(--zacht); }
+.cover .titel { font-size: 56pt; line-height: .98; letter-spacing: -.04em; font-weight: 800; margin: 0 0 9mm; }
+.cover .ondertitel { font-size: 17pt; line-height: 1.25; letter-spacing: -.02em; font-weight: 700; max-width: 140mm; margin: 0 0 5mm; }
+.cover .uitleg { font-size: 10.5pt; line-height: 1.6; color: var(--zacht); max-width: 125mm; }
+.cover .scherm { margin-top: auto; margin-right: -17mm; border-radius: 10px 0 0 0; }
+
+/* Schermafbeeldingen in een venster */
+.venster { background: var(--wit); border: 1px solid var(--rand); border-radius: 8px; overflow: hidden;  }
+.venster .balk { height: 6mm; border-bottom: 1px solid var(--rand); display: flex; align-items: center; gap: 1.2mm; padding: 0 3mm; font-size: 6pt; color: var(--vaag); }
+.venster .balk i { width: 1.6mm; height: 1.6mm; border-radius: 50%; background: #d8dbe8; display: inline-block; }
+.venster .balk span { margin-left: 2mm; }
+.venster img { display: block; width: 100%; image-rendering: auto; }
+.venster.uitsnede img { object-fit: cover; object-position: top; }
+
+/* Kaarten en rijen */
+.kaarten { display: grid; gap: 3.5mm; margin-bottom: 4.5mm; }
+.kaarten.drie { grid-template-columns: repeat(3, 1fr); }
+.kaarten.twee { grid-template-columns: repeat(2, 1fr); }
+.kaart { background: var(--wit); border: 1px solid var(--rand); border-radius: 8px; padding: 3.6mm 4.5mm; }
+.kaart p { font-size: 8.8pt; color: var(--zacht); margin: 0; }
+.kaart .waarde { font-size: 10.5pt; font-weight: 700; color: var(--ink); margin: 0 0 1.2mm; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.kaart .wachtwoord { font-family: var(--mono); font-size: 10pt; letter-spacing: .02em; background: var(--bg); border: 1px dashed var(--vaag); border-radius: 5px; padding: 1.4mm 2.4mm; display: inline-block; }
+.kaart .klein { font-family: var(--mono); font-size: 6.8pt; letter-spacing: .1em; text-transform: uppercase; color: var(--vaag); margin-bottom: 1.5mm; }
+.donker { background: var(--donker); color: #fff; border-radius: 10px; padding: 6mm 7mm; margin-bottom: 6mm; }
+.donker p { color: #d3d5e6; font-size: 9.5pt; margin: 0; }
+.donker h2 { color: #fff; }
+.donker .label { color: #ff7d8f; }
+
+.stappen { background: var(--wit); border: 1px solid var(--rand); border-radius: 8px; margin-bottom: 4mm; }
+.stap { display: grid; grid-template-columns: 9mm 1fr; gap: 3mm; padding: 3mm 5mm; border-top: 1px solid var(--rand); align-items: start; }
+.stap:first-child { border-top: 0; }
+.stap .nr { width: 6.5mm; height: 6.5mm; border-radius: 50%; border: 1px solid var(--rand); font-family: var(--mono); font-size: 7.5pt; display: grid; place-items: center; color: var(--rood); background: var(--wit); }
+.stap p { margin: 0; font-size: 8.8pt; color: var(--zacht); }
+.stap h3 { margin-bottom: .8mm; }
+
+.blok { margin-bottom: 5mm; break-inside: avoid; }
+.blok .tab { display: inline-block; font-family: var(--mono); font-size: 6.8pt; letter-spacing: .1em; text-transform: uppercase; color: var(--rood); background: var(--rood-zacht); border-radius: 4px; padding: 1mm 2.2mm; margin-bottom: 2mm; }
+.blok .rij { display: grid; grid-template-columns: 1fr 1.25fr; gap: 6mm; align-items: start; }
+.blok .rij.omgekeerd { grid-template-columns: 1.25fr 1fr; }
+.blok .tip { background: var(--wit); border: 1px solid var(--rand); border-left: 3px solid var(--rood); border-radius: 6px; padding: 2.5mm 3.5mm; margin-top: 2mm; }
+.blok .tip p { margin: 0; font-size: 8.4pt; color: var(--zacht); }
+.blok .tip b { color: var(--ink); }
+ul.punten { margin: 0 0 2mm; padding: 0; list-style: none; }
+ul.punten li { font-size: 8.8pt; line-height: 1.5; color: var(--zacht); padding-left: 4mm; position: relative; margin-bottom: 1mm; }
+ul.punten li::before { content: ""; position: absolute; left: 0; top: 1.9mm; width: 1.4mm; height: 1.4mm; border-radius: 50%; background: var(--rood); }
+ul.punten li b { color: var(--ink); }
+
+.regie { background: var(--rood-zacht); border-radius: 8px; padding: 3mm 5mm; margin-bottom: 4mm; display: flex; gap: 3mm; }
+.regie p { margin: 0; font-size: 8.8pt; color: var(--ink); }
+
+.tijdlijn { background: var(--wit); border: 1px solid var(--rand); border-radius: 8px; margin-bottom: 4mm; }
+.tijdlijn .regel { display: grid; grid-template-columns: 26mm 1fr; gap: 4mm; padding: 2.3mm 5mm; border-top: 1px solid var(--rand); align-items: baseline; }
+.tijdlijn .regel:first-child { border-top: 0; }
+.tijdlijn .wanneer { font-family: var(--mono); font-size: 7pt; letter-spacing: .06em; text-transform: uppercase; color: var(--rood); }
+.tijdlijn p { margin: 0; font-size: 8.8pt; }
+
+.cta { background: var(--rood); color: #fff; border-radius: 10px; padding: 4.5mm 7mm; margin-top: 5mm; }
+.cta h2 { color: #fff; font-size: 15pt; margin-bottom: 2mm; }
+.cta p { color: #ffe3e7; margin: 0 0 2mm; }
+.cta .mail { font-weight: 700; color: #fff; font-size: 9.5pt; }
+.voet { font-size: 7.5pt; color: var(--vaag); margin-top: 4mm; }
+</style>
+</head>
+<body>
+
+<!-- 1. Voorblad -->
+<section class="page cover">
+  <div class="merk"><b>Advertisr<span class="dot">.</span></b><span>HANDLEIDING</span></div>
+  <div class="titel">{{productTitel}}</div>
+  <div class="ondertitel">Zo werkt jullie portaal, {{klant}}.</div>
+  <div class="uitleg">Alles wat je nodig hebt om te starten: waar je inlogt, wat je in elk onderdeel van het portaal vindt en wat we van jullie vragen. Lees het in tien minuten, daarna kun je zelf aan de slag.</div>
+  <div class="venster scherm"><div class="balk"><i></i><i></i><i></i><span>portaal.advertisr.nl/{{slug}}</span></div><img src="schermen/overzicht.png" alt=""></div>
+</section>
+
+<!-- 2. Praktische gegevens -->
+<section class="page">
+  <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>02</span></div>
+  <div class="label">Praktische gegevens</div>
+  <h1>Alles om te starten, op één plek.</h1>
+  <p class="inleiding">Dit zijn de gegevens die je het vaakst nodig hebt. Bewaar deze pagina.</p>
+
+  <div class="kaarten twee">
+    <div class="kaart"><div class="klein">Jullie portaal</div><div class="waarde">portaal.advertisr.nl/{{slug}}</div><p>Open deze link in je browser. Je hoeft niets te installeren en het werkt ook op je telefoon.</p></div>
+    <div class="kaart"><div class="klein">Inloggen</div><div class="waarde wachtwoord">{{wachtwoord}}</div><p>Dit is het wachtwoord voor jullie portaal. Collega's die mee beoordelen kunnen hetzelfde wachtwoord gebruiken. Deel het alleen binnen jullie bedrijf.</p></div>
+    <div class="kaart"><div class="klein">Reviewmail</div><div class="waarde">{{email}}</div><p>Zodra een blog klaarstaat, krijg je op dit adres een mail met een knop naar de blog in het portaal. Willen jullie een ander adres, laat het ons weten.</p></div>
+    <div class="kaart"><div class="klein">Jullie contactpersoon</div><div class="waarde">{{contact}}</div><p>Zo spreken we jullie aan in de mails.</p></div>
+  </div>
+
+  <div class="label" style="margin-top:2mm">Wat jullie krijgen</div>
+  <div class="kaarten drie">
+    <!--if:blogr-->
+    <div class="kaart"><div class="klein">Blogr.</div><div class="waarde">{{blogsPerMaand}} blogs per maand</div><p>Geschreven in jullie toon, gecontroleerd op feiten en door jullie goedgekeurd voordat ze live gaan.</p></div>
+    <!--endif-->
+    <!--if:pagr-->
+    <div class="kaart"><div class="klein">Pagr.</div><div class="waarde">{{paginasPerMaand}} pagina's per maand</div><p>Landingspagina's per dienst en plaats, in de stijl van jullie website. Jullie hoeven niets goed te keuren.</p></div>
+    <!--endif-->
+    <div class="kaart"><div class="klein">Meting</div><div class="waarde">Google en AI</div><p>Cijfers uit Google elke dag bijgewerkt en elke week een meting in ChatGPT en Gemini.</p></div>
+  </div>
+
+  <div class="label" style="margin-top:2mm">Wat er de komende weken gebeurt</div>
+  <div class="tijdlijn">
+    <div class="regel"><span class="wanneer">Nu</span><p><b>Je ontvangt deze handleiding.</b> Neem rustig de tijd om het portaal te bekijken.</p></div>
+    <div class="regel"><span class="wanneer">Daarna</span><p><b>Je eerste reviewmail.</b> Daarin staat de eerste blog klaar: {{eersteBlog}}. Lees hem en keur hem goed, of geef feedback.</p></div>
+    <!--if:blogr-->
+    <div class="regel"><span class="wanneer">{{volgendeBlogDatum}}</span><p><b>De volgende blog.</b> {{volgendeBlogTitel}}. Je krijgt een mail zodra hij klaar is.</p></div>
+    <!--endif-->
+    <div class="regel"><span class="wanneer">Elke week</span><p><b>Nieuwe AI meting.</b> We stellen dezelfde vragen aan ChatGPT en Gemini en tellen hoe vaak jullie bedrijf in het antwoord voorkomt.</p></div>
+    <div class="regel"><span class="wanneer">Elke maand</span><p><b>Je maandrapport.</b> Het verschijnt op de 4e, met een terugblik en een vooruitblik.</p></div>
+  </div>
+
+  <div class="cta">
+    <h2>Vragen? We denken graag mee.</h2>
+    <p>Stuur een mail, dan komen we er zo snel mogelijk op terug.</p>
+    <div class="mail">{{contactAdvertisr}}</div>
+  </div>
+</section>
+
+<!-- 3. Overzicht en Blogs -->
+<section class="page">
+  <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>03</span></div>
+  <div class="label">Zo werkt het portaal</div>
+  <h1>Links vind je het menu. Dit doet elk onderdeel.</h1>
+  <p class="inleiding">Het portaal heeft een vast menu aan de linkerkant. Hieronder lopen we het door, van boven naar beneden.</p>
+
+  <div class="blok">
+    <span class="tab">Overzicht</span>
+    <div class="rij">
+      <div>
+        <h2>Alles wat er speelt, in één scherm.</h2>
+        <p>Dit is je startpagina. Bovenaan staat wat op jou wacht, bijvoorbeeld een blog die je moet beoordelen. Daarnaast zie je wanneer de volgende blog komt en wanneer de volgende AI meting is.</p>
+        <ul class="punten">
+          <li><b>Wacht op jou:</b> de rode knop brengt je direct naar de blog.</li>
+          <li><b>Kerncijfers:</b> hoe vaak jullie in Google getoond zijn, bezoekers vanuit Google en of AI jullie noemt.</li>
+          <li><b>Wat er gebeurde:</b> een korte lijst met de laatste updates.</li>
+        </ul>
+      </div>
+      <div class="venster uitsnede" style="max-height:46mm"><div class="balk"><i></i><i></i><i></i><span>Overzicht</span></div><img src="schermen/overzicht.png" alt=""></div>
+    </div>
+  </div>
+
+  <!--if:blogr-->
+  <div class="blok">
+    <span class="tab">Blogs</span>
+    <div class="rij omgekeerd">
+      <div class="venster uitsnede" style="max-height:52mm"><div class="balk"><i></i><i></i><i></i><span>Blogs</span></div><img src="schermen/blogs.png" alt=""></div>
+      <div>
+        <h2>Lees, keur goed of geef feedback.</h2>
+        <p>Hier staan alle blogs, van idee tot live. Kies links een blog en lees rechts de volledige tekst, met de titel en omschrijving die Google toont en het zoekwoord waar de blog op gericht is.</p>
+        <ul class="punten">
+          <li><b>Wacht op jou:</b> filter op de blogs die jouw oordeel nodig hebben.</li>
+          <li><b>Gepland:</b> blogs die we nog gaan schrijven, met de datum.</li>
+          <li><b>Live:</b> blogs die op jullie website staan.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="stappen">
+    <div class="stap"><span class="nr">1</span><div><h3>Open de mail of het tabblad Blogs</h3><p>Klik in de mail op de rode knop, of kies in het menu Blogs en dan de blog met de status Ter review.</p></div></div>
+    <div class="stap"><span class="nr">2</span><div><h3>Lees de blog</h3><p>Let op of alles klopt over jullie bedrijf: diensten, werkgebied en wat jullie wel en niet doen.</p></div></div>
+    <div class="stap"><span class="nr">3</span><div><h3>Kies onderaan: Goedkeuren of Afwijzen met feedback</h3><p>Goedgekeurd? Dan plaatsen wij de blog op jullie website. Feedback? Schrijf in gewone woorden wat anders moet. Wij passen de blog aan en sturen hem opnieuw ter review.</p></div></div>
+  </div>
+  <div class="regie"><p><b>Er gaat nooit iets live zonder jullie akkoord.</b> Blijft een blog liggen, dan sturen we na een week en na twee weken een herinnering.</p></div>
+  <!--endif-->
+</section>
+
+<!-- 4. Pagina's, Google, AI, Maandrapporten -->
+<section class="page">
+  <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>04</span></div>
+  <div class="label">Zo werkt het portaal, vervolg</div>
+
+  <!--if:pagr-->
+  <div class="blok">
+    <span class="tab">Pagina's</span>
+    <div class="rij">
+      <div>
+        <h2>De landingspagina's die wij maken.</h2>
+        <p>Pagr. maakt pagina's per dienst en plaats, in de stijl van jullie website. Je ziet welke pagina's live staan, welke in de maak zijn en welke gepland zijn. Jullie hoeven niets goed te keuren.</p>
+        <ul class="punten">
+          <li><b>Idee aandragen:</b> mis je een pagina? Met de knop rechtsboven geef je een idee door.</li>
+          <li><b>Google en AI:</b> per pagina zie je later hoe vaak hij getoond wordt.</li>
+        </ul>
+      </div>
+      <div class="venster uitsnede" style="max-height:44mm"><div class="balk"><i></i><i></i><i></i><span>Pagina's</span></div><img src="schermen/paginas.png" alt=""></div>
+    </div>
+  </div>
+  <!--endif-->
+
+  <div class="blok">
+    <span class="tab">Google</span>
+    <div class="rij omgekeerd">
+      <div class="venster uitsnede" style="max-height:44mm"><div class="balk"><i></i><i></i><i></i><span>Google</span></div><img src="schermen/google.png" alt=""></div>
+      <div>
+        <h2>Zien wat Google doet met jullie blogs.</h2>
+        <p>Hoe vaak jullie getoond worden, hoeveel bezoekers dat oplevert en op welke plek jullie staan. De cijfers lopen twee tot drie dagen achter. Een nieuwe blog heeft meestal een paar weken nodig voordat Google hem oppakt, dus de eerste weken is het rustig.</p>
+        <div class="tip"><p><b>Tip:</b> kies bovenaan de laatste 28 dagen, de laatste 3 maanden of de vorige kalendermaand.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="blok">
+    <span class="tab">Ai zichtbaarheid</span>
+    <div class="rij">
+      <div>
+        <h2>Noemt ChatGPT of Gemini jullie bedrijf?</h2>
+        <p>Steeds meer mensen stellen hun vraag aan AI in plaats van aan Google. Wij stellen elke week dezelfde vragen aan ChatGPT en Gemini en tellen hoe vaak jullie bedrijf voorkomt. Zo zie je of jullie zichtbaarheid groeit.</p>
+        <div class="tip"><p>De eerste meting volgt in de eerste week. Tot dan staat hier een melding.</p></div>
+      </div>
+      <div class="venster uitsnede" style="max-height:24mm"><div class="balk"><i></i><i></i><i></i><span>Ai zichtbaarheid</span></div><img src="schermen/ai.png" alt=""></div>
+    </div>
+  </div>
+
+  <div class="blok">
+    <span class="tab">Maandrapporten</span>
+    <div class="rij omgekeerd">
+      <div class="venster uitsnede" style="max-height:24mm"><div class="balk"><i></i><i></i><i></i><span>Maandrapporten</span></div><img src="schermen/rapporten.png" alt=""></div>
+      <div>
+        <h2>Elke maand een vast overzicht.</h2>
+        <p>Op de 4e van de maand verschijnt het rapport over de maand ervoor, met een terugblik, de cijfers die vastliggen en een vooruitblik. Je kunt het als PDF downloaden en delen. De actuele stand zie je altijd bij Google.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 5. Merkprofiel, Kennisdocument, Beeldbank -->
+<section class="page">
+  <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>05</span></div>
+  <div class="label">Jullie merk</div>
+  <h1>Hier bepaal je hoe wij over jullie schrijven.</h1>
+  <p class="inleiding">Drie onderdelen waarmee je de blogs en pagina's persoonlijker en juister maakt.</p>
+
+  <div class="blok">
+    <span class="tab">Merkprofiel</span>
+    <div class="rij">
+      <div>
+        <h2>Zo zien wij jullie bedrijf.</h2>
+        <p>Wij hebben het merkprofiel al gevuld met wat we weten uit jullie website en uit onze gesprekken. Jullie hoeven alleen te bevestigen wat klopt en aan te vullen wat nog mist of niet klopt. Alles wat je bevestigt, gebruiken de blogs direct.</p>
+        <ul class="punten">
+          <li><b>Dit klopt:</b> één klik bij een onderdeel dat goed is.</li>
+          <li><b>Aanpassen:</b> pas de tekst aan zoals jij het wilt.</li>
+          <li><b>Een keuze maken:</b> spreken website en eigen informatie elkaar tegen, dan kies je wat geldt.</li>
+        </ul>
+      </div>
+      <div class="venster uitsnede" style="max-height:72mm"><div class="balk"><i></i><i></i><i></i><span>Merkprofiel</span></div><img src="schermen/merkprofiel.png" alt=""></div>
+    </div>
+  </div>
+
+  <div class="blok">
+    <span class="tab">Kennisdocument</span>
+    <div class="rij omgekeerd">
+      <div class="venster uitsnede" style="max-height:48mm"><div class="balk"><i></i><i></i><i></i><span>Kennisdocument</span></div><img src="schermen/kennisdocument.png" alt=""></div>
+      <div>
+        <h2>Jullie eigen achtergrondkennis.</h2>
+        <p>Heb je een folder, werkwijze of prijsafspraken die de schrijver moet kennen? Upload een Word, PDF of tekstbestand, of pas de tekst zelf aan. De blogs gebruiken het spaarzaam en alleen waar het natuurlijk past, nooit als checklist.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="blok">
+    <span class="tab">Beeldbank</span>
+    <div class="rij">
+      <div>
+        <h2>Foto's van jullie eigen werk.</h2>
+        <p>Eigen foto's maken blogs en pagina's veel sterker dan stockfoto's. Sleep ze hier naartoe. Wij verkleinen ze, geven ze een passende naam en beschrijving en zetten ze in de juiste map. Jullie hoeven niets te sorteren.</p>
+        <div class="tip"><p><b>Tip:</b> projectfoto's van een badkamer, ketel of installatie werken het beste. Geen foto's? Dan gebruiken we beelden uit de bibliotheek.</p></div>
+      </div>
+      <div class="venster uitsnede" style="max-height:60mm"><div class="balk"><i></i><i></i><i></i><span>Beeldbank</span></div><img src="schermen/beeldbank.png" alt=""></div>
+    </div>
+  </div>
+</section>
+
+<!-- 6. Wat we van jullie vragen -->
+<section class="page">
+  <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>06</span></div>
+  <div class="label">Wat we van jullie vragen</div>
+  <h1>Twee dingen. Samen een kwartier.</h1>
+  <p class="inleiding">Meer is er niet nodig om te starten. De rest doen wij.</p>
+
+  <div class="stappen">
+    <div class="stap"><span class="nr">1</span><div><h3>Beoordeel je eerste blog</h3><p>Je krijgt hiervoor een aparte mail. Lees de blog, keur hem goed of geef feedback. Zo weten we meteen of toon en inhoud kloppen. Dit duurt ongeveer tien minuten.</p></div></div>
+    <div class="stap"><span class="nr">2</span><div><h3>Controleer het merkprofiel</h3><p>Open het tabblad Merkprofiel. Wat we al weten, staat erin. Bevestig wat klopt, en vul aan of kies bij wat nog mist of tegenspreekt. Dit duurt ongeveer vijf minuten.</p></div></div>
+  </div>
+
+  <div class="label">Daarna, als je wilt</div>
+  <div class="kaarten drie">
+    <div class="kaart"><div class="klein">Foto's</div><div class="waarde">Eigen werk uploaden</div><p>Sleep projectfoto's naar de Beeldbank.</p></div>
+    <div class="kaart"><div class="klein">Kennis</div><div class="waarde">Extra informatie</div><p>Voeg een folder of werkwijze toe in het Kennisdocument.</p></div>
+    <div class="kaart"><div class="klein">Ideeën</div><div class="waarde">Onderwerpen aandragen</div><p>Weet je een vraag van klanten? Geef hem door en wij nemen hem mee in de planning.</p></div>
+  </div>
+
+  <div class="donker">
+    <div class="label">Wat wij niet doen</div>
+    <h2>Bestaande pagina's blijven van jullie.</h2>
+    <p>We passen niets op jullie website aan zonder dat we dat samen hebben afgesproken. En er komen geen verzonnen klantverhalen, cijfers of beloftes in een blog of pagina.</p>
+  </div>
+
+  <div class="cta">
+    <h2>Loop je ergens op vast?</h2>
+    <p>Mail ons gerust, ook voor een kleine vraag. We helpen je op weg of nemen het uit handen.</p>
+    <div class="mail">{{contactAdvertisr}}</div>
+  </div>
+  <div class="voet">De schermafbeeldingen komen uit het portaal van {{klant}}. Cijfers verschijnen zodra er data is.</div>
+</section>
+
+</body>
+</html>
