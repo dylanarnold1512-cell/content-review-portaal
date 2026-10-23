@@ -48,24 +48,35 @@ function wpKopPillen(inst, pages) {
   if (i.paginasPerMaand) pillen.push({ klasse: 'wp-gepland', tekst: `${i.paginasPerMaand} pagina's per maand` });
   const auto = (naam, aan) => (aan ? (live >= 5 ? { klasse: 'wp-live', tekst: `${naam} aan` } : { klasse: 'wp-gepland', tekst: `${naam} aan vanaf 5 live pagina's (nu ${live})` }) : { klasse: 'wp-controle', tekst: `${naam} uit: ${live} van 5 live pagina's` });
   pillen.push(auto('Automatisch live', i.autoLive === true));
-  if (i.plan) pillen.push(auto('Plan automatisch goedkeuren', i.autoPlan === true));
+  if (i.plan) pillen.push(i.autoPlan === false ? { klasse: 'wp-gepland', tekst: 'Planning: met jouw akkoord' } : { klasse: 'wp-live', tekst: 'Planning: het systeem plant zelf' });
   pillen.push(i.paginameting ? { klasse: 'wp-live', tekst: 'Paginameting aan' } : { klasse: 'wp-controle', tekst: 'Paginameting uit' });
   return pillen;
 }
 
-// Wat gebeurt er na akkoord op het plan? Drie stappen in gewone woorden, afhankelijk van automatisch live.
-function wpNaAkkoordStappen(inst, live) {
+// Wat gebeurt er met een ingeplande pagina? Drie stappen in gewone woorden, afhankelijk van de planning en automatisch live.
+function wpNaAkkoordStappen(inst, live, zelfstandig) {
   const i = inst || {};
   const n = Number(live) || 0;
   let laatste;
   if (i.autoLive === true && n >= 5) laatste = 'Een schone pagina gaat meteen na de controle automatisch live. Er is geen vaste datum: elke pagina gaat live zodra hij klaar is.';
   else if (i.autoLive === true) laatste = `Automatisch live staat aan, maar werkt pas vanaf 5 live pagina's (nu ${n}). Tot dan zet jij schone pagina's live met de knop Zet live.`;
-  else laatste = 'Automatisch live staat uit: jij zet schone pagina\'s live met de knop Zet live bij Wacht op jou. Er is dus geen vaste datum. Een pagina gaat pas live als jij dat doet.';
+  else laatste = 'Automatisch live staat uit: jij zet schone pagina\'s live met de knop Zet live bij Wacht op jou. Een pagina gaat dus pas live als jij dat doet.';
   return [
-    'Schrijven: het systeem begint direct, een pagina per keer. Ze komen eerst in de kolom Gepland en in de maak.',
+    zelfstandig === false ? 'Schrijven: na jouw akkoord begint het systeem direct, een pagina per keer.' : 'Schrijven: op de datum in de planning begint het systeem zelf, een pagina per keer. Jij hoeft niets goed te keuren.',
     'Controle: een pagina zonder open punten wordt Klaar voor live. Een pagina met een punt komt bij Wacht op jou om te controleren.',
     laatste
   ];
+}
+
+// De agenda in twee groepen: wat eraan komt (op datum) en wat al geschreven is (nieuwste eerst).
+function wpPlanningGroepen(items) {
+  const komt = (items || []).filter((x) => x.stand === 'Gepland').sort((a, b) => (a.schrijfOp || '9999').localeCompare(b.schrijfOp || '9999'));
+  const klaar = (items || []).filter((x) => x.stand !== 'Gepland').sort((a, b) => (b.schrijfOp || '').localeCompare(a.schrijfOp || '')).slice(0, 5);
+  return { komt, klaar };
+}
+function wpPlanningStatus(x) {
+  if (x.wacht) return { tekst: 'Wacht op akkoord', klasse: 'wp-voorstel' };
+  return { 'Gepland': { tekst: 'Ingepland', klasse: 'wp-gepland' }, 'In de maak': { tekst: 'Wordt geschreven', klasse: 'wp-maak' }, 'Ter controle': { tekst: 'Te controleren', klasse: 'wp-controle' }, 'Klaar voor live': { tekst: 'Klaar voor live', klasse: 'wp-klaar' }, 'Live': { tekst: 'Live', klasse: 'wp-live' } }[x.stand] || { tekst: x.stand, klasse: 'wp-maak' };
 }
 
 // Wat staat er voor volgende maand klaar? Voorstellen van het plan met plan.maand van volgende maand.
@@ -183,6 +194,7 @@ function wpTeken() {
   wpTekenOnderweg(pages);
   wpTekenLog(pages);
   wpTekenVolgende();
+  wpTekenPlanning();
   document.getElementById('wpTellers').innerHTML = WP_STANDEN.map((s) => `<span class="wp-pil ${WP_STAND_KLASSE[s]}"><span class="wp-stip"></span>${s} <b>${uit.tellers[s]}</b></span>`).join('');
 
   const WP_ZICHTBAAR = 5;
@@ -254,7 +266,7 @@ async function wpLaad() {
       lpApi('/pages?klant=' + encodeURIComponent(klantId)),
       lpApi('/templates?klant=' + encodeURIComponent(klantId))
     ]);
-    if (lpState.wpGeladenKlant !== klantId) { lpState.wpGeladenKlant = klantId; lpState.wpVoorgesteld = null; lpState.wpIdeeen = []; lpState.wpAllePaginas = false; lpState.wpWachtKlaar = false; }
+    if (lpState.wpGeladenKlant !== klantId) { lpState.wpGeladenKlant = klantId; lpState.wpVoorgesteld = null; lpState.wpIdeeen = []; lpState.wpAllePaginas = false; lpState.wpWachtKlaar = false; lpState.wpPlanning = null; }
     lpState.wpPages = pages;
     try { window.parent.postMessage({ type: 'pagr-gewijzigd' }, window.location.origin); } catch (e) { /* niet in een frame */ }
     lpState.wpTemplates = (templates || []).filter((t) => t.status !== 'Gearchiveerd');
@@ -402,11 +414,13 @@ function wpTekenBulk() {
 // ---- Klantideeen, bijhouden en adviseur (stap 6) ----
 async function wpLaadExtra() {
   const klant = document.getElementById('wpKlant').value;
-  const [inst, ideeen, bijhouden] = await Promise.all([
+  const [inst, ideeen, bijhouden, planningData] = await Promise.all([
     lpApi('/plan/instellingen?klant=' + encodeURIComponent(klant)).catch(() => ({})),
     lpApi('/plan/ideeen?klant=' + encodeURIComponent(klant)).catch(() => ({ ideeen: [] })),
-    lpApi('/plan/bijhouden?klant=' + encodeURIComponent(klant)).catch(() => ({ voorstellen: [], googleBeschikbaar: false, aiBeschikbaar: false }))
+    lpApi('/plan/bijhouden?klant=' + encodeURIComponent(klant)).catch(() => ({ voorstellen: [], googleBeschikbaar: false, aiBeschikbaar: false })),
+    lpApi('/plan/planning?klant=' + encodeURIComponent(klant)).catch(() => null)
   ]);
+  lpState.wpPlanning = planningData;
   lpState.wpInst = inst;
   wpTekenModule(inst);
   wpTekenMaand(lpState.wpPages || [], inst);
@@ -443,7 +457,7 @@ function wpTekenWacht(pages) {
   });
   const voorgesteld = (lpState.wpVoorgesteld && lpState.wpVoorgesteld.voorstellen) || [];
   if (voorgesteld.length) {
-    items.push({ soort: 'Plan ' + (lpState.wpVoorgesteld.maand || ''), klasse: 'plan', titel: `${voorgesteld.length} voorstel${voorgesteld.length === 1 ? '' : 'len'} ${voorgesteld.length === 1 ? 'staat' : 'staan'} klaar`, tekst: 'De AI heeft een plan klaargezet. Na akkoord schrijft het systeem de pagina\'s en controleert ze. Live zetten doe jij, tenzij automatisch live aan staat.', knoppen: [{ label: `Keur ${voorgesteld.length === 1 ? 'het' : 'alle'} ${voorgesteld.length === 1 ? 'voorstel' : voorgesteld.length + ' voorstellen'} goed`, hoofd: true, actie: (b) => wpKeurAlleVoorstellen(b) }, { label: 'Bekijk het plan', actie: () => { const k = document.getElementById('wpMaandplanKaart'); if (k) k.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }] });
+    items.push({ soort: 'Plan ' + (lpState.wpVoorgesteld.maand || ''), klasse: 'plan', titel: `${voorgesteld.length} voorstel${voorgesteld.length === 1 ? '' : 'len'} ${voorgesteld.length === 1 ? 'staat' : 'staan'} klaar`, tekst: 'Dit plan wacht op jouw akkoord. Daarna schrijft het systeem de pagina\'s en controleert ze.', knoppen: [{ label: `Keur ${voorgesteld.length === 1 ? 'het' : 'alle'} ${voorgesteld.length === 1 ? 'voorstel' : voorgesteld.length + ' voorstellen'} goed`, hoofd: true, actie: (b) => wpKeurAlleVoorstellen(b) }, { label: 'Bekijk het plan', actie: () => { const k = document.getElementById('wpMaandplanKaart'); if (k) k.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }] });
   }
   (lpState.wpIdeeen || []).forEach((i) => {
     items.push({ soort: 'Idee van de klant', klasse: 'idee', titel: i.titel, tekst: i.toelichting || 'De klant stelde deze pagina voor.', knoppen: [
@@ -517,20 +531,37 @@ function wpTekenMaand(pages, inst) {
   document.getElementById('wpMaandTel').innerHTML = `<span><b>${tel.live}</b> live</span><span><b>${tel.controle}</b> wachten op jouw controle</span><span><b>${tel.maak + tel.gepland}</b> wordt geschreven of is gepland</span><span class="wp-muted">${mislukt} mislukt</span>`;
 }
 
-// Volgende maand naast Deze maand: wat staat er al klaar voor de maand erna?
+// Volgende maand naast Deze maand: welke pagina's staan er al ingepland (of wachten op akkoord) voor de maand erna?
 function wpTekenVolgende() {
   const el = document.getElementById('wpVolgende');
   if (!el) return;
-  const info = wpVolgendeInfo(((lpState.wpVoorgesteld || {}).voorstellen) || [], new Date());
+  const planningItems = ((lpState.wpPlanning || {}).planning) || ((lpState.wpVoorgesteld || {}).voorstellen) || [];
+  const info = wpVolgendeInfo(planningItems, new Date());
   const inst = lpState.wpInst || {};
+  const zelfstandig = inst.autoPlan !== false;
   const naam = info.naam.charAt(0).toUpperCase() + info.naam.slice(1);
   document.getElementById('wpVolgendeTitel').textContent = naam;
-  document.getElementById('wpVolgendeSub').innerHTML = info.voorstellen.length ? '<span class="wp-pil wp-voorstel"><span class="wp-stip"></span>Plan wacht op akkoord</span>' : (inst.paginasPerMaand ? `Doel ${inst.paginasPerMaand} pagina's` : '');
+  const wachten = info.voorstellen.some((v) => v.wacht);
+  document.getElementById('wpVolgendeSub').innerHTML = info.voorstellen.length ? (wachten ? '<span class="wp-pil wp-voorstel"><span class="wp-stip"></span>Wacht op akkoord</span>' : '<span class="wp-pil wp-gepland"><span class="wp-stip"></span>Ingepland</span>') : (inst.paginasPerMaand ? `Doel ${inst.paginasPerMaand} pagina's` : '');
   if (!info.voorstellen.length) {
-    el.innerHTML = inst.plan ? `<p class="wp-muted">Nog geen voorstel. Het systeem zet het plan voor ${wpEsc(info.naam)} zelf klaar. Je ziet het hier en bij Wacht op jou.</p>` : '<p class="wp-muted">Deze klant heeft geen plan.</p>';
+    el.innerHTML = inst.plan ? `<p class="wp-muted">Nog niets ingepland. Het systeem plant ${wpEsc(info.naam)} zelf in en zet de pagina's met datum en reden in de planning.</p>` : '<p class="wp-muted">Deze klant heeft geen plan.</p>';
     return;
   }
-  el.innerHTML = `<p><b>${info.voorstellen.length}</b> ${info.voorstellen.length === 1 ? 'voorstel' : 'voorstellen'}. Na jouw akkoord schrijft het systeem de tekst en controleert hem. Daarna zie je ze bij Klaar voor live.</p><ul class="wp-volgende-lijst">${info.voorstellen.map((v) => `<li>${wpEsc(v.titel)}</li>`).join('')}</ul><p class="wp-muted wp-kleinkop"><b>Wat gebeurt er na akkoord?</b></p><ol class="wp-stappenlijst wp-muted">${wpNaAkkoordStappen(inst, ((lpState.wpPages || []).filter((p) => p.status === 'Gepubliceerd')).length).map((t) => `<li>${wpEsc(t)}</li>`).join('')}</ol>`;
+  const datum = (v) => (v.schrijfOp ? ` <span class="wp-muted">${new Date(v.schrijfOp).toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' })}</span>` : '');
+  el.innerHTML = `<p><b>${info.voorstellen.length}</b> ${info.voorstellen.length === 1 ? 'pagina' : "pagina's"}${zelfstandig ? ' ingepland. Het systeem schrijft ze zelf op de datum erbij.' : '. Na jouw akkoord schrijft het systeem ze.'}</p><ul class="wp-volgende-lijst">${info.voorstellen.map((v) => `<li>${wpEsc(v.titel)}${datum(v)}</li>`).join('')}</ul><p class="wp-muted wp-kleinkop"><b>Wat gebeurt er daarna?</b></p><ol class="wp-stappenlijst wp-muted">${wpNaAkkoordStappen(inst, (lpState.wpPages || []).filter((p) => p.status === 'Gepubliceerd').length, zelfstandig).map((t) => `<li>${wpEsc(t)}</li>`).join('')}</ol>`;
+}
+
+// De planning: wat komt eraan, op datum, met de reden, en wat al geschreven is.
+function wpTekenPlanning() {
+  const el = document.getElementById('wpPlanning');
+  if (!el) return;
+  const data = lpState.wpPlanning;
+  if (!data) { el.innerHTML = '<p class="wp-muted">De planning wordt geladen.</p>'; return; }
+  const g = wpPlanningGroepen(data.planning);
+  const datum = (x) => (x.schrijfOp ? new Date(x.schrijfOp).toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Nog geen datum');
+  const rij = (x) => { const st = wpPlanningStatus(x); return `<div class="wp-wrij wp-plan-rij" data-pl="${wpEsc(x.id)}"><span class="wp-plandatum">${wpEsc(datum(x))}</span><div class="wp-wtekst"><b>${wpEsc(x.titel)}</b><span class="wp-muted">${wpEsc(x.reden || 'Geen reden vastgelegd.')}</span></div><span class="wp-pil ${st.klasse}"><span class="wp-stip"></span>${wpEsc(st.tekst)}</span></div>`; };
+  el.innerHTML = (g.komt.length ? `<p class="wp-muted wp-kleinkop"><b>Komt eraan</b></p>${g.komt.map(rij).join('')}` : '<p class="wp-muted">Er staat niets ingepland. Het systeem plant zelf zodra de volgende ronde draait.</p>') + (g.klaar.length ? `<p class="wp-muted wp-kleinkop"><b>Al geschreven</b></p>${g.klaar.map(rij).join('')}` : '');
+  el.querySelectorAll('[data-pl]').forEach((r) => r.addEventListener('click', () => wpOpenPagina(r.dataset.pl)));
 }
 
 // Onderweg: de vijf kolommen. Een klik opent de pagina.
@@ -738,4 +769,4 @@ function wpBindVraag() {
   });
 }
 
-if (typeof module !== 'undefined') module.exports = { wpStandVan, wpStandPagina, wpBouwAdvies, WP_STAND, WP_STANDEN, wpVolgendeInfo, wpOnderwegKolommen, wpActiviteit, wpResultaatTekst, wpKopPillen, wpNaAkkoordStappen, wpMaandSleutel, wpVolgendeMaand };
+if (typeof module !== 'undefined') module.exports = { wpStandVan, wpStandPagina, wpBouwAdvies, WP_STAND, WP_STANDEN, wpVolgendeInfo, wpOnderwegKolommen, wpActiviteit, wpResultaatTekst, wpKopPillen, wpNaAkkoordStappen, wpPlanningGroepen, wpPlanningStatus, wpMaandSleutel, wpVolgendeMaand };

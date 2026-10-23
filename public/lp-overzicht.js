@@ -50,6 +50,7 @@ function ovLog(klanten, nu) {
 }
 
 function ovVolgendeCel(k, volgendeNaam) {
+  if (k.volgendeMaand.ingepland) return `<span class="wp-pil wp-gepland"><span class="wp-stip"></span>${k.volgendeMaand.ingepland} ingepland${k.volgendeMaand.eerste ? `, eerste ${ovEsc(new Date(k.volgendeMaand.eerste).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }))}` : ''}</span>`;
   if (k.volgendeMaand.voorstellen) return '<span class="wp-pil wp-voorstel"><span class="wp-stip"></span>Plan klaar, akkoord nodig</span>';
   if (k.soort === 'pagr') return `<span class="wp-pil wp-gepland"><span class="wp-stip"></span>Wordt 1 ${ovEsc(String(volgendeNaam || '').slice(0, 3))} gepland</span>`;
   return '<span class="wp-muted">Nog niet gepland</span>';
@@ -58,7 +59,7 @@ function ovVolgendeCel(k, volgendeNaam) {
 function ovRijHtml(k, volgendeNaam) {
   const d = k.dezeMaand;
   const auto = ovAutoLiveTekst(k.autoLive);
-  const plan = ovAutoLiveTekst(k.autoPlan);
+  const plan = k.autoPlan && k.autoPlan.aan === false ? { tekst: 'met jouw akkoord', klasse: 'wp-gepland' } : { tekst: 'zelfstandig', klasse: 'wp-live' };
   const onderweg = [];
   if (k.inDeMaak || k.gepland) onderweg.push(`<span class="wp-pil wp-maak"><span class="wp-stip"></span>${k.inDeMaak + k.gepland} in de maak</span>`);
   if (k.controleren) onderweg.push(`<span class="wp-pil wp-controle"><span class="wp-stip"></span>${k.controleren} controle</span>`);
@@ -68,7 +69,7 @@ function ovRijHtml(k, volgendeNaam) {
   const maandTekst = d.doel ? `${live} van ${d.doel} live` : `${live} live`;
   const laatst = k.laatst ? new Date(k.laatst).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : '';
   const product = [k.product, d.doel ? `${d.doel} per maand` : ''].filter(Boolean).join(' · ');
-  return `<tr data-ov-klant="${ovEsc(k.id)}"><td><strong>${ovEsc(k.naam)}</strong><small class="wp-muted">${ovEsc(product)}</small></td><td><b>${ovEsc(maandTekst)}</b></td><td>${ovVolgendeCel(k, volgendeNaam)}</td><td><div class="ov-pillen">${onderweg.join('') || '<span class="wp-muted">Niets in de maak</span>'}</div></td><td><span class="wp-pil ${auto.klasse}"><span class="wp-stip"></span>Live: ${ovEsc(auto.tekst)}</span><small class="wp-muted">${ovEsc(auto.sub)}</small><span class="wp-pil ${plan.klasse} ov-tweede"><span class="wp-stip"></span>Plan: ${ovEsc(plan.tekst)}</span></td><td class="wp-muted">${ovEsc(k.google || '')}</td><td class="wp-muted">${laatst}</td><td><button type="button" class="btn btn-plain" data-ov-open="${ovEsc(k.id)}">Open</button></td></tr>`;
+  return `<tr data-ov-klant="${ovEsc(k.id)}"><td><strong>${ovEsc(k.naam)}</strong><small class="wp-muted">${ovEsc(product)}</small></td><td><b>${ovEsc(maandTekst)}</b></td><td>${ovVolgendeCel(k, volgendeNaam)}</td><td><div class="ov-pillen">${onderweg.join('') || '<span class="wp-muted">Niets in de maak</span>'}</div></td><td><span class="wp-pil ${auto.klasse}"><span class="wp-stip"></span>Live: ${ovEsc(auto.tekst)}</span><small class="wp-muted">${ovEsc(auto.sub)}</small><span class="wp-pil ${plan.klasse} ov-tweede"><span class="wp-stip"></span>Planning: ${ovEsc(plan.tekst)}</span></td><td class="wp-muted">${ovEsc(k.google || '')}</td><td class="wp-muted">${laatst}</td><td><button type="button" class="btn btn-plain" data-ov-open="${ovEsc(k.id)}">Open</button></td></tr>`;
 }
 
 function ovOpenWerkplaats(klant) {

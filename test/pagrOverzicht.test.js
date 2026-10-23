@@ -83,12 +83,12 @@ test('rij html escapet de klantnaam', () => {
   assert.ok(!ovRijHtml(rij).includes('<b>Evil</b>'));
 });
 
-test('rij kent de schakelaar plan automatisch goedkeuren', () => {
-  const vijf = Array.from({ length: 5 }, () => pagina('Gepubliceerd'));
-  const aan = bouwKlantRij({ id: 'a', naam: 'A', soort: 'pagr', autoPlan: true, pages: vijf, nu });
-  assert.equal(aan.autoPlan.actief, true);
-  const wacht = bouwKlantRij({ id: 'a', naam: 'A', soort: 'pagr', autoPlan: true, pages: vijf.slice(0, 1), nu });
-  assert.equal(wacht.autoPlan.aan, true);
-  assert.equal(wacht.autoPlan.actief, false);
-  assert.ok(ovRijHtml(aan).includes('Plan: Aan'));
+test('rij kent de planning zonder akkoord en wat er ingepland staat', () => {
+  const zelf = bouwKlantRij({ id: 'a', naam: 'A', soort: 'pagr', autoPlan: true, pages: [], tel: { voorstellen: 0, ideeen: 0, voorstellenPerMaand: {}, ingepland: 2, ingeplandPerMaand: { '2026-11': 2 }, eerstvolgende: '2026-11-09' }, nu });
+  assert.equal(zelf.autoPlan.aan, true);
+  assert.equal(zelf.volgendeMaand.ingepland, 2);
+  assert.equal(zelf.volgendeMaand.eerste, '2026-11-09');
+  assert.ok(ovRijHtml(zelf, 'november').includes('2 ingepland'));
+  const handmatig = bouwKlantRij({ id: 'a', naam: 'A', soort: 'pagr', autoPlan: false, pages: [], nu });
+  assert.ok(ovRijHtml(handmatig, 'november').includes('met jouw akkoord'));
 });
