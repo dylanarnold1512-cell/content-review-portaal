@@ -20,13 +20,14 @@ const { clients } = require('./clients');
 const { slugify } = require('./utils');
 const { clientTokens, defaultTokens, getTokens, checkFontLoadConsistency } = require('./tokens');
 const { schoonKlantverhaal } = require('./klantverhaal');
+const leren = require('./leren');
 
 const DATABASE_ID = process.env.LP_KLANTGEGEVENS_DATABASE_ID || '926632fa-da31-464a-ad31-24ee36592459';
 const VERVERS_MS = 5 * 60 * 1000;
 const MAX_FEITEN = 200;
 
 // Wat uit Notion mag komen. Alles daarbuiten blijft uit de code.
-const PROFIEL_VELDEN = ['naam', 'bedrijf', 'nietToegestaan', 'toonNotitie', 'fotoRichtlijn', 'ctaBalken', 'klantverhaal', 'voorbeeldPaginas', 'reviewsWidget', 'autoLive'];
+const PROFIEL_VELDEN = ['naam', 'bedrijf', 'nietToegestaan', 'toonNotitie', 'fotoRichtlijn', 'ctaBalken', 'klantverhaal', 'voorbeeldPaginas', 'reviewsWidget', 'autoLive', 'correcties'];
 
 const diepKopie = (v) => JSON.parse(JSON.stringify(v));
 
@@ -109,6 +110,8 @@ function schoonProfiel(invoer) {
   }
   // Automatisch live zetten (23-10-2026): alleen bewaren als het is meegestuurd. Werkt pas na 5 live pagina's, zie klaarVoorLive.js.
   if (i.autoLive !== undefined) uit.autoLive = i.autoLive === true;
+  // Correcties van Dylan op teksten (23-10-2026): alleen bewaren als ze zijn meegestuurd. Zie leren.js.
+  if (i.correcties !== undefined) uit.correcties = leren.schoonCorrecties(i.correcties);
   // Klantverhaal: alleen bewaren als het is meegestuurd, zodat een bestaand klantverhaal niet per ongeluk verdwijnt.
   if (i.klantverhaal !== undefined) {
     const kv = schoonKlantverhaal(i.klantverhaal);
@@ -383,6 +386,7 @@ function bewerkbaar(id) {
       voorbeeldPaginas: p.voorbeeldPaginas || {},
       reviewsWidget: p.reviewsWidget || null,
       autoLive: p.autoLive === true,
+      correcties: p.correcties || [],
       huisstijl: huisstijlUitTokens(getTokens(id))
     },
     huisstijlEigen: Boolean(notionData.get(id) && notionData.get(id).profiel && notionData.get(id).profiel.huisstijl && Object.keys(notionData.get(id).profiel.huisstijl).length),
@@ -423,6 +427,7 @@ async function bewaar(klantIdInvoer, { profiel, feiten, nieuw = false } = {}) {
   if (profiel && profiel.voorbeeldPaginas === undefined && bestaandProfiel && bestaandProfiel.voorbeeldPaginas) p.voorbeeldPaginas = bestaandProfiel.voorbeeldPaginas;
   if (profiel && profiel.reviewsWidget === undefined && bestaandProfiel && bestaandProfiel.reviewsWidget) p.reviewsWidget = bestaandProfiel.reviewsWidget;
   if (profiel && profiel.autoLive === undefined && bestaandProfiel && bestaandProfiel.autoLive !== undefined) p.autoLive = bestaandProfiel.autoLive;
+  if (profiel && profiel.correcties === undefined && bestaandProfiel && bestaandProfiel.correcties) p.correcties = bestaandProfiel.correcties;
   if (!p.naam) throw new Error('Vul de naam van de klant in.');
   const f = schoonFeiten(feiten);
 
@@ -449,4 +454,17 @@ async function bewaar(klantIdInvoer, { profiel, feiten, nieuw = false } = {}) {
   return bewerkbaar(id);
 }
 
-module.exports = { start, ververs, bewaar, bewerkbaar, overzicht, status, schoonProfiel, schoonFeiten, schoonKlantId, schoonHuisstijl, huisstijlUitVoorstel, alleenVerschil, bouwKlant, pasToe, PROFIEL_VELDEN, _zetNotionData: (m) => { notionData = m; } };
+// Correcties van Dylan op teksten bijhouden (23-10-2026). Achter elkaar, zodat twee snelle opslagen elkaar niet overschrijven.
+let correctieKetting = Promise.resolve();
+function voegCorrectiesToe(klantId, nieuwe, { pagina, datum } = {}) {
+  correctieKetting = correctieKetting.catch(() => {}).then(async () => {
+    const k = bewerkbaar(klantId);
+    if (!k) return;
+    const correcties = leren.voegToe(k.profiel.correcties, nieuwe, { pagina, datum });
+    const { huisstijl, ...rest } = k.profiel;
+    await bewaar(klantId, { profiel: { ...rest, correcties }, feiten: k.feiten });
+  });
+  return correctieKetting;
+}
+
+module.exports = { start, ververs, bewaar, voegCorrectiesToe, bewerkbaar, overzicht, status, schoonProfiel, schoonFeiten, schoonKlantId, schoonHuisstijl, huisstijlUitVoorstel, alleenVerschil, bouwKlant, pasToe, PROFIEL_VELDEN, _zetNotionData: (m) => { notionData = m; } };

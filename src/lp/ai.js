@@ -56,6 +56,7 @@ Controleer de tekst voordat je antwoordt tegen elke regel hierboven. Staat er ie
   } catch (err) { /* onbekende klant: geen override */ }
   return '';
 }
+const leren = require('./leren');
 const verhaal = require('./verhaal');
 const VASTE_ONDERDELEN_OPTIES = ['usps', 'stappen', 'aanbod', 'praktisch', 'reviews', 'faq', 'doelgroep', 'galerij'];
 
@@ -875,7 +876,21 @@ Dit voorbeeld gaat voor op alle andere stijlregels. Schrijf de nieuwe pagina op 
 - Zelfde opbouw en dezelfde soort inhoud per onderdeel. Zelfde aanspreekvorm en dezelfde manier om het bedrijf te noemen, inclusief hoe vaak en waar de bedrijfsnaam staat.
 - Koppen, labels en intro's even lang en met dezelfde zinsbouw als in het voorbeeld. Zelfde aantal items per lijst, tenzij de feiten minder of meer toelaten.
 - Dezelfde toon, hetzelfde detailniveau en dezelfde manier om veelgestelde vragen en antwoorden te formuleren.
-- Wijzig alleen het onderwerp, de plaats en de feiten die bij deze pagina horen. Kopieer geen zinnen letterlijk: elke zin die over de dienst of de plaats gaat schrijf je opnieuw. Heeft het voorbeeld iets dat niet bij dit onderwerp past (een andere dienst), neem dat dan niet over.`;
+- Wijzig alleen het onderwerp, de plaats en de feiten die bij deze pagina horen. Kopieer geen zinnen letterlijk: elke zin die over de dienst of de plaats gaat schrijf je opnieuw. Heeft het voorbeeld iets dat niet bij dit onderwerp past (een andere dienst), neem dat dan niet over.`
+    + bouwExtraVoorbeeldenBlok(voorbeeld.extra);
+}
+
+// Meer live pagina's als voorbeeld (23-10-2026): het eerste voorbeeld bepaalt de opbouw, deze laten zien hoe de stijl varieert.
+// Nooit zinnen overnemen, anders gaan de pagina's op elkaar lijken.
+function bouwExtraVoorbeeldenBlok(extra) {
+  const lijst = (Array.isArray(extra) ? extra : []).filter((e) => e && e.slotData);
+  if (!lijst.length) return '';
+  const delen = lijst.map((e) => {
+    const velden = {};
+    verhaal.tekstVelden(e.slotData).forEach((v) => { velden[v.pad] = v.tekst; });
+    return `--- ${e.titel || 'pagina'} ---\n${JSON.stringify(velden, null, 1).slice(0, 5000)}`;
+  });
+  return `\n\nNOG ${lijst.length === 1 ? 'EEN' : lijst.length} LIVE ${lijst.length === 1 ? 'PAGINA' : "PAGINA'S"} VAN DEZE KLANT (alleen om de stijl te herkennen, het eerste voorbeeld gaat voor):\n${delen.join('\n\n')}\n\nKijk wat deze pagina's gemeen hebben: toon, aanspreekvorm, lengte, manier van noemen van het bedrijf. Dat doe jij ook. Kopieer geen zinnen en geen voorbeelden: elke zin schrijf je opnieuw voor het nieuwe onderwerp.`;
 }
 
 // Teksten van zusterpagina's (zelfde klant en sjabloon), zodat de nieuwe pagina er niet op gaat lijken.
@@ -1090,7 +1105,7 @@ ANTWOORD ALLEEN MET JSON: { "slotData": { "<slotnaam>": ... } }`;
 
 const NIET_HERSCHRIJFBAAR_RE = /^(meta|cta|links)|(Href|Src|Alt)$/i;
 
-async function herschrijfOnderdelen({ klant, template, slotData, slots, aanwijzing, klantverhaal, bedrijfsnaam, feiten, siteTeksten, voorbeeld }) {
+async function herschrijfOnderdelen({ klant, template, slotData, slots, aanwijzing, klantverhaal, bedrijfsnaam, feiten, siteTeksten, voorbeeld, correcties }) {
   const definitie = new Map((Array.isArray(template && template.slots) ? template.slots : []).map((x) => [x.key, x]));
   const gevraagd = [...new Set(Array.isArray(slots) ? slots : [])].filter((k) => definitie.has(k) && !NIET_HERSCHRIJFBAAR_RE.test(k) && slotData && slotData[k] !== undefined);
   if (!gevraagd.length) throw new Error('Er is geen onderdeel gekozen dat herschreven kan worden.');
@@ -1118,7 +1133,7 @@ ${derdePersoonVoor(klant, bedrijfsnaam)}
 
 ${paginaOpbouwRegels({ derde: schrijftInDerdePersoon(klant), mix: schrijftInMix(klant) })}
 
-${bouwVoorbeeldBlok(voorbeeld)}
+${bouwVoorbeeldBlok(voorbeeld)}${leren.bouwCorrectiesBlok(correcties)}
 
 ${siteTeksten ? `Bronteksten van de klantsite (ingekort):\n${String(siteTeksten).slice(0, 14000)}` : ''}`;
   const ruw = await callOpenAi({ systemPrompt: HERSCHRIJF_SYSTEEMPROMPT.replace('{{STEM_REGEL}}', schrijftInMix(klant)
@@ -1221,7 +1236,7 @@ function verdeelIconen(slotData) {
   });
 }
 
-async function generatePageContent({ klant, template, invoer, feiten, watGaatDezePaginaOver, ctaOverride, linkKandidaten, zusterInhoud, siteTeksten, zoekvragen, zusterVragen, klantverhaal, bedrijfsnaam, zonderPlan, voorbeeld }) {
+async function generatePageContent({ klant, template, invoer, feiten, watGaatDezePaginaOver, ctaOverride, linkKandidaten, zusterInhoud, siteTeksten, zoekvragen, zusterVragen, klantverhaal, bedrijfsnaam, zonderPlan, voorbeeld, correcties }) {
   const systemPrompt = buildContentSystemPrompt(template, { derde: schrijftInDerdePersoon(klant), mix: schrijftInMix(klant) });
   // Ronde 1: een plan per onderdeel. Mislukt het, dan schrijven we gewoon zonder plan.
   let schrijfplan = null;
@@ -1260,7 +1275,7 @@ ${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam, derde: schrijftInDerdePerso
 
 ${derdePersoonVoor(klant, bedrijfsnaam)}
 
-${bouwSchrijfplanBlok(schrijfplan)}${bouwVoorbeeldBlok(voorbeeld)}
+${bouwSchrijfplanBlok(schrijfplan)}${bouwVoorbeeldBlok(voorbeeld)}${leren.bouwCorrectiesBlok(correcties)}
 
 Feiten met "standaard": true zijn vaste praktische gegevens van de klant (bv. in- en uitchecktijden, kamertypes, ligging). Neem ze op in de praktische informatie en de kamertypes van de pagina, voor zover het sjabloon daar een plek voor heeft, en gebruik de formulering (bv. namen van kamertypes en tijden) precies zoals ze er staan.
 
