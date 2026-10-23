@@ -304,7 +304,7 @@
       if (f.status === 'niet_gebruiken') weg += 1;
     }));
     const kaarten = [
-      { label: 'Door jullie bevestigd', icoon: 'vinkje', waarde: `${t.bevestigd} van ${totaal}`, vergelijking: 'Bevestigen is niet verplicht' },
+      { label: 'Onderdelen klaar', icoon: 'vinkje', waarde: `${totaal - t.aanvullen} van ${totaal}`, vergelijking: t.aanvullen ? `${t.aanvullen} ${t.aanvullen === 1 ? 'onderdeel mist' : 'onderdelen missen'} nog gegevens` : 'Door ons ingevuld, bevestigen is niet nodig' },
       { label: 'Gegevens over jullie', icoon: 'blad', waarde: String(gegevens), vergelijking: 'Hier schrijven wij blogs op' },
       { label: 'Door jullie aangepast', icoon: 'mensen', waarde: String(aangepast), vergelijking: 'Jullie eigen aanvullingen' },
       { label: 'Weggelaten', icoon: 'oog', waarde: String(weg), vergelijking: 'Noemen wij niet in blogs' }
@@ -320,7 +320,8 @@
     const todo = t.aanvullen;
     if (filter === null || (todo === 0 && filter === 'todo')) filter = todo > 0 ? 'todo' : 'alles';
     const naam = esc(profiel.klantNaam || '');
-    const procent = Math.round((t.bevestigd / totaal) * 100);
+    const klaarAantal = totaal - t.aanvullen; // door ons ingevuld of door de klant bevestigd
+    const procent = Math.round((klaarAantal / totaal) * 100);
     const openFeiten = [];
     profiel.secties.forEach((s) => s.feiten.forEach((f) => {
       if (f.open && f.status !== 'klopt' && f.status !== 'aangepast') openFeiten.push({ nr: s.nr, titel: s.titel, f });
@@ -347,7 +348,7 @@
     root.innerHTML = `
       <div class="p-ov-kop"><div><h1>Merkprofiel</h1><p>Zo zien wij ${naam}. Hier baseren we jullie blogs op.</p></div></div>
       <section class="p-kaart p-ov-status" data-toon="${klaarZin ? 'goed' : 'let-op'}"><div class="p-ov-status-hoofd"><div class="p-ov-status-regel"><span class="p-ov-puls"></span>${esc(zin)}</div><p>${toelichting}</p></div>
-        <div class="p-ov-status-volgend"><div class="p-ov-volgend"><span class="p-ov-lbl">Bevestigd</span><span class="p-ov-val">${t.bevestigd} van ${totaal}</span><div class="mp-balk"><div class="mp-balk-vulling" style="width:${procent}%"></div></div></div></div></section>
+        <div class="p-ov-status-volgend"><div class="p-ov-volgend"><span class="p-ov-lbl">Klaar</span><span class="p-ov-val">${klaarAantal} van ${totaal}</span><div class="mp-balk"><div class="mp-balk-vulling" style="width:${procent}%"></div></div></div></div></section>
       ${kerncijfersHtml(t, totaal)}
       ${samenvattingHtml()}${tegenstrijdigHtml()}${klaarZin ? '' : openHtml}
       ${filterHtml}
