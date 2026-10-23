@@ -265,7 +265,7 @@ function redactieControle(slotData, opties) {
   if (re) {
     const metNaam = velden.filter((v) => tel(re, v.tekst) > 0);
     const totaal = metNaam.reduce((n, v) => n + tel(re, v.tekst), 0);
-    const drempel = o.derdePersoon ? 14 : 2;
+    const drempel = o.derdePersoon ? 14 : (o.mix ? 9 : 2);
     if (totaal > drempel) {
       punten.push({
         soort: 'toon',
@@ -315,7 +315,7 @@ function redactieControle(slotData, opties) {
 
   // 6b. De hero noemt het bedrijf voluit bij naam in de derde persoon ("Aannemersbedrijf X helpt je"): dat is een brochure.
   // Niet voor klanten die bewust in de derde persoon schrijven.
-  if (re && !o.derdePersoon) {
+  if (re && !o.derdePersoon && !o.mix) {
     const heroNaam = velden.filter((v) => /^hero(Intro|Subtitle|Tekst|Text)/i.test(v.slot) && tel(re, v.tekst) > 0);
     if (heroNaam.length) {
       punten.push({
@@ -396,13 +396,13 @@ function redactieControle(slotData, opties) {
   if (hero.length) {
     const tekst = hero.map((v) => v.tekst).join(' ');
     const aangesproken = tel(JE_RE, tekst) + tel(U_RE, tekst) > 0;
-    const wij = o.derdePersoon || /\b(wij|we|ons|onze)\b/i.test(tekst);
-    if (o.derdePersoon ? !aangesproken : (!aangesproken || !wij)) {
+    const wij = o.derdePersoon || o.mix || /\b(wij|we|ons|onze)\b/i.test(tekst);
+    if (o.derdePersoon || o.mix ? !aangesproken : (!aangesproken || !wij)) {
       punten.push({
         soort: 'toon',
         tekst: `De intro bovenaan klinkt afstandelijk: ${!aangesproken ? 'de bezoeker wordt niet direct aangesproken' : 'het bedrijf spreekt niet over zichzelf als "wij"'}.`,
         slots: uniek(hero.map((v) => v.slot)),
-        aanwijzing: o.derdePersoon ? `Schrijf de intro persoonlijk: spreek de bezoeker aan met "${doel}" en schrijf over het bedrijf in de derde persoon (nooit wij of we).` : `Schrijf de intro persoonlijk: spreek de bezoeker aan met "${doel}" en schrijf als bedrijf "wij" of "we". Voorbeeld van de toon: "Wij helpen woningeigenaren met ... We luisteren naar je plannen en denken praktisch mee."`
+        aanwijzing: o.mix ? `Schrijf de intro persoonlijk: spreek de bezoeker aan met "${doel}" en noem de bedrijfsnaam een keer bij naam.` : o.derdePersoon ? `Schrijf de intro persoonlijk: spreek de bezoeker aan met "${doel}" en schrijf over het bedrijf in de derde persoon (nooit wij of we).` : `Schrijf de intro persoonlijk: spreek de bezoeker aan met "${doel}" en schrijf als bedrijf "wij" of "we". Voorbeeld van de toon: "Wij helpen woningeigenaren met ... We luisteren naar je plannen en denken praktisch mee."`
       });
     }
   }

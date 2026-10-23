@@ -39,7 +39,7 @@ function tekstControle(slotData, opties) {
   const uniek = (l) => [...new Set(l)];
 
   // 1. Hij of hem over de eigenaar (alleen bij klanten die in de derde persoon schrijven).
-  if (o.derdePersoon) {
+  if (o.derdePersoon || o.mix) {
     const hits = velden.filter((v) => HIJ_RE.test(v.tekst));
     if (hits.length) {
       const m = hits[0].tekst.match(HIJ_RE);
@@ -163,6 +163,60 @@ function tekstControle(slotData, opties) {
         tekst: `De bedrijfsnaam "${o.bedrijfsnaam}" staat ${naamTotaal} keer op de pagina en "de installateur" of "het bedrijf" ${generiek} keer. De naam moet het onderwerp zijn.`,
         slots: uniek(metGeneriek).slice(0, 8),
         aanwijzing: `Gebruik de bedrijfsnaam "${o.bedrijfsnaam}" als onderwerp van de zin in de hero of het antwoordblok, de intro, waarom, de werkwijze en de projecten. Vervang "de installateur" en "het bedrijf" door de naam. Een afwisseling met "het bedrijf" mag af en toe, maar nooit vaker dan de naam zelf.`
+      });
+    }
+  }
+
+  // 8b. Mix (naam en wij): de bedrijfsnaam staat op de vaste plekken (hero of antwoordblok, waarom, contact), hooguit 6 keer
+  // in totaal, en de rest van de pagina is in de wij-vorm. "De installateur" of "het bedrijf" als vervanging past niet.
+  if (o.mix && o.bedrijfsnaam) {
+    const naamRegex = new RegExp(String(o.bedrijfsnaam).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'), 'gi');
+    const GENERIEK = /\b(de installateur|het bedrijf|de aannemer|de vakman)\b/gi;
+    const WIJ = /\b(wij|we|ons|onze)\b/gi;
+    const tel = (re, t) => (String(t).match(re) || []).length;
+    const tekstVelden = velden.filter((v) => !/^(meta|cta|links)|(Href|Src|Alt)$/i.test(v.slot));
+    let naamTotaal = 0;
+    let wijTotaal = 0;
+    const metNaam = [];
+    const metGeneriek = [];
+    tekstVelden.forEach((v) => {
+      const n = tel(naamRegex, v.tekst);
+      naamTotaal += n;
+      wijTotaal += tel(WIJ, v.tekst);
+      if (n) metNaam.push(v.slot);
+      if (tel(GENERIEK, v.tekst)) metGeneriek.push(v.slot);
+    });
+    const bestaat = (re) => uniek(tekstVelden.map((v) => v.slot).filter((k) => re.test(k)));
+    const vasteSlots = bestaat(/^(heroIntro|directAnswer|uspIntro|uspTitle|contactIntro)$/);
+    if (naamTotaal < 3) {
+      punten.push({
+        soort: 'toon',
+        tekst: `De bedrijfsnaam "${o.bedrijfsnaam}" staat ${naamTotaal} keer op de pagina. Dat moet minstens 3 keer: in de hero of het antwoordblok, bij waarom en in het contactblok.`,
+        slots: vasteSlots.slice(0, 6),
+        aanwijzing: `Noem de bedrijfsnaam "${o.bedrijfsnaam}" bij naam in de hero of het antwoordblok, in de intro of kop van waarom (de USP's) en in het contactblok. In de rest van de pagina blijft het "wij", "we" en "ons".`
+      });
+    } else if (naamTotaal > 6) {
+      punten.push({
+        soort: 'toon',
+        tekst: `De bedrijfsnaam "${o.bedrijfsnaam}" staat ${naamTotaal} keer op de pagina. Dat klinkt als een brochure.`,
+        slots: uniek(metNaam).filter((k) => !vasteSlots.includes(k)).slice(0, 6),
+        aanwijzing: `Noem de bedrijfsnaam alleen in de hero of het antwoordblok, bij waarom en in het contactblok. Schrijf in de andere onderdelen "wij", "we" of "ons".`
+      });
+    }
+    if (metGeneriek.length) {
+      punten.push({
+        soort: 'toon',
+        tekst: `Er staat "de installateur" of "het bedrijf" in plaats van de bedrijfsnaam of wij (${uniek(metGeneriek).slice(0, 4).join(', ')}).`,
+        slots: uniek(metGeneriek).slice(0, 8),
+        aanwijzing: `Schrijf "wij", "we" of "ons" in plaats van "de installateur" of "het bedrijf". Alleen op de vaste plekken (hero of antwoordblok, waarom, contact) staat de bedrijfsnaam.`
+      });
+    }
+    if (wijTotaal < 3) {
+      punten.push({
+        soort: 'toon',
+        tekst: `De pagina gebruikt maar ${wijTotaal} keer wij, we of ons. De rest van de pagina hoort in de wij-vorm.`,
+        slots: bestaat(/^(introText|introPoints|offerItems|stepItems|faqItems|practicalIntro|offerIntro|stepsIntro)$/).slice(0, 6),
+        aanwijzing: 'Schrijf de diensten, de werkwijze, de stappen en de antwoorden bij de veelgestelde vragen in de wij-vorm ("we bespreken je wensen", "wij verzorgen het leidingwerk"), zonder de bedrijfsnaam.'
       });
     }
   }

@@ -26,8 +26,9 @@ const profile = {
     email: 'info@hirs-installaties.nl',
     werkgebied: ['Haarlem en omgeving']
   },
-  // Hirs schrijft in de derde persoon over het bedrijf (Hirs Installaties), nooit wij of ons. Zie src/lp/klantverhaal.js (derdePersoonBlok).
-  schrijfvorm: 'derde',
+  // Hirs schrijft met een mix (23-10-2026): de bedrijfsnaam op vaste plekken (hero of antwoordblok, waarom, contact) en wij, we en ons in de rest.
+  // Nooit een persoon bij naam, nooit hij of hem. Zie src/lp/klantverhaal.js (mixBlok). Opties: 'wij' (standaard), 'derde', 'mix'.
+  schrijfvorm: 'mix',
   // Harde tekstcontrole na het schrijven aan (hij, Wie, getallen buiten de feiten, claims, reviews). Zie src/lp/tekstcontrole.js.
   tekstControle: true,
   // Geen fotokaarten zonder tekst bij projecten: zonder projectteksten verdwijnt de sectie.
@@ -42,7 +43,7 @@ const profile = {
   nietToegestaan: [
     'Aannames doen die je niet kunt verifiëren.'
   ],
-  toonNotitie: 'Informeel met je en jij, in de derde persoon over Hirs Installaties.'
+  toonNotitie: 'Informeel met je en jij. De bedrijfsnaam Hirs Installaties op vaste plekken, wij en we in de rest.'
 };
 
 module.exports = profile;
