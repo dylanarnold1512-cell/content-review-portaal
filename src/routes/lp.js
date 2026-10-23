@@ -940,7 +940,8 @@ router.get('/plan/bijhouden', requireLpInternal, async (req, res) => {
       metingUit: Boolean(google.uit),
       googleBeschikbaar: google.beschikbaar,
       aiBeschikbaar: aiMeting.beschikbaar,
-      voorstellen: maakUpdateVoorstellen(verrijkt, { aiBeschikbaar: aiMeting.beschikbaar })
+      voorstellen: maakUpdateVoorstellen(verrijkt, { aiBeschikbaar: aiMeting.beschikbaar }),
+      live: verrijkt.filter((p) => p.stand === 'Live').map((p) => ({ id: p.id, titel: p.titel, liveDatum: p.liveDatum || '', google: p.google ? { vertoningen: p.google.vertoningen, klikken: p.google.klikken, positie: p.google.positie, trend: p.google.trend } : null, ai: p.ai ? { geciteerd: p.ai.geciteerd } : null }))
     });
   } catch (err) {
     res.status(400).json({ error: err.message });

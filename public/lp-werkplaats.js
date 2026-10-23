@@ -29,6 +29,70 @@ function wpMarkeerVoorstellen(pages) {
   return (pages || []).map((p) => (ids.has(p.id) ? { ...p, voorstel: true } : p));
 }
 
+// ---- Fase 3: maanden, Onderweg, resultaten en activiteit (23-10-2026). Zuivere functies, getest in test/lp-werkplaats.test.js ----
+const WP_MAAND_NAMEN = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
+function wpMaandSleutel(nu) {
+  const d = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Amsterdam', year: 'numeric', month: '2-digit' }).formatToParts(nu || new Date());
+  return `${d.find((x) => x.type === 'year').value}-${d.find((x) => x.type === 'month').value}`;
+}
+function wpVolgendeMaand(sleutel) { const [j, m] = String(sleutel).split('-').map(Number); return m === 12 ? `${j + 1}-01` : `${j}-${String(m + 1).padStart(2, '0')}`; }
+function wpMaandNaam(sleutel) { return WP_MAAND_NAMEN[Number(String(sleutel).split('-')[1]) - 1] || sleutel; }
+
+// Wat staat er voor volgende maand klaar? Voorstellen van het plan met plan.maand van volgende maand.
+function wpVolgendeInfo(voorstellen, nu) {
+  const volgende = wpVolgendeMaand(wpMaandSleutel(nu));
+  const lijst = (voorstellen || []).filter((v) => v.maand === volgende);
+  return { maand: volgende, naam: wpMaandNaam(volgende), voorstellen: lijst };
+}
+
+// Vijf kolommen van voorstel tot live. Gepland en In de maak zitten samen in een kolom. Live toont de laatste vijf.
+function wpOnderwegKolommen(pages, maxLive) {
+  const kolommen = [
+    { naam: 'Voorstel', klasse: 'wp-voorstel', paginas: [] },
+    { naam: 'Gepland en in de maak', klasse: 'wp-maak', paginas: [] },
+    { naam: 'Ter controle', klasse: 'wp-controle', paginas: [] },
+    { naam: 'Klaar voor live', klasse: 'wp-klaar', paginas: [] },
+    { naam: 'Live', klasse: 'wp-live', paginas: [] }
+  ];
+  const plek = { 'Voorstel': 0, 'Gepland': 1, 'In de maak': 1, 'Ter controle': 2, 'Klaar voor live': 3, 'Live': 4 };
+  (pages || []).forEach((p) => {
+    kolommen[plek[wpStandPagina(p)]].paginas.push({ id: p.id, titel: p.titel || '(zonder titel)', fout: p.status === 'Fout' || p.status === 'Afgewezen', bijgewerkt: p.laatstGewijzigd || '' });
+  });
+  const live = kolommen[4];
+  live.paginas.sort((a, b) => String(b.bijgewerkt).localeCompare(String(a.bijgewerkt)));
+  live.meer = Math.max(0, live.paginas.length - (maxLive || 5));
+  live.paginas = live.paginas.slice(0, maxLive || 5);
+  return kolommen;
+}
+
+// Wat deed het systeem? Afgeleid uit de status en de laatste wijziging per pagina, nieuwste eerst. Geen aparte opslag.
+function wpActiviteit(pages, max) {
+  const tekst = {
+    'Gepubliceerd': 'is live gezet',
+    'Klaar voor live': 'is geschreven en gecontroleerd, klaar voor live',
+    'Content klaar': 'is geschreven en wacht op jouw controle',
+    'Ter review': 'staat als concept in WordPress',
+    'Goedgekeurd': 'is goedgekeurd',
+    'Formulier ingevuld': 'wordt geschreven',
+    'Fout': 'is mislukt',
+    'Afgewezen': 'is afgewezen'
+  };
+  return (pages || []).map((p) => {
+    let t = tekst[p.status];
+    if (p.status === 'Idee') t = p.voorstel ? 'staat als voorstel klaar' : 'staat gepland';
+    return t && p.laatstGewijzigd ? { id: p.id, titel: p.titel || '(zonder titel)', tekst: t, op: p.status === 'Gepubliceerd' && p.liveDatum ? p.liveDatum : p.laatstGewijzigd, fout: p.status === 'Fout' } : null;
+  }).filter(Boolean).sort((a, b) => String(b.op).localeCompare(String(a.op))).slice(0, max || 8);
+}
+
+// Resultaat van een live pagina in gewone woorden.
+function wpResultaatTekst(p, nu) {
+  const dagen = p.liveDatum ? Math.floor(((nu || new Date()) - new Date(p.liveDatum)) / 86400000) : null;
+  if (!p.google) return { google: dagen != null && dagen < 7 ? 'Meting na 7 dagen' : 'Geen meting', ai: '' };
+  const g = p.google;
+  const ai = p.ai ? (p.ai.geciteerd > 0 ? `${p.ai.geciteerd}x genoemd` : 'Niet genoemd') : '';
+  return { google: `${g.vertoningen} vertoningen, ${g.klikken} klikken${g.positie != null ? `, positie ${g.positie}` : ''}`, ai };
+}
+
 // Advies uit de echte gegevens van de klant. Geeft een lijst { tekst, knop, actie } terug.
 function wpBouwAdvies({ pages, templates }) {
   const actief = templates.filter((t) => t.status === 'Actief');
@@ -86,6 +150,9 @@ function wpTeken() {
 
   wpTekenWacht(pages);
   wpTekenBulk();
+  wpTekenOnderweg(pages);
+  wpTekenLog(pages);
+  wpTekenVolgende();
   document.getElementById('wpTellers').innerHTML = WP_STANDEN.map((s) => `<span class="wp-pil ${WP_STAND_KLASSE[s]}"><span class="wp-stip"></span>${s} <b>${uit.tellers[s]}</b></span>`).join('');
 
   const WP_ZICHTBAAR = 5;
@@ -340,7 +407,7 @@ function wpTekenWacht(pages) {
   });
   const voorgesteld = (lpState.wpVoorgesteld && lpState.wpVoorgesteld.voorstellen) || [];
   if (voorgesteld.length) {
-    items.push({ soort: 'Plan ' + (lpState.wpVoorgesteld.maand || ''), klasse: 'plan', titel: `${voorgesteld.length} voorstel${voorgesteld.length === 1 ? '' : 'len'} ${voorgesteld.length === 1 ? 'staat' : 'staan'} klaar`, tekst: 'De AI heeft een plan klaargezet. Vink aan wat je wilt en keur goed.', knoppen: [{ label: 'Naar het plan', actie: () => { const k = document.getElementById('wpMaandplanKaart'); if (k) k.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }] });
+    items.push({ soort: 'Plan ' + (lpState.wpVoorgesteld.maand || ''), klasse: 'plan', titel: `${voorgesteld.length} voorstel${voorgesteld.length === 1 ? '' : 'len'} ${voorgesteld.length === 1 ? 'staat' : 'staan'} klaar`, tekst: 'De AI heeft een plan klaargezet. Vink aan wat je wilt en keur goed.', knoppen: [{ label: `Keur ${voorgesteld.length === 1 ? 'het' : 'alle'} ${voorgesteld.length === 1 ? 'voorstel' : voorgesteld.length + ' voorstellen'} goed`, hoofd: true, actie: (b) => wpKeurAlleVoorstellen(b) }, { label: 'Bekijk het plan', actie: () => { const k = document.getElementById('wpMaandplanKaart'); if (k) k.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }] });
   }
   (lpState.wpIdeeen || []).forEach((i) => {
     items.push({ soort: 'Idee van de klant', klasse: 'idee', titel: i.titel, tekst: i.toelichting || 'De klant stelde deze pagina voor.', knoppen: [
@@ -354,6 +421,23 @@ function wpTekenWacht(pages) {
   if (!items.length) { el.innerHTML = '<p class="wp-muted">Niets wacht op jou. Nieuwe pagina\'s verschijnen hier zodra de tekst klaar is.</p>'; return; }
   el.innerHTML = items.map((it, i) => `<div class="wp-wrij"><span class="wp-wsoort ${it.klasse || ''}">${wpEsc(it.soort)}</span><div class="wp-wtekst"><b>${wpEsc(it.titel)}</b><span class="wp-muted">${wpEsc(it.tekst)}</span></div><div class="wp-idee-knoppen">${it.knoppen.map((k, j) => `<button type="button" class="btn ${k.hoofd ? 'btn-approve' : 'btn-plain'}" data-w="${i}" data-k="${j}">${wpEsc(k.label)}</button>`).join('')}</div></div>`).join('');
   el.querySelectorAll('[data-w]').forEach((b) => b.addEventListener('click', () => items[Number(b.dataset.w)].knoppen[Number(b.dataset.k)].actie(b)));
+}
+
+// Alle voorstellen in een keer goedkeuren vanuit Wacht op jou. Voor kiezen per voorstel blijft de plankaart.
+async function wpKeurAlleVoorstellen(knop) {
+  const klant = document.getElementById('wpKlant').value;
+  const ids = ((lpState.wpVoorgesteld || {}).voorstellen || []).map((v) => v.id);
+  if (!ids.length) return;
+  knop.disabled = true;
+  try {
+    await lpApi('/plan/voorgesteld/keur', { method: 'POST', body: JSON.stringify({ klant, goedkeuren: ids, afwijzen: [] }) });
+    await wpLaad();
+  } catch (err) {
+    const f = document.getElementById('wpFout');
+    f.textContent = err.message;
+    f.classList.remove('hidden');
+    knop.disabled = false;
+  }
 }
 
 function wpOpenPagina(id) { lpState.laatsteLijst = 'werkplaats'; openPageDetail(id); }
@@ -394,6 +478,48 @@ function wpTekenMaand(pages, inst) {
   document.getElementById('wpMaandBalk').setAttribute('aria-label', `${tel.live} live, ${tel.controle} ter controle, ${tel.maak + tel.gepland} in de maak of gepland`);
   const mislukt = (pages || []).filter((p) => p.status === 'Fout').length;
   document.getElementById('wpMaandTel').innerHTML = `<span><b>${tel.live}</b> live</span><span><b>${tel.controle}</b> wachten op jouw controle</span><span><b>${tel.maak + tel.gepland}</b> wordt geschreven of is gepland</span><span class="wp-muted">${mislukt} mislukt</span>`;
+}
+
+// Volgende maand naast Deze maand: wat staat er al klaar voor de maand erna?
+function wpTekenVolgende() {
+  const el = document.getElementById('wpVolgende');
+  if (!el) return;
+  const info = wpVolgendeInfo(((lpState.wpVoorgesteld || {}).voorstellen) || [], new Date());
+  const inst = lpState.wpInst || {};
+  const naam = info.naam.charAt(0).toUpperCase() + info.naam.slice(1);
+  document.getElementById('wpVolgendeTitel').textContent = naam;
+  document.getElementById('wpVolgendeSub').textContent = inst.paginasPerMaand ? `Doel ${inst.paginasPerMaand} pagina's` : '';
+  if (!info.voorstellen.length) {
+    el.innerHTML = inst.plan ? `<p class="wp-muted">Nog geen voorstel. Het systeem zet het plan voor ${wpEsc(info.naam)} zelf klaar. Je ziet het hier en bij Wacht op jou.</p>` : '<p class="wp-muted">Deze klant heeft geen plan.</p>';
+    return;
+  }
+  el.innerHTML = `<p><b>${info.voorstellen.length}</b> ${info.voorstellen.length === 1 ? 'voorstel wacht' : 'voorstellen wachten'} op jouw goedkeuring.</p><ul class="wp-volgende-lijst">${info.voorstellen.map((v) => `<li>${wpEsc(v.titel)}</li>`).join('')}</ul>`;
+}
+
+// Onderweg: de vijf kolommen. Een klik opent de pagina.
+function wpTekenOnderweg(pages) {
+  const el = document.getElementById('wpOnderweg');
+  if (!el) return;
+  const kolommen = wpOnderwegKolommen(pages, 5);
+  el.innerHTML = kolommen.map((k, i) => `<div class="wp-kolom"><div class="wp-kolom-kop"><span class="wp-pil ${k.klasse}"><span class="wp-stip"></span>${wpEsc(k.naam)} <b>${k.paginas.length + (k.meer || 0)}</b></span></div>${k.paginas.map((p, j) => `<button type="button" class="wp-kolom-item${p.fout ? ' fout' : ''}" data-kol="${i}" data-pag="${j}">${wpEsc(p.titel)}${p.fout ? ' (mislukt)' : ''}</button>`).join('') || '<span class="wp-muted wp-kolom-leeg">Leeg</span>'}${k.meer ? `<span class="wp-muted wp-kolom-leeg">en nog ${k.meer}</span>` : ''}</div>`).join('');
+  el.querySelectorAll('[data-kol]').forEach((b) => b.addEventListener('click', () => wpOpenPagina(kolommen[Number(b.dataset.kol)].paginas[Number(b.dataset.pag)].id)));
+}
+
+function wpTekenLog(pages) {
+  const el = document.getElementById('wpLog');
+  if (!el) return;
+  const lijst = wpActiviteit(pages, 8);
+  el.innerHTML = lijst.length ? lijst.map((a) => `<div class="wp-wrij"><div class="wp-wtekst"><b>${wpEsc(a.titel)}</b><span class="${a.fout ? '' : 'wp-muted'}">${wpEsc(a.tekst)}</span></div><span class="wp-muted">${new Date(a.op).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}</span></div>`).join('') : '<p class="wp-muted">Nog geen activiteit.</p>';
+}
+
+// Live pagina's met wat ze opleveren. Zonder meting staat er waarom er nog niets is.
+function wpTekenResultaten(live) {
+  const el = document.getElementById('wpResultaten');
+  if (!el) return;
+  const lijst = live || [];
+  if (!lijst.length) { el.innerHTML = '<p class="wp-muted">Nog geen live pagina\'s.</p>'; return; }
+  el.innerHTML = `<div class="wp-tabel-wrap"><table class="lp-table wp-tabel"><thead><tr><th>Pagina</th><th>Google, 28 dagen</th><th>AI</th></tr></thead><tbody>${lijst.map((p) => { const r = wpResultaatTekst(p); return `<tr class="lp-row" data-pagina="${wpEsc(p.id)}"><td><strong>${wpEsc(p.titel)}</strong></td><td class="wp-muted">${wpEsc(r.google)}</td><td class="wp-muted">${wpEsc(r.ai || '')}</td></tr>`; }).join('')}</tbody></table></div>`;
+  el.querySelectorAll('[data-pagina]').forEach((tr) => tr.addEventListener('click', () => wpOpenPagina(tr.dataset.pagina)));
 }
 
 // Onlangs verwijderde pagina's, met een knop om ze terug te zetten.
@@ -514,6 +640,7 @@ function wpTekenIdeeen(ideeen) {
 
 function wpTekenBijhouden(data) {
   lpState.wpBijhouden = data;
+  wpTekenResultaten(data.live || []);
   const el = document.getElementById('wpBijhouden');
   const meld = [];
   if (data.metingUit) {
@@ -560,4 +687,4 @@ function wpBindVraag() {
   });
 }
 
-if (typeof module !== 'undefined') module.exports = { wpStandVan, wpStandPagina, wpBouwAdvies, WP_STAND, WP_STANDEN };
+if (typeof module !== 'undefined') module.exports = { wpStandVan, wpStandPagina, wpBouwAdvies, WP_STAND, WP_STANDEN, wpVolgendeInfo, wpOnderwegKolommen, wpActiviteit, wpResultaatTekst, wpMaandSleutel, wpVolgendeMaand };
