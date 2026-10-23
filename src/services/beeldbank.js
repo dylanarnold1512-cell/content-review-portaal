@@ -7,6 +7,7 @@ const { n8nTabel } = require('./aiZichtbaarheid');
 const N8N_BASE_URL = (process.env.N8N_BASE_URL || 'https://n8n.advertisr.nl').replace(/\/+$/, '');
 const TABLE_ID = process.env.N8N_BEELDBANK_TABLE_ID || 'sAkIrfiuFopOFoxw';
 const WEBHOOK_URL = process.env.N8N_BEELDBANK_WEBHOOK_URL || `${N8N_BASE_URL}/webhook/beeldbank-upload`;
+const VERWIJDER_URL = process.env.N8N_BEELDBANK_VERWIJDER_URL || `${N8N_BASE_URL}/webhook/beeldbank-verwijder`;
 const TOEGESTANE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_BASE64 = 6000000;
 
@@ -23,6 +24,7 @@ async function lijstAfbeeldingen(klantNaam) {
   const rijen = await n8nTabel(TABLE_ID, [{ columnName: 'client_name', condition: 'eq', value: klantNaam }]);
   return rijen
     .map((r) => ({
+      driveFileId: r.drive_file_id || '',
       map: r.drive_map || '',
       bestandsnaam: r.bestandsnaam || '',
       alt: r.alt_tekst || '',
@@ -64,4 +66,32 @@ async function stuurAfbeelding(klantNaam, invoer) {
   return antwoord;
 }
 
-module.exports = { beeldbankAan, lijstAfbeeldingen, stuurAfbeelding, TOEGESTANE_TYPES, MAX_BASE64 };
+// Verwijdert een afbeelding: n8n zet het bestand in de Drive prullenbak en haalt de regel uit de beeldbank.
+// n8n controleert zelf dat het bestand bij deze klant hoort. Actie 'opschonen' haalt regels weg waarvan het
+// bestand al uit Drive verdwenen is (bijvoorbeeld handmatig verwijderd).
+async function stuurVerwijdering(klantNaam, actie, driveFileId) {
+  const token = process.env.N8N_BEELDBANK_TOKEN;
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['X-Beeldbank-Token'] = token;
+  const res = await fetch(VERWIJDER_URL, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ actie, clientName: klantNaam, driveFileId: String(driveFileId || '').trim() })
+  });
+  const tekst = await res.text();
+  let antwoord = null;
+  try { antwoord = JSON.parse(tekst); } catch (e) { /* geen JSON */ }
+  if (!antwoord) return { status: 'fout', melding: res.ok ? 'De beeldbank gaf een onbegrijpelijk antwoord.' : `De beeldbank is niet bereikbaar (${res.status}).` };
+  return antwoord;
+}
+
+function verwijderAfbeelding(klantNaam, driveFileId) {
+  if (!/^[A-Za-z0-9_-]{10,80}$/.test(String(driveFileId || '').trim())) return Promise.resolve({ status: 'fout', melding: 'Deze afbeelding kan niet verwijderd worden.' });
+  return stuurVerwijdering(klantNaam, 'verwijder', driveFileId);
+}
+
+function ruimOp(klantNaam) {
+  return stuurVerwijdering(klantNaam, 'opschonen', '');
+}
+
+module.exports = { beeldbankAan, lijstAfbeeldingen, stuurAfbeelding, verwijderAfbeelding, ruimOp, TOEGESTANE_TYPES, MAX_BASE64 };
