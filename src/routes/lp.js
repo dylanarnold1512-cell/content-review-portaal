@@ -1449,7 +1449,7 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
     }
     // Harde poort: wat de herschrijfrondes niet oplosten en wat mechanisch te herstellen is (namen van personen),
     // gaat nooit door naar de klant. Zie scrubPersoonsnamen in tekstcontrole.js.
-    if (client.profile.tekstControle !== false && client.profile.schrijfvorm === 'derde') {
+    if (client.profile.tekstControle !== false && (client.profile.schrijfvorm === 'derde' || client.profile.schrijfvorm === 'mix')) {
       const vervangen = scrubPersoonsnamen(result.slotData, { nietNoemen: client.profile.nietNoemen || [], bedrijfsnaam: (client.profile.bedrijf || {}).naam || client.profile.naam });
       if (vervangen) console.warn(`[redactie] ${vervangen} persoonsnaam/-namen mechanisch vervangen door de bedrijfsnaam`);
     }
@@ -1501,8 +1501,9 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
           const WIJ_RE = /\b(wij|we|ons|onze|jullie|hij|hem)\b/i;
           Object.keys(teksten).forEach((id) => { if (WIJ_RE.test(teksten[id])) delete teksten[id]; });
         }
+        if (client.profile.schrijfvorm === 'mix') Object.keys(teksten).forEach((id) => { if (/\b(hij|hem|ik)\b/i.test(teksten[id])) delete teksten[id]; });
         lijsten.forEach((slot) => vulProjectItems(slot, result.slotData, gekozen, teksten));
-        if (derde) scrubPersoonsnamen(result.slotData, { nietNoemen: client.profile.nietNoemen || [], bedrijfsnaam: (client.profile.bedrijf || {}).naam || client.profile.naam });
+        if (derde || client.profile.schrijfvorm === 'mix') scrubPersoonsnamen(result.slotData, { nietNoemen: client.profile.nietNoemen || [], bedrijfsnaam: (client.profile.bedrijf || {}).naam || client.profile.naam });
       }
     }
   } catch (projErr) {
@@ -1708,6 +1709,7 @@ function redactiePunten(page, blueprint, client, voorbeeldSlotData) {
     onderwerpWoorden,
     aanspreekvorm: kv && kv.stem ? kv.stem.aanspreekvorm : null,
     derdePersoon: client.profile.schrijfvorm === 'derde',
+    mix: client.profile.schrijfvorm === 'mix',
     nietGebruiken: kv ? kv.nietGebruiken : []
   });
   punten.push(...verhaal.ontbrekendBewijs(blueprint, slotData, kvRuw));
@@ -1719,6 +1721,7 @@ function redactiePunten(page, blueprint, client, voorbeeldSlotData) {
     // De harde punten staan vooraan: ze worden altijd als eerste herschreven en vallen nooit buiten de lijst.
     punten.unshift(...tekstControle(slotData, {
       derdePersoon: client.profile.schrijfvorm === 'derde',
+      mix: client.profile.schrijfvorm === 'mix',
       bedrijfsnaam: bedrijf.naam || client.profile.naam,
       template: blueprint,
       voorbeeldSlotData,

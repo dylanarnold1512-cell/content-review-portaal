@@ -24,7 +24,7 @@ const { INLINE_LINK_RE, forEachTextLeaf, ICON_NAMES, findUnknownIcons } = requir
 // 1, vraag 3). Hero, CTA en interne links zijn altijd al verplicht via de
 // vaste slot-namen/regels hieronder, dus die staan hier expres niet in.
 const { verwijderReviewAanhalingstekens } = require('./aanhalingstekens');
-const { PAGINA_OPBOUW_REGELS, paginaOpbouwRegels, bouwKlantverhaalBlok, derdePersoonBlok } = require('./klantverhaal');
+const { PAGINA_OPBOUW_REGELS, paginaOpbouwRegels, bouwKlantverhaalBlok, derdePersoonBlok, mixBlok } = require('./klantverhaal');
 
 // Schrijft deze klant in de derde persoon? Dan gaat derdePersoonBlok mee in elke schrijfopdracht.
 // Geeft ook de eigen regels van de klant mee (Klantgegevens: wat niet mag en de toon). Die gingen eerder alleen naar de
@@ -32,6 +32,10 @@ const { PAGINA_OPBOUW_REGELS, paginaOpbouwRegels, bouwKlantverhaalBlok, derdePer
 // De stem van een klant is op een plek bepaald: schrijfvorm 'derde' in het profiel. Elke stap leest het hier.
 function schrijftInDerdePersoon(klant) {
   try { return require('./clients').getLpClient(klant).profile.schrijfvorm === 'derde'; } catch (err) { return false; }
+}
+
+function schrijftInMix(klant) {
+  try { return require('./clients').getLpClient(klant).profile.schrijfvorm === 'mix'; } catch (err) { return false; }
 }
 
 function derdePersoonVoor(klant, bedrijfsnaam) {
@@ -46,6 +50,7 @@ ${niet.length ? `Dit mag NIET:\n${niet.map((n) => `- ${n}`).join('\n')}` : ''}
 ${profile.toonNotitie ? `Toon: ${profile.toonNotitie}` : ''}
 Controleer de tekst voordat je antwoordt tegen elke regel hierboven. Staat er iets in dat niet mag, schrijf die zin dan opnieuw.`);
     }
+    if (profile && profile.schrijfvorm === 'mix') delen.push(mixBlok(bedrijfsnaam || (profile.bedrijf && profile.bedrijf.naam) || profile.naam, profile.nietNoemen));
     if (profile && profile.schrijfvorm === 'derde') delen.push(derdePersoonBlok(bedrijfsnaam || (profile.bedrijf && profile.bedrijf.naam) || profile.naam, profile.nietNoemen));
     return delen.join('\n\n');
   } catch (err) { /* onbekende klant: geen override */ }
@@ -761,7 +766,7 @@ function getImageSlots(template, slotData) {
   return result;
 }
 
-function buildContentSystemPrompt(template, { derde } = {}) {
+function buildContentSystemPrompt(template, { derde, mix } = {}) {
   const slots = Array.isArray(template.slots) ? template.slots : [];
   const tekstSlots = slots.filter((s) => !IMAGE_SRC_RE.test(s.key) && !IMAGE_ALT_RE.test(s.key));
   // Zowel losse afbeelding-slots als een afbeelding-itemveld binnen een lijst (bv.
@@ -819,7 +824,7 @@ ${SECTIE_INTRO_REGELS}
 
 ${VOLLEDIGE_ZINNEN_REGELS}
 
-${paginaOpbouwRegels({ derde: Boolean(derde) })}
+${paginaOpbouwRegels({ derde: Boolean(derde), mix: Boolean(mix) })}
 
 Slots die gevuld moeten worden:
 ${slotBeschrijving}${afbeeldingNotitie}${galerijNotitie}${iconNotitie}
@@ -997,12 +1002,14 @@ ${JSON.stringify(overzicht, null, 2)}
 Feiten (alleen wat hier of in het klantverhaal of de bronteksten staat mag gebruikt worden):
 ${JSON.stringify(feiten || [])}
 
-${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam, derde: schrijftInDerdePersoon(klant) }) || 'Er is geen goedgekeurd klantverhaal.'}
+${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam, derde: schrijftInDerdePersoon(klant), mix: schrijftInMix(klant) }) || 'Er is geen goedgekeurd klantverhaal.'}
 ${derdePersoonVoor(klant, bedrijfsnaam)}
 
 ${siteTeksten ? `Bronteksten van de klantsite (ingekort):\n${String(siteTeksten).slice(0, 14000)}` : 'Er zijn geen bronteksten van de klantsite.'}`;
   const derde = schrijftInDerdePersoon(klant);
-  const ruw = await callOpenAi({ systemPrompt: SCHRIJFPLAN_SYSTEEMPROMPT.replace('{{HERO_STEM}}', derde
+  const ruw = await callOpenAi({ systemPrompt: SCHRIJFPLAN_SYSTEEMPROMPT.replace('{{HERO_STEM}}', schrijftInMix(klant)
+    ? '- Kies voor de hero een persoonlijke opening: de bezoeker direct aanspreken met "je", de bedrijfsnaam een keer bij naam noemen en daarna "wij". Volg het blok AANSPREEKVORM VOOR DEZE KLANT.'
+    : derde
     ? '- Kies voor de hero een persoonlijke opening: de bezoeker direct aanspreken met "je" en het bedrijf in de derde persoon. Nooit "wij".'
     : '- Kies voor de hero een persoonlijke opening: de bezoeker direct aanspreken en het bedrijf als "wij".'), userPrompt });
   const plan = schoonPlan(ruw, template);
@@ -1045,7 +1052,7 @@ ${JSON.stringify(sectieOverzichtVoorPrompt(template), null, 2)}
 De pagina (pad: tekst):
 ${JSON.stringify(pagina, null, 2)}
 
-${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam, derde: schrijftInDerdePersoon(klant) }) || 'Er is geen goedgekeurd klantverhaal.'}
+${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam, derde: schrijftInDerdePersoon(klant), mix: schrijftInMix(klant) }) || 'Er is geen goedgekeurd klantverhaal.'}
 ${derdePersoonVoor(klant, bedrijfsnaam)}
 
 Al gevonden door de automatische controle (herhaal deze niet):
@@ -1053,7 +1060,9 @@ ${(alGevonden || []).map((t) => `- ${t}`).join('\n') || '(niets)'}
 
 Toegestane slotnamen voor "slots": ${sleutels.join(', ')}`;
   const derde = schrijftInDerdePersoon(klant);
-  const ruw = await callOpenAi({ systemPrompt: REDACTIE_SYSTEEMPROMPT.replace('{{STEM_VRAAG}}', derde
+  const ruw = await callOpenAi({ systemPrompt: REDACTIE_SYSTEEMPROMPT.replace('{{STEM_VRAAG}}', schrijftInMix(klant)
+    ? 'Spreekt de pagina de bezoeker direct aan met "je", met de bedrijfsnaam op de vaste plekken en "wij" in de rest (nooit een persoon, nooit hij of hem)? Laat de stem zoals hij is en beoordeel alleen of de tekst concreet en leesbaar is in plaats van een opsomming van beweringen.'
+    : derde
     ? 'Spreekt de pagina de bezoeker direct aan met "je", terwijl het bedrijf in de derde persoon blijft (de bedrijfsnaam of "het bedrijf", nooit wij, we of onze, nooit een persoon)? Laat de stem zoals hij is en beoordeel alleen of de tekst concreet en leesbaar is in plaats van een opsomming van beweringen.'
     : 'Spreekt de pagina de bezoeker persoonlijk aan, of klinkt het als een brochure (bedrijfsnaam voluit, "het bedrijf", lijdende vorm)?'), userPrompt });
   const toegestaan = new Set(sleutels);
@@ -1104,15 +1113,17 @@ ${JSON.stringify(rest, null, 2)}
 
 Feiten: ${JSON.stringify(feiten || [])}
 
-${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam, derde: schrijftInDerdePersoon(klant) }) || 'Er is geen goedgekeurd klantverhaal.'}
+${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam, derde: schrijftInDerdePersoon(klant), mix: schrijftInMix(klant) }) || 'Er is geen goedgekeurd klantverhaal.'}
 ${derdePersoonVoor(klant, bedrijfsnaam)}
 
-${paginaOpbouwRegels({ derde: schrijftInDerdePersoon(klant) })}
+${paginaOpbouwRegels({ derde: schrijftInDerdePersoon(klant), mix: schrijftInMix(klant) })}
 
 ${bouwVoorbeeldBlok(voorbeeld)}
 
 ${siteTeksten ? `Bronteksten van de klantsite (ingekort):\n${String(siteTeksten).slice(0, 14000)}` : ''}`;
-  const ruw = await callOpenAi({ systemPrompt: HERSCHRIJF_SYSTEEMPROMPT.replace('{{STEM_REGEL}}', schrijftInDerdePersoon(klant)
+  const ruw = await callOpenAi({ systemPrompt: HERSCHRIJF_SYSTEEMPROMPT.replace('{{STEM_REGEL}}', schrijftInMix(klant)
+    ? 'Spreek de bezoeker direct aan met "je". Gebruik de bedrijfsnaam alleen op de vaste plekken uit het blok AANSPREEKVORM VOOR DEZE KLANT en schrijf in de rest "wij", "we" en "ons". Nooit een persoonsnaam, nooit hij of hem.'
+    : schrijftInDerdePersoon(klant)
     ? 'Spreek de bezoeker direct aan met "je" en schrijf over het bedrijf in de derde persoon. Nooit wij, we, ons, onze of een persoonsnaam.'
     : 'Schrijf persoonlijk en direct.'), userPrompt });
   const nieuw = ruw && typeof ruw.slotData === 'object' && ruw.slotData ? ruw.slotData : null;
@@ -1156,7 +1167,9 @@ ${siteTeksten ? `Bronteksten van de klantsite (ingekort):\n${String(siteTeksten)
 async function schrijfProjectTeksten({ klant, bedrijfsnaam, projecten }) {
   if (!Array.isArray(projecten) || !projecten.length) return {};
   const derde = schrijftInDerdePersoon(klant);
-  const stem = derde
+  const stem = schrijftInMix(klant)
+    ? `Schrijf met "wij", "we" of "ons", of met de bedrijfsnaam "${bedrijfsnaam}". Nooit een persoonsnaam en nooit hij of hem.`
+    : derde
     ? `Schrijf in de derde persoon met de bedrijfsnaam "${bedrijfsnaam}" als onderwerp. Nooit wij, we, ons, onze, jullie of een persoonsnaam.`
     : 'Schrijf persoonlijk en direct, wij mag.';
   const systemPrompt = `Je schrijft voor een Nederlandse landingspagina bij elk project van een bedrijf een korte tekst van een of twee volledige zinnen (maximaal 35 woorden).
@@ -1209,7 +1222,7 @@ function verdeelIconen(slotData) {
 }
 
 async function generatePageContent({ klant, template, invoer, feiten, watGaatDezePaginaOver, ctaOverride, linkKandidaten, zusterInhoud, siteTeksten, zoekvragen, zusterVragen, klantverhaal, bedrijfsnaam, zonderPlan, voorbeeld }) {
-  const systemPrompt = buildContentSystemPrompt(template, { derde: schrijftInDerdePersoon(klant) });
+  const systemPrompt = buildContentSystemPrompt(template, { derde: schrijftInDerdePersoon(klant), mix: schrijftInMix(klant) });
   // Ronde 1: een plan per onderdeel. Mislukt het, dan schrijven we gewoon zonder plan.
   let schrijfplan = null;
   let planWaarschuwing = null;
@@ -1243,7 +1256,7 @@ ${JSON.stringify(feiten || [], null, 2)}
 
 ${siteTeksten ? `Bronteksten van de eigen website van de klant (automatisch gelezen, ${siteTeksten.split('\n--- ').length} pagina's). Dit is je hoofdbron voor de inhoud, volg de regels voor brontekst hierboven:\n${siteTeksten}` : 'Er zijn geen bronteksten van de klantsite beschikbaar, werk alleen met de feiten en de invoer.'}
 
-${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam, derde: schrijftInDerdePersoon(klant) }) || 'Er is voor deze klant nog geen goedgekeurd klantverhaal, volg de opbouwregels hierboven en werk alleen met de bronteksten en de feiten.'}
+${bouwKlantverhaalBlok(klantverhaal, { bedrijfsnaam, derde: schrijftInDerdePersoon(klant), mix: schrijftInMix(klant) }) || 'Er is voor deze klant nog geen goedgekeurd klantverhaal, volg de opbouwregels hierboven en werk alleen met de bronteksten en de feiten.'}
 
 ${derdePersoonVoor(klant, bedrijfsnaam)}
 
@@ -1481,6 +1494,7 @@ async function callOpenAiVision({ systemPrompt, contentParts }) {
 }
 
 module.exports = {
+  schrijftInMix,
   schrijfProjectTeksten,
   verdeelIconen,
   bouwFocusBlok,
