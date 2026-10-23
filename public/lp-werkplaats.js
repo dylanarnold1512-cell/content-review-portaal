@@ -14,17 +14,26 @@ const WP_STAND = {
   'Fout': 'In de maak',
   'Gepubliceerd': 'Live'
 };
-const WP_STAND_KLASSE = { 'Gepland': 'wp-gepland', 'In de maak': 'wp-maak', 'Ter controle': 'wp-controle', 'Klaar voor live': 'wp-klaar', 'Live': 'wp-live' };
-const WP_STANDEN = ['Gepland', 'In de maak', 'Ter controle', 'Klaar voor live', 'Live'];
+const WP_STAND_KLASSE = { 'Voorstel': 'wp-voorstel', 'Gepland': 'wp-gepland', 'In de maak': 'wp-maak', 'Ter controle': 'wp-controle', 'Klaar voor live': 'wp-klaar', 'Live': 'wp-live' };
+const WP_STANDEN = ['Voorstel', 'Gepland', 'In de maak', 'Ter controle', 'Klaar voor live', 'Live'];
 
 function wpStandVan(status) { return WP_STAND[status] || 'In de maak'; }
+// Een pagina met stand Idee die nog op jouw besluit wacht (voorstel uit het plan of idee van de klant) heeft de stand
+// Voorstel en telt niet mee als Gepland. De Notion status blijft Idee. p.voorstel wordt gezet in wpMarkeerVoorstellen.
+function wpStandPagina(p) { return p && p.voorstel && p.status === 'Idee' ? 'Voorstel' : wpStandVan(p && p.status); }
 function wpEsc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+// Zet p.voorstel op pagina's die wachten op jouw besluit: de voorstellen van het plan en de ideeen van de klant.
+function wpMarkeerVoorstellen(pages) {
+  const ids = new Set([...(((lpState.wpVoorgesteld || {}).voorstellen) || []), ...(lpState.wpIdeeen || [])].map((x) => x.id));
+  return (pages || []).map((p) => (ids.has(p.id) ? { ...p, voorstel: true } : p));
+}
 
 // Advies uit de echte gegevens van de klant. Geeft een lijst { tekst, knop, actie } terug.
 function wpBouwAdvies({ pages, templates }) {
   const actief = templates.filter((t) => t.status === 'Actief');
-  const tellers = { 'Gepland': 0, 'In de maak': 0, 'Ter controle': 0, 'Klaar voor live': 0, 'Live': 0 };
-  pages.forEach((p) => { tellers[wpStandVan(p.status)] += 1; });
+  const tellers = { 'Voorstel': 0, 'Gepland': 0, 'In de maak': 0, 'Ter controle': 0, 'Klaar voor live': 0, 'Live': 0 };
+  pages.forEach((p) => { tellers[wpStandPagina(p)] += 1; });
   const fout = pages.filter((p) => p.status === 'Fout' || p.status === 'Afgewezen');
   const advies = [];
   if (!actief.length) {
@@ -68,7 +77,7 @@ function wpStappen({ tellers, actief, pages }) {
 
 function wpTeken() {
   const klantId = document.getElementById('wpKlant').value;
-  const pages = lpState.wpPages || [];
+  const pages = wpMarkeerVoorstellen(lpState.wpPages || []);
   const templates = lpState.wpTemplates || [];
   const uit = wpBouwAdvies({ pages, templates });
 
@@ -87,7 +96,7 @@ function wpTeken() {
   meer.textContent = alle ? 'Toon minder' : `Toon alle ${pages.length} pagina's`;
   meer.onclick = () => { lpState.wpAllePaginas = !lpState.wpAllePaginas; wpTeken(); };
   document.getElementById('wpPaginas').innerHTML = zichtbaar.map((p) => {
-    const stand = wpStandVan(p.status);
+    const stand = wpStandPagina(p);
     return `<tr class="lp-row" data-page-id="${wpEsc(p.id)}"><td class="wp-vinkcel"><label class="wp-vink"><input type="checkbox" data-sel="${wpEsc(p.id)}" aria-label="Selecteer ${wpEsc(p.titel || '')}"></label></td><td><strong>${wpEsc(p.titel || '(zonder titel)')}</strong></td><td><span class="wp-pil ${WP_STAND_KLASSE[stand]}"><span class="wp-stip"></span>${stand}</span></td><td class="wp-muted">${p.laatstGewijzigd ? new Date(p.laatstGewijzigd).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : ''}</td></tr>`;
   }).join('') || '<tr><td colspan="4" class="wp-muted">Nog geen pagina\'s voor deze klant.</td></tr>';
   document.querySelectorAll('#wpPaginas tr.lp-row').forEach((row) => {
@@ -148,7 +157,7 @@ async function wpLaad() {
       lpApi('/pages?klant=' + encodeURIComponent(klantId)),
       lpApi('/templates?klant=' + encodeURIComponent(klantId))
     ]);
-    if (lpState.wpGeladenKlant !== klantId) { lpState.wpGeladenKlant = klantId; lpState.wpVoorgesteld = null; lpState.wpIdeeen = []; lpState.wpAllePaginas = false; }
+    if (lpState.wpGeladenKlant !== klantId) { lpState.wpGeladenKlant = klantId; lpState.wpVoorgesteld = null; lpState.wpIdeeen = []; lpState.wpAllePaginas = false; lpState.wpWachtKlaar = false; }
     lpState.wpPages = pages;
     try { window.parent.postMessage({ type: 'pagr-gewijzigd' }, window.location.origin); } catch (e) { /* niet in een frame */ }
     lpState.wpTemplates = (templates || []).filter((t) => t.status !== 'Gearchiveerd');
@@ -263,7 +272,7 @@ async function wpPlanVoorstel() {
 // De voortgang blijft staan als je het tabblad sluit: bij terugkomst start je de knop opnieuw en zie je dezelfde taak.
 function wpTekenBulk() {
   const el = document.getElementById('wpBulk');
-  const gepland = (lpState.wpPages || []).filter((p) => wpStandVan(p.status) === 'Gepland');
+  const gepland = wpMarkeerVoorstellen(lpState.wpPages || []).filter((p) => wpStandPagina(p) === 'Gepland');
   if (!gepland.length) { el.classList.add('hidden'); el.innerHTML = ''; return; }
   el.classList.remove('hidden');
   el.innerHTML = `<span>${gepland.length} gepland. Je kunt ze een voor een openen, of alle tekst in een keer laten maken.</span><button type="button" id="wpBulkKnop" class="btn btn-plain">Alles in bulk laten maken</button><span id="wpBulkStatus" class="wp-muted">${wpEsc(lpState.wpBulkMelding || '')}</span>`;
@@ -303,7 +312,9 @@ async function wpLaadExtra() {
   wpTekenIdeeen(ideeen.ideeen || []);
   wpLaadVerwijderd(klant);
   wpTekenPlanKaart(inst);
-  wpLaadMaandplan(klant, Boolean(inst.plan));
+  await wpLaadMaandplan(klant, Boolean(inst.plan));
+  lpState.wpWachtKlaar = true;
+  wpTeken();
   wpTekenBijhouden(bijhouden);
   wpTekenAdvies();
 }
@@ -339,6 +350,7 @@ function wpTekenWacht(pages) {
   });
   const teller = document.getElementById('wpWachtTitel');
   if (teller) teller.innerHTML = 'Wacht op jou' + (items.length ? `<span class="wp-teller">${items.length}</span>` : '');
+  if (!items.length && !lpState.wpWachtKlaar) { el.innerHTML = '<p class="wp-muted">Wacht op jou wordt geladen.</p>'; return; }
   if (!items.length) { el.innerHTML = '<p class="wp-muted">Niets wacht op jou. Nieuwe pagina\'s verschijnen hier zodra de tekst klaar is.</p>'; return; }
   el.innerHTML = items.map((it, i) => `<div class="wp-wrij"><span class="wp-wsoort ${it.klasse || ''}">${wpEsc(it.soort)}</span><div class="wp-wtekst"><b>${wpEsc(it.titel)}</b><span class="wp-muted">${wpEsc(it.tekst)}</span></div><div class="wp-idee-knoppen">${it.knoppen.map((k, j) => `<button type="button" class="btn ${k.hoofd ? 'btn-approve' : 'btn-plain'}" data-w="${i}" data-k="${j}">${wpEsc(k.label)}</button>`).join('')}</div></div>`).join('');
   el.querySelectorAll('[data-w]').forEach((b) => b.addEventListener('click', () => items[Number(b.dataset.w)].knoppen[Number(b.dataset.k)].actie(b)));
@@ -548,4 +560,4 @@ function wpBindVraag() {
   });
 }
 
-if (typeof module !== 'undefined') module.exports = { wpStandVan, wpBouwAdvies, WP_STAND };
+if (typeof module !== 'undefined') module.exports = { wpStandVan, wpStandPagina, wpBouwAdvies, WP_STAND, WP_STANDEN };

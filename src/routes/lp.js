@@ -31,6 +31,7 @@ const { validatePage, validateTemplateStructure } = require('../lp/validator');
 const { maakControle, inOrdePunten } = require('../lp/controle');
 const { onderwerpFit } = require('../lp/onderwerpFit');
 const { wachtOpJou } = require('../lp/wachtOpJou');
+const { isBulkKandidaat } = require('../lp/bulkKandidaat');
 const maandplan = require('../lp/maandplan');
 const { pushDraft, deletePage: deleteWpPage, restorePage: herstelWpPage, searchMedia, uploadMedia, listSitePages, haalPaginaStatussen, siteNaam } = require('../lp/wordpress');
 const { vindTekst, vervangTekst, vulPlaatshouders } = require('../lp/tekstVervangen');
@@ -704,8 +705,8 @@ router.get('/wacht-op-jou', requireLpInternal, async (req, res) => {
     for (const klant of Object.keys(lpClients)) {
       if (!(await pagrModuleAan(klant))) continue;
       const pages = await lpNotion.listPages({ klant });
-      const ideeen = pages.filter((p) => p.status === 'Idee').length ? await telKlantIdeeen(klant) : 0;
-      const w = wachtOpJou(pages, ideeen);
+      const tel = pages.filter((p) => p.status === 'Idee').length ? await telKlantIdeeen(klant) : { ideeen: 0, voorstellen: 0 };
+      const w = wachtOpJou(pages, tel.ideeen, tel.voorstellen);
       if (w.totaal) resultaat.push({ klant, naam: lpClients[klant].profile.naam, ...w });
     }
     res.json({ klanten: resultaat, totaal: resultaat.reduce((n, k) => n + k.totaal, 0) });
@@ -716,12 +717,13 @@ router.get('/wacht-op-jou', requireLpInternal, async (req, res) => {
 
 async function telKlantIdeeen(klant) {
   const paginas = (await lpNotion.listPages({ klant, status: 'Idee' })).slice(0, 25);
-  let n = 0;
+  const tel = { ideeen: 0, voorstellen: 0 };
   for (const p of paginas) {
     const inv = (await lpNotion.getPage(p.id)).invoer || {};
-    if (inv.plan && (inv.plan.status === 'idee van klant' || inv.plan.status === 'voorgesteld')) n += 1;
+    if (inv.plan && inv.plan.status === 'idee van klant') tel.ideeen += 1;
+    else if (inv.plan && inv.plan.status === 'voorgesteld') tel.voorstellen += 1;
   }
-  return n;
+  return tel;
 }
 
 // ---- Maandplan (Pagr., 16-10-2026) ----
@@ -932,7 +934,7 @@ router.post('/plan/bulk', requireLpInternal, async (req, res) => {
     for (const p of paginas) {
       const volledig = await lpNotion.getPage(p.id);
       const planStatus = ((volledig.invoer || {}).plan || {}).status;
-      if (planStatus === 'idee van klant') continue;
+      if (!isBulkKandidaat(planStatus)) continue;
       kandidaten.push(volledig);
     }
     if (!kandidaten.length) return res.status(400).json({ error: 'Er zijn geen geplande pagina\'s om te maken.' });

@@ -19,3 +19,11 @@ test('telt controleren, mislukt en ideeen', () => {
 test('lege invoer geeft nul', () => {
   assert.equal(wachtOpJou().totaal, 0);
 });
+
+test('voorstellen tellen mee maar staan apart van ideeen', () => {
+  const r = wachtOpJou([], 1, 2);
+  assert.equal(r.ideeen, 1);
+  assert.equal(r.voorstellen, 2);
+  assert.equal(r.totaal, 3);
+  assert.equal(wachtOpJou([], 0).voorstellen, 0);
+});

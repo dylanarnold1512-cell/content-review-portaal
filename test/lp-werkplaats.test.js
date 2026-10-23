@@ -36,3 +36,16 @@ test('advies: schone pagina\'s krijgen een knop om alles live te zetten', () => 
   assert.equal(tellers['Klaar voor live'], 2);
   assert.ok(advies.some((a) => a.actie === 'zet-live-bulk' && a.knop === 'Zet alle live'));
 });
+
+test('stand Voorstel: pagina met stand Idee die op besluit wacht telt niet als Gepland', () => {
+  const { wpStandPagina } = require('../public/lp-werkplaats.js');
+  assert.equal(wpStandPagina({ status: 'Idee', voorstel: true }), 'Voorstel');
+  assert.equal(wpStandPagina({ status: 'Idee' }), 'Gepland');
+  assert.equal(wpStandPagina({ status: 'Ter review', voorstel: true }), 'Ter controle');
+  const { tellers } = wpBouwAdvies({
+    templates: [{ status: 'Actief' }],
+    pages: [{ id: 'a', status: 'Idee', voorstel: true }, { id: 'b', status: 'Idee', voorstel: true }, { id: 'c', status: 'Idee' }]
+  });
+  assert.equal(tellers['Voorstel'], 2);
+  assert.equal(tellers['Gepland'], 1);
+});
