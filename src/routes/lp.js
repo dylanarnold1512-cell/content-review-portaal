@@ -732,7 +732,8 @@ const maandplanGedaan = new Set();
 
 async function planBestaatDezeMaand(klant, maand) {
   const start = maandplan.maandStart(maand).getTime() - 24 * 3600 * 1000;
-  const paginas = (await lpNotion.listPages({ klant })).filter((p) => p.aangemaakt && new Date(p.aangemaakt).getTime() >= start).slice(0, 40);
+  // Ook voorstellen die al eerder zijn klaargezet (stand Idee) tellen mee, bijvoorbeeld een plan voor november dat al in oktober is gemaakt.
+  const paginas = (await lpNotion.listPages({ klant })).filter((p) => p.status === 'Idee' || (p.aangemaakt && new Date(p.aangemaakt).getTime() >= start)).slice(0, 40);
   for (const p of paginas) {
     if (maandplan.isPlanVanMaand(await lpNotion.getPage(p.id), maand)) return true;
   }
@@ -740,8 +741,13 @@ async function planBestaatDezeMaand(klant, maand) {
 }
 
 async function maakMaandPlan(klant, { forceer } = {}) {
-  const maand = maandplan.huidigeMaand();
+  const huidige = maandplan.huidigeMaand();
   const inst = await klantInstellingen(klant);
+  // Is het aantal pagina's van deze maand al gemaakt (ook los van een plan), dan is deze maand klaar: de automatische ronde
+  // wacht tot de 1e, en de knop Maandplan nu klaarzetten maakt een plan voor de maand erna (23-10-2026).
+  const gemaakt = maandplan.aantalDezeMaand(await lpNotion.listPages({ klant }), huidige);
+  const maand = forceer ? maandplan.planMaand(huidige, gemaakt, inst.paginasPerMaand) : huidige;
+  if (!forceer && Number(inst.paginasPerMaand) > 0 && gemaakt >= Number(inst.paginasPerMaand)) return { overgeslagen: true, reden: 'Het aantal pagina\'s voor deze maand is al gemaakt.' };
   const sleutel = `${klant}:${maand}`;
   const bestaat = forceer ? false : await planBestaatDezeMaand(klant, maand);
   if (!forceer && !maandplan.moetPlannen({ pagr: inst.pagr, paginasPerMaand: inst.paginasPerMaand, planBestaat: bestaat, gedaan: maandplanGedaan.has(sleutel) })) return { overgeslagen: true };

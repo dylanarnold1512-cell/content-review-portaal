@@ -363,7 +363,8 @@ async function wpBeoordeelIdee(id, besluit, knop) {
 // De maand: hoeveel pagina's zijn er deze maand gemaakt, en waar staan ze. Doel is Pagina's per maand van de klant.
 function wpTekenMaand(pages, inst) {
   const nu = new Date();
-  const dezeMaand = (pages || []).filter((p) => p.aangemaakt && new Date(p.aangemaakt).getFullYear() === nu.getFullYear() && new Date(p.aangemaakt).getMonth() === nu.getMonth());
+  // Voorstellen die nog niet zijn goedgekeurd (stand Idee) tellen niet mee voor het aantal van deze maand.
+  const dezeMaand = (pages || []).filter((p) => p.aangemaakt && p.status !== 'Idee' && new Date(p.aangemaakt).getFullYear() === nu.getFullYear() && new Date(p.aangemaakt).getMonth() === nu.getMonth());
   const tel = { live: 0, controle: 0, maak: 0, gepland: 0 };
   dezeMaand.forEach((p) => {
     const st = wpStandVan(p.status);

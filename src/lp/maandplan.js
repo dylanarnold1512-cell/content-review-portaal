@@ -10,6 +10,23 @@ function huidigeMaand(nu = new Date()) {
   return `${jaar}-${maand}`;
 }
 
+// 'YYYY-MM' van de maand erna.
+function volgendeMaand(maand) {
+  const [j, m] = String(maand).split('-').map(Number);
+  return m === 12 ? `${j + 1}-01` : `${j}-${String(m + 1).padStart(2, '0')}`;
+}
+
+// Hoeveel pagina's zijn er in deze maand echt gemaakt? Pagina's met stand Idee (voorstellen die nog niet zijn goedgekeurd)
+// tellen niet mee, ook niet als de AI ze vandaag heeft klaargezet.
+function aantalDezeMaand(paginas, maand) {
+  return (paginas || []).filter((p) => p && p.aangemaakt && p.status !== 'Idee' && huidigeMaand(new Date(p.aangemaakt)) === maand).length;
+}
+
+// Voor welke maand is een plan? Is het aantal pagina's van deze maand al gemaakt, dan is een plan voor de maand erna.
+function planMaand(huidige, gemaakt, paginasPerMaand) {
+  return Number(paginasPerMaand) > 0 && gemaakt >= Number(paginasPerMaand) ? volgendeMaand(huidige) : huidige;
+}
+
 function maandStart(maand) { return new Date(`${maand}-01T00:00:00+01:00`); }
 
 // Moet er voor deze klant dit moment een plan komen?
@@ -46,4 +63,4 @@ function maandNaam(maand) {
   return MAAND_NAMEN[m - 1] || maand;
 }
 
-module.exports = { huidigeMaand, maandStart, moetPlannen, isPlanVanMaand, invoerVoorVoorgesteld, maandNaam };
+module.exports = { huidigeMaand, volgendeMaand, aantalDezeMaand, planMaand, maandStart, moetPlannen, isPlanVanMaand, invoerVoorVoorgesteld, maandNaam };
