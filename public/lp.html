@@ -7,6 +7,7 @@
 <link rel="icon" href="https://advertisr.nl/wp-content/uploads/2025/03/Logo_Advertisr_new_2025.svg">
 <link rel="stylesheet" href="/styles.css">
 <link rel="stylesheet" href="/lp-werkplaats.css">
+<link rel="stylesheet" href="/lp-overzicht.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -233,6 +234,7 @@
       </div>
     </div>
     <div class="tab-nav" id="lpTabNav">
+      <button type="button" class="tab-btn" data-lp-tab="overzicht">Overzicht</button>
       <button type="button" class="tab-btn active" data-lp-tab="werkplaats">Werkplaats</button>
       <button type="button" class="tab-btn" data-lp-tab="nieuw">Nieuwe pagina</button>
       <button type="button" class="tab-btn" data-lp-tab="sjablonen">Sjablonen</button>
@@ -241,6 +243,32 @@
       <button type="button" class="tab-btn" data-lp-tab="kloon">Kopie van WordPress</button>
       <button type="button" class="tab-btn" data-lp-tab="vervang">Bulk bijwerken</button>
       <button type="button" class="tab-btn" data-lp-tab="klantgegevens">Klantgegevens</button>
+    </div>
+  </div>
+
+  <div id="lpOverzichtTab" class="tab-panel hidden">
+    <div class="lp-shell ov">
+      <div id="ovFout" class="admin-error hidden"></div>
+      <div class="ov-kop">
+        <div>
+          <h1 class="lp-h1">Pagr. overzicht</h1>
+          <p class="wp-sub">Alle klanten die Pagr. afnemen. Het systeem plant, schrijft en controleert. Jij ziet wat aandacht nodig heeft.</p>
+        </div>
+        <span class="wp-pil wp-live"><span class="wp-stip"></span>Automatische ronde elke 6 uur</span>
+      </div>
+      <div id="ovKerncijfers" class="ov-kern"></div>
+      <section class="wp-kaart" aria-labelledby="ovWachtTitel">
+        <div class="wp-kaart-kop"><h2 id="ovWachtTitel">Wacht op jou, alle klanten</h2><div id="ovBulk" class="ov-bulk"></div></div>
+        <div id="ovWacht"></div>
+      </section>
+      <section class="wp-kaart" aria-labelledby="ovKlantenTitel">
+        <div class="wp-kaart-kop"><h2 id="ovKlantenTitel">Klanten met Pagr.</h2></div>
+        <div class="ov-tabelwrap"><table class="ov-tabel"><thead><tr><th>Klant</th><th>Deze maand</th><th>Volgende maand</th><th>Onderweg</th><th>Automatisch live</th><th>Laatst</th><th></th></tr></thead><tbody id="ovKlanten"></tbody></table></div>
+      </section>
+      <section class="wp-kaart hidden" id="ovEigenKaart" aria-labelledby="ovEigenTitel">
+        <div class="wp-kaart-kop"><h2 id="ovEigenTitel">Eigen werk</h2><span class="wp-muted">Interne automatisering, buiten de afspraak met klanten</span></div>
+        <div class="ov-tabelwrap"><table class="ov-tabel"><thead><tr><th>Klant</th><th>Deze maand</th><th>Volgende maand</th><th>Onderweg</th><th>Automatisch live</th><th>Laatst</th><th></th></tr></thead><tbody id="ovEigen"></tbody></table></div>
+      </section>
     </div>
   </div>
 
@@ -1596,6 +1624,7 @@
 
 <script src="/lp.js"></script>
 <script src="/lp-werkplaats.js"></script>
+<script src="/lp-overzicht.js"></script>
 <script src="/lp-kloon.js"></script>
 <script src="/vendor/html2canvas.min.js"></script>
 <script src="/lp-begeleiding.js"></script>

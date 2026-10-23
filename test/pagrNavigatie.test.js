@@ -16,7 +16,7 @@ test('de admin zijbalk heeft een onderdeel per LP tab', () => {
 
 test('de admin kent de Pagr. tabs in de hash en stuurt ze door naar de LP', () => {
   const js = lees('admin.js');
-  assert.ok(js.includes("PAGR_TABS = ['werkplaats', 'nieuw', 'sjablonen', 'paginas', 'kloon', 'vervang', 'klantgegevens']"));
+  assert.ok(js.includes("PAGR_TABS = ['overzicht', 'werkplaats', 'nieuw', 'sjablonen', 'paginas', 'kloon', 'vervang', 'klantgegevens']"));
   assert.ok(js.includes("type: 'pagr-tab'"));
   assert.ok(js.includes("'pagr-hoogte'"));
 });

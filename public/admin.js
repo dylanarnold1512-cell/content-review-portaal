@@ -51,7 +51,7 @@ const KLANT_TABS = [
   { id: 'merkprofiel', titel: 'Merkprofiel opbouwen' }
 ];
 const VIEW_TITELS = { klanten: 'Alle klanten', nieuw: 'Nieuwe klant', ideeen: 'Ideeën', pagr: 'Pagr.', klant: 'Klant' };
-const PAGR_TABS = ['werkplaats', 'nieuw', 'sjablonen', 'paginas', 'kloon', 'vervang', 'klantgegevens'];
+const PAGR_TABS = ['overzicht', 'werkplaats', 'nieuw', 'sjablonen', 'paginas', 'kloon', 'vervang', 'klantgegevens'];
 let huidig = { view: 'klanten', klantId: '', tab: 'instellingen' };
 
 function leesHash() {
@@ -60,7 +60,7 @@ function leesHash() {
     const tab = KLANT_TABS.some((t) => t.id === delen[2]) ? delen[2] : beginTab(delen[1]);
     return { view: 'klant', klantId: delen[1], tab };
   }
-  if (delen[0] === 'pagr') return { view: 'pagr', klantId: '', tab: PAGR_TABS.includes(delen[1]) ? delen[1] : 'werkplaats' };
+  if (delen[0] === 'pagr') return { view: 'pagr', klantId: '', tab: PAGR_TABS.includes(delen[1]) ? delen[1] : 'overzicht' };
   if (['klanten', 'nieuw', 'ideeen'].includes(delen[0])) return { view: delen[0], klantId: '', tab: 'instellingen' };
   return { view: 'klanten', klantId: '', tab: 'instellingen' };
 }

@@ -126,6 +126,7 @@ function switchLpTab(tab) {
   document.querySelectorAll('#lpTabNav .tab-btn').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.lpTab === tab);
   });
+  document.getElementById('lpOverzichtTab').classList.toggle('hidden', tab !== 'overzicht');
   document.getElementById('lpWerkplaatsTab').classList.toggle('hidden', tab !== 'werkplaats');
   document.getElementById('lpPaginasTab').classList.toggle('hidden', tab !== 'paginas');
   lpState.laatsteLijst = tab === 'werkplaats' ? 'werkplaats' : 'paginas';
@@ -146,6 +147,7 @@ function switchLpTab(tab) {
   document.getElementById('lpDetailSection').classList.add('hidden');
   document.getElementById('lpTemplateNewSection').classList.add('hidden');
   document.getElementById('lpTemplateDetailSection').classList.add('hidden');
+  if (tab === 'overzicht' && typeof ovLaad === 'function') ovLaad();
   if (tab === 'werkplaats' && typeof wpLaad === 'function') wpLaad();
   if (tab === 'sjablonen') loadTemplates();
   if (tab === 'intake') loadIntakes();
@@ -510,6 +512,7 @@ async function openPageDetail(pageId) {
 
   document.getElementById('lpPaginasTab').classList.add('hidden');
   document.getElementById('lpWerkplaatsTab').classList.add('hidden');
+  document.getElementById('lpOverzichtTab').classList.add('hidden');
   document.getElementById('lpNieuwTab').classList.add('hidden');
   document.getElementById('lpDetailSection').classList.remove('hidden');
 

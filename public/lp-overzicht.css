@@ -1,0 +1,18 @@
+/* Pagr. overzicht (Werkplaats fase 2). Hergebruikt de kaarten en pillen van de werkplaats. */
+.ov { display: flex; flex-direction: column; gap: 20px; }
+.ov-kop { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between; }
+.ov-kern { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.ov-cijfer { padding: 16px 18px; }
+.ov-getal { font-size: 26px; font-weight: 700; margin: 6px 0 2px; }
+.ov-accent { color: #c4142c; }
+.ov-bulk { display: flex; gap: 10px; flex-wrap: wrap; }
+.ov-melding { margin: 12px 0 0; font-weight: 600; }
+.ov-tabelwrap { overflow-x: auto; }
+.ov-tabel { width: 100%; border-collapse: collapse; }
+.ov-tabel th { font-size: 12px; font-weight: 600; color: var(--text-muted); text-align: left; padding: 10px 12px; border-bottom: 1px solid #e6e8f1; white-space: nowrap; }
+.ov-tabel td { font-size: 14px; padding: 14px 12px; border-bottom: 1px solid #eceef5; vertical-align: middle; }
+.ov-tabel td small { display: block; margin-top: 2px; }
+.ov-pillen { display: flex; flex-wrap: wrap; gap: 6px; }
+.ov-fout { background: #fde8e8; color: #b42318; }
+@media (max-width: 900px) { .ov-kern { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .ov-kern { grid-template-columns: minmax(0, 1fr); } }

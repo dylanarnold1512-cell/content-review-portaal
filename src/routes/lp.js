@@ -32,6 +32,7 @@ const { maakControle, inOrdePunten } = require('../lp/controle');
 const { onderwerpFit } = require('../lp/onderwerpFit');
 const { wachtOpJou } = require('../lp/wachtOpJou');
 const { isBulkKandidaat } = require('../lp/bulkKandidaat');
+const { bouwKlantRij, bouwTotalen } = require('../lp/pagrOverzicht');
 const maandplan = require('../lp/maandplan');
 const { pushDraft, deletePage: deleteWpPage, restorePage: herstelWpPage, searchMedia, uploadMedia, listSitePages, haalPaginaStatussen, siteNaam } = require('../lp/wordpress');
 const { vindTekst, vervangTekst, vulPlaatshouders } = require('../lp/tekstVervangen');
@@ -715,13 +716,39 @@ router.get('/wacht-op-jou', requireLpInternal, async (req, res) => {
   }
 });
 
+// Pagr. overzicht (fase 2): een rij per klant met Pagr. of interne automatisering, plus totalen. De eigen klanten
+// (alleen interne automatisering) staan apart onder Eigen werk en tellen niet mee in de afspraak.
+let overzichtCache = { op: 0, data: null };
+router.get('/pagr-overzicht', requireLpInternal, async (req, res) => {
+  try {
+    if (!req.query.ververs && overzichtCache.data && Date.now() - overzichtCache.op < 30 * 1000) return res.json(overzichtCache.data);
+    const rijen = [];
+    for (const klant of Object.keys(lpClients)) {
+      let inst = {};
+      try { inst = await klantInstellingen(klant); } catch (e) { continue; }
+      if (!inst.pagr && !inst.internAutomatisering) continue;
+      const pages = await lpNotion.listPages({ klant });
+      const tel = pages.some((p) => p.status === 'Idee') ? await telKlantIdeeen(klant) : undefined;
+      rijen.push(bouwKlantRij({ id: klant, naam: lpClients[klant].profile.naam, soort: inst.pagr ? 'pagr' : 'eigen', paginasPerMaand: inst.paginasPerMaand, autoLive: lpClients[klant].profile.autoLive, pages, tel }));
+    }
+    const data = { maand: maandplan.huidigeMaand(), klanten: rijen, totalen: bouwTotalen(rijen) };
+    overzichtCache = { op: Date.now(), data };
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 async function telKlantIdeeen(klant) {
   const paginas = (await lpNotion.listPages({ klant, status: 'Idee' })).slice(0, 25);
-  const tel = { ideeen: 0, voorstellen: 0 };
+  const tel = { ideeen: 0, voorstellen: 0, voorstellenPerMaand: {} };
   for (const p of paginas) {
     const inv = (await lpNotion.getPage(p.id)).invoer || {};
     if (inv.plan && inv.plan.status === 'idee van klant') tel.ideeen += 1;
-    else if (inv.plan && inv.plan.status === 'voorgesteld') tel.voorstellen += 1;
+    else if (inv.plan && inv.plan.status === 'voorgesteld') {
+      tel.voorstellen += 1;
+      if (inv.plan.maand) tel.voorstellenPerMaand[inv.plan.maand] = (tel.voorstellenPerMaand[inv.plan.maand] || 0) + 1;
+    }
   }
   return tel;
 }
