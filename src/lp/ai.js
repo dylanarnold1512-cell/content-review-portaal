@@ -818,6 +818,22 @@ als icoon herkend en toont een neutraal fallback-icoontje in plaats van het bedo
 ${ICON_NAMES.join(', ')}.\nKies per item het icoon dat het best bij dat onderwerp past (bijvoorbeeld hammer voor verbouw, layers voor renovatie, wrench voor onderhoud en reparatie). Gebruik binnen een lijst elk icoon hooguit een keer.`
     : '';
 
+  if (campagne) {
+    return `Je bent een ervaren conversiecopywriter. Je schrijft de volledige tekst van één landingspagina voor een advertentiecampagne, binnen een al goedgekeurd sjabloon. De opmaak ligt vast. Jij bepaalt de inhoud volledig zelf.
+
+${campagneKennis.CAMPAGNE_CONTENT_REGELS}
+
+Reviews: neem alleen echte reviews uit de bronnen over, woord voor woord. Zijn er geen, laat het slot dan leeg.
+
+Slots die gevuld moeten worden:
+${slotBeschrijving}${afbeeldingNotitie}${galerijNotitie}${iconNotitie}
+
+Voor "metaTitle"/"metaDescription": platte tekst binnen de lengte-eisen, nooit de [ankertekst](url)-schrijfwijze.
+Een slot met een naam die eindigt op "LinkHref" en geen "#aanvraag" is: laat leeg.
+
+Antwoord ALLEEN met een JSON-object met exact één veld, geen tekst erbuiten:
+{ "slotData": <object met per slot-key de ingevulde waarde (tekst of array van items)> }`;
+  }
   return `Je schrijft de INHOUD voor één landingspagina, binnen een AL GOEDGEKEURD sjabloon. De
 structuur/opmaak ligt al vast (dat pas je niet aan) — jij vult alleen de genoemde slots met concrete,
 Nederlandse tekst op basis van de aangeleverde informatie. Gebruik ALLEEN feiten die expliciet zijn
@@ -1258,6 +1274,37 @@ async function generatePageContent({ klant, template, invoer, feiten, watGaatDez
   const campagneBlok = campagneKennis.bouwCampagneBlok(campagne, campagneVoorkeuren);
   // Een campagnepagina heeft geen interne links: geen kandidaten, dan verwijdert verwijderVerzonnenLinks ook elke link.
   if (campagne) linkKandidaten = [];
+  // Een campagnepagina schrijft de AI in een keer en volledig zelf (24-10-2026): geen schrijfplan, geen klantverhaal, geen
+  // voorbeeldpagina's of correcties, geen vaste regels over feiten gebruiken. De site en de feiten zijn alleen achtergrond.
+  if (campagne) {
+    const lean = `Klant: ${klant}
+
+Opdracht van de beheerder (een instructie aan jou, geen tekst om over te nemen):
+${watGaatDezePaginaOver || '(niet opgegeven)'}${campagneBlok}
+
+${ctaOverride ? `CTA voor deze pagina: ${ctaOverride}` : 'Kies zelf een passende actie voor de knop.'}
+
+ACHTERGROND OVER DE KLANT (gebruik wat de pagina sterker maakt, de rest mag je weglaten).
+Feiten:
+${JSON.stringify(feiten || [], null, 2)}
+
+${siteTeksten ? `Teksten van de eigen website van de klant:\n${siteTeksten}` : 'Er zijn geen teksten van de klantsite beschikbaar.'}
+
+${derdePersoonVoor(klant, bedrijfsnaam)}`;
+    const uitkomst = await callOpenAi({ systemPrompt, userPrompt: lean });
+    if (!uitkomst || typeof uitkomst !== 'object' || !uitkomst.slotData) throw new Error('OpenAI-antwoord miste het verwachte veld "slotData".');
+    const slotData = { ...uitkomst.slotData };
+    verwijderVerzonnenAfbeeldingen(slotData, template);
+    verwijderVerzonnenLinks(slotData, linkKandidaten);
+    verwijderPlaceholderWaarden(slotData);
+    verwijderReviewAanhalingstekens(slotData);
+    verdeelIconen(slotData);
+    const iconProblemen = findUnknownIcons(slotData);
+    const iconWarning = iconProblemen.length
+      ? `Niet-herkende icoonwaarde(n) gevonden (${iconProblemen.map((pr) => `${pr.path}: "${pr.value}"`).join(', ')}) — deze tonen nu een neutraal fallback-icoon. Pas de content aan met een geldige icoonnaam.`
+      : null;
+    return { slotData, iconWarning, schrijfplan: null, planWaarschuwing: null };
+  }
   // Ronde 1: een plan per onderdeel. Mislukt het, dan schrijven we gewoon zonder plan.
   let schrijfplan = null;
   let planWaarschuwing = null;

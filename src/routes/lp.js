@@ -1644,8 +1644,8 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
     const kvRuw = client.profile.klantverhaal;
     let eerste = [];
     let rest = [];
-    // Een campagnepagina is korter en moet snel klaar zijn: hooguit twee herschrijfrondes.
-    const maxRondes = campagne ? 2 : 4;
+    // Een campagnepagina schrijft de AI volledig zelf en in een keer: geen mechanische herschrijfrondes.
+    const maxRondes = campagne ? 0 : 4;
     for (let ronde = 1; ronde <= maxRondes; ronde += 1) {
       const punten = bepaal(result.slotData).slice(0, 8);
       if (ronde === 1) eerste = punten;

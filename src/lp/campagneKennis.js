@@ -173,20 +173,10 @@ SCHRIJVEN VOOR DEZE CAMPAGNEPAGINA:
 - Zet geen interne links in de tekst en vul geen linksItems.
 - metaTitle en metaDescription: vul ze in binnen de lengte-eisen, gericht op de belofte en de aanbieding, zonder plaatsnaampatroon.
 
-EEN DIENST, EEN BELOFTE (dit gaat voor op "gebruik alle feiten"):
-- De hele pagina gaat over de ene dienst of aanbieding uit de advertentie of het onderwerp. Neem alleen diensten, producten, projecten, bijschriften en feiten op die daar direct bij horen. Andere diensten of producten van de klant laat je weg, ook als ze in de feiten staan (een dakkapel op een pagina over verbouwen, een tuinhuis op een pagina over een aanbouw). Een lijst met aanbod bestaat uit varianten of onderdelen van die ene dienst, niet uit het hele assortiment.
-- Past er niets goeds bij een onderdeel (project, review, vraag), laat het dan leeg of korter. Liever minder dan iets dat er niet bij hoort of verzonnen is.
-- Koppen kloppen met het onderwerp van de pagina. Een vragenkop of sectiekop noemt nooit een ander onderwerp dan de pagina zelf.
-
-HERO:
-- De kicker (kleine regel boven de kop) en de h1 zijn nooit dezelfde woorden. De kicker is een korte categorie of doelgroep, de h1 het voordeel voor de bezoeker, in maximaal negen woorden.
-- Staat de kop in twee slots (kop en accent), dan vult het accent de belofte aan (resultaat of aanbieding, hooguit zes woorden). Het accent is nooit de tekst van de knop en nooit een herhaling van de kop.
-- Het slot voor de aanbieding of het voordeel naast de knop bevat een echte aanbieding of een concreet voordeel uit de opdracht of de feiten, bijvoorbeeld "Gratis opname aan huis". Het is nooit een opdracht aan de bezoeker ("Leg je vraag voor...") en nooit een herhaling van de intro. Is er niets concreets, laat het leeg.
-- De intro is twee zinnen met wat de bezoeker krijgt en waarom bij deze klant. Geen opvulzinnen die voor elk bedrijf kunnen gelden ("We luisteren naar je plannen en denken praktisch mee").
-
-KLOPT HET:
-- Cijfers en claims staan precies zo in de feiten. Combineer ze niet tot een nieuwe claim en rond niet af. Staat er "sinds 2012", schrijf dan niet "meer dan 20 jaar ervaring". Spreken twee feiten elkaar tegen, laat dan allebei weg.
-- Een bijschrift of alttekst beschrijft alleen wat er op die foto staat. Weet je dat niet zeker, laat het bijschrift leeg. Gebruik geen projectnaam of plaatsnaam bij een foto waarvan je de herkomst niet kent.`;
+VRIJHEID:
+- Jij bepaalt hoe de pagina wordt: invalshoek, wat je noemt en wat je weglaat, de volgorde van de argumenten, de toon en de lengte per onderdeel. Je hoeft niet alle feiten of alle diensten van de klant te gebruiken. Laat een slot leeg of kort als je er geen sterke tekst voor hebt.
+- Schrijf zoals een goede copywriter dat met de hand zou doen: natuurlijk, concreet, in de woorden van de bezoeker, zonder opvulzinnen die voor elk bedrijf zouden kunnen gelden.
+- Verzin geen harde gegevens (prijzen, jaartallen, aantallen, garanties, adressen, namen van klanten of projecten) die niet in de bronnen staan.`;
 
 // Maakt van een gegenereerd sjabloon een campagnesjabloon: geen interne links, soort vastgelegd.
 function maakCampagneBlueprint(blueprint) {

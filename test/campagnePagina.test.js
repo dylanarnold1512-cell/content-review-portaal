@@ -270,12 +270,11 @@ test('meerdere campagnesjablonen: nieuw id, eigen keuze en standaard', async () 
   });
 });
 
-test('campagnesjabloon heeft geen eigen invoervelden en de regels vragen om een dienst en een echte hero', () => {
+test('campagnesjabloon heeft geen eigen invoervelden en de AI schrijft vrij', () => {
   const bp = ck.maakCampagneBlueprint({ ...campagneBp, invoerVelden: [{ key: 'campagneKanaal', label: 'Advertentiekanaal', required: true }] });
   assert.deepEqual(bp.invoerVelden, []);
-  assert.match(ck.CAMPAGNE_CONTENT_REGELS, /EEN DIENST, EEN BELOFTE/);
-  assert.match(ck.CAMPAGNE_CONTENT_REGELS, /nooit de tekst van de knop/);
-  assert.match(ck.CAMPAGNE_CONTENT_REGELS, /sinds 2012/);
+  assert.match(ck.CAMPAGNE_CONTENT_REGELS, /Jij bepaalt hoe de pagina wordt/);
+  assert.match(ck.CAMPAGNE_CONTENT_REGELS, /Verzin geen harde gegevens/);
   assert.match(ck.CAMPAGNE_SJABLOON_REGELS, /minmax\(0, 1fr\)/);
   assert.match(ck.bouwCampagneBlok({ kanaal: 'google', zoekwoord: '', aanbieding: '' }), /opdracht aan jou en geen tekst om over te nemen/);
 });
@@ -303,4 +302,27 @@ test('invoer opslaan laat de verborgen campagnevelden staan', async () => {
     assert.equal(invoer._zoekwoord, 'aanbouw');
     assert.equal(invoer._watGaatDezePaginaOver, 'nieuw');
   } finally { server.close(); }
+});
+
+test('generatePageContent: een campagnepagina wordt in een keer en vrij geschreven, zonder plan en feitenregels', async () => {
+  const echt = global.fetch;
+  const prompts = [];
+  global.fetch = async (url, opts) => {
+    prompts.push(JSON.parse(opts.body).messages.map((m) => m.content).join('\n'));
+    return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({ slotData: { heroTitle: 'Uw aanbouw, zonder gedoe' } }) } }] }) };
+  };
+  try {
+    const uit = await ai.generatePageContent({
+      klant: 'macbouw', template: { slots: [{ key: 'heroTitle', type: 'text' }] }, invoer: {}, feiten: [{ id: 'f1', label: 'Ervaring', waarde: 'sinds 2012' }],
+      watGaatDezePaginaOver: 'aanbouw', siteTeksten: 'Wij bouwen aanbouwen en dakkapellen.',
+      campagne: { kanaal: 'google', zoekwoord: 'aanbouw', aanbieding: '' }, klantverhaal: { status: 'goedgekeurd', tekst: 'lang verhaal' }
+    });
+    assert.equal(prompts.length, 1);
+    assert.equal(uit.schrijfplan, null);
+    assert.match(prompts[0], /Jij bepaalt hoe de pagina wordt/);
+    assert.match(prompts[0], /ACHTERGROND OVER DE KLANT/);
+    assert.doesNotMatch(prompts[0], /gebruik uitsluitend deze, verzin niets extra's/);
+    assert.doesNotMatch(prompts[0], /lang verhaal/);
+    assert.equal(uit.slotData.heroTitle, 'Uw aanbouw, zonder gedoe');
+  } finally { global.fetch = echt; }
 });
