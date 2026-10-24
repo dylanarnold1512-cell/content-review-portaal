@@ -51,7 +51,7 @@ const KLANT_TABS = [
   { id: 'merkprofiel', titel: 'Merkprofiel opbouwen' }
 ];
 const VIEW_TITELS = { klanten: 'Alle klanten', nieuw: 'Nieuwe klant', ideeen: 'Ideeën', pagr: 'Pagr.', klant: 'Klant' };
-const PAGR_TABS = ['overzicht', 'werkplaats', 'nieuw', 'chat', 'sjablonen', 'paginas', 'kloon', 'vervang', 'klantgegevens'];
+const PAGR_TABS = ['overzicht', 'werkplaats', 'nieuw', 'sjablonen', 'paginas', 'kloon', 'vervang', 'klantgegevens'];
 let huidig = { view: 'klanten', klantId: '', tab: 'instellingen' };
 
 function leesHash() {

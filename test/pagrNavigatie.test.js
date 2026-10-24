@@ -6,9 +6,10 @@ const path = require('path');
 const lees = (f) => fs.readFileSync(path.join(__dirname, '..', 'public', f), 'utf8');
 
 // Nieuwe pagina staat bewust niet meer in het menu (design 23-10-2026): je start hem met de knop in de werkplaats.
+// Bouwen met chat is geen eigen onderdeel meer (24-10-2026): bijsturen met chat zit op elk paginascherm.
 test('de admin zijbalk heeft een onderdeel per LP tab', () => {
   const html = lees('admin.html');
-  ['overzicht', 'werkplaats', 'chat', 'sjablonen', 'paginas', 'kloon', 'vervang', 'klantgegevens'].forEach((tab) => {
+  ['overzicht', 'werkplaats', 'sjablonen', 'paginas', 'kloon', 'vervang', 'klantgegevens'].forEach((tab) => {
     assert.ok(html.includes(`data-pagr-tab="${tab}"`), tab);
     // Elke tab bestaat ook echt als knop in de LP.
     assert.ok(lees('lp.html').includes(`data-lp-tab="${tab}"`), tab);
@@ -17,7 +18,7 @@ test('de admin zijbalk heeft een onderdeel per LP tab', () => {
 
 test('de admin kent de Pagr. tabs in de hash en stuurt ze door naar de LP', () => {
   const js = lees('admin.js');
-  assert.ok(js.includes("PAGR_TABS = ['overzicht', 'werkplaats', 'nieuw', 'chat', 'sjablonen', 'paginas', 'kloon', 'vervang', 'klantgegevens']"));
+  assert.ok(js.includes("PAGR_TABS = ['overzicht', 'werkplaats', 'nieuw', 'sjablonen', 'paginas', 'kloon', 'vervang', 'klantgegevens']"));
   assert.ok(js.includes("type: 'pagr-tab'"));
   assert.ok(js.includes("'pagr-hoogte'"));
 });
