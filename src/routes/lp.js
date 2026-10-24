@@ -1407,7 +1407,14 @@ router.get('/pages/:pageId', requireLpInternal, async (req, res) => {
 
 router.put('/pages/:pageId/invoer', requireLpInternal, async (req, res) => {
   try {
-    const page = await lpNotion.updateSection(req.params.pageId, 'invoer', req.body?.invoer ?? null);
+    let invoer = req.body?.invoer ?? null;
+    // De verborgen velden (_soort, _kanaal, _zoekwoord, _aanbieding, ...) horen niet in het scherm en mogen door opslaan niet verdwijnen.
+    if (invoer && typeof invoer === 'object') {
+      const huidig = await lpNotion.getPage(req.params.pageId);
+      const verborgen = Object.fromEntries(Object.entries((huidig && huidig.invoer) || {}).filter(([k]) => k.startsWith('_') && !(k in invoer)));
+      invoer = { ...verborgen, ...invoer };
+    }
+    const page = await lpNotion.updateSection(req.params.pageId, 'invoer', invoer);
     res.json({ page });
   } catch (err) {
     res.status(400).json({ error: err.message });

@@ -1025,7 +1025,7 @@ async function maakSchrijfPlan({ klant, template, invoer, feiten, watGaatDezePag
   const overzicht = sectieOverzichtVoorPrompt(template);
   if (!overzicht.length) return null;
   const userPrompt = `Klant: ${klant}
-Onderwerp van de pagina: ${watGaatDezePaginaOver || '(niet opgegeven)'}${campagneBlok ? `${campagneBlok}\nMaak het plan voor een campagnepagina: de hero sluit aan op het zoekwoord of de advertentie, elk onderdeel helpt de bezoeker naar de aanvraag, de vragen nemen twijfels weg.` : ''}
+Onderwerp van de pagina: ${watGaatDezePaginaOver || '(niet opgegeven)'}${campagneBlok ? `${campagneBlok}\nMaak het plan voor een campagnepagina: de hero sluit aan op het zoekwoord of de advertentie, elk onderdeel helpt de bezoeker naar de aanvraag, de vragen nemen twijfels weg. Bepaal in het plan eerst de ene dienst waar de pagina over gaat en welke diensten, projecten en feiten van de klant NIET op deze pagina horen. De kicker en de kop in de hero zijn verschillende woorden, het slot voor de aanbieding bevat een echte aanbieding of blijft leeg.` : ''}
 Invoervelden: ${JSON.stringify(invoer || {})}
 
 Onderdelen van de pagina, in de volgorde waarin ze staan:

@@ -179,7 +179,10 @@ async function getActiveTemplateByBlueprintId(klant, blueprintId) {
   // NIET mee naar de pagina-generatie of het renderen van echte pagina's: de AI zou de placeholder-tekst
   // anders als echte content kunnen overnemen.
   const { voorbeeldSlotData, ...blueprintVoorPaginas } = blueprintJson;
-  return { id: meta.blueprintId, naam: meta.naam, clientId: meta.klant, ...zorgVoorGalerijSlot(blueprintVoorPaginas) };
+  const uit = { id: meta.blueprintId, naam: meta.naam, clientId: meta.klant, ...zorgVoorGalerijSlot(blueprintVoorPaginas) };
+  // Een campagnesjabloon heeft geen eigen invoervelden (kanaal, belofte, dienst): die staan al in het formulier van Nieuwe pagina.
+  if (require('./campagneKennis').isCampagneBlueprintId(blueprintId)) uit.invoerVelden = [];
+  return uit;
 }
 
 async function createTemplate({ klant, naam, blueprintId, status = 'Concept', blueprint }) {

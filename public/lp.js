@@ -537,9 +537,9 @@ async function openPageDetail(pageId) {
   document.getElementById('lpDetailStatusBadge').className = lpBadgeClass(LP_PAGE_STATUS_BADGE, page.status);
   document.getElementById('lpStatusSelect').value = page.status;
   switchLpSubtab('invoer');
-  // Aanpassen staat ingeklapt zodra er tekst is: dan gaat het om controleren. Zonder tekst staat het open.
+  // Aanpassen staat altijd ingeklapt: de tekst wordt na het aanmaken vanzelf geschreven en bijsturen gaat met de chat.
   const aanpassen = document.getElementById('pdAanpassen');
-  if (aanpassen) aanpassen.open = !isContentIngevuld(page);
+  if (aanpassen) aanpassen.open = false;
   lpState.controleMarkers = [];
 
   let blueprint = null;
@@ -728,6 +728,7 @@ document.getElementById('lpSaveInvoerBtn').addEventListener('click', async () =>
   document.querySelectorAll('#lpInvoerFields [data-veld-key]').forEach((input) => {
     invoer[input.dataset.veldKey] = input.value;
   });
+  Object.entries(page.invoer || {}).forEach(([k, v]) => { if (k.startsWith('_') && !(k in invoer)) invoer[k] = v; });
   invoer._watGaatDezePaginaOver = document.getElementById('lpInvoerOnderwerp').value;
   invoer._ctaOverride = document.getElementById('lpInvoerCtaOverride').value;
   await lpApi(`/pages/${page.id}/invoer`, { method: 'PUT', body: JSON.stringify({ invoer }) });

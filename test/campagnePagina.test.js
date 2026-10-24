@@ -269,3 +269,38 @@ test('meerdere campagnesjablonen: nieuw id, eigen keuze en standaard', async () 
     assert.equal(paginas.get(standaard.page.id).blueprint, 'campagne');
   });
 });
+
+test('campagnesjabloon heeft geen eigen invoervelden en de regels vragen om een dienst en een echte hero', () => {
+  const bp = ck.maakCampagneBlueprint({ ...campagneBp, invoerVelden: [{ key: 'campagneKanaal', label: 'Advertentiekanaal', required: true }] });
+  assert.deepEqual(bp.invoerVelden, []);
+  assert.match(ck.CAMPAGNE_CONTENT_REGELS, /EEN DIENST, EEN BELOFTE/);
+  assert.match(ck.CAMPAGNE_CONTENT_REGELS, /nooit de tekst van de knop/);
+  assert.match(ck.CAMPAGNE_CONTENT_REGELS, /sinds 2012/);
+  assert.match(ck.CAMPAGNE_SJABLOON_REGELS, /minmax\(0, 1fr\)/);
+  assert.match(ck.bouwCampagneBlok({ kanaal: 'google', zoekwoord: '', aanbieding: '' }), /opdracht aan jou en geen tekst om over te nemen/);
+});
+
+test('invoer opslaan laat de verborgen campagnevelden staan', async () => {
+  sjablonen.length = 0;
+  paginas.clear();
+  paginas.set('p1', { id: 'p1', klant: 'macbouw', blueprint: 'campagne', titel: 'Ads', invoer: { _soort: 'campagne', _kanaal: 'meta', _zoekwoord: 'aanbouw', _watGaatDezePaginaOver: 'oud' }, content: null, sjabloon: null });
+  const app = require('express')();
+  app.use(require('express').json());
+  app.use(cookieSession({ name: 'portal_session', keys: ['test-geheim'] }));
+  app.post('/test-login', (req, res) => { req.session.isAdmin = true; res.json({ ok: true }); });
+  app.use('/api/lp', lpRoutes);
+  const server = http.createServer(app);
+  await new Promise((r) => server.listen(0, r));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const login = await fetch(`${base}/test-login`, { method: 'POST' });
+    const cookie = login.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ');
+    const r = await fetch(`${base}/api/lp/pages/p1/invoer`, { method: 'PUT', headers: { cookie, 'Content-Type': 'application/json' }, body: JSON.stringify({ invoer: { _watGaatDezePaginaOver: 'nieuw', _ctaOverride: '' } }) });
+    assert.equal(r.status, 200);
+    const invoer = paginas.get('p1').invoer;
+    assert.equal(invoer._soort, 'campagne');
+    assert.equal(invoer._kanaal, 'meta');
+    assert.equal(invoer._zoekwoord, 'aanbouw');
+    assert.equal(invoer._watGaatDezePaginaOver, 'nieuw');
+  } finally { server.close(); }
+});

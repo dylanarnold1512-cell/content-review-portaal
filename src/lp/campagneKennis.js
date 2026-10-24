@@ -137,7 +137,7 @@ function bouwCampagneBlok(campagne, voorkeuren) {
   if (!campagne) return '';
   const regels = [
     `Kanaal: ${KANALEN[campagne.kanaal] || KANALEN.google}`,
-    campagne.zoekwoord ? `Zoekwoord of advertentietekst waar de bezoeker op klikte: ${campagne.zoekwoord}` : 'Zoekwoord of advertentietekst: niet opgegeven, leid de belofte af uit het onderwerp van de pagina.',
+    campagne.zoekwoord ? `Zoekwoord of advertentietekst waar de bezoeker op klikte: ${campagne.zoekwoord}` : 'Zoekwoord of advertentietekst: niet opgegeven. Het onderwerp hieronder is een opdracht aan jou en geen tekst om over te nemen. Bedenk zelf de belofte die een bezoeker van deze dienst aanspreekt, in zijn woorden.',
     campagne.aanbieding ? `Aanbieding uit de advertentie (noem die boven de scrollgrens, in dezelfde woorden): ${campagne.aanbieding}` : 'Aanbieding: geen aparte aanbieding opgegeven, verzin er geen.'
   ];
   const vk = bouwCampagneVoorkeurenBlok(voorkeuren);
@@ -157,7 +157,10 @@ OPBOUW VAN HET SJABLOON (in deze volgorde):
 7. Twijfels weg: drie tot vijf vragen met antwoord (lijst).
 8. Conversiesectie met id="aanvraag": kop, korte intro, een zin wat er na het versturen gebeurt (naAanvraagTekst) en de marker {{formulier}} op de volle breedte.
 Geen menu, geen links naar andere pagina's, GEEN slot "linksItems" en geen linkRegels. Geen antwoordblok voor zoekmachines en geen adresblok.
-Er is precies een h1. Alle knoppen gebruiken hetzelfde slot ctaLabel en ctaHref, of een eigen labelslot met href "#aanvraag".`;
+Er is precies een h1. Alle knoppen gebruiken hetzelfde slot ctaLabel en ctaHref, of een eigen labelslot met href "#aanvraag".
+Het sjabloon heeft GEEN invoervelden voor kanaal, zoekwoord, belofte of dienst: die komen uit het formulier waarmee de pagina wordt gemaakt. Maak dus nooit invoerVelden aan voor advertentiekanaal, belofte of dienst.
+Opmaak van de hero: de tekstkolom en de fotokolom staan naast elkaar in een grid met minmax(0, 1fr) voor beide kolommen, zodat tekst nooit onder of over de foto loopt. De h1 gebruikt font-size: clamp(2rem, 4.2vw, 3.3rem) met overflow-wrap: break-word. Een accentregel onder de h1 is even groot als de h1 of kleiner en breekt netjes af op de breedte van de kolom.
+De kicker en de h1 zijn aparte slots met aparte tekst. De knoptekst (ctaLabel) staat nooit in het kopaccent.`;
 
 const CAMPAGNE_CONTENT_REGELS = `DIT IS EEN CAMPAGNEPAGINA, GEEN SEO PAGINA. Schrijf om te overtuigen, niet om gevonden te worden. Deze regels gaan voor op alle andere regels over SEO, zoekmachines, plaatsnamen en interne links.
 ${CAMPAGNE_KENNIS}
@@ -168,7 +171,22 @@ SCHRIJVEN VOOR DEZE CAMPAGNEPAGINA:
 - Vragen: alleen twijfels die een aanvraag tegenhouden (kosten, planning, gedoe, wat gebeurt er na mijn aanvraag). Drie tot vijf vragen, kort antwoord.
 - Knopteksten noemen wat de bezoeker krijgt. Gebruik op alle knoppen dezelfde actie.
 - Zet geen interne links in de tekst en vul geen linksItems.
-- metaTitle en metaDescription: vul ze in binnen de lengte-eisen, gericht op de belofte en de aanbieding, zonder plaatsnaampatroon.`;
+- metaTitle en metaDescription: vul ze in binnen de lengte-eisen, gericht op de belofte en de aanbieding, zonder plaatsnaampatroon.
+
+EEN DIENST, EEN BELOFTE (dit gaat voor op "gebruik alle feiten"):
+- De hele pagina gaat over de ene dienst of aanbieding uit de advertentie of het onderwerp. Neem alleen diensten, producten, projecten, bijschriften en feiten op die daar direct bij horen. Andere diensten of producten van de klant laat je weg, ook als ze in de feiten staan (een dakkapel op een pagina over verbouwen, een tuinhuis op een pagina over een aanbouw). Een lijst met aanbod bestaat uit varianten of onderdelen van die ene dienst, niet uit het hele assortiment.
+- Past er niets goeds bij een onderdeel (project, review, vraag), laat het dan leeg of korter. Liever minder dan iets dat er niet bij hoort of verzonnen is.
+- Koppen kloppen met het onderwerp van de pagina. Een vragenkop of sectiekop noemt nooit een ander onderwerp dan de pagina zelf.
+
+HERO:
+- De kicker (kleine regel boven de kop) en de h1 zijn nooit dezelfde woorden. De kicker is een korte categorie of doelgroep, de h1 het voordeel voor de bezoeker, in maximaal negen woorden.
+- Staat de kop in twee slots (kop en accent), dan vult het accent de belofte aan (resultaat of aanbieding, hooguit zes woorden). Het accent is nooit de tekst van de knop en nooit een herhaling van de kop.
+- Het slot voor de aanbieding of het voordeel naast de knop bevat een echte aanbieding of een concreet voordeel uit de opdracht of de feiten, bijvoorbeeld "Gratis opname aan huis". Het is nooit een opdracht aan de bezoeker ("Leg je vraag voor...") en nooit een herhaling van de intro. Is er niets concreets, laat het leeg.
+- De intro is twee zinnen met wat de bezoeker krijgt en waarom bij deze klant. Geen opvulzinnen die voor elk bedrijf kunnen gelden ("We luisteren naar je plannen en denken praktisch mee").
+
+KLOPT HET:
+- Cijfers en claims staan precies zo in de feiten. Combineer ze niet tot een nieuwe claim en rond niet af. Staat er "sinds 2012", schrijf dan niet "meer dan 20 jaar ervaring". Spreken twee feiten elkaar tegen, laat dan allebei weg.
+- Een bijschrift of alttekst beschrijft alleen wat er op die foto staat. Weet je dat niet zeker, laat het bijschrift leeg. Gebruik geen projectnaam of plaatsnaam bij een foto waarvan je de herkomst niet kent.`;
 
 // Maakt van een gegenereerd sjabloon een campagnesjabloon: geen interne links, soort vastgelegd.
 function maakCampagneBlueprint(blueprint) {
@@ -177,6 +195,8 @@ function maakCampagneBlueprint(blueprint) {
   const inHtml = /linksItems/.test(String(bp.htmlTemplate || ''));
   if (Array.isArray(bp.slots)) bp.slots = bp.slots.filter((s) => s && (s.key !== 'linksItems' || inHtml)).map((s) => (s.key === 'linksItems' ? { ...s, verplicht: false } : s));
   bp.linkRegels = { minimumInterneLinks: 0, minimumNaarZusterpaginas: 0, reasonRequired: false };
+  // Kanaal, zoekwoord en aanbieding komen uit het formulier van Nieuwe pagina, niet uit invoervelden van het sjabloon.
+  bp.invoerVelden = [];
   return bp;
 }
 
