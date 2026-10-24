@@ -8,9 +8,9 @@
   const NIEUW = '__nieuw__';
 
   const VOORBEELDEN = [
-    'Maak een Google Ads pagina voor offerteaanvragen voor een aanbouw of verbouwing. Doelgroep: particuliere woningeigenaren. Werkgebied: Bollenstreek, Haarlemmermeer en omgeving. CTA: "Vertel ons over uw plannen". Geen prominente telefoonknop, wel ons formulier.',
-    'Maak een Meta Ads pagina voor een afspraak voor een gratis adviesgesprek. Kort en visueel, met de drie belangrijkste voordelen en echte reviews.',
-    'Ik wil een LinkedIn Ads pagina voor bedrijven. Help me eerst met de juiste invalshoek voordat je bouwt.'
+    'Ik wil een Google Ads pagina voor aanbouw. Het zoekwoord is "aanbouw laten bouwen Bollenstreek" en het doel is offerteaanvragen.',
+    'Maak een Meta Ads pagina voor een gratis adviesgesprek over verbouwen.',
+    'Ik wil een LinkedIn Ads pagina voor bedrijven. Help me eerst met de juiste invalshoek.'
   ];
 
   function fout(tekst) {
@@ -23,7 +23,7 @@
   function tekenBerichten(extra) {
     const lijst = $('chBerichten');
     if (!state.berichten.length && !extra) {
-      lijst.innerHTML = `<div class="ch-leeg"><p>Beschrijf de pagina die je wilt: dienst of aanbod, doel, doelgroep, werkgebied, belangrijkste voordelen en de knoptekst. De AI gebruikt zelf de huisstijl, foto's, feiten, reviews en het formulier van de klant en bouwt meteen een eerste versie.</p><div class="ch-voorbeelden">${VOORBEELDEN.map((v, i) => `<button type="button" class="ch-voorbeeld" data-i="${i}">${esc(v)}</button>`).join('')}</div></div>`;
+      lijst.innerHTML = `<div class="ch-leeg"><p>Vertel in je eigen woorden waar de campagne voor is. Meer hoeft niet. De AI kent de huisstijl, de site, de feiten, de reviews en het formulier van de klant, en weet hoe een campagnepagina werkt. Wat nog ontbreekt (kanaal, doel, aanbieding, advertentietekst of zoekwoord) vraagt hij zelf, en daarna bouwt hij een eerste versie.</p><p>Niet zeker hoe je begint? Klik op een voorbeeld hieronder en pas het aan.</p><div class="ch-voorbeelden">${VOORBEELDEN.map((v, i) => `<button type="button" class="ch-voorbeeld" data-i="${i}">${esc(v)}</button>`).join('')}</div></div>`;
       lijst.querySelectorAll('.ch-voorbeeld').forEach((b) => b.addEventListener('click', () => { $('chTekst').value = VOORBEELDEN[Number(b.dataset.i)]; $('chTekst').focus(); }));
       return;
     }
