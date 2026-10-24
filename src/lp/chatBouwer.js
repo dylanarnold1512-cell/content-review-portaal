@@ -8,6 +8,8 @@
 // Het sjabloon en het gesprek staan in de pagina zelf (Notion sectie "Eigen sjabloon", zie eigenSjabloon.js), dus de
 // pagina werkt daarna overal zoals elke andere pagina: voorbeeld, controle, deellink en als concept naar WordPress.
 
+const { CAMPAGNE_KENNIS, CAMPAGNE_START, KOP_ALTERNATIEF, ONTHOUD_REGEL, bouwCampagneVoorkeurenBlok } = require('./campagneKennis');
+
 const MAX_BERICHTEN_IN_PROMPT = 16;
 const MAX_BERICHTEN_BEWAARD = 60;
 // Zelfde bronruimte als Content genereren (MAX_WOORDEN_TOTAAL in siteTeksten.js): de chat leest de hele site.
@@ -41,6 +43,12 @@ Een doel per pagina. Alle knoppen leiden naar dezelfde actie: zet "ctaHref" op "
 Geen menu, geen links naar andere pagina's en geen interne links: gebruik GEEN slot "linksItems". Een telefoonnummer alleen
 prominent als Dylan daarom vraagt, en dan alleen het nummer uit de klantgegevens.
 
+${CAMPAGNE_KENNIS}
+
+${heeftPagina ? '' : `${CAMPAGNE_START}\n\n`}${KOP_ALTERNATIEF}
+
+${ONTHOUD_REGEL}
+
 FOTO'S
 Elke foto loopt via een slot (bijvoorbeeld heroImageSrc en heroImageAlt, of imageSrc en imageAlt in een lijst-item). Laat
 de waarde van foto's LEEG in slotData: het systeem kiest zelf passende foto's uit de mediabibliotheek van de klant, en
@@ -67,7 +75,9 @@ Antwoord ALLEEN met een JSON-object, geen tekst erbuiten:
   "slug": string,           // alleen bij "bouw": korte url, kleine letters met koppeltekens
   "blueprint": object,      // alleen bij "bouw": het volledige sjabloon volgens het schema hierboven
   "slotData": object,       // alleen bij "bouw": per slot de echte tekst (of lijst van items), foto's leeg
-  "slotWijzigingen": object // alleen bij "tekst": alleen de slots die veranderen
+  "slotWijzigingen": object, // alleen bij "tekst": alleen de slots die veranderen
+  "kopAlternatief": string, // alleen bij "bouw": een tweede h1 met een andere invalshoek om te testen
+  "onthoud": string[]       // optioneel: korte zinnen die voor deze klant altijd moeten gelden (leeg laten als er niets is)
 }`;
 }
 
@@ -114,7 +124,8 @@ async function bouwGebruikersPrompt({ klant, client, huidig, berichten, bericht,
     site,
     bronnen,
     feitenTekst(client),
-    kvBlok
+    kvBlok,
+    bouwCampagneVoorkeurenBlok(profiel.campagneVoorkeuren)
   ];
   if (huidig && huidig.blueprint) {
     delen.push(`HUIDIG SJABLOON:\n${JSON.stringify(huidig.blueprint)}`);
@@ -181,7 +192,16 @@ function fotoUrls(slotData) {
 }
 
 // Zet het antwoord van de AI om in de nieuwe stand van de pagina. Puur, zonder Notion of OpenAI, zodat het testbaar is.
-function verwerkAntwoord(result, huidig, { validateTemplateStructure, verdeelIconen, zorgVoorGalerijSlot } = {}) {
+function verwerkAntwoord(result, huidig, opties = {}) {
+  const uit = verwerkAntwoordBasis(result, huidig, opties);
+  uit.onthoud = (Array.isArray(result.onthoud) ? result.onthoud : [])
+    .map((v) => String(v || '').replace(/\s+/g, ' ').trim().slice(0, 300)).filter(Boolean).slice(0, 5);
+  const alt = uit.actie === 'bouw' ? String(result.kopAlternatief || '').replace(/\s+/g, ' ').trim().slice(0, 200) : '';
+  if (alt) uit.antwoord = `${uit.antwoord}\n\nAlternatieve kop om te testen: ${alt}`;
+  return uit;
+}
+
+function verwerkAntwoordBasis(result, huidig, { validateTemplateStructure, verdeelIconen, zorgVoorGalerijSlot } = {}) {
   if (!result || typeof result !== 'object') throw new Error('De AI gaf geen bruikbaar antwoord.');
   let actie = ACTIES.includes(result.actie) ? result.actie : 'geen';
   const antwoord = String(result.antwoord || '').trim();

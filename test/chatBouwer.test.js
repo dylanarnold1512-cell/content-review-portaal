@@ -127,3 +127,38 @@ test('eigen sjabloon van een chatpagina wordt gebruikt en rendert voor WordPress
   assert.match(html, /contact-form-7/);
   assert.equal(eigenSjabloonVan({ blueprint: 'festivals', sjabloon: null }), null);
 });
+
+test('systeemprompt bevat campagnekennis, en de campagnestart alleen bij een nieuwe pagina', () => {
+  const nieuw = chat.bouwSysteemPrompt({ heeftPagina: false, heeftFormulier: true, deps: { ai } });
+  const bestaand = chat.bouwSysteemPrompt({ heeftPagina: true, heeftFormulier: true, deps: { ai } });
+  assert.match(nieuw, /Aansluiting op de advertentie/);
+  assert.match(nieuw, /CAMPAGNESTART/);
+  assert.match(nieuw, /kopAlternatief/);
+  assert.match(bestaand, /Aansluiting op de advertentie/);
+  assert.doesNotMatch(bestaand, /CAMPAGNESTART/);
+});
+
+test('kopAlternatief komt in het antwoord en onthoud wordt schoongemaakt', () => {
+  const uit = chat.verwerkAntwoord({ actie: 'bouw', antwoord: 'Staat klaar.', blueprint: blueprint(), slotData, kopAlternatief: 'Meer ruimte in huis, zonder gedoe', onthoud: ['  Doel is altijd een offerte ', '', 'Noem nooit prijzen'] }, null, opties);
+  assert.match(uit.antwoord, /Alternatieve kop om te testen: Meer ruimte in huis, zonder gedoe/);
+  assert.deepEqual(uit.onthoud, ['Doel is altijd een offerte', 'Noem nooit prijzen']);
+  const geen = chat.verwerkAntwoord({ actie: 'geen', antwoord: 'Welk kanaal?', kopAlternatief: 'x' }, null, opties);
+  assert.doesNotMatch(geen.antwoord, /Alternatieve kop/);
+  assert.deepEqual(geen.onthoud, []);
+});
+
+test('vaste voorkeuren van de klant gaan mee in de prompt en worden zonder dubbelen bijgehouden', async () => {
+  const { voegVoorkeurenToe, bouwCampagneVoorkeurenBlok } = require('../src/lp/campagneKennis');
+  assert.deepEqual(voegVoorkeurenToe(['Doel is offerte'], ['doel is OFFERTE', 'Geen prijzen']), ['Doel is offerte', 'Geen prijzen']);
+  assert.equal(bouwCampagneVoorkeurenBlok([]), '');
+  const prompts = [];
+  const deps = {
+    ai: { ...ai, formatKlantSiteVoorPrompt: async () => '', formatKlantBronnenVoorSjabloon: async () => '', formatBrandingForPrompt: () => 'huisstijl' },
+    callOpenAi: async ({ userPrompt }) => { prompts.push(userPrompt); return { actie: 'geen', antwoord: 'Ok.' }; },
+    validateTemplateStructure, verdeelIconen: ai.verdeelIconen, zorgVoorGalerijSlot
+  };
+  const client = { profile: { naam: 'MAC Bouw', campagneVoorkeuren: ['Doel is altijd een offerte'] }, feiten: [] };
+  await chat.chatBeurt({ klant: 'macbouw', client, huidig: null, berichten: [], bericht: 'Hoi', deps });
+  assert.match(prompts[0], /VASTE VOORKEUREN VAN DYLAN/);
+  assert.match(prompts[0], /Doel is altijd een offerte/);
+});

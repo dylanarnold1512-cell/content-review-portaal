@@ -2663,6 +2663,10 @@ async function voerChatBeurtUit({ klant, pageId, bericht, berichtenZonderPagina 
     deps: { ai, callOpenAi: ai.callOpenAi, validateTemplateStructure, verdeelIconen: ai.verdeelIconen, zorgVoorGalerijSlot, bouwKlantverhaalBlok: require('../lp/klantverhaal').bouwKlantverhaalBlok }
   });
   const waarschuwingen = [];
+  // Vaste voorkeuren die Dylan noemde bewaren bij de klant (nooit blokkerend voor het bericht zelf).
+  if (uit.onthoud && uit.onthoud.length) {
+    try { await klantgegevens.voegCampagneVoorkeurToe(klant, uit.onthoud); } catch (err) { waarschuwingen.push(`De voorkeur kon niet worden bewaard: ${err.message}`); }
+  }
   let slotData = uit.slotData;
   if (uit.actie !== 'geen') {
     // Lege foto's vullen uit de mediabibliotheek van de klant (zelfde keuze als bij een sjabloonvoorbeeld).
