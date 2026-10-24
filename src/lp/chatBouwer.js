@@ -266,13 +266,15 @@ async function chatBeurt({ klant, client, huidig, berichten, bericht, deps }) {
   const systemPrompt = bouwSysteemPrompt({ heeftPagina, heeftFormulier, deps });
   const userPrompt = await bouwGebruikersPrompt({ klant, client, huidig, berichten, bericht: tekst, deps });
   const opties = { validateTemplateStructure: deps.validateTemplateStructure, verdeelIconen: deps.verdeelIconen, zorgVoorGalerijSlot: deps.zorgVoorGalerijSlot };
-  const result = await deps.callOpenAi({ systemPrompt, userPrompt });
+  // Alleen Bouwen met chat kan een eigen model krijgen (OPENAI_MODEL_CHAT), de rest van Pagr. houdt OPENAI_MODEL.
+  const model = process.env.OPENAI_MODEL_CHAT || undefined;
+  const result = await deps.callOpenAi({ systemPrompt, userPrompt, model });
   try {
     return verwerkAntwoord(result, huidig, opties);
   } catch (err) {
     if (!err.structuurFouten) throw err;
     // Een keer opnieuw, met de fouten erbij. Meestal een script, externe link of een tweede h1.
-    const tweede = await deps.callOpenAi({ systemPrompt, userPrompt: `${userPrompt}\n\nJe vorige sjabloon werd geweigerd om deze fouten, los ze op en geef alles opnieuw: ${err.structuurFouten.join('; ')}` });
+    const tweede = await deps.callOpenAi({ systemPrompt, userPrompt: `${userPrompt}\n\nJe vorige sjabloon werd geweigerd om deze fouten, los ze op en geef alles opnieuw: ${err.structuurFouten.join('; ')}`, model });
     return verwerkAntwoord(tweede, huidig, opties);
   }
 }

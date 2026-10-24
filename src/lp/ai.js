@@ -58,6 +58,7 @@ Controleer de tekst voordat je antwoordt tegen elke regel hierboven. Staat er ie
 }
 const leren = require('./leren');
 const verhaal = require('./verhaal');
+const campagneKennis = require('./campagneKennis');
 const VASTE_ONDERDELEN_OPTIES = ['usps', 'stappen', 'aanbod', 'praktisch', 'reviews', 'faq', 'doelgroep', 'galerij'];
 
 const VASTE_ONDERDELEN_LABELS = {
@@ -351,7 +352,7 @@ const VOLLEDIGE_ZINNEN_REGELS = `VOLLEDIGE ZINNEN (geldt voor elk tekstveld):
 - Schrijf nooit een los zinsdeel met een vraagteken, zoals "zonder zelf alle vakmensen te organiseren?". Een vraag is een echte vraag ("Wil je ... ?", "Hoe ... ?"), anders schrijf je een gewone zin.
 - Lees elk veld na voordat je antwoordt, alsof een bezoeker het voor het eerst leest. Klopt de zin niet of mist er iets, schrijf hem dan opnieuw.`;
 
-function buildTemplateSystemPrompt() {
+function buildTemplateSystemPrompt({ campagne } = {}) {
   return `Je bent een senior webdesigner/frontend-developer voor een Nederlands marketingbureau. Je
 ontwerpt een COMPLEET, BESPOKE HTML+CSS-sjabloon voor een terugkerend paginatype — niet de inhoud van
 een individuele pagina, en NIET beperkt tot een vast blokkenpalet. Ontwerp zoals een goede
@@ -362,7 +363,7 @@ om te kopieren, maar om vergelijkbare kwaliteit en opbouw te evenaren.
 
 ${ONTWERP_TOOLKIT}
 
-${SEO_GEO_SJABLOON_REGELS}
+${campagne ? campagneKennis.CAMPAGNE_SJABLOON_REGELS : SEO_GEO_SJABLOON_REGELS}
 
 ${SLOT_SCHEMA_REFERENCE}
 
@@ -377,7 +378,8 @@ Antwoord ALLEEN met een JSON-object met exact twee velden, geen tekst erbuiten:
 }`;
 }
 
-async function callOpenAi({ systemPrompt, userPrompt, beelden, reasoningEffort }) {
+// model (optioneel): overschrijft OPENAI_MODEL voor deze ene aanroep. Bouwen met chat gebruikt zo OPENAI_MODEL_CHAT.
+async function callOpenAi({ systemPrompt, userPrompt, beelden, reasoningEffort, model: modelOverride }) {
   if (typeof systemPrompt !== 'string' || !systemPrompt.trim()) {
     throw new Error('callOpenAi: systemPrompt ontbreekt of is leeg (typfout in de aanroep?).');
   }
@@ -387,7 +389,7 @@ async function callOpenAi({ systemPrompt, userPrompt, beelden, reasoningEffort }
       'OPENAI_API_KEY is niet gezet — kan geen sjabloon-voorstel genereren. Zie besluiten.md, Bouwstap 6.'
     );
   }
-  const model = process.env.OPENAI_MODEL || 'gpt-5.5';
+  const model = modelOverride || process.env.OPENAI_MODEL || 'gpt-5.5';
   const basis = {
     model,
     messages: [
@@ -588,9 +590,10 @@ async function generateTemplateProposal({
   visueleRichting,
   conversiedoel,
   overigeWensen,
-  screenshots
+  screenshots,
+  campagne
 }) {
-  const systemPrompt = buildTemplateSystemPrompt();
+  const systemPrompt = buildTemplateSystemPrompt({ campagne: Boolean(campagne) });
   const beelden = schoonScreenshots(screenshots);
   const referentieTekst = await formatReferenceForPrompt(referentieUrl);
   const [klantSiteTekst, klantBronnen] = await Promise.all([formatKlantSiteVoorPrompt(klant), formatKlantBronnenVoorSjabloon(klant)]);
@@ -769,7 +772,7 @@ function getImageSlots(template, slotData) {
   return result;
 }
 
-function buildContentSystemPrompt(template, { derde, mix } = {}) {
+function buildContentSystemPrompt(template, { derde, mix, campagne } = {}) {
   const slots = Array.isArray(template.slots) ? template.slots : [];
   const tekstSlots = slots.filter((s) => !IMAGE_SRC_RE.test(s.key) && !IMAGE_ALT_RE.test(s.key));
   // Zowel losse afbeelding-slots als een afbeelding-itemveld binnen een lijst (bv.
@@ -832,7 +835,22 @@ ${paginaOpbouwRegels({ derde: Boolean(derde), mix: Boolean(mix) })}
 Slots die gevuld moeten worden:
 ${slotBeschrijving}${afbeeldingNotitie}${galerijNotitie}${iconNotitie}
 
-Interne links — kwaliteit boven kwantiteit: je krijgt een lijst "Beschikbare linkbestemmingen" (een
+${campagne ? campagneTekstRegels() : seoTekstRegels()}
+
+Antwoord ALLEEN met een JSON-object met exact één veld, geen tekst erbuiten:
+{ "slotData": <object met per slot-key de ingevulde waarde (tekst of array van items)> }`;
+}
+
+// Een campagnepagina (24-10-2026): geen interne links en geen SEO/GEO regels, wel de campagnekennis.
+function campagneTekstRegels() {
+  return `${campagneKennis.CAMPAGNE_CONTENT_REGELS}
+
+Voor "metaTitle"/"metaDescription": platte tekst binnen de lengte-eisen, nooit de [ankertekst](url)-schrijfwijze.
+Een slot met een naam die eindigt op "LinkHref" en geen "#aanvraag" is: laat leeg.`;
+}
+
+function seoTekstRegels() {
+  return `Interne links — kwaliteit boven kwantiteit: je krijgt een lijst "Beschikbare linkbestemmingen" (een
 mix van andere landingspagina's van deze klant en echte, bestaande pagina's op de eigen website).
 Voeg een link ALLEEN toe als die inhoudelijk echt iets toevoegt op de plek waar je 'm zet — nooit om
 een aantal te halen. Nul relevante links is prima als er niks passends is; forceer niets.
@@ -856,10 +874,7 @@ Voor een los slot met een naam die eindigt op "LinkHref" (bijvoorbeeld "roomsLin
 link op één plek in het sjabloon, geen lijst): vul deze ALLEEN met een exacte url uit de
 kandidatenlijst hierboven, gekozen op basis van wat de slotnaam/label aangeeft (bijvoorbeeld de
 kamers/verblijf-pagina voor een slot dat daarover gaat). Geen goede kandidaat gevonden? Laat de slot
-dan leeg in plaats van zelf iets te verzinnen.
-
-Antwoord ALLEEN met een JSON-object met exact één veld, geen tekst erbuiten:
-{ "slotData": <object met per slot-key de ingevulde waarde (tekst of array van items)> }`;
+dan leeg in plaats van zelf iets te verzinnen.`;
 }
 
 // Goedgekeurd voorbeeld (21-10-2026): een pagina van deze klant en dit sjabloon die door Dylan is aangepast en goedgekeurd.
@@ -1006,11 +1021,11 @@ function bouwSchrijfplanBlok(plan) {
 }
 
 // Ronde 1. Mislukt dit, dan schrijft de AI toch een pagina (zonder plan): nooit blokkerend.
-async function maakSchrijfPlan({ klant, template, invoer, feiten, watGaatDezePaginaOver, siteTeksten, klantverhaal, bedrijfsnaam }) {
+async function maakSchrijfPlan({ klant, template, invoer, feiten, watGaatDezePaginaOver, siteTeksten, klantverhaal, bedrijfsnaam, campagneBlok }) {
   const overzicht = sectieOverzichtVoorPrompt(template);
   if (!overzicht.length) return null;
   const userPrompt = `Klant: ${klant}
-Onderwerp van de pagina: ${watGaatDezePaginaOver || '(niet opgegeven)'}
+Onderwerp van de pagina: ${watGaatDezePaginaOver || '(niet opgegeven)'}${campagneBlok ? `${campagneBlok}\nMaak het plan voor een campagnepagina: de hero sluit aan op het zoekwoord of de advertentie, elk onderdeel helpt de bezoeker naar de aanvraag, de vragen nemen twijfels weg.` : ''}
 Invoervelden: ${JSON.stringify(invoer || {})}
 
 Onderdelen van de pagina, in de volgorde waarin ze staan:
@@ -1238,14 +1253,17 @@ function verdeelIconen(slotData) {
   });
 }
 
-async function generatePageContent({ klant, template, invoer, feiten, watGaatDezePaginaOver, ctaOverride, linkKandidaten, zusterInhoud, siteTeksten, zoekvragen, zusterVragen, klantverhaal, bedrijfsnaam, zonderPlan, voorbeeld, correcties }) {
-  const systemPrompt = buildContentSystemPrompt(template, { derde: schrijftInDerdePersoon(klant), mix: schrijftInMix(klant) });
+async function generatePageContent({ klant, template, invoer, feiten, watGaatDezePaginaOver, ctaOverride, linkKandidaten, zusterInhoud, siteTeksten, zoekvragen, zusterVragen, klantverhaal, bedrijfsnaam, zonderPlan, voorbeeld, correcties, campagne, campagneVoorkeuren }) {
+  const systemPrompt = buildContentSystemPrompt(template, { derde: schrijftInDerdePersoon(klant), mix: schrijftInMix(klant), campagne: Boolean(campagne) });
+  const campagneBlok = campagneKennis.bouwCampagneBlok(campagne, campagneVoorkeuren);
+  // Een campagnepagina heeft geen interne links: geen kandidaten, dan verwijdert verwijderVerzonnenLinks ook elke link.
+  if (campagne) linkKandidaten = [];
   // Ronde 1: een plan per onderdeel. Mislukt het, dan schrijven we gewoon zonder plan.
   let schrijfplan = null;
   let planWaarschuwing = null;
   if (!zonderPlan) {
     try {
-      schrijfplan = await maakSchrijfPlan({ klant, template, invoer, feiten, watGaatDezePaginaOver, siteTeksten, klantverhaal, bedrijfsnaam });
+      schrijfplan = await maakSchrijfPlan({ klant, template, invoer, feiten, watGaatDezePaginaOver, siteTeksten, klantverhaal, bedrijfsnaam, campagneBlok });
     } catch (planErr) {
       planWaarschuwing = `Het plan voor de verhaallijn kon niet gemaakt worden (${planErr.message}), de tekst is zonder plan geschreven.`;
     }
@@ -1260,7 +1278,7 @@ ${JSON.stringify(invoer || {}, null, 2)}
 
 Waar deze pagina over gaat (door de gebruiker aangeleverd, gebruik dit als leidraad voor de
 hero/intro-achtige slots en om de pagina te onderscheiden van vergelijkbare pagina's):
-${watGaatDezePaginaOver || '(niet opgegeven)'}${bouwFocusBlok(template.focus)}
+${watGaatDezePaginaOver || '(niet opgegeven)'}${bouwFocusBlok(template.focus)}${campagneBlok}
 
 ${
   ctaOverride
@@ -1280,11 +1298,11 @@ ${derdePersoonVoor(klant, bedrijfsnaam)}
 ${bouwSchrijfplanBlok(schrijfplan)}${bouwVoorbeeldBlok(voorbeeld)}${leren.bouwCorrectiesBlok(correcties)}
 
 Feiten met "standaard": true zijn vaste praktische gegevens van de klant (bv. in- en uitchecktijden, kamertypes, ligging). Neem ze op in de praktische informatie en de kamertypes van de pagina, voor zover het sjabloon daar een plek voor heeft, en gebruik de formulering (bv. namen van kamertypes en tijden) precies zoals ze er staan.
-
+${campagne ? '' : `
 Beschikbare linkbestemmingen (zusterpagina: true = andere landingspagina van deze klant binnen LP
 Fabriek, zusterpagina: false = een echte, bestaande pagina op de eigen live website — behandel beide
 even serieus, gebruik uitsluitend de opgegeven url, kies alleen wat inhoudelijk relevant is):
-${JSON.stringify(linkKandidaten || [], null, 2)}${bouwZusterBlok(zusterInhoud, { metVoorbeeld: Boolean(voorbeeld && voorbeeld.slotData) })}${bouwVragenBlok({ zoekvragen, zusterVragen })}`;
+${JSON.stringify(linkKandidaten || [], null, 2)}`}${bouwZusterBlok(zusterInhoud, { metVoorbeeld: Boolean(voorbeeld && voorbeeld.slotData) })}${bouwVragenBlok({ zoekvragen, zusterVragen })}`;
 
   const result = await callOpenAi({ systemPrompt, userPrompt });
   if (!result || typeof result !== 'object' || !result.slotData) {

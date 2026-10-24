@@ -232,7 +232,8 @@ function fillBlueprintSelect(klantId) {
   // Stap 1 van Nieuwe pagina: zelf een sjabloon kiezen, of de AI laten kiezen.
   const kies = document.getElementById('npSjabloon');
   if (kies) {
-    kies.innerHTML = '<option value="">De AI kiest het sjabloon</option>' + (client ? client.blueprints : []).map((b) => `<option value="${b.id}">${b.naam}</option>`).join('');
+    // Het campagnesjabloon hoort bij de keuze Campagnepagina, niet in deze lijst voor SEO/GEO pagina's.
+    kies.innerHTML = '<option value="">De AI kiest het sjabloon</option>' + (client ? client.blueprints : []).filter((b) => b.id !== 'campagne').map((b) => `<option value="${b.id}">${b.naam}</option>`).join('');
     const uitleg = document.getElementById('npSjabloonUitleg');
     if (uitleg) uitleg.textContent = 'De AI kiest het sjabloon dat bij je zin past.';
   }
@@ -269,6 +270,8 @@ document.getElementById('lpNewForm').addEventListener('submit', async (e) => {
   document.querySelectorAll('#lpNewInvoerFields [data-veld-key]').forEach((input) => {
     invoer[input.dataset.veldKey] = input.value;
   });
+  // Campagnepagina: kanaal, zoekwoord en aanbieding uit stap 1 gaan mee (lp-begeleiding.js).
+  if (blueprint === 'campagne' && typeof window.npCampagneInvoer === 'function') Object.assign(invoer, window.npCampagneInvoer());
   try {
     const { page } = await lpApi('/pages', {
       method: 'POST',

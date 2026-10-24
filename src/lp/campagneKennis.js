@@ -87,4 +87,90 @@ function voegVoorkeurenToe(bestaand, nieuw) {
   return uit.slice(-20);
 }
 
-module.exports = { CAMPAGNE_KENNIS, CAMPAGNE_START, KOP_ALTERNATIEF, ONTHOUD_REGEL, bouwCampagneVoorkeurenBlok, voegVoorkeurenToe };
+// ---- Een paginabouwer met twee soorten (24-10-2026) ----
+// Nieuwe pagina krijgt de keuze SEO/GEO of campagne. Een campagnepagina gebruikt het vaste campagnesjabloon van de klant
+// (blueprintId "campagne", een keer gemaakt en door Dylan goedgekeurd) en dezelfde schrijfroute als een SEO pagina,
+// maar met deze regels in plaats van de SEO/GEO regels. Header, footer en indexering blijven gelijk (besluit Dylan).
+
+const CAMPAGNE_BLUEPRINT = 'campagne';
+const KANALEN = { google: 'Google Ads (zoeken)', meta: 'Meta Ads (Facebook en Instagram)', linkedin: 'LinkedIn Ads' };
+
+function schoonKanaal(k) {
+  const s = String(k || '').toLowerCase();
+  return KANALEN[s] ? s : '';
+}
+
+// De campagnegegevens van een pagina, of null bij een SEO/GEO pagina.
+function campagneVan(page) {
+  const invoer = (page && page.invoer) || {};
+  const isCampagne = invoer._soort === 'campagne' || (page && page.blueprint === CAMPAGNE_BLUEPRINT);
+  if (!isCampagne) return null;
+  return {
+    kanaal: schoonKanaal(invoer._kanaal) || 'google',
+    zoekwoord: String(invoer._zoekwoord || '').trim(),
+    aanbieding: String(invoer._aanbieding || '').trim()
+  };
+}
+
+// Invoervelden voor een nieuwe campagnepagina (begin met _, dan tellen ze niet als sjabloonveld).
+function campagneInvoer({ kanaal, zoekwoord, aanbieding } = {}) {
+  return {
+    _soort: 'campagne',
+    _kanaal: schoonKanaal(kanaal) || 'google',
+    _zoekwoord: String(zoekwoord || '').trim().slice(0, 500),
+    _aanbieding: String(aanbieding || '').trim().slice(0, 300)
+  };
+}
+
+function bouwCampagneBlok(campagne, voorkeuren) {
+  if (!campagne) return '';
+  const regels = [
+    `Kanaal: ${KANALEN[campagne.kanaal] || KANALEN.google}`,
+    campagne.zoekwoord ? `Zoekwoord of advertentietekst waar de bezoeker op klikte: ${campagne.zoekwoord}` : 'Zoekwoord of advertentietekst: niet opgegeven, leid de belofte af uit het onderwerp van de pagina.',
+    campagne.aanbieding ? `Aanbieding uit de advertentie (noem die boven de scrollgrens, in dezelfde woorden): ${campagne.aanbieding}` : 'Aanbieding: geen aparte aanbieding opgegeven, verzin er geen.'
+  ];
+  const vk = bouwCampagneVoorkeurenBlok(voorkeuren);
+  return `\n\nDEZE PAGINA IS EEN CAMPAGNEPAGINA:\n${regels.map((r) => `- ${r}`).join('\n')}${vk ? `\n\n${vk}` : ''}`;
+}
+
+const CAMPAGNE_SJABLOON_REGELS = `DIT SJABLOON IS EEN CAMPAGNEPAGINA (geen SEO pagina). Het is het vaste sjabloon voor alle advertentiepagina's van deze klant (Google Ads, Meta Ads, LinkedIn Ads).
+${CAMPAGNE_KENNIS}
+
+OPBOUW VAN HET SJABLOON (in deze volgorde):
+1. Hero: h1, korte uitleg, een slot voor een aanbieding of belofte naast de knop (heroAanbieding), de primaire knop (lp-cta-button naar #aanvraag) en een foto. Op mobiel staat de knop boven de scrollgrens.
+2. Vertrouwensbalk direct onder de hero: drie of vier korte punten (lijst).
+3. Herkenbare situaties of wat de bezoeker krijgt (lijst met icoon, titel, tekst).
+4. Bewijs: projecten of foto's van eigen werk, met een knop naar #aanvraag eronder.
+5. Werkwijze in drie tot vijf stappen (lijst), met een knop naar #aanvraag eronder.
+6. Reviews (lijst met naam en tekst). Dit onderdeel moet leeg kunnen blijven.
+7. Twijfels weg: drie tot vijf vragen met antwoord (lijst).
+8. Conversiesectie met id="aanvraag": kop, korte intro, een zin wat er na het versturen gebeurt (naAanvraagTekst) en de marker {{formulier}} op de volle breedte.
+Geen menu, geen links naar andere pagina's, GEEN slot "linksItems" en geen linkRegels. Geen antwoordblok voor zoekmachines en geen adresblok.
+Er is precies een h1. Alle knoppen gebruiken hetzelfde slot ctaLabel en ctaHref, of een eigen labelslot met href "#aanvraag".`;
+
+const CAMPAGNE_CONTENT_REGELS = `DIT IS EEN CAMPAGNEPAGINA, GEEN SEO PAGINA. Schrijf om te overtuigen, niet om gevonden te worden. Deze regels gaan voor op alle andere regels over SEO, zoekmachines, plaatsnamen en interne links.
+${CAMPAGNE_KENNIS}
+
+SCHRIJVEN VOOR DEZE CAMPAGNEPAGINA:
+- h1: de belofte uit het zoekwoord of de advertentie, in de woorden van de bezoeker. Geen "[Dienst] in [plaats]" patroon tenzij het zoekwoord dat zelf is.
+- Herhaal de plaatsnaam niet voor zoekmachines. Noem het werkgebied alleen waar het de bezoeker helpt (vertrouwensbalk of twijfels).
+- Vragen: alleen twijfels die een aanvraag tegenhouden (kosten, planning, gedoe, wat gebeurt er na mijn aanvraag). Drie tot vijf vragen, kort antwoord.
+- Knopteksten noemen wat de bezoeker krijgt. Gebruik op alle knoppen dezelfde actie.
+- Zet geen interne links in de tekst en vul geen linksItems.
+- metaTitle en metaDescription: vul ze in binnen de lengte-eisen, gericht op de belofte en de aanbieding, zonder plaatsnaampatroon.`;
+
+// Maakt van een gegenereerd sjabloon een campagnesjabloon: geen interne links, soort vastgelegd.
+function maakCampagneBlueprint(blueprint) {
+  const bp = { ...(blueprint || {}), templateFormat: 'slots', paginaSoort: 'campagne' };
+  // Een linksItems slot dat toch in de HTML staat blijft bestaan (anders breekt het sjabloon), maar is nooit verplicht.
+  const inHtml = /linksItems/.test(String(bp.htmlTemplate || ''));
+  if (Array.isArray(bp.slots)) bp.slots = bp.slots.filter((s) => s && (s.key !== 'linksItems' || inHtml)).map((s) => (s.key === 'linksItems' ? { ...s, verplicht: false } : s));
+  bp.linkRegels = { minimumInterneLinks: 0, minimumNaarZusterpaginas: 0, reasonRequired: false };
+  return bp;
+}
+
+module.exports = {
+  CAMPAGNE_KENNIS, CAMPAGNE_START, KOP_ALTERNATIEF, ONTHOUD_REGEL, bouwCampagneVoorkeurenBlok, voegVoorkeurenToe,
+  CAMPAGNE_BLUEPRINT, KANALEN, schoonKanaal, campagneVan, campagneInvoer, bouwCampagneBlok,
+  CAMPAGNE_SJABLOON_REGELS, CAMPAGNE_CONTENT_REGELS, maakCampagneBlueprint
+};

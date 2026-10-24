@@ -177,6 +177,20 @@ html #lpKlantgegevensTab .kg-kleurrij input[type="text"] { min-width: 0; flex: 1
 .np-wijzigvak { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 0 12px; }
 .np-wijzigvak input, .np-wijzigvak select { flex: 1 1 220px; min-height: 40px; }
 
+/* Soort pagina (24-10-2026): SEO/GEO of campagne */
+.np-soort-label { font-size: 13px; font-weight: 600; }
+.np-soort { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 10px; }
+.np-soort-optie { display: flex; gap: 10px; align-items: flex-start; border: 1px solid #dfe2ec; border-radius: 10px; padding: 12px 14px; cursor: pointer; background: #fff; }
+.np-soort-optie:has(input:checked) { border-color: #14142b; box-shadow: 0 0 0 1px #14142b; }
+#lpApp .np-soort-optie input[type="radio"] { width: auto; min-width: 0; height: auto; min-height: 0; margin: 3px 0 0; padding: 0; flex: none; box-shadow: none; }
+.np-soort-optie span { display: flex; flex-direction: column; gap: 2px; font-size: 14px; flex: 1 1 auto; min-width: 0; }
+.np-soort-optie small { color: #545770; font-size: 12.5px; line-height: 1.4; }
+#npCampagneVelden { display: flex; flex-direction: column; gap: 14px; }
+#npCampagneVelden.hidden { display: none; }
+.np-campagne-sjabloon { background: #fdf6e8; color: #6b4300; border-radius: 10px; padding: 12px 14px; font-size: 13.5px; line-height: 1.5; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.np-campagne-sjabloon.ok { background: #e8f5ee; color: #14532d; }
+.np-campagne-sjabloon.hidden { display: none; }
+
 /* Werkplaats: maandvoortgang, Wacht op jou als rijen, plan alleen met Pagr. */
 .wp-maand-balk { display: flex; height: 12px; border-radius: 999px; overflow: hidden; background: #eef0f6; margin: 10px 0; }
 .wp-maand-balk span { display: block; }

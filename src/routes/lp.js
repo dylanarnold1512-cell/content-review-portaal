@@ -5,6 +5,9 @@
 const express = require('express');
 const { getLpClient, clients: lpClients } = require('../lp/clients');
 const klantgegevens = require('../lp/klantgegevens');
+const campagneKennis = require('../lp/campagneKennis');
+// Het maandplan en de SEO/GEO functies kiezen nooit het campagnesjabloon (24-10-2026).
+const zonderCampagne = (lijst) => (Array.isArray(lijst) ? lijst : []).filter((t) => t && t.blueprintId !== campagneKennis.CAMPAGNE_BLUEPRINT);
 const { schoonScreenshots } = require('../lp/screenshots');
 const { bouwSjabloonKopie, schoonFocus, trefwoordenUitOnderwerp } = require('../lp/sjabloonKopie');
 const lpNotion = require('../lp/notion');
@@ -457,6 +460,51 @@ router.post('/templates/generate', requireLpInternal, async (req, res) => {
   }
 });
 
+// Het vaste campagnesjabloon van een klant maken (24-10-2026). Een keer per klant: de AI ontwerpt het in de huisstijl
+// met de conversieopbouw, het komt als Concept in de Sjablonen database (blueprintId "campagne") en Dylan keurt het goed
+// en zet het op Actief in het gewone sjabloonscherm. Daarna gebruikt elke campagnepagina van die klant dit sjabloon.
+router.get('/templates/campagne/:klant', requireLpInternal, async (req, res) => {
+  try {
+    const klant = String(req.params.klant || '');
+    getLpClient(klant);
+    const alle = await templates.listTemplates({ klant });
+    const eigen = alle.filter((t) => t.blueprintId === campagneKennis.CAMPAGNE_BLUEPRINT && t.status !== 'Gearchiveerd');
+    const actief = eigen.find((t) => t.status === 'Actief');
+    res.json({ status: actief ? 'actief' : (eigen.length ? 'concept' : 'geen'), sjabloon: actief || eigen[0] || null });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/templates/campagne', requireLpInternal, async (req, res) => {
+  try {
+    const klant = String(req.body?.klant || '');
+    const client = getLpClient(klant);
+    const alle = await templates.listTemplates({ klant });
+    const bestaand = alle.find((t) => t.blueprintId === campagneKennis.CAMPAGNE_BLUEPRINT && t.status !== 'Gearchiveerd');
+    if (bestaand) return res.status(400).json({ error: `Deze klant heeft al een campagnesjabloon (status ${bestaand.status}). Open het bij Sjablonen.`, sjabloon: bestaand });
+    const p = client.profile || {};
+    const heeftFormulier = Boolean(p.formulier && p.formulier.shortcode);
+    const voorkeuren = campagneKennis.bouwCampagneVoorkeurenBlok(p.campagneVoorkeuren);
+    const proposal = await ai.generateTemplateProposal({
+      klant,
+      naam: 'Campagnepagina',
+      paginatype: 'Campagnepagina voor Google Ads, Meta Ads en LinkedIn Ads: een doel, geen afleiding, conversiegericht',
+      conversiedoel: heeftFormulier ? 'Aanvraag via het formulier van de klant ({{formulier}}) in de conversiesectie' : 'Contact opnemen via een duidelijke knop in de conversiesectie',
+      overigeWensen: `Gebruik de huisstijl en vormtaal van de eigen site van de klant, zodat de pagina herkenbaar is. ${voorkeuren}`.trim(),
+      campagne: true
+    });
+    const blueprint = campagneKennis.maakCampagneBlueprint(proposal.blueprint);
+    if (proposal.voorbeeldSlotData && typeof proposal.voorbeeldSlotData === 'object') blueprint.voorbeeldSlotData = proposal.voorbeeldSlotData;
+    const structuur = validateTemplateStructure(blueprint);
+    if (!structuur.ok) return res.status(400).json({ error: `Het campagnesjabloon voldoet niet aan de eisen, probeer het opnieuw: ${structuur.errors.join('; ')}` });
+    const template = await templates.createTemplate({ klant, naam: 'Campagnepagina', blueprintId: campagneKennis.CAMPAGNE_BLUEPRINT, status: 'Concept', blueprint });
+    res.json({ template, structuurWaarschuwingen: structuur.warnings });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // Finetune-ronde op een al gegenereerd (of handmatig aangepast) voorstel —
 // zie src/lp/ai.js, refineTemplateProposal.
 router.post('/templates/refine', requireLpInternal, async (req, res) => {
@@ -798,7 +846,7 @@ async function maakMaandPlan(klant, { forceer } = {}) {
   const bestaat = forceer ? false : await planBestaatDezeMaand(klant, maand);
   if (!forceer && !maandplan.moetPlannen({ pagr: inst.pagr, paginasPerMaand: inst.paginasPerMaand, planBestaat: bestaat, gedaan: maandplanGedaan.has(sleutel) })) return { overgeslagen: true };
   if (forceer && !inst.pagr) throw new Error('Het plan hoort bij Pagr. Voor deze klant staat Pagr. niet aan.');
-  const actieveLijst = await templates.listTemplates({ klant, status: 'Actief' });
+  const actieveLijst = zonderCampagne(await templates.listTemplates({ klant, status: 'Actief' }));
   if (!actieveLijst.length) return { overgeslagen: true, reden: 'Geen actief sjabloon.' };
   const bestaandePaginas = await lpNotion.listPages({ klant });
   const klantTekst = await ai.formatKlantBronnenVoorSjabloon(klant);
@@ -911,7 +959,7 @@ router.get('/plan/voorgesteld', requireLpInternal, async (req, res) => {
     const klant = String(req.query.klant || '');
     const paginas = (await lpNotion.listPages({ klant, status: 'Idee' })).slice(0, 40);
     const voorstellen = [];
-    const actief = await templates.listTemplates({ klant, status: 'Actief' }).catch(() => []);
+    const actief = zonderCampagne(await templates.listTemplates({ klant, status: 'Actief' }).catch(() => []));
     const naamVan = new Map(actief.map((t) => [t.blueprintId, t.naam]));
     for (const p of paginas) {
       const inv = (await lpNotion.getPage(p.id)).invoer || {};
@@ -927,7 +975,7 @@ router.get('/plan/voorgesteld', requireLpInternal, async (req, res) => {
 // Voorstellen goedkeuren of weghalen. Gebruikt door de route hieronder en door het automatisch goedkeuren van het maandplan.
 async function keurVoorstellen({ klant, goedkeuren, afwijzen, sjablonen: gekozenSjablonen }) {
   const automatisch = await pagrModuleAan(klant);
-  const actiefNu = new Set((await templates.listTemplates({ klant, status: 'Actief' }).catch(() => [])).map((t) => t.blueprintId));
+  const actiefNu = new Set(zonderCampagne(await templates.listTemplates({ klant, status: 'Actief' }).catch(() => [])).map((t) => t.blueprintId));
   let goed = 0;
   for (const id of Array.isArray(goedkeuren) ? goedkeuren : []) {
     let page = await lpNotion.getPage(id);
@@ -1082,7 +1130,7 @@ router.post('/plan/vraag', requireLpInternal, async (req, res) => {
     const vraag = String(req.body?.vraag || '').trim().slice(0, 600);
     if (!vraag) return res.status(400).json({ error: 'Stel een vraag.' });
     const { verrijkt, google, aiMeting } = await bouwMeting(klant);
-    const actieveSjablonen = await templates.listTemplates({ klant, status: 'Actief' });
+    const actieveSjablonen = zonderCampagne(await templates.listTemplates({ klant, status: 'Actief' }));
     const voorstellen = maakUpdateVoorstellen(verrijkt, { aiBeschikbaar: aiMeting.beschikbaar });
     const context = [
       `Klant: ${getLpClient(klant).profile.naam}`,
@@ -1148,9 +1196,18 @@ router.post('/plan/goedkeuren', requireLpInternal, async (req, res) => {
 
 // AI begeleiding (Pagr. stap 12): de beheerder beschrijft in gewone woorden wat hij wil, de AI kiest sjabloon, titel en
 // invoer en legt uit waarom. Er wordt niets opgeslagen; de beheerder past aan en maakt de pagina zelf aan.
-async function maakPaginaAdvies(klant, onderwerp, blueprintId) {
+async function maakPaginaAdvies(klant, onderwerp, blueprintId, { soort } = {}) {
   const client = getLpClient(klant);
   let actief = await templates.listTemplates({ klant, status: 'Actief' });
+  // Een SEO/GEO pagina kiest nooit het campagnesjabloon; een campagnepagina altijd (24-10-2026).
+  if (soort === 'campagne') {
+    blueprintId = campagneKennis.CAMPAGNE_BLUEPRINT;
+    if (!actief.some((t) => t.blueprintId === blueprintId)) {
+      throw new Error('Deze klant heeft nog geen actief campagnesjabloon. Maak het eerst met de knop "Maak campagnesjabloon", keur het goed bij Sjablonen en zet het op Actief.');
+    }
+  } else {
+    actief = actief.filter((t) => t.blueprintId !== campagneKennis.CAMPAGNE_BLUEPRINT);
+  }
   // Heeft de beheerder zelf een sjabloon gekozen, dan krijgt de AI alleen dat sjabloon te zien en kan hij geen ander kiezen.
   if (blueprintId) {
     actief = actief.filter((t) => t.blueprintId === blueprintId);
@@ -1181,7 +1238,9 @@ router.post('/pages/begeleiding', requireLpInternal, async (req, res) => {
   try {
     const klant = String(req.body?.klant || '');
     const onderwerp = String(req.body?.onderwerp || '').slice(0, 1500);
-    const { advies } = await maakPaginaAdvies(klant, onderwerp, String(req.body?.blueprintId || ''));
+    const soort = req.body?.soort === 'campagne' ? 'campagne' : 'seo';
+    const { advies } = await maakPaginaAdvies(klant, onderwerp, String(req.body?.blueprintId || ''), { soort });
+    if (soort === 'campagne') advies.invoer = { ...(advies.invoer || {}), ...campagneKennis.campagneInvoer(req.body || {}) };
     res.json({ advies });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -1217,7 +1276,9 @@ router.post('/pages/snel', requireLpInternal, async (req, res) => {
   try {
     const klant = String(req.body?.klant || '');
     const onderwerp = String(req.body?.onderwerp || '').slice(0, 1500);
-    const { advies } = await maakPaginaAdvies(klant, onderwerp, String(req.body?.blueprintId || ''));
+    const soort = req.body?.soort === 'campagne' ? 'campagne' : 'seo';
+    const { advies } = await maakPaginaAdvies(klant, onderwerp, String(req.body?.blueprintId || ''), { soort });
+    const extraInvoer = soort === 'campagne' ? campagneKennis.campagneInvoer(req.body || {}) : {};
     // Heeft de beheerder zelf een titel of webadres getypt (Wijzig in het scherm), dan gaat dat voor op de keuze van de AI.
     const eigenTitel = String(req.body?.titel || '').trim().slice(0, 140);
     const eigenSlug = String(req.body?.slug || '').trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 90);
@@ -1225,7 +1286,7 @@ router.post('/pages/snel', requireLpInternal, async (req, res) => {
     if (eigenSlug) advies.slug = eigenSlug;
     if (!advies.blueprintId || !advies.titel || (advies.waarschuwing && !eigenTitel)) return res.json({ advies, page: null });
     const template = await templates.getActiveTemplateByBlueprintId(klant, advies.blueprintId);
-    const page = await lpNotion.createPage({ klant, blueprint: advies.blueprintId, titel: advies.titel, slug: advies.slug, invoer: metOnderwerp({ ...advies.invoer, _watGaatDezePaginaOver: onderwerp }, advies.titel) });
+    const page = await lpNotion.createPage({ klant, blueprint: advies.blueprintId, titel: advies.titel, slug: advies.slug, invoer: metOnderwerp({ ...advies.invoer, _watGaatDezePaginaOver: onderwerp, ...extraInvoer }, advies.titel) });
     const automatisch = template && template.templateFormat === 'slots' && await pagrModuleAan(klant);
     if (automatisch) startAutoTekst(page.id);
     const extra = await kopieerNaarPlaatsen(page.id, req.body?.plaatsen, automatisch);
@@ -1439,6 +1500,8 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
   // Feiten met standaard: true staan bij een nog niet opgeslagen feitensheet vanzelf aan (feitenDefaults.js).
   const gebruikteFeiten = gebruikteFeitIds(page.feitensheet, client.feiten).map((id) => feitenById.get(id)).filter(Boolean);
   const feiten = [...gebruikteFeiten, ...(feitensheet.extra || [])];
+  // Campagnepagina (24-10-2026): dezelfde route, zonder interne links, zoekvragen en AI-vragen (die horen bij SEO/GEO).
+  const campagne = campagneKennis.campagneVan(page);
 
   // Linkkandidaten voor de linksItems-slot en voor inline links middenin de tekst: een mix van
   // andere LP Fabriek-pagina's van dezelfde klant (zusterpagina: true) en echte, bestaande
@@ -1452,7 +1515,7 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
 
   let siteKandidaten = [];
   let linkWarning = null;
-  try {
+  if (!campagne) try {
     const sitePaginas = await listSitePages({ profile: client.profile });
     siteKandidaten = sitePaginas
       .filter((p) => p.url)
@@ -1467,7 +1530,7 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
     linkWarning = `Site-pagina's ophalen bij WordPress is niet gelukt (${siteErr.message}) — alleen zusterpagina's (indien aanwezig) zijn als linkkandidaat gebruikt.`;
   }
 
-  const linkKandidaten = [...zusterKandidaten, ...siteKandidaten];
+  const linkKandidaten = campagne ? [] : [...zusterKandidaten, ...siteKandidaten];
 
   // Bronteksten van de hele klantsite (siteTeksten.js): de AI leest standaard alle echte pagina's van de website van de
   // klant, behalve onze eigen landingspagina's, en gebruikt die als hoofdbron. Nooit blokkerend: lukt het niet, dan
@@ -1490,7 +1553,7 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
   // (zoekvragen.js). Nooit blokkerend: zonder zoekvragen werkt de generatie gewoon door.
   const dienstTekst = invoer.dienstFocus || invoer.dienst || invoer.onderwerp || (blueprint.focus && blueprint.focus.onderwerp) || '';
   let zoekvragen = [];
-  try {
+  if (!campagne) try {
     zoekvragen = await haalZoekvragen({ diensten: dienstenUitTekst(dienstTekst), plaats: invoer.plaatsnaam });
   } catch (zoekErr) {
     zoekvragen = [];
@@ -1498,7 +1561,7 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
   // Vragen die AI assistenten (ChatGPT, Gemini) over deze klant krijgen, alleen als de Paginameting aan staat (die meting kost geld).
   let aiVragenAantal = 0;
   try {
-    const instGen = await klantInstellingen(page.klant);
+    const instGen = campagne ? {} : await klantInstellingen(page.klant);
     if (instGen.paginameting) {
       const aiVragen = (await meting.haalAiVragen(client.profile.naam)).slice(0, 15);
       aiVragenAantal = aiVragen.length;
@@ -1546,6 +1609,8 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
     bedrijfsnaam: (client.profile.bedrijf || {}).naam || client.profile.naam,
     voorbeeld,
     correcties,
+    campagne,
+    campagneVoorkeuren: client.profile.campagneVoorkeuren || [],
     zusterInhoud: zusters.filter((z) => z.content && !voorbeeldLijst.some((v) => v.id === z.id)).map((z) => ({ titel: z.titel, tekst: verzamelTekst(z.content).join('\n').slice(0, 2500) }))
   });
 
@@ -1560,7 +1625,9 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
     const kvRuw = client.profile.klantverhaal;
     let eerste = [];
     let rest = [];
-    for (let ronde = 1; ronde <= 4; ronde += 1) {
+    // Een campagnepagina is korter en moet snel klaar zijn: hooguit twee herschrijfrondes.
+    const maxRondes = campagne ? 2 : 4;
+    for (let ronde = 1; ronde <= maxRondes; ronde += 1) {
       const punten = bepaal(result.slotData).slice(0, 8);
       if (ronde === 1) eerste = punten;
       rest = punten;
@@ -1658,7 +1725,7 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
   }
   const zoekvragenAantal = zoekvragen.length - aiVragenAantal;
   // Zichtbaar maken als er geen echte zoekvragen waren, zodat dit niet stil misgaat (de bron is een publieke dienst).
-  const zoekvragenWarning = dienstTekst && !zoekvragenAantal
+  const zoekvragenWarning = !campagne && dienstTekst && !zoekvragenAantal
     ? 'Er konden geen echte zoekvragen worden opgehaald, de vragen zijn alleen uit de site en de feiten opgesteld.'
     : null;
 

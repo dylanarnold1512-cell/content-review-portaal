@@ -54,7 +54,7 @@
     if (mislukt.length) $('npResultaatTekst').textContent += ` Niet gelukt: ${mislukt.map((x) => (x.plaats ? x.plaats + ': ' : '') + x.fout).join(' ')}`;
     const rij = (k, w, veld) => `<div class="np-keuze" data-veld="${veld || ''}"><span class="np-keuze-k">${k}</span><b class="np-keuze-w">${esc(w)}</b>${veld ? `<button type="button" class="np-wijzig" data-wijzig="${veld}">Wijzig</button>` : ''}</div>`;
     $('npResultaatKeuzes').innerHTML =
-      rij('Sjabloon', r.sjabloonNaam || r.advies.blueprintId, 'sjabloon') +
+      (invoerGegevens.campagne ? rij('Soort', 'Campagnepagina, ' + (KANAAL_NAMEN[invoerGegevens.campagne.kanaal] || 'Google Ads')) : rij('Sjabloon', r.sjabloonNaam || r.advies.blueprintId, 'sjabloon')) +
       rij('Titel', r.page.titel, 'titel') +
       rij('Webadres', '/' + lpState.npLaatste.slug, 'slug') +
       (r.advies.waarom ? `<div class="np-keuze"><span class="np-keuze-k">Waarom</span><span class="np-keuze-uitleg">${esc(r.advies.waarom)}</span></div>` : '');
@@ -84,17 +84,19 @@
       try {
         await lpApi('/pages/verwijder-meerdere', { method: 'POST', body: JSON.stringify({ ids: l.pageIds }) });
       } catch (err) { fout('lpNewError', err.message); $('npWijzigOk').disabled = false; return; }
-      await maakPagina({ klant: l.klant, onderwerp: l.onderwerp, plaatsen: l.plaatsen, blueprintId: overrides.blueprintId || l.blueprintId, overrides });
+      await maakPagina({ klant: l.klant, onderwerp: l.onderwerp, plaatsen: l.plaatsen, blueprintId: overrides.blueprintId || l.blueprintId, overrides, campagne: l.campagne });
     });
   }
 
-  async function maakPagina({ klant, onderwerp, plaatsen, blueprintId, overrides }) {
+  async function maakPagina({ klant, onderwerp, plaatsen, blueprintId, overrides, campagne }) {
     fout('lpNewError', '');
     const knop = $('npMaakKnop');
     knop.disabled = true;
     $('npAdviesStatus').textContent = 'De pagina wordt gemaakt... Dit duurt ongeveer 15 seconden.';
     try {
-      const body = { klant, onderwerp, plaatsen: plaatsen || '', blueprintId: blueprintId || '' };
+      const body = campagne
+        ? { klant, onderwerp, soort: 'campagne', kanaal: campagne.kanaal, zoekwoord: campagne.zoekwoord, aanbieding: campagne.aanbieding }
+        : { klant, onderwerp, plaatsen: plaatsen || '', blueprintId: blueprintId || '' };
       if (overrides && overrides.titel) body.titel = overrides.titel;
       if (overrides && overrides.slug) body.slug = overrides.slug;
       const r = await lpApi('/pages/snel', { method: 'POST', body: JSON.stringify(body) });
@@ -104,7 +106,7 @@
         $('npAdviesStatus').textContent = 'De AI weet het niet zeker. Controleer hieronder wat is ingevuld.';
         return;
       }
-      toonResultaat(r, { klant, onderwerp, plaatsen, overrides: overrides || {} });
+      toonResultaat(r, { klant, onderwerp, plaatsen, overrides: overrides || {}, campagne: campagne || null });
       if ($('npPlaatsen')) $('npPlaatsen').value = '';
       $('npAdviesStatus').textContent = 'Klaar voor controle binnen een paar minuten.';
       $('npOnderwerp').value = '';
@@ -119,8 +121,76 @@
   $('npMaakKnop').addEventListener('click', () => {
     const onderwerp = $('npOnderwerp').value.trim();
     if (!onderwerp) { fout('lpNewError', 'Typ eerst in een zin welke pagina je wilt.'); return; }
-    maakPagina({ klant: $('lpNewKlant').value, onderwerp, plaatsen: ($('npPlaatsen') || {}).value || '', blueprintId: $('npSjabloon').value });
+    const campagne = gekozenCampagne();
+    if (campagne && lpState.npCampagneStatus !== 'actief') { fout('lpNewError', 'Deze klant heeft nog geen actief campagnesjabloon. Maak het eerst en zet het op Actief.'); return; }
+    maakPagina({ klant: $('lpNewKlant').value, onderwerp, plaatsen: campagne ? '' : (($('npPlaatsen') || {}).value || ''), blueprintId: campagne ? '' : $('npSjabloon').value, campagne });
   });
+
+  // ---- Soort pagina: SEO/GEO of campagne (24-10-2026) ----
+  const KANAAL_NAMEN = { google: 'Google Ads', meta: 'Meta Ads', linkedin: 'LinkedIn Ads' };
+  function isCampagne() {
+    const r = document.querySelector('input[name="npSoort"]:checked');
+    return Boolean(r && r.value === 'campagne');
+  }
+  function gekozenCampagne() {
+    if (!isCampagne()) return null;
+    return { kanaal: $('npKanaal').value, zoekwoord: $('npZoekwoord').value.trim(), aanbieding: $('npAanbieding').value.trim() };
+  }
+  window.npCampagneInvoer = function () {
+    const c = gekozenCampagne();
+    return c ? { _soort: 'campagne', _kanaal: c.kanaal, _zoekwoord: c.zoekwoord, _aanbieding: c.aanbieding } : {};
+  };
+
+  async function laadCampagneSjabloon() {
+    const kader = $('npCampagneSjabloon');
+    const klant = $('lpNewKlant').value;
+    lpState.npCampagneStatus = null;
+    if (!isCampagne() || !klant) { kader.classList.add('hidden'); return; }
+    kader.className = 'np-campagne-sjabloon';
+    kader.textContent = 'Campagnesjabloon controleren...';
+    try {
+      const r = await lpApi('/templates/campagne/' + encodeURIComponent(klant));
+      lpState.npCampagneStatus = r.status;
+      if (r.status === 'actief') {
+        kader.className = 'np-campagne-sjabloon ok';
+        kader.textContent = 'Het campagnesjabloon van deze klant wordt gebruikt.';
+      } else if (r.status === 'concept') {
+        kader.innerHTML = 'Het campagnesjabloon staat klaar als concept. Bekijk het bij Sjablonen, stuur bij waar nodig en zet de status op Actief. Daarna kun je hier campagnepagina\'s maken.<button type="button" class="btn btn-plain" id="npNaarSjablonen">Naar Sjablonen</button>';
+        $('npNaarSjablonen').addEventListener('click', () => switchLpTab('sjablonen'));
+      } else {
+        kader.innerHTML = 'Deze klant heeft nog geen campagnesjabloon. De AI maakt het een keer in de huisstijl van de klant, met de opbouw van een goede campagnepagina. Dat duurt een tot drie minuten. Daarna keur je het goed bij Sjablonen.<button type="button" class="btn btn-approve" id="npMaakCampagneSjabloon">Maak campagnesjabloon</button>';
+        $('npMaakCampagneSjabloon').addEventListener('click', maakCampagneSjabloon);
+      }
+    } catch (err) {
+      kader.textContent = err.message;
+    }
+  }
+  async function maakCampagneSjabloon() {
+    const knop = $('npMaakCampagneSjabloon');
+    knop.disabled = true;
+    knop.textContent = 'Bezig, een tot drie minuten...';
+    fout('lpNewError', '');
+    try {
+      await lpApi('/templates/campagne', { method: 'POST', body: JSON.stringify({ klant: $('lpNewKlant').value }) });
+      await laadCampagneSjabloon();
+    } catch (err) {
+      fout('lpNewError', err.message);
+      knop.disabled = false;
+      knop.textContent = 'Maak campagnesjabloon';
+    }
+  }
+  function toonSoort() {
+    const c = isCampagne();
+    $('npCampagneVelden').classList.toggle('hidden', !c);
+    $('npSjabloonVeld').classList.toggle('hidden', c);
+    $('npMeer').classList.toggle('hidden', c);
+    $('npOnderwerp').placeholder = c
+      ? 'Bijvoorbeeld: offerteaanvragen voor een aanbouw, voor particulieren in de Bollenstreek'
+      : 'Bijvoorbeeld: een pagina over dakkapellen plaatsen in Zandvoort, of een pagina voor het Testival in Tilburg';
+    laadCampagneSjabloon();
+  }
+  document.querySelectorAll('input[name="npSoort"]').forEach((r) => r.addEventListener('change', toonSoort));
+  $('lpNewKlant').addEventListener('change', () => { if (isCampagne()) laadCampagneSjabloon(); });
   $('npSjabloon').addEventListener('change', () => {
     $('npSjabloonUitleg').textContent = $('npSjabloon').value
       ? 'De AI gebruikt alleen dit sjabloon en kiest zelf titel en webadres.'
@@ -158,7 +228,9 @@
     knop.disabled = true;
     $('npAdviesStatus').textContent = 'De AI denkt mee... Dit duurt ongeveer 15 seconden.';
     try {
-      const { advies } = await lpApi('/pages/begeleiding', { method: 'POST', body: JSON.stringify({ klant, onderwerp, blueprintId: $('npSjabloon').value }) });
+      const campagne = gekozenCampagne();
+      const body = campagne ? { klant, onderwerp, soort: 'campagne', ...campagne } : { klant, onderwerp, blueprintId: $('npSjabloon').value };
+      const { advies } = await lpApi('/pages/begeleiding', { method: 'POST', body: JSON.stringify(body) });
       await vulFormulier(advies);
       $('npAdviesStatus').textContent = 'Controleer hieronder wat de AI heeft ingevuld en pas aan.';
     } catch (err) {

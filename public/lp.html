@@ -458,7 +458,7 @@
       <div class="np-kop">
         <button type="button" id="npTerug" class="np-terug">&larr; Werkplaats</button>
         <h1 class="lp-h1">Nieuwe pagina</h1>
-        <p class="wp-sub">Eén zin is genoeg. Kies zelf het sjabloon, of laat de AI het kiezen. De AI maakt de titel en het webadres en begint meteen met schrijven.</p>
+        <p class="wp-sub">Eén zin is genoeg. Kies of het een SEO/GEO pagina of een campagnepagina wordt. De AI maakt de titel en het webadres en begint meteen met schrijven.</p>
       </div>
       <form id="lpNewForm" class="np-raster">
         <section class="wp-kaart np-stap" aria-labelledby="npStap1">
@@ -468,6 +468,33 @@
             <select id="lpNewKlant" required></select>
           </div>
           <div class="wp-veld wp-veld-breed">
+            <span class="np-soort-label">Soort pagina</span>
+            <div class="np-soort" role="radiogroup" aria-label="Soort pagina">
+              <label class="np-soort-optie"><input type="radio" name="npSoort" value="seo" checked><span><b>SEO/GEO pagina</b><small>Om gevonden te worden in Google en AI-antwoorden</small></span></label>
+              <label class="np-soort-optie"><input type="radio" name="npSoort" value="campagne"><span><b>Campagnepagina</b><small>Voor Google Ads, Meta Ads of LinkedIn Ads</small></span></label>
+            </div>
+          </div>
+          <div id="npCampagneVelden" class="hidden">
+            <div id="npCampagneSjabloon" class="np-campagne-sjabloon hidden"></div>
+            <div class="wp-veld wp-veld-breed">
+              <label for="npKanaal">Kanaal</label>
+              <select id="npKanaal">
+                <option value="google">Google Ads (zoeken)</option>
+                <option value="meta">Meta Ads (Facebook en Instagram)</option>
+                <option value="linkedin">LinkedIn Ads</option>
+              </select>
+            </div>
+            <div class="wp-veld wp-veld-breed">
+              <label for="npZoekwoord">Zoekwoord of advertentietekst</label>
+              <textarea id="npZoekwoord" rows="2" placeholder="Bijvoorbeeld: aanbouw laten bouwen Bollenstreek"></textarea>
+              <span class="wp-muted np-klein">De kop van de pagina sluit hierop aan. Leeg laten mag.</span>
+            </div>
+            <div class="wp-veld wp-veld-breed">
+              <label for="npAanbieding">Aanbieding (niet verplicht)</label>
+              <input type="text" id="npAanbieding" autocomplete="off" placeholder="Bijvoorbeeld: gratis opname aan huis">
+            </div>
+          </div>
+          <div class="wp-veld wp-veld-breed" id="npSjabloonVeld">
             <label for="npSjabloon">Sjabloon</label>
             <select id="npSjabloon"></select>
             <span id="npSjabloonUitleg" class="wp-muted np-klein">De AI kiest het sjabloon dat bij je zin past.</span>
@@ -480,7 +507,7 @@
             <p class="wp-muted np-klein">Of kies een kans uit het plan:</p>
             <div id="npGeplandLijst" class="np-chips"></div>
           </div>
-          <details class="np-meer">
+          <details class="np-meer" id="npMeer">
             <summary>Meer opties</summary>
             <div class="wp-veld wp-veld-breed">
               <label for="npPlaatsen">Dezelfde pagina ook voor deze plaatsen</label>
