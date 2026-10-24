@@ -146,3 +146,20 @@ test('chat: lege berichten en een onbekende klant worden geweigerd', async () =>
     assert.equal((await post({ klant: 'bestaatniet', bericht: 'hoi' })).status, 400);
   });
 });
+
+test('chat: een eigen ontwerp voor een campagnepagina bewaart kanaal, zoekwoord en aanbieding', async () => {
+  await metServer(async ({ base, cookie, echt }) => {
+    const post = (pad, body) => echt(`${base}/api/lp${pad}`, { method: 'POST', headers: { cookie, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((r) => r.json());
+    nepOpenAi(echt, base, [{ actie: 'bouw', antwoord: 'Staat klaar.', titel: 'Ads: aanbouw', slug: 'ads-aanbouw-eigen', blueprint, slotData }]);
+    const campagne = { kanaal: 'meta', zoekwoord: 'aanbouw laten bouwen', aanbieding: 'gratis opname' };
+    const t = await wachtOpTaak(echt, base, cookie, (await post('/chat/bericht', { klant: 'macbouw', bericht: 'Bouw een campagnepagina', campagne })).taakId);
+    assert.equal(t.status, 'klaar', JSON.stringify(t));
+    const p = opgeslagen.get(t.resultaat.pageId);
+    assert.equal(p.blueprint, 'chat');
+    assert.equal(p.invoer._soort, 'campagne');
+    assert.equal(p.invoer._kanaal, 'meta');
+    assert.equal(p.invoer._zoekwoord, 'aanbouw laten bouwen');
+    assert.equal(p.invoer._aanbieding, 'gratis opname');
+    assert.equal(p.invoer._gebouwdMetChat, true);
+  });
+});

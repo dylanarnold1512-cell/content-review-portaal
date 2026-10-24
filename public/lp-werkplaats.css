@@ -190,6 +190,8 @@ html #lpKlantgegevensTab .kg-kleurrij input[type="text"] { min-width: 0; flex: 1
 .np-campagne-sjabloon { background: #fdf6e8; color: #6b4300; border-radius: 10px; padding: 12px 14px; font-size: 13.5px; line-height: 1.5; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .np-campagne-sjabloon.ok { background: #e8f5ee; color: #14532d; }
 .np-campagne-sjabloon.hidden { display: none; }
+.np-campagne-sjabloon p { margin: 0; }
+.np-campagne-sjabloon textarea { width: 100%; box-sizing: border-box; }
 
 /* Bijsturen met chat op het paginascherm (24-10-2026) */
 .pd-chat { display: flex; flex-direction: column; gap: 10px; }

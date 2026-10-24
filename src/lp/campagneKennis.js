@@ -93,6 +93,17 @@ function voegVoorkeurenToe(bestaand, nieuw) {
 // maar met deze regels in plaats van de SEO/GEO regels. Header, footer en indexering blijven gelijk (besluit Dylan).
 
 const CAMPAGNE_BLUEPRINT = 'campagne';
+// Een klant kan meerdere campagnesjablonen hebben: "campagne", "campagne-2", "campagne-3" enzovoort (24-10-2026).
+function isCampagneBlueprintId(id) {
+  return id === CAMPAGNE_BLUEPRINT || /^campagne-\d+$/.test(String(id || ''));
+}
+function volgendeCampagneBlueprintId(bestaandeIds) {
+  const gebruikt = new Set((bestaandeIds || []).map(String));
+  if (!gebruikt.has(CAMPAGNE_BLUEPRINT)) return CAMPAGNE_BLUEPRINT;
+  let n = 2;
+  while (gebruikt.has(`${CAMPAGNE_BLUEPRINT}-${n}`)) n += 1;
+  return `${CAMPAGNE_BLUEPRINT}-${n}`;
+}
 const KANALEN = { google: 'Google Ads (zoeken)', meta: 'Meta Ads (Facebook en Instagram)', linkedin: 'LinkedIn Ads' };
 
 function schoonKanaal(k) {
@@ -103,7 +114,7 @@ function schoonKanaal(k) {
 // De campagnegegevens van een pagina, of null bij een SEO/GEO pagina.
 function campagneVan(page) {
   const invoer = (page && page.invoer) || {};
-  const isCampagne = invoer._soort === 'campagne' || (page && page.blueprint === CAMPAGNE_BLUEPRINT);
+  const isCampagne = invoer._soort === 'campagne' || (page && isCampagneBlueprintId(page.blueprint));
   if (!isCampagne) return null;
   return {
     kanaal: schoonKanaal(invoer._kanaal) || 'google',
@@ -171,6 +182,6 @@ function maakCampagneBlueprint(blueprint) {
 
 module.exports = {
   CAMPAGNE_KENNIS, CAMPAGNE_START, KOP_ALTERNATIEF, ONTHOUD_REGEL, bouwCampagneVoorkeurenBlok, voegVoorkeurenToe,
-  CAMPAGNE_BLUEPRINT, KANALEN, schoonKanaal, campagneVan, campagneInvoer, bouwCampagneBlok,
+  CAMPAGNE_BLUEPRINT, isCampagneBlueprintId, volgendeCampagneBlueprintId, KANALEN, schoonKanaal, campagneVan, campagneInvoer, bouwCampagneBlok,
   CAMPAGNE_SJABLOON_REGELS, CAMPAGNE_CONTENT_REGELS, maakCampagneBlueprint
 };

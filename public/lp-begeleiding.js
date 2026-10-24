@@ -95,7 +95,7 @@
     $('npAdviesStatus').textContent = 'De pagina wordt gemaakt... Dit duurt ongeveer 15 seconden.';
     try {
       const body = campagne
-        ? { klant, onderwerp, soort: 'campagne', kanaal: campagne.kanaal, zoekwoord: campagne.zoekwoord, aanbieding: campagne.aanbieding }
+        ? { klant, onderwerp, soort: 'campagne', kanaal: campagne.kanaal, zoekwoord: campagne.zoekwoord, aanbieding: campagne.aanbieding, blueprintId: campagne.blueprintId || '' }
         : { klant, onderwerp, plaatsen: plaatsen || '', blueprintId: blueprintId || '' };
       if (overrides && overrides.titel) body.titel = overrides.titel;
       if (overrides && overrides.slug) body.slug = overrides.slug;
@@ -122,7 +122,8 @@
     const onderwerp = $('npOnderwerp').value.trim();
     if (!onderwerp) { fout('lpNewError', 'Typ eerst in een zin welke pagina je wilt.'); return; }
     const campagne = gekozenCampagne();
-    if (campagne && lpState.npCampagneStatus !== 'actief') { fout('lpNewError', 'Deze klant heeft nog geen actief campagnesjabloon. Maak het eerst en zet het op Actief.'); return; }
+    if (campagne && campagneKeuze() === AI_KEUZE) { maakMetEigenOntwerp({ klant: $('lpNewKlant').value, onderwerp, campagne }); return; }
+    if (campagne && !campagne.blueprintId) { fout('lpNewError', 'Deze klant heeft nog geen actief campagnesjabloon. Maak het eerst en zet het op Actief, of kies een eigen sjabloon door de AI.'); return; }
     maakPagina({ klant: $('lpNewKlant').value, onderwerp, plaatsen: campagne ? '' : (($('npPlaatsen') || {}).value || ''), blueprintId: campagne ? '' : $('npSjabloon').value, campagne });
   });
 
@@ -134,50 +135,109 @@
   }
   function gekozenCampagne() {
     if (!isCampagne()) return null;
-    return { kanaal: $('npKanaal').value, zoekwoord: $('npZoekwoord').value.trim(), aanbieding: $('npAanbieding').value.trim() };
+    return { kanaal: $('npKanaal').value, zoekwoord: $('npZoekwoord').value.trim(), aanbieding: $('npAanbieding').value.trim(), blueprintId: campagneKeuze() === AI_KEUZE ? '' : campagneKeuze() };
   }
   window.npCampagneInvoer = function () {
     const c = gekozenCampagne();
     return c ? { _soort: 'campagne', _kanaal: c.kanaal, _zoekwoord: c.zoekwoord, _aanbieding: c.aanbieding } : {};
   };
 
+  // Sjabloonkeuze bij een campagnepagina (24-10-2026): een actief campagnesjabloon van de klant, of de AI laat een eigen
+  // ontwerp maken voor alleen deze pagina (waarde AI_KEUZE).
+  const AI_KEUZE = '__ai';
+  function campagneKeuze() { return $('npCampagneKeuze') ? $('npCampagneKeuze').value : ''; }
+  function toonKeuzeUitleg() {
+    const uitleg = $('npCampagneKeuzeUitleg');
+    if (!uitleg) return;
+    uitleg.textContent = campagneKeuze() === AI_KEUZE
+      ? 'De AI ontwerpt voor deze pagina een eigen opbouw in de huisstijl van de klant. Dat duurt een tot drie minuten. Daarna stuur je bij met de chat, ook de opbouw en vormgeving.'
+      : 'De AI vult dit vaste sjabloon met tekst. Dit is de snelste weg.';
+  }
   async function laadCampagneSjabloon() {
     const kader = $('npCampagneSjabloon');
     const klant = $('lpNewKlant').value;
+    const keuze = $('npCampagneKeuze');
     lpState.npCampagneStatus = null;
     if (!isCampagne() || !klant) { kader.classList.add('hidden'); return; }
     kader.className = 'np-campagne-sjabloon';
-    kader.textContent = 'Campagnesjabloon controleren...';
+    kader.textContent = 'Campagnesjablonen controleren...';
     try {
       const r = await lpApi('/templates/campagne/' + encodeURIComponent(klant));
+      if ($('lpNewKlant').value !== klant) return;
       lpState.npCampagneStatus = r.status;
-      if (r.status === 'actief') {
-        kader.className = 'np-campagne-sjabloon ok';
-        kader.textContent = 'Het campagnesjabloon van deze klant wordt gebruikt.';
-      } else if (r.status === 'concept') {
-        kader.innerHTML = 'Het campagnesjabloon staat klaar als concept. Bekijk het bij Sjablonen, stuur bij waar nodig en zet de status op Actief. Daarna kun je hier campagnepagina\'s maken.<button type="button" class="btn btn-plain" id="npNaarSjablonen">Naar Sjablonen</button>';
-        $('npNaarSjablonen').addEventListener('click', () => switchLpTab('sjablonen'));
-      } else {
-        kader.innerHTML = 'Deze klant heeft nog geen campagnesjabloon. De AI maakt het een keer in de huisstijl van de klant, met de opbouw van een goede campagnepagina. Dat duurt een tot drie minuten. Daarna keur je het goed bij Sjablonen.<button type="button" class="btn btn-approve" id="npMaakCampagneSjabloon">Maak campagnesjabloon</button>';
-        $('npMaakCampagneSjabloon').addEventListener('click', maakCampagneSjabloon);
-      }
+      const vorige = keuze.value;
+      const actief = r.sjablonen || [];
+      keuze.innerHTML = actief.map((t) => `<option value="${esc(t.blueprintId)}">${esc(t.naam)}</option>`).join('')
+        + `<option value="${AI_KEUZE}">Laat de AI een eigen sjabloon maken voor deze pagina</option>`;
+      keuze.value = [...keuze.options].some((o) => o.value === vorige) ? vorige : (actief[0] ? actief[0].blueprintId : AI_KEUZE);
+      toonKeuzeUitleg();
+      const concepten = r.concepten || [];
+      const maakTekst = actief.length || concepten.length ? 'Maak een extra campagnesjabloon' : 'Maak campagnesjabloon';
+      kader.className = 'np-campagne-sjabloon' + (actief.length ? ' ok' : '');
+      kader.innerHTML =
+        (concepten.length ? `<p>${concepten.length === 1 ? 'Er staat een campagnesjabloon klaar als concept' : 'Er staan ' + concepten.length + ' campagnesjablonen klaar als concept'}. Bekijk ze bij Sjablonen, stuur bij waar nodig en zet de status op Actief. Dan verschijnen ze hierboven.</p><button type="button" class="btn btn-plain" id="npNaarSjablonen">Naar Sjablonen</button>` : '')
+        + (actief.length ? '' : '<p>Deze klant heeft nog geen actief campagnesjabloon. Maak er een: de AI doet dat een keer in de huisstijl van de klant, met de opbouw van een goede campagnepagina. Of kies hierboven om voor deze pagina een eigen sjabloon te laten maken.</p>')
+        + '<label for="npNieuwSjabloonWensen" class="np-klein">Wat moet er anders aan dit sjabloon (niet verplicht)</label>'
+        + '<textarea id="npNieuwSjabloonWensen" rows="2" placeholder="Bijvoorbeeld: korter, met een video bovenaan en meer nadruk op reviews"></textarea>'
+        + `<button type="button" class="btn btn-approve" id="npMaakCampagneSjabloon">${maakTekst}</button>`
+        + '<span class="wp-muted np-klein"> Dat duurt een tot drie minuten. Daarna keur je het goed bij Sjablonen.</span>';
+      if ($('npNaarSjablonen')) $('npNaarSjablonen').addEventListener('click', () => switchLpTab('sjablonen'));
+      $('npMaakCampagneSjabloon').addEventListener('click', () => maakCampagneSjabloon(maakTekst));
     } catch (err) {
       kader.textContent = err.message;
     }
   }
-  async function maakCampagneSjabloon() {
+  async function maakCampagneSjabloon(maakTekst) {
     const knop = $('npMaakCampagneSjabloon');
+    const wensen = $('npNieuwSjabloonWensen') ? $('npNieuwSjabloonWensen').value.trim() : '';
     knop.disabled = true;
     knop.textContent = 'Bezig, een tot drie minuten...';
     fout('lpNewError', '');
     try {
-      await lpApi('/templates/campagne', { method: 'POST', body: JSON.stringify({ klant: $('lpNewKlant').value }) });
+      await lpApi('/templates/campagne', { method: 'POST', body: JSON.stringify({ klant: $('lpNewKlant').value, wensen }) });
       await laadCampagneSjabloon();
     } catch (err) {
       fout('lpNewError', err.message);
       knop.disabled = false;
-      knop.textContent = 'Maak campagnesjabloon';
+      knop.textContent = maakTekst || 'Maak campagnesjabloon';
     }
+  }
+  // De AI maakt een eigen ontwerp voor deze ene pagina: dezelfde chat als bijsturen, met de gegevens uit het formulier
+  // als eerste bericht. Daarna opent het paginascherm, waar het gesprek verdergaat.
+  async function maakMetEigenOntwerp({ klant, onderwerp, campagne }) {
+    const knop = $('npMaakKnop');
+    knop.disabled = true;
+    fout('lpNewError', '');
+    const status = (t) => { $('npAdviesStatus').textContent = t; };
+    try {
+      const regels = [
+        `Bouw een campagnepagina voor ${KANAAL_NAMEN[campagne.kanaal] || 'Google Ads'}.`,
+        campagne.zoekwoord ? `Zoekwoord of advertentietekst: ${campagne.zoekwoord}` : '',
+        campagne.aanbieding ? `Aanbieding: ${campagne.aanbieding}` : '',
+        `Wat de pagina moet doen: ${onderwerp}`,
+        'Stel geen vragen, maar bouw de pagina nu direct met wat hier staat en de feiten van de klant.'
+      ].filter(Boolean).join('\n');
+      const { taakId } = await lpApi('/chat/bericht', { method: 'POST', body: JSON.stringify({ klant, bericht: regels, campagne }) });
+      for (let i = 0; i < 150; i += 1) {
+        await new Promise((ok) => setTimeout(ok, 2000));
+        const t = await lpApi('/chat/taak/' + encodeURIComponent(taakId));
+        if (t.status === 'bezig') { status(`De AI ontwerpt de pagina (${t.seconden || i * 2} sec). Dit duurt een tot drie minuten.`); continue; }
+        if (t.status === 'fout') throw new Error(t.fout || 'Het bouwen is niet gelukt.');
+        const uit = t.resultaat || {};
+        if (!uit.pageId) throw new Error(uit.antwoord ? 'De AI kon nog niet bouwen: ' + uit.antwoord : 'De AI heeft geen pagina gebouwd. Probeer het opnieuw.');
+        status('Klaar. Het paginascherm wordt geopend.');
+        $('npOnderwerp').value = '';
+        if (typeof loadPages === 'function') loadPages();
+        if (typeof wpLaad === 'function') wpLaad();
+        switchLpTab('paginas');
+        openPageDetail(uit.pageId);
+        return;
+      }
+      throw new Error('Het duurt langer dan verwacht. Kijk bij Alle pagina\'s of de pagina er al staat.');
+    } catch (err) {
+      status('');
+      fout('lpNewError', err.message);
+    } finally { knop.disabled = false; }
   }
   function toonSoort() {
     const c = isCampagne();
@@ -191,6 +251,7 @@
   }
   document.querySelectorAll('input[name="npSoort"]').forEach((r) => r.addEventListener('change', toonSoort));
   $('lpNewKlant').addEventListener('change', () => { if (isCampagne()) laadCampagneSjabloon(); });
+  $('npCampagneKeuze').addEventListener('change', toonKeuzeUitleg);
   $('npSjabloon').addEventListener('change', () => {
     $('npSjabloonUitleg').textContent = $('npSjabloon').value
       ? 'De AI gebruikt alleen dit sjabloon en kiest zelf titel en webadres.'
@@ -225,6 +286,7 @@
     const klant = $('lpNewKlant').value;
     const onderwerp = $('npOnderwerp').value.trim();
     if (!onderwerp) { fout('lpNewError', 'Beschrijf eerst in een paar woorden welke pagina je wilt.'); return; }
+    if (isCampagne() && campagneKeuze() === AI_KEUZE) { fout('lpNewError', 'Bij een eigen ontwerp door de AI is er geen formulier om vooraf in te vullen. Klik op Maak pagina, daarna stuur je bij met de chat.'); return; }
     knop.disabled = true;
     $('npAdviesStatus').textContent = 'De AI denkt mee... Dit duurt ongeveer 15 seconden.';
     try {

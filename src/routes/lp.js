@@ -7,7 +7,7 @@ const { getLpClient, clients: lpClients } = require('../lp/clients');
 const klantgegevens = require('../lp/klantgegevens');
 const campagneKennis = require('../lp/campagneKennis');
 // Het maandplan en de SEO/GEO functies kiezen nooit het campagnesjabloon (24-10-2026).
-const zonderCampagne = (lijst) => (Array.isArray(lijst) ? lijst : []).filter((t) => t && t.blueprintId !== campagneKennis.CAMPAGNE_BLUEPRINT);
+const zonderCampagne = (lijst) => (Array.isArray(lijst) ? lijst : []).filter((t) => t && !campagneKennis.isCampagneBlueprintId(t.blueprintId));
 const { schoonScreenshots } = require('../lp/screenshots');
 const { bouwSjabloonKopie, schoonFocus, trefwoordenUitOnderwerp } = require('../lp/sjabloonKopie');
 const lpNotion = require('../lp/notion');
@@ -468,9 +468,12 @@ router.get('/templates/campagne/:klant', requireLpInternal, async (req, res) => 
     const klant = String(req.params.klant || '');
     getLpClient(klant);
     const alle = await templates.listTemplates({ klant });
-    const eigen = alle.filter((t) => t.blueprintId === campagneKennis.CAMPAGNE_BLUEPRINT && t.status !== 'Gearchiveerd');
-    const actief = eigen.find((t) => t.status === 'Actief');
-    res.json({ status: actief ? 'actief' : (eigen.length ? 'concept' : 'geen'), sjabloon: actief || eigen[0] || null });
+    const eigen = alle.filter((t) => campagneKennis.isCampagneBlueprintId(t.blueprintId) && t.status !== 'Gearchiveerd');
+    const kort = (t) => ({ blueprintId: t.blueprintId, naam: t.naam, status: t.status });
+    const actief = eigen.filter((t) => t.status === 'Actief');
+    // De eerste actieve (bij voorkeur het oorspronkelijke "campagne") is de standaard in het scherm.
+    actief.sort((a, b) => (a.blueprintId === campagneKennis.CAMPAGNE_BLUEPRINT ? -1 : 0) - (b.blueprintId === campagneKennis.CAMPAGNE_BLUEPRINT ? -1 : 0));
+    res.json({ status: actief.length ? 'actief' : (eigen.length ? 'concept' : 'geen'), sjabloon: actief[0] || eigen[0] || null, sjablonen: actief.map(kort), concepten: eigen.filter((t) => t.status !== 'Actief').map(kort) });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -481,24 +484,28 @@ router.post('/templates/campagne', requireLpInternal, async (req, res) => {
     const klant = String(req.body?.klant || '');
     const client = getLpClient(klant);
     const alle = await templates.listTemplates({ klant });
-    const bestaand = alle.find((t) => t.blueprintId === campagneKennis.CAMPAGNE_BLUEPRINT && t.status !== 'Gearchiveerd');
-    if (bestaand) return res.status(400).json({ error: `Deze klant heeft al een campagnesjabloon (status ${bestaand.status}). Open het bij Sjablonen.`, sjabloon: bestaand });
+    const campagneAlle = alle.filter((t) => campagneKennis.isCampagneBlueprintId(t.blueprintId));
+    const levend = campagneAlle.filter((t) => t.status !== 'Gearchiveerd');
+    if (levend.length >= 6) return res.status(400).json({ error: 'Deze klant heeft al zes campagnesjablonen. Archiveer er eerst een bij Sjablonen.' });
+    const blueprintId = campagneKennis.volgendeCampagneBlueprintId(campagneAlle.map((t) => t.blueprintId));
+    const wensen = String(req.body?.wensen || '').trim().slice(0, 600);
+    const naam = String(req.body?.naam || '').trim().slice(0, 60) || (blueprintId === campagneKennis.CAMPAGNE_BLUEPRINT ? 'Campagnepagina' : `Campagnepagina ${blueprintId.split('-')[1]}`);
     const p = client.profile || {};
     const heeftFormulier = Boolean(p.formulier && p.formulier.shortcode);
     const voorkeuren = campagneKennis.bouwCampagneVoorkeurenBlok(p.campagneVoorkeuren);
     const proposal = await ai.generateTemplateProposal({
       klant,
-      naam: 'Campagnepagina',
+      naam,
       paginatype: 'Campagnepagina voor Google Ads, Meta Ads en LinkedIn Ads: een doel, geen afleiding, conversiegericht',
       conversiedoel: heeftFormulier ? 'Aanvraag via het formulier van de klant ({{formulier}}) in de conversiesectie' : 'Contact opnemen via een duidelijke knop in de conversiesectie',
-      overigeWensen: `Gebruik de huisstijl en vormtaal van de eigen site van de klant, zodat de pagina herkenbaar is. ${voorkeuren}`.trim(),
+      overigeWensen: `Gebruik de huisstijl en vormtaal van de eigen site van de klant, zodat de pagina herkenbaar is. ${voorkeuren}${wensen ? ` Extra wens voor dit sjabloon, die gaat voor op de standaard: ${wensen}` : ''}${levend.length ? ' Er bestaat al een campagnesjabloon voor deze klant. Maak dit sjabloon duidelijk anders in opbouw of vormgeving.' : ''}`.trim(),
       campagne: true
     });
     const blueprint = campagneKennis.maakCampagneBlueprint(proposal.blueprint);
     if (proposal.voorbeeldSlotData && typeof proposal.voorbeeldSlotData === 'object') blueprint.voorbeeldSlotData = proposal.voorbeeldSlotData;
     const structuur = validateTemplateStructure(blueprint);
     if (!structuur.ok) return res.status(400).json({ error: `Het campagnesjabloon voldoet niet aan de eisen, probeer het opnieuw: ${structuur.errors.join('; ')}` });
-    const template = await templates.createTemplate({ klant, naam: 'Campagnepagina', blueprintId: campagneKennis.CAMPAGNE_BLUEPRINT, status: 'Concept', blueprint });
+    const template = await templates.createTemplate({ klant, naam, blueprintId, status: 'Concept', blueprint });
     res.json({ template, structuurWaarschuwingen: structuur.warnings });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -1047,7 +1054,7 @@ router.post('/plan/ideeen/:pageId/beoordeel', requireLpInternal, async (req, res
 async function bouwMeting(klant) {
   const profielNaam = getLpClient(klant).profile.naam;
   // Campagnepagina's horen niet bij de SEO/GEO meting en de updatevoorstellen (24-10-2026).
-  const paginas = (await lpNotion.listPages({ klant })).filter((p) => p.blueprint !== campagneKennis.CAMPAGNE_BLUEPRINT);
+  const paginas = (await lpNotion.listPages({ klant })).filter((p) => !campagneKennis.campagneVan(p));
   const lijst = maakKlantLijst(paginas);
   // Alleen meten voor klanten waarbij de schakelaar Paginameting aan staat.
   const inst = await klantInstellingen(klant);
@@ -1202,12 +1209,16 @@ async function maakPaginaAdvies(klant, onderwerp, blueprintId, { soort } = {}) {
   let actief = await templates.listTemplates({ klant, status: 'Actief' });
   // Een SEO/GEO pagina kiest nooit het campagnesjabloon; een campagnepagina altijd (24-10-2026).
   if (soort === 'campagne') {
-    blueprintId = campagneKennis.CAMPAGNE_BLUEPRINT;
-    if (!actief.some((t) => t.blueprintId === blueprintId)) {
+    const campagneActief = actief.filter((t) => campagneKennis.isCampagneBlueprintId(t.blueprintId));
+    if (!campagneActief.length) {
       throw new Error('Deze klant heeft nog geen actief campagnesjabloon. Maak het eerst met de knop "Maak campagnesjabloon", keur het goed bij Sjablonen en zet het op Actief.');
     }
+    // Zelf gekozen sjabloon, anders de standaard: het oorspronkelijke "campagne" of anders het eerste actieve.
+    if (!campagneActief.some((t) => t.blueprintId === blueprintId)) {
+      blueprintId = (campagneActief.find((t) => t.blueprintId === campagneKennis.CAMPAGNE_BLUEPRINT) || campagneActief[0]).blueprintId;
+    }
   } else {
-    actief = actief.filter((t) => t.blueprintId !== campagneKennis.CAMPAGNE_BLUEPRINT);
+    actief = actief.filter((t) => !campagneKennis.isCampagneBlueprintId(t.blueprintId));
   }
   // Heeft de beheerder zelf een sjabloon gekozen, dan krijgt de AI alleen dat sjabloon te zien en kan hij geen ander kiezen.
   if (blueprintId) {
@@ -2716,7 +2727,7 @@ function ruimChatTakenOp() {
   for (const [id, t] of chatTaken) if (t.gestart < grens) chatTaken.delete(id);
 }
 
-async function voerChatBeurtUit({ klant, pageId, bericht, berichtenZonderPagina }) {
+async function voerChatBeurtUit({ klant, pageId, bericht, berichtenZonderPagina, invoerExtra }) {
   const client = getLpClient(klant);
   const page = pageId ? await lpNotion.getPage(pageId) : null;
   if (page && page.klant !== klant) throw new Error('Deze pagina hoort niet bij deze klant.');
@@ -2755,7 +2766,7 @@ async function voerChatBeurtUit({ klant, pageId, bericht, berichtenZonderPagina 
       blueprint: CHAT_BLUEPRINT,
       titel: uit.titel || `Chatpagina ${nu.slice(0, 10)}`,
       slug: uit.slug || undefined,
-      invoer: { _gebouwdMetChat: true, _watGaatDezePaginaOver: String(eersteVraag).slice(0, 1500) },
+      invoer: { _gebouwdMetChat: true, _watGaatDezePaginaOver: String(eersteVraag).slice(0, 1500), ...(invoerExtra || {}) },
       content: { meta: { metaTitle: slotData.metaTitle || '', metaDescription: slotData.metaDescription || '' }, slotData, overrides: {} },
       sjabloon: { blueprint: uit.blueprint, berichten: nieuweBerichten }
     });
@@ -2841,7 +2852,7 @@ router.get('/chat/:pageId', requireLpInternal, async (req, res) => {
 });
 
 router.post('/chat/bericht', requireLpInternal, (req, res) => {
-  const { klant, pageId, bericht, berichten } = req.body || {};
+  const { klant, pageId, bericht, berichten, campagne } = req.body || {};
   const tekst = String(bericht || '').trim();
   if (!klant) return res.status(400).json({ error: 'Kies een klant.' });
   if (!tekst) return res.status(400).json({ error: 'Typ eerst een bericht.' });
@@ -2852,7 +2863,7 @@ router.post('/chat/bericht', requireLpInternal, (req, res) => {
   const taak = { status: 'bezig', gestart: Date.now() };
   chatTaken.set(taakId, taak);
   if (pageId) chatBezigPerPagina.add(pageId);
-  voerChatBeurtUit({ klant, pageId: pageId || null, bericht: tekst.slice(0, 4000), berichtenZonderPagina: berichten })
+  voerChatBeurtUit({ klant, pageId: pageId || null, bericht: tekst.slice(0, 4000), berichtenZonderPagina: berichten, invoerExtra: campagne ? campagneKennis.campagneInvoer(campagne) : undefined })
     .then((resultaat) => { taak.status = 'klaar'; taak.resultaat = resultaat; })
     .catch((err) => { taak.status = 'fout'; taak.fout = err.message; })
     .finally(() => { if (pageId) chatBezigPerPagina.delete(pageId); });

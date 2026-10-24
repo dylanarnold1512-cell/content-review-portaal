@@ -233,7 +233,7 @@ function fillBlueprintSelect(klantId) {
   const kies = document.getElementById('npSjabloon');
   if (kies) {
     // Het campagnesjabloon hoort bij de keuze Campagnepagina, niet in deze lijst voor SEO/GEO pagina's.
-    kies.innerHTML = '<option value="">De AI kiest het sjabloon</option>' + (client ? client.blueprints : []).filter((b) => b.id !== 'campagne').map((b) => `<option value="${b.id}">${b.naam}</option>`).join('');
+    kies.innerHTML = '<option value="">De AI kiest het sjabloon</option>' + (client ? client.blueprints : []).filter((b) => !/^campagne(-\d+)?$/.test(b.id)).map((b) => `<option value="${b.id}">${b.naam}</option>`).join('');
     const uitleg = document.getElementById('npSjabloonUitleg');
     if (uitleg) uitleg.textContent = 'De AI kiest het sjabloon dat bij je zin past.';
   }
@@ -271,7 +271,7 @@ document.getElementById('lpNewForm').addEventListener('submit', async (e) => {
     invoer[input.dataset.veldKey] = input.value;
   });
   // Campagnepagina: kanaal, zoekwoord en aanbieding uit stap 1 gaan mee (lp-begeleiding.js).
-  if (blueprint === 'campagne' && typeof window.npCampagneInvoer === 'function') Object.assign(invoer, window.npCampagneInvoer());
+  if (/^campagne(-\d+)?$/.test(blueprint) && typeof window.npCampagneInvoer === 'function') Object.assign(invoer, window.npCampagneInvoer());
   try {
     const { page } = await lpApi('/pages', {
       method: 'POST',
@@ -328,7 +328,7 @@ async function loadPages() {
 
 // Soort pagina in het overzicht (24-10-2026): campagnepagina, met chat gebouwd of SEO/GEO.
 function lpSoortLabel(p) {
-  if (p && p.blueprint === 'campagne') return 'Campagnepagina';
+  if (p && (/^campagne(-\d+)?$/.test(p.blueprint || '') || (p.invoer && p.invoer._soort === 'campagne'))) return p.blueprint === 'chat' ? 'Campagnepagina, eigen ontwerp' : 'Campagnepagina';
   if (p && p.blueprint === 'chat') return 'Gebouwd met chat';
   return 'SEO/GEO';
 }
@@ -528,7 +528,7 @@ async function openPageDetail(pageId) {
 
   document.getElementById('lpDetailTitel').textContent = page.titel;
   document.getElementById('lpDetailKlantPill').textContent = page.klant || '';
-  document.getElementById('lpDetailBlueprintPill').textContent = page.blueprint === 'campagne'
+  document.getElementById('lpDetailBlueprintPill').textContent = (/^campagne(-\d+)?$/.test(page.blueprint || '') || (page.invoer && page.invoer._soort === 'campagne'))
     ? `Campagnepagina${page.invoer && page.invoer._kanaal ? `, ${({ google: 'Google Ads', meta: 'Meta Ads', linkedin: 'LinkedIn Ads' })[page.invoer._kanaal] || ''}` : ''}`
     : (page.blueprint || '');
   document.getElementById('lpDetailModifiedText').textContent = page.laatstGewijzigd

@@ -17,7 +17,7 @@
 
   window.pdChatToon = function (page) {
     if (!$('pdChatKaart') || !page) return;
-    const campagne = (page.invoer && page.invoer._soort === 'campagne') || page.blueprint === 'campagne';
+    const campagne = (page.invoer && page.invoer._soort === 'campagne') || /^campagne(-\d+)?$/.test(page.blueprint || '');
     const eigen = page.sjabloon && page.sjabloon.blueprint;
     $('pdChatUitleg').textContent = eigen
       ? 'Deze pagina heeft een eigen ontwerp. Vraag in gewone woorden wat er anders moet, ook aan de opbouw of vormgeving.'

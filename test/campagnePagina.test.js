@@ -158,7 +158,6 @@ test('route: campagnesjabloon maken en daarna een campagnepagina', async () => {
 
     sjablonen.push({ blueprintId: 'campagne', naam: 'Campagnepagina', status: 'Concept' });
     assert.equal((await get('/templates/campagne/macbouw')).status, 'concept');
-    assert.equal((await post('/templates/campagne', { klant: 'macbouw' })).status, 400);
 
     sjablonen[1].status = 'Actief';
     const r = await post('/pages/snel', { klant: 'macbouw', onderwerp: 'offertes voor een aanbouw', soort: 'campagne', kanaal: 'linkedin', zoekwoord: 'aanbouw laten bouwen', aanbieding: 'gratis opname' });
@@ -226,5 +225,47 @@ test('bijsturen: een SEO/GEO pagina krijgt de SEO/GEO regels', async () => {
     assert.equal(t.status, 'klaar', JSON.stringify(t));
     assert.match(prompts[0], /SEO EN GEO BIJ HET SCHRIJVEN/);
     assert.doesNotMatch(prompts[0], /DIT IS EEN CAMPAGNEPAGINA/);
+  });
+});
+
+test('meerdere campagnesjablonen: nieuw id, eigen keuze en standaard', async () => {
+  sjablonen.length = 0;
+  gemaakt.length = 0;
+  paginas.clear();
+  sjablonen.push(
+    { blueprintId: 'locatie', naam: 'Locatiegericht', status: 'Actief' },
+    { blueprintId: 'campagne', naam: 'Campagnepagina', status: 'Actief' },
+    { blueprintId: 'campagne-2', naam: 'Kort en direct', status: 'Actief' },
+    { blueprintId: 'campagne-3', naam: 'Nog niet klaar', status: 'Concept' }
+  );
+  assert.equal(ck.isCampagneBlueprintId('campagne-2'), true);
+  assert.equal(ck.isCampagneBlueprintId('campagnes'), false);
+  assert.equal(ck.volgendeCampagneBlueprintId(['campagne', 'campagne-2', 'campagne-4']), 'campagne-3');
+  assert.deepEqual(ck.campagneVan({ blueprint: 'campagne-2', invoer: {} }), { kanaal: 'google', zoekwoord: '', aanbieding: '' });
+  const voorstel = { blueprint: { ...campagneBp }, voorbeeldSlotData: { heroTitle: 'Voorbeeld' } };
+  const adviesB = { blueprintId: 'campagne', titel: 'Ads: standaard', slug: 'ads-standaard', invoer: {}, waarom: 'x' };
+  // Na een pagina start soms de automatische tekst en die gebruikt ook een antwoord, daarom staat adviesB er vaker.
+  await metServer([voorstel, { blueprintId: 'campagne-2', titel: 'Ads: dakkapel', slug: 'ads-dakkapel', invoer: {}, waarom: 'x' }, adviesB, adviesB, adviesB], async ({ post, get, prompts }) => {
+    const lijst = await get('/templates/campagne/macbouw');
+    assert.equal(lijst.status, 'actief');
+    assert.deepEqual(lijst.sjablonen.map((t) => t.blueprintId), ['campagne', 'campagne-2']);
+    assert.deepEqual(lijst.concepten.map((t) => t.blueprintId), ['campagne-3']);
+
+    const t = await post('/templates/campagne', { klant: 'macbouw', wensen: 'korter, met een video bovenaan' });
+    assert.equal(t.status, 200, JSON.stringify(t));
+    assert.equal(gemaakt[0].blueprintId, 'campagne-4');
+    assert.equal(gemaakt[0].naam, 'Campagnepagina 4');
+    assert.match(prompts[0], /korter, met een video bovenaan/);
+    assert.match(prompts[0], /duidelijk anders/);
+
+    const gekozen = await post('/pages/snel', { klant: 'macbouw', onderwerp: 'dakkapel', soort: 'campagne', kanaal: 'google', blueprintId: 'campagne-2' });
+    assert.ok(gekozen.page, JSON.stringify(gekozen));
+    assert.equal(paginas.get(gekozen.page.id).blueprint, 'campagne-2');
+    assert.doesNotMatch(prompts[1], /Locatiegericht/);
+
+    // Zonder keuze, of met een SEO sjabloon, wordt het standaard campagnesjabloon gebruikt.
+    const standaard = await post('/pages/snel', { klant: 'macbouw', onderwerp: 'aanbouw', soort: 'campagne', kanaal: 'google', blueprintId: 'locatie' });
+    assert.ok(standaard.page, JSON.stringify(standaard));
+    assert.equal(paginas.get(standaard.page.id).blueprint, 'campagne');
   });
 });
