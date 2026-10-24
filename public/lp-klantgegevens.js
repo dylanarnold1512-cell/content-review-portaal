@@ -42,6 +42,7 @@
     $('kgToon').value = p.toonNotitie;
     $('kgFoto').value = p.fotoRichtlijn;
     $('kgNiet').value = (p.nietToegestaan || []).join('\n');
+    if ($('kgCampagneVoorkeuren')) $('kgCampagneVoorkeuren').value = (p.campagneVoorkeuren || []).join('\n');
     $('kgCtaBalken').value = String((p.ctaBalken && p.ctaBalken.aantal) === 2 ? 2 : 1);
     $('kgAutoLiveAan').checked = p.autoLive === true;
     $('kgAutoPlanAan').checked = p.autoPlan !== false;
@@ -303,6 +304,7 @@
         toonNotitie: $('kgToon').value,
         fotoRichtlijn: $('kgFoto').value,
         nietToegestaan: regels('kgNiet'),
+        ...($('kgCampagneVoorkeuren') ? { campagneVoorkeuren: regels('kgCampagneVoorkeuren') } : {}),
         ctaBalken: { aantal: Number($('kgCtaBalken').value) === 2 ? 2 : 1 },
         klantverhaal: state.kv || undefined,
         voorbeeldPaginas: state.voorbeeld,

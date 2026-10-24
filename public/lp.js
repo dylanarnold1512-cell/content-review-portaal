@@ -326,6 +326,13 @@ async function loadPages() {
   }
 }
 
+// Soort pagina in het overzicht (24-10-2026): campagnepagina, met chat gebouwd of SEO/GEO.
+function lpSoortLabel(p) {
+  if (p && p.blueprint === 'campagne') return 'Campagnepagina';
+  if (p && p.blueprint === 'chat') return 'Gebouwd met chat';
+  return 'SEO/GEO';
+}
+
 function renderPagesTable() {
   const lijst = document.getElementById('lpPagesTableBody');
   const standVan = (st) => (typeof wpStandVan === 'function' ? wpStandVan(st) : st);
@@ -344,7 +351,7 @@ function renderPagesTable() {
     const datum = p.laatstGewijzigd ? new Date(p.laatstGewijzigd).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : '';
     return `<div class="wp-rij lp-row" data-page-id="${p.id}" tabindex="0" role="button">
       <label class="wp-vink"><input type="checkbox" data-sel="${p.id}" aria-label="Selecteer ${(p.titel || '').replace(/"/g, '&quot;')}"></label>
-      <div class="wp-rij-hoofd"><strong>${p.titel || '(zonder titel)'}</strong><small class="wp-muted">${klantNaam(p.klant)}</small></div>
+      <div class="wp-rij-hoofd"><strong>${p.titel || '(zonder titel)'}</strong><small class="wp-muted">${klantNaam(p.klant)} · ${lpSoortLabel(p)}</small></div>
       <span class="wp-pil ${klasse(stand)}"><span class="wp-stip"></span>${stand}</span>
       <span class="wp-muted wp-rij-datum">${datum}</span>
     </div>`;
@@ -521,7 +528,9 @@ async function openPageDetail(pageId) {
 
   document.getElementById('lpDetailTitel').textContent = page.titel;
   document.getElementById('lpDetailKlantPill').textContent = page.klant || '';
-  document.getElementById('lpDetailBlueprintPill').textContent = page.blueprint || '';
+  document.getElementById('lpDetailBlueprintPill').textContent = page.blueprint === 'campagne'
+    ? `Campagnepagina${page.invoer && page.invoer._kanaal ? `, ${({ google: 'Google Ads', meta: 'Meta Ads', linkedin: 'LinkedIn Ads' })[page.invoer._kanaal] || ''}` : ''}`
+    : (page.blueprint || '');
   document.getElementById('lpDetailModifiedText').textContent = page.laatstGewijzigd
     ? 'Laatst gewijzigd ' + new Date(page.laatstGewijzigd).toLocaleString('nl-NL') : '';
   document.getElementById('lpDetailStatusBadge').textContent = page.status;
@@ -555,6 +564,7 @@ async function openPageDetail(pageId) {
   document.getElementById('lpPublishResult').innerHTML = '';
   document.getElementById('lpGenerateContentStatus').textContent = '';
   loadShareStatus();
+  if (typeof window.pdChatToon === 'function') window.pdChatToon(page);
 }
 
 document.getElementById('lpStatusSelect').addEventListener('change', async (e) => {

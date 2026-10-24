@@ -858,6 +858,7 @@
           <div class="wp-veld"><label for="kgToon">Toon van de teksten</label><textarea id="kgToon" rows="3"></textarea></div>
           <div class="wp-veld"><label for="kgFoto">Richtlijn voor foto's (optioneel)</label><textarea id="kgFoto" rows="2"></textarea></div>
           <div class="wp-veld"><label for="kgNiet">Wat zeker niet mag (een per regel)</label><textarea id="kgNiet" rows="3"></textarea></div>
+          <div class="wp-veld"><label for="kgCampagneVoorkeuren">Vaste wensen voor campagnepagina's (een per regel)</label><textarea id="kgCampagneVoorkeuren" rows="3" placeholder="Bijvoorbeeld: het doel is altijd een offerteaanvraag"></textarea><span class="wp-muted np-klein">Wat je in de chat als vaste wens noemt, komt hier vanzelf bij. Haal een regel weg om hem te vergeten.</span></div>
         </section>
         <section class="wp-kaart" id="kgVoorbeelden">
           <div class="wp-kaart-kop"><h2>Voorbeeldpagina per sjabloon</h2></div>
@@ -1633,6 +1634,17 @@
         <div id="pdAdvies"></div>
       </section>
 
+      <section class="wp-kaart pd-chat" id="pdChatKaart" aria-labelledby="pdChatKop">
+        <div class="wp-kaart-kop"><h2 id="pdChatKop">Bijsturen met chat</h2></div>
+        <p class="wp-muted np-klein" id="pdChatUitleg">Vraag in gewone woorden wat er anders moet. De AI past de tekst aan en het voorbeeld ververst vanzelf.</p>
+        <div id="pdChatBerichten" class="pd-chat-berichten"></div>
+        <textarea id="pdChatTekst" aria-label="Bericht" rows="3" placeholder="Bijvoorbeeld: maak de kop korter en noem de gratis opname"></textarea>
+        <div class="pd-chat-actie">
+          <button type="button" id="pdChatVerstuur" class="btn btn-approve">Verstuur</button>
+          <span id="pdChatStatus" class="wp-muted np-klein"></span>
+        </div>
+      </section>
+
           <details class="wp-kaart pd-aanpassen" id="pdAanpassen">
             <summary>Aanpassen en opnieuw laten schrijven</summary>
       <div class="lp-steps" id="lpSteps"></div>
@@ -1750,5 +1762,6 @@
 <script src="/lp-klantgegevens.js"></script>
 <script src="/lp-festival.js"></script>
 <script src="/lp-chat.js"></script>
+<script src="/lp-bijsturen.js"></script>
 </body>
 </html>

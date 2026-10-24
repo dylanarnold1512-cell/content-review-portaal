@@ -279,8 +279,90 @@ async function chatBeurt({ klant, client, huidig, berichten, bericht, deps }) {
   }
 }
 
+// ---- Bijsturen met chat op het paginascherm (24-10-2026, fase 2 van de paginabouwer) ----
+// Voor een pagina met een vast sjabloon (SEO/GEO of campagne): de chat past alleen teksten aan. Het ontwerp hoort bij
+// het sjabloon en geldt voor alle pagina's van dat sjabloon, dus dat verandert hier nooit.
+function bijstuurSysteemPrompt({ campagne, deps }) {
+  const ai = deps.ai;
+  return `JE ROL
+Je stuurt samen met Dylan, een online marketeer, een bestaande landingspagina van een van zijn klanten bij. Het ontwerp
+ligt vast in het sjabloon van de klant. Jij past alleen teksten aan. Je praat met Dylan in eenvoudig, kort Nederlands en je
+denkt mee: zie je een betere aanpak, zeg het in een zin.
+
+WAT JE PER BERICHT DOET (veld "actie")
+- "tekst": teksten aanpassen. Geef in "slotWijzigingen" alleen de slots die veranderen, met hun volledige nieuwe waarde (bij een
+  lijst de hele lijst met alle items). Gebruik alleen slots die in de lijst SLOTS VAN DEZE PAGINA staan. Laat alles waar het bericht
+  niet over gaat zoals het was.
+- "geen": Dylan stelt een vraag, wil sparren, of vraagt iets wat je hier niet kunt. Wil hij de opbouw, volgorde of vormgeving
+  veranderen, leg dan uit dat dat in het sjabloon gebeurt (bij Sjablonen, met feedback) en dan voor alle pagina's van dat sjabloon geldt.
+- Foto's pas je niet aan: zeg dat Dylan in het voorbeeld op een foto kan klikken om een andere te kiezen.
+
+TEKSTEN
+- Houd de aanspreekvorm (je of u, wij of de bedrijfsnaam) en de toon van de huidige tekst aan.
+- Gebruik alleen feiten uit de klantgegevens, het klantverhaal, de bronteksten en wat Dylan zegt. Verzin geen cijfers, prijzen,
+  garanties, jaartallen, plaatsen, reviews of namen.
+- Geen gedachtestreepjes en geen emoji.
+
+${campagne ? `${campagneKennisModule().CAMPAGNE_CONTENT_REGELS}\n\n${ONTHOUD_REGEL}` : ai.SEO_GEO_CONTENT_REGELS}
+
+${ai.SITE_BRON_REGELS}
+
+${ai.VOLLEDIGE_ZINNEN_REGELS}
+
+ANTWOORD
+Antwoord ALLEEN met een JSON-object, geen tekst erbuiten:
+{
+  "antwoord": string,        // je chatbericht aan Dylan: wat je aanpaste of je advies, hooguit vijf korte zinnen
+  "actie": "tekst" | "geen",
+  "slotWijzigingen": object${campagne ? ',\n  "onthoud": string[]       // optioneel, zie VOORKEUREN ONTHOUDEN' : ''}
+}`;
+}
+
+function campagneKennisModule() { return require('./campagneKennis'); }
+
+function slotOverzicht(blueprint) {
+  return ((blueprint && blueprint.slots) || [])
+    .filter((s) => s && !IMAGE_SRC_RE.test(s.key) && !IMAGE_ALT_RE.test(s.key))
+    .map((s) => `- ${s.key} (${s.type || 'text'}${s.type === 'list' ? `, velden: ${(s.itemFields || []).filter((f) => !IMAGE_SRC_RE.test(f) && !IMAGE_ALT_RE.test(f)).join(', ')}` : ''})${s.label ? `: ${s.label}` : ''}`)
+    .join('\n');
+}
+
+async function bijstuurBeurt({ klant, client, page, blueprint, berichten, bericht, campagne, deps }) {
+  const tekst = String(bericht || '').trim();
+  if (!tekst) throw new Error('Typ eerst een bericht.');
+  if (!blueprint) throw new Error('Het sjabloon van deze pagina is niet gevonden.');
+  const ai = deps.ai;
+  const profiel = (client && client.profile) || {};
+  const bedrijf = profiel.bedrijf || {};
+  const [bronnen] = await Promise.all([
+    ai.formatKlantBronnenVoorSjabloon(klant, { maxWoorden: CHAT_BRON_MAX_WOORDEN }).catch(() => '')
+  ]);
+  const kv = profiel.klantverhaal;
+  const kvBlok = deps.bouwKlantverhaalBlok ? deps.bouwKlantverhaalBlok(kv && kv.status === 'goedgekeurd' ? kv : null, { bedrijfsnaam: bedrijf.naam || profiel.naam }) : '';
+  const slotData = (page && page.content && page.content.slotData) || {};
+  const userPrompt = [
+    `Klant: ${profiel.naam || klant}${bedrijf.naam ? ` (${bedrijf.naam})` : ''}`,
+    `Pagina: ${(page && page.titel) || ''}`,
+    campagne ? campagneKennisModule().bouwCampagneBlok(campagne, profiel.campagneVoorkeuren).trim() : '',
+    bronnen,
+    feitenTekst(client),
+    kvBlok,
+    `SLOTS VAN DEZE PAGINA:\n${slotOverzicht(blueprint)}`,
+    `HUIDIGE TEKSTEN (slotData):\n${JSON.stringify(slotData)}`,
+    gesprekTekst(berichten),
+    `NIEUW BERICHT VAN DYLAN: ${tekst}`
+  ].filter((d) => d && String(d).trim()).join('\n\n');
+  const model = process.env.OPENAI_MODEL_CHAT || undefined;
+  const result = await deps.callOpenAi({ systemPrompt: bijstuurSysteemPrompt({ campagne: Boolean(campagne), deps }), userPrompt, model });
+  // Een vast sjabloon verandert hier nooit: een "bouw" van de AI telt als alleen een antwoord.
+  const veilig = { ...(result || {}), actie: result && result.actie === 'tekst' ? 'tekst' : 'geen' };
+  const uit = verwerkAntwoord(veilig, { blueprint, slotData }, { verdeelIconen: deps.verdeelIconen });
+  if (!campagne) uit.onthoud = [];
+  return uit;
+}
+
 function voegBerichtenToe(berichten, ...nieuw) {
   return [...(Array.isArray(berichten) ? berichten : []), ...nieuw].slice(-MAX_BERICHTEN_BEWAARD);
 }
 
-module.exports = { chatBeurt, verwerkAntwoord, behoudFotos, zonderVerzonnenFotos, voegBerichtenToe, slugVan, bouwSysteemPrompt, bouwGebruikersPrompt, MAX_BERICHTEN_BEWAARD };
+module.exports = { chatBeurt, bijstuurBeurt, bijstuurSysteemPrompt, verwerkAntwoord, behoudFotos, zonderVerzonnenFotos, voegBerichtenToe, slugVan, bouwSysteemPrompt, bouwGebruikersPrompt, MAX_BERICHTEN_BEWAARD };

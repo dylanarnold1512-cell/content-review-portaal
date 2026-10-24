@@ -1046,7 +1046,8 @@ router.post('/plan/ideeen/:pageId/beoordeel', requireLpInternal, async (req, res
 // Bijhouden: meting per pagina en updatevoorstellen.
 async function bouwMeting(klant) {
   const profielNaam = getLpClient(klant).profile.naam;
-  const paginas = await lpNotion.listPages({ klant });
+  // Campagnepagina's horen niet bij de SEO/GEO meting en de updatevoorstellen (24-10-2026).
+  const paginas = (await lpNotion.listPages({ klant })).filter((p) => p.blueprint !== campagneKennis.CAMPAGNE_BLUEPRINT);
   const lijst = maakKlantLijst(paginas);
   // Alleen meten voor klanten waarbij de schakelaar Paginameting aan staat.
   const inst = await klantInstellingen(klant);
@@ -2767,6 +2768,54 @@ async function voerChatBeurtUit({ klant, pageId, bericht, berichtenZonderPagina 
   await lpNotion.updateSection(page.id, 'sjabloon', { blueprint: uit.actie === 'bouw' ? uit.blueprint : page.sjabloon.blueprint, berichten: nieuweBerichten });
   return { pageId: page.id, antwoord: uit.antwoord, actie: uit.actie, berichten: nieuweBerichten, waarschuwingen };
 }
+
+// Bijsturen met chat op het paginascherm (24-10-2026), voor elke pagina. Een chatpagina (eigen sjabloon) gebruikt de
+// volledige chat (ook opbouw en vormgeving). Een pagina met een vast sjabloon krijgt alleen tekstwijzigingen; het gesprek
+// staat in de vierde sectie "Eigen sjabloon" met blueprint null, zodat het sjabloon uit de Sjablonen database blijft gelden.
+async function voerBijsturenUit({ pageId, bericht }) {
+  const page = await lpNotion.getPage(pageId);
+  if (eigenSjabloonVan(page)) return voerChatBeurtUit({ klant: page.klant, pageId, bericht });
+  const client = getLpClient(page.klant);
+  const blueprint = await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+  if (!blueprint || blueprint.templateFormat !== 'slots') throw new Error('Bijsturen met chat werkt alleen voor sjablonen in het slot formaat.');
+  const berichten = (page.sjabloon && page.sjabloon.berichten) || [];
+  const campagne = campagneKennis.campagneVan(page);
+  const uit = await chatBouwer.bijstuurBeurt({
+    klant: page.klant, client, page, blueprint, berichten, bericht, campagne,
+    deps: { ai, callOpenAi: ai.callOpenAi, verdeelIconen: ai.verdeelIconen, bouwKlantverhaalBlok: require('../lp/klantverhaal').bouwKlantverhaalBlok }
+  });
+  const waarschuwingen = [];
+  if (uit.onthoud && uit.onthoud.length) {
+    try { await klantgegevens.voegCampagneVoorkeurToe(page.klant, uit.onthoud); } catch (err) { waarschuwingen.push(`De voorkeur kon niet worden bewaard: ${err.message}`); }
+  }
+  const nu = new Date().toISOString();
+  const nieuweBerichten = chatBouwer.voegBerichtenToe(berichten,
+    { rol: 'dylan', tekst: bericht, tijd: nu },
+    { rol: 'ai', tekst: uit.antwoord, actie: uit.actie, tijd: nu });
+  if (uit.actie === 'tekst') {
+    const slotData = uit.slotData || {};
+    await lpNotion.updateSection(page.id, 'content', { ...(page.content || {}), meta: { metaTitle: slotData.metaTitle || '', metaDescription: slotData.metaDescription || '' }, slotData });
+  }
+  await lpNotion.updateSection(page.id, 'sjabloon', { blueprint: null, berichten: nieuweBerichten });
+  return { pageId: page.id, antwoord: uit.antwoord, actie: uit.actie, gewijzigd: uit.gewijzigd || [], berichten: nieuweBerichten, waarschuwingen };
+}
+
+router.post('/pages/:pageId/bijsturen', requireLpInternal, (req, res) => {
+  const pageId = req.params.pageId;
+  const tekst = String((req.body || {}).bericht || '').trim();
+  if (!tekst) return res.status(400).json({ error: 'Typ eerst een bericht.' });
+  if (chatBezigPerPagina.has(pageId)) return res.status(409).json({ error: 'Er loopt al een bericht voor deze pagina. Wacht tot dat klaar is.' });
+  ruimChatTakenOp();
+  const taakId = `chat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  const taak = { status: 'bezig', gestart: Date.now() };
+  chatTaken.set(taakId, taak);
+  chatBezigPerPagina.add(pageId);
+  voerBijsturenUit({ pageId, bericht: tekst.slice(0, 4000) })
+    .then((resultaat) => { taak.status = 'klaar'; taak.resultaat = resultaat; })
+    .catch((err) => { taak.status = 'fout'; taak.fout = err.message; })
+    .finally(() => chatBezigPerPagina.delete(pageId));
+  res.json({ taakId });
+});
 
 // Lijst van chatpagina's van een klant.
 router.get('/chat/lijst', requireLpInternal, async (req, res) => {

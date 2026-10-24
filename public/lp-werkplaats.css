@@ -191,6 +191,18 @@ html #lpKlantgegevensTab .kg-kleurrij input[type="text"] { min-width: 0; flex: 1
 .np-campagne-sjabloon.ok { background: #e8f5ee; color: #14532d; }
 .np-campagne-sjabloon.hidden { display: none; }
 
+/* Bijsturen met chat op het paginascherm (24-10-2026) */
+.pd-chat { display: flex; flex-direction: column; gap: 10px; }
+.pd-chat-berichten { display: flex; flex-direction: column; gap: 8px; max-height: 340px; overflow-y: auto; }
+.pd-chat-berichten.hidden { display: none; }
+.pd-chat-bericht { max-width: 92%; padding: 8px 11px; border-radius: 12px; font-size: 13.5px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pd-chat-bericht.dylan { align-self: flex-end; background: #14142b; color: #fff; border-bottom-right-radius: 4px; }
+.pd-chat-bericht.ai { align-self: flex-start; background: #eef0f6; color: #14142b; border-bottom-left-radius: 4px; }
+.pd-chat-bericht.bezig { color: #545770; font-style: italic; }
+.pd-chat-bericht.fout { background: #fdecee; color: #b0182d; }
+#pdChatTekst { width: 100%; box-sizing: border-box; resize: vertical; min-height: 70px; font: inherit; font-size: 14px; }
+.pd-chat-actie { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
 /* Werkplaats: maandvoortgang, Wacht op jou als rijen, plan alleen met Pagr. */
 .wp-maand-balk { display: flex; height: 12px; border-radius: 999px; overflow: hidden; background: #eef0f6; margin: 10px 0; }
 .wp-maand-balk span { display: block; }

@@ -17,7 +17,8 @@ const paginas = new Map();
 mockModule('../src/lp/notion', {
   createPage: async (args) => { const id = `p${paginas.size + 1}`; paginas.set(id, { id, ...args, status: 'Formulier ingevuld' }); return paginas.get(id); },
   getPage: async (id) => JSON.parse(JSON.stringify(paginas.get(id))),
-  updateSection: async () => {}, listPages: async () => [], setWordpressInfo: async () => {}, setStatus: async () => {}
+  updateSection: async (id, sectie, waarde) => { if (paginas.has(id)) paginas.get(id)[sectie] = JSON.parse(JSON.stringify(waarde)); },
+  listPages: async () => [], setWordpressInfo: async () => {}, setStatus: async () => {}
 });
 const sjablonen = [];
 const gemaakt = [];
@@ -177,5 +178,53 @@ test('route: een SEO/GEO pagina krijgt het campagnesjabloon nooit te zien', asyn
     const r = await post('/pages/begeleiding', { klant: 'macbouw', onderwerp: 'aannemer in Lisse' });
     assert.equal(r.advies.blueprintId, 'locatie');
     assert.doesNotMatch(prompts[0], /Campagnepagina/);
+  });
+});
+
+async function wachtOpTaak(get, taakId) {
+  for (let i = 0; i < 100; i++) {
+    const t = await get(`/chat/taak/${taakId}`);
+    if (t.status !== 'bezig') return t;
+    await new Promise((r) => setTimeout(r, 20));
+  }
+  throw new Error('taak bleef bezig');
+}
+
+test('bijsturen: tekst op een pagina met een vast sjabloon, het sjabloon blijft van de database', async () => {
+  sjablonen.length = 0;
+  paginas.clear();
+  sjablonen.push({ blueprintId: 'campagne', naam: 'Campagnepagina', status: 'Actief' });
+  paginas.set('p1', { id: 'p1', klant: 'macbouw', blueprint: 'campagne', titel: 'Ads aanbouw', invoer: { _soort: 'campagne', _kanaal: 'google', _zoekwoord: 'aanbouw' }, content: { slotData: { heroTitle: 'Oude kop', ctaLabel: 'Vraag offerte aan', ctaHref: '#aanvraag' } }, sjabloon: null });
+  await metServer([
+    { actie: 'tekst', antwoord: 'Kop korter.', slotWijzigingen: { heroTitle: 'Nieuwe kop', onbekend: 'x' } },
+    { actie: 'bouw', antwoord: 'Ik bouw opnieuw.', blueprint: { htmlTemplate: '<p>x</p>' }, slotData: { heroTitle: 'Mag niet' } }
+  ], async ({ post, get, prompts }) => {
+    let t = await wachtOpTaak(get, (await post('/pages/p1/bijsturen', { bericht: 'Maak de kop korter' })).taakId);
+    assert.equal(t.status, 'klaar', JSON.stringify(t));
+    const p = paginas.get('p1');
+    assert.equal(p.content.slotData.heroTitle, 'Nieuwe kop');
+    assert.equal(p.content.slotData.onbekend, undefined);
+    assert.equal(p.sjabloon.blueprint, null);
+    assert.equal(p.sjabloon.berichten.length, 2);
+    assert.match(prompts[0], /DIT IS EEN CAMPAGNEPAGINA/);
+    assert.match(prompts[0], /aanbouw/);
+    t = await wachtOpTaak(get, (await post('/pages/p1/bijsturen', { bericht: 'Bouw alles opnieuw' })).taakId);
+    assert.equal(t.resultaat.actie, 'geen');
+    assert.equal(paginas.get('p1').content.slotData.heroTitle, 'Nieuwe kop');
+    assert.equal(paginas.get('p1').sjabloon.berichten.length, 4);
+    assert.equal((await post('/pages/p1/bijsturen', { bericht: '  ' })).status, 400);
+  });
+});
+
+test('bijsturen: een SEO/GEO pagina krijgt de SEO/GEO regels', async () => {
+  sjablonen.length = 0;
+  paginas.clear();
+  sjablonen.push({ blueprintId: 'locatie', naam: 'Locatiegericht', status: 'Actief', blueprint: campagneBp });
+  paginas.set('p2', { id: 'p2', klant: 'macbouw', blueprint: 'locatie', titel: 'Aannemer Lisse', invoer: {}, content: { slotData: { heroTitle: 'Aannemer in Lisse' } }, sjabloon: null });
+  await metServer([{ actie: 'geen', antwoord: 'Prima zo.' }], async ({ post, get, prompts }) => {
+    const t = await wachtOpTaak(get, (await post('/pages/p2/bijsturen', { bericht: 'Is de kop goed?' })).taakId);
+    assert.equal(t.status, 'klaar', JSON.stringify(t));
+    assert.match(prompts[0], /SEO EN GEO BIJ HET SCHRIJVEN/);
+    assert.doesNotMatch(prompts[0], /DIT IS EEN CAMPAGNEPAGINA/);
   });
 });
