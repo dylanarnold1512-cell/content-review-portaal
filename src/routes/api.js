@@ -90,10 +90,13 @@ router.get('/:clientId/paginas', requireLogin, async (req, res) => {
   try {
     if (!(await pagrToegang(req, res))) return;
     const paginas = await lpNotion.listPages({ klant: req.params.clientId });
-    // De reden van een geplande pagina staat in de invoer. Alleen daarvoor halen we de pagina op, maximaal 25.
+    // De reden van een geplande of live pagina staat in de invoer. Alleen daarvoor halen we de pagina op, maximaal 25, vijf tegelijk.
     const details = {};
-    for (const p of paginas.filter((x) => x.status === 'Idee').slice(0, 25)) {
-      try { details[p.id] = (await lpNotion.getPage(p.id)).invoer || {}; } catch (e) { /* reden blijft leeg */ }
+    const metReden = paginas.filter((x) => x.status === 'Idee' || x.status === 'Gepubliceerd').slice(0, 25);
+    for (let i = 0; i < metReden.length; i += 5) {
+      await Promise.all(metReden.slice(i, i + 5).map(async (p) => {
+        try { details[p.id] = (await lpNotion.getPage(p.id)).invoer || {}; } catch (e) { /* reden blijft leeg */ }
+      }));
     }
     const basis = maakKlantLijst(paginas, details);
     const config = getClient(req.params.clientId);
@@ -107,7 +110,8 @@ router.get('/:clientId/paginas', requireLogin, async (req, res) => {
     res.json({
       paginas: paginasLijst,
       kerncijfers: { ...telKerncijfers(paginasLijst), aiGenoemd: aiMeting.totaal ? aiMeting.totaal.genoemd : null, aiVragen: aiMeting.totaal ? aiMeting.totaal.vragen : null },
-      meting: { google: google.beschikbaar, ai: aiMeting.beschikbaar }
+      meting: { google: google.beschikbaar, ai: aiMeting.beschikbaar },
+      perMaand: typeof instellingen.paginasPerMaand === 'number' ? instellingen.paginasPerMaand : null
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
