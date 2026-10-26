@@ -1,8 +1,6 @@
-// Landingspagina's in het klantportaal (Pagr. stap 5). De klant keurt niets goed: hij ziet welke pagina's er zijn,
-// de stand, waarom een pagina gepland staat en kan een idee aandragen. Google en AI per pagina volgen in stap 6.
+// Landingspagina's in het klantportaal (Pagr.). De klant keurt niets goed: hij ziet in een agenda welke pagina's eraan komen,
+// wat live staat en hoe het scoort, en kan een idee aandragen. Sinds 26-10-2026 als agenda (paginas-agenda.js).
 (function () {
-  const KLASSE = { 'Gepland': 'p-pil-plan', 'In de maak': 'p-pil-ai', 'Ter controle': 'p-pil-let-op', 'Live': 'p-pil-goed' };
-  const VOLGORDE = { 'Live': 0, 'Ter controle': 1, 'In de maak': 2, 'Gepland': 3 };
 
   function esc(t) {
     return String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -31,32 +29,75 @@
     return p.ai.geciteerd > 0 ? `genoemd als bron (${p.ai.geciteerd}x)` : 'nog niet genoemd';
   }
 
-  function tekenLijst(data) {
-    const k = data.kerncijfers;
-    const paginas = [...data.paginas].sort((a, b) => (VOLGORDE[a.stand] - VOLGORDE[b.stand]) || String(b.bijgewerkt).localeCompare(String(a.bijgewerkt)));
-    const rijen = paginas.map((p) => `
-      <tr>
-        <td><strong>${veilig(p.url) ? `<a href="${esc(veilig(p.url))}" target="_blank" rel="noopener">${esc(p.titel)}</a>` : esc(p.titel)}</strong>${p.reden ? `<div class="pg-reden">${esc(p.reden)}</div>` : ''}</td>
-        <td><span class="p-pil ${KLASSE[p.stand] || 'p-pil-neutraal'}">${esc(p.stand)}</span></td>
-        <td class="pg-gemeten">${googleTekst(p, data.meting)}</td>
-        <td class="pg-gemeten">${aiTekst(p, data.meting)}</td>
-        <td>${p.schrijfOp ? `Wordt geschreven rond ${esc(datum(p.schrijfOp))}` : esc(datum(p.stand === 'Live' ? (p.liveDatum || p.bijgewerkt) : p.bijgewerkt))}</td>
-      </tr>`).join('');
-    return `
-      <div class="p-kerncijfers">
-        <div class="p-kerncijfer"><div class="p-kerncijfer-kop">Pagina's live</div><div class="p-kerncijfer-waarde">${k.live}</div><div class="p-kerncijfer-sub">${k.dezeMaandLive} deze maand erbij</div></div>
-        <div class="p-kerncijfer"><div class="p-kerncijfer-kop">In de maak</div><div class="p-kerncijfer-waarde">${k.inDeMaak}</div><div class="p-kerncijfer-sub">wij werken eraan</div></div>
-        <div class="p-kerncijfer"><div class="p-kerncijfer-kop">Gepland</div><div class="p-kerncijfer-waarde">${k.gepland}</div><div class="p-kerncijfer-sub">volgens het plan</div></div>
-        ${k.aiVragen ? `<div class="p-kerncijfer"><div class="p-kerncijfer-kop">AI noemt jullie</div><div class="p-kerncijfer-waarde">${k.aiGenoemd}/${k.aiVragen}</div><div class="p-kerncijfer-sub">vragen waar jullie genoemd worden</div></div>` : ''}
-      </div>
-      <section class="p-kaart pg-kaart">
-        <div class="pg-tabel-wrap">
-          <table class="pg-tabel">
-            <thead><tr><th>Pagina</th><th>Stand</th><th>Google</th><th>AI</th><th>Bijgewerkt</th></tr></thead>
-            <tbody>${rijen || '<tr><td colspan="5" class="pg-gemeten">Er staan nog geen pagina\'s. Zodra het plan is vastgesteld zie je ze hier.</td></tr>'}</tbody>
-          </table>
-        </div>
-      </section>`;
+  // ---- Het tabblad Pagina's als agenda (26-10-2026). Model en HTML staan in paginas-agenda.js. ----
+  const pa = { data: null, filter: 'alles', terugFocus: null };
+  function vandaagIso() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function tekenAgenda() {
+    const root = document.getElementById('paginasInhoud');
+    const A = window.PaginasAgenda;
+    if (!root || !A || !pa.data) return;
+    const vandaag = vandaagIso();
+    const data = pa.data;
+    const model = A.agendaModel(data.paginas, vandaag, { filter: pa.filter, perMaand: data.perMaand });
+    root.innerHTML = A.kerncijfersHtml(data.kerncijfers, A.volgendePagina(data.paginas, vandaag)) +
+      `<div class="pa-raster"><div class="pa-hoofd">${A.agendaHtml(model, data.meting, vandaag)}</div><aside class="pa-zij">${A.planHtml(data.perMaand, vandaag, data.paginas)}</aside></div>` +
+      A.scoreHtml(data.paginas, data.meting);
+  }
+
+  function sluitPaneel() {
+    const el = document.getElementById('paPaneel');
+    if (el) el.remove();
+    document.body.classList.remove('rp-viewer-open');
+    const terug = pa.terugFocus;
+    pa.terugFocus = null;
+    if (terug && document.contains(terug)) terug.focus();
+  }
+
+  function openPaneel(id, bron) {
+    const p = pa.data && pa.data.paginas.find((x) => x.id === id);
+    if (!p) return;
+    sluitPaneel();
+    pa.terugFocus = bron || document.activeElement;
+    document.body.insertAdjacentHTML('beforeend', `<div class="pa-paneel-achter" id="paPaneel"><aside class="pa-paneel" role="dialog" aria-modal="true" aria-labelledby="paPaneelTitel">${window.PaginasAgenda.paneelHtml(p, pa.data.meting)}</aside></div>`);
+    document.body.classList.add('rp-viewer-open');
+    const el = document.getElementById('paPaneel');
+    el.addEventListener('click', (e) => { if (e.target === el || e.target.closest('[data-pa-sluit]')) sluitPaneel(); });
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); sluitPaneel(); return; }
+      if (e.key !== 'Tab') return;
+      const knoppen = Array.from(el.querySelectorAll('a[href], button'));
+      if (!knoppen.length) return;
+      if (e.shiftKey && document.activeElement === knoppen[0]) { e.preventDefault(); knoppen[knoppen.length - 1].focus(); }
+      else if (!e.shiftKey && document.activeElement === knoppen[knoppen.length - 1]) { e.preventDefault(); knoppen[0].focus(); }
+    });
+    const sluit = el.querySelector('[data-pa-sluit]');
+    if (sluit) sluit.focus();
+  }
+
+  function openIdee() {
+    const form = document.getElementById('paginaIdeeForm');
+    if (!form) return;
+    form.classList.remove('hidden');
+    form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const titel = document.getElementById('paginaIdeeTitel');
+    if (titel) titel.focus({ preventScroll: true });
+  }
+
+  function bindAgenda() {
+    const root = document.getElementById('paginasInhoud');
+    if (!root || root.dataset.paGebonden) return;
+    root.dataset.paGebonden = '1';
+    root.addEventListener('click', (e) => {
+      const f = e.target.closest('[data-pa-filter]');
+      if (f) { pa.filter = f.getAttribute('data-pa-filter'); tekenAgenda(); const k = document.querySelector(`[data-pa-filter="${pa.filter}"]`); if (k) k.focus(); return; }
+      const o = e.target.closest('[data-pa-open]');
+      if (o) { openPaneel(o.getAttribute('data-pa-open'), o); return; }
+      if (e.target.closest('[data-pa-idee]')) openIdee();
+    });
   }
 
   async function laad() {
@@ -64,12 +105,15 @@
     if (!root) return;
     const clientId = (typeof state !== 'undefined' && state.clientId) || null;
     if (!clientId) return;
-    root.innerHTML = '<p class="pg-gemeten">Laden...</p>';
+    bindAgenda();
+    if (!pa.data) root.innerHTML = window.PortaalUI ? window.PortaalUI.laden([{ breedte: '100%', hoogte: 90 }, { breedte: '100%', hoogte: 320 }]) : '<p class="pg-gemeten">Laden...</p>';
     try {
-      const data = await api(`/${clientId}/paginas`);
-      root.innerHTML = tekenLijst(data);
+      pa.data = await api(`/${clientId}/paginas`);
+      tekenAgenda();
     } catch (err) {
-      root.innerHTML = `<p class="login-error">${esc(err.message)}</p>`;
+      root.innerHTML = window.PortaalUI
+        ? window.PortaalUI.foutStand({ titel: "De pagina's laden even niet", tekst: 'De rest van het portaal werkt gewoon. Probeer het straks opnieuw.' })
+        : `<p class="login-error">${esc(err.message)}</p>`;
     }
   }
 
