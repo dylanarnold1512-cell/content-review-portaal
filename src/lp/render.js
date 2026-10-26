@@ -209,8 +209,24 @@ function collectSlotSchemas(slotData) {
 
 // De verplichte wrapper voor het WordPress content-veld. Los aanroepbaar
 // gehouden zodat andere publicatiecode 'm ook kan gebruiken zonder blokken.
+// WordPress (wpautop) maakt van regelovergangen tussen tags losse <p></p> of <br>. Dat verschuift
+// grid- en flexitems (bv. een stappenlijst met een nummer en een tekstblok). Daarom vervangen we een
+// regelovergang tussen twee tags door een gewone spatie. Scripts, stijlen, pre en textarea blijven
+// ongemoeid.
+function voorkomWpautopAlinea(html) {
+  const beschermd = /(<(script|style|pre|textarea)\b[\s\S]*?<\/\2>)/gi;
+  return String(html)
+    .split(beschermd)
+    .map((deel, i, delen) => {
+      if (i % 3 === 1) return deel;
+      if (i % 3 === 2) return '';
+      return deel.replace(/>[ \t]*\r?\n\s*</g, '> <');
+    })
+    .join('');
+}
+
 function wrapForWordPress(html) {
-  return `<!-- wp:html -->\n${html}\n<!-- /wp:html -->`;
+  return `<!-- wp:html -->\n${voorkomWpautopAlinea(html)}\n<!-- /wp:html -->`;
 }
 
 module.exports = { renderPageHtml, wrapForWordPress };

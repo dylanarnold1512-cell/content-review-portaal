@@ -57,3 +57,11 @@ test('het eerste blok binnen de pagina krijgt altijd de volle breedte, ook als h
   assert.match(css, /html body \.lp-root-x > \*/);
   assert.match(css, /max-width: none !important/);
 });
+
+test('wrapForWordPress: regelovergangen tussen tags worden spaties, scripts blijven intact', () => {
+  const { wrapForWordPress } = require('../src/lp/render');
+  const uit = wrapForWordPress('<li>\n  <span>1</span>\n  <div>x</div>\n</li>\n<script>\nvar a=1;\n</script>');
+  assert.ok(uit.includes('<li> <span>1</span> <div>x</div> </li>'));
+  assert.ok(uit.includes('<script>\nvar a=1;\n</script>'));
+  assert.ok(!uit.includes('</script>script'));
+});
