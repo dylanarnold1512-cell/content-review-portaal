@@ -1,230 +1,230 @@
-// Rapportages: vaste maandrapporten (snapshots) die n8n op de 4e van de maand
-// vastlegt. Hier wordt alleen getekend, er wordt niets opnieuw berekend.
-// Alles wat uit data komt gaat door rpEsc.
+// Maandrapporten: vaste maandrapporten (snapshots) die n8n op de 4e van de maand vastlegt.
+// Het tabblad toont de rapporten als documenten. Een klik opent het rapport als document in een venster,
+// met downloaden (PDF van de server) en afdrukken. Hier wordt alleen getekend, er wordt niets opnieuw berekend.
+// De opmaak van het document zelf staat in rapport-document.js. Alles wat uit data komt gaat door rpEsc.
 (function () {
-  const rp = { lijst: null, huidig: null, gevraagd: null };
+  const rp = { lijst: [], cache: {}, ai: undefined, gevraagd: null, open: null, terugFocus: null };
 
   function rpEsc(v) {
     return String(v === null || v === undefined ? '' : v)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
-  const nl = (n) => Number(n).toLocaleString('nl-NL');
-  const nl1 = (n) => Number(n).toLocaleString('nl-NL', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-  const dat = (iso) => {
-    if (!iso) return '';
-    const d = new Date(String(iso).slice(0, 10) + 'T00:00:00');
-    return d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
-  };
-
   const F = () => window.PortaalFormat;
   const U = () => window.PortaalUI;
-  let alleBlogs = false;
-  let alleVooruit = false;
-  let alleZoek = false;
+  const D = () => window.RapportDocument;
+  const el = (id) => document.getElementById(id);
+  const hoofdletter = (t) => String(t || '').charAt(0).toUpperCase() + String(t || '').slice(1);
 
-  function blogTabel(blogs) {
-    const metCijfers = blogs.filter((b) => (b.vertoningen || 0) > 0 || (b.clicks || 0) > 0);
-    const zonder = blogs.length - metCijfers.length;
-    const getoond = alleBlogs ? blogs : metCijfers;
-    if (!getoond.length) return U().legeStand({ soort: 'wacht', titel: 'Geen blogs met cijfers in deze maand', tekst: 'Zodra Google een blog toont, staat hij hier.' });
-    const rijen = getoond.map((b) => `<tr><td>${b.url ? `<a href="${rpEsc(b.url)}" target="_blank" rel="noopener">${rpEsc(b.titel)}</a>` : rpEsc(b.titel)}</td><td class="rp-num">${rpEsc(F().getal(b.vertoningen || 0))}</td><td class="rp-num">${rpEsc(F().getal(b.clicks || 0))}</td></tr>`).join('');
-    return `<div class="ai-tabel-wrap"><table class="ai-tabel rp-tabel"><thead><tr><th>Blog</th><th class="rp-num">Getoond</th><th class="rp-num">Bezoekers</th></tr></thead><tbody>${rijen}</tbody></table></div>` +
-      (zonder > 0 ? `<button type="button" class="pv-toggle" id="rpAlleBlogs">${alleBlogs ? 'Verberg de blogs zonder cijfers' : `Toon ook de blogs zonder cijfers (${zonder})`}</button>` : '');
+  const ICOON = {
+    oog: '<svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+    download: '<svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>',
+    print: '<svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg>',
+    sluit: '<svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+    bestand: '<svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>',
+    klok: '<svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+    slot: '<svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>'
+  };
+
+  function pdfUrl(maand) {
+    return `/api/${encodeURIComponent(state.clientId)}/rapporten/${encodeURIComponent(maand)}/pdf`;
+  }
+  function klantNaam() {
+    const k = el('clientName');
+    return k ? k.textContent.trim() : '';
+  }
+  function vandaag() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  // Een rapport heet nieuw als het minder dan 35 dagen geleden is vastgelegd.
+  function isNieuw(aangemaakt) {
+    const t = Date.parse(String(aangemaakt || '').slice(0, 10) + 'T00:00:00');
+    return Number.isFinite(t) && (Date.now() - t) < 35 * 86400000;
   }
 
-  function vooruitblik(lijst) {
-    if (!lijst.length) {
-      return U().legeStand({ soort: 'wacht', titel: 'Nog geen onderbouwde kansen', tekst: 'Zodra Search Console genoeg data heeft, staat hier wat we gaan oppakken.' });
+  async function haalRapport(maand) {
+    if (!rp.cache[maand]) {
+      rp.cache[maand] = api(`/${state.clientId}/rapporten/${encodeURIComponent(maand)}`).catch((err) => { delete rp.cache[maand]; throw err; });
     }
-    const zichtbaar = alleVooruit ? lijst : lijst.slice(0, 3);
-    return '<div class="rp-punten">' + zichtbaar.map((p) => `<div class="rp-punt"><div class="pv-ins-titel">${rpEsc(p.titel)}</div><div class="pv-ins-tekst">${rpEsc(p.tekst)}</div></div>`).join('') + '</div>' +
-      (lijst.length > 3 ? `<button type="button" class="pv-toggle" id="rpAlleVooruit">${alleVooruit ? 'Toon minder' : `Toon alle ${lijst.length}`}</button>` : '');
+    return rp.cache[maand];
+  }
+  async function haalAi() {
+    if (rp.ai === undefined) rp.ai = api(`/${state.clientId}/ai-zichtbaarheid`).catch(() => null);
+    return rp.ai;
   }
 
-  function zoekKaart(r) {
-    if (!window.Zoekwoorden) return '';
-    const lijst = window.Zoekwoorden.samenvoegen(r.blogs, 'vertoningen');
-    if (!lijst.length) return '';
-    return U().kaart({ titel: `Zoekwoorden in ${r.label}`, uitleg: 'Waar mensen op zochten toen ze jullie blogs in Google zagen. Een lage positie is beter.', inhoud: window.Zoekwoorden.html(lijst, { aantal: 8, alle: alleZoek }) });
-  }
+  const KOP = `<div class="p-ov-kop"><div><h1>Maandrapporten</h1><p>Elke maand zetten we jullie resultaten vast in een rapport. Open een rapport om het te lezen, of download het als PDF om te delen.</p></div></div>`;
 
-  // Een zin met aantallen van wat er in de maand is gedaan. Leeg als er niets te melden is.
-  function gedaanKaart(g, label) {
-    if (!g) return '';
-    const delen = [];
-    if (g.nieuweBlogs) delen.push(g.nieuweBlogs + (g.nieuweBlogs === 1 ? ' nieuwe blog' : ' nieuwe blogs'));
-    if (g.aangevuld) delen.push(g.aangevuld + (g.aangevuld === 1 ? ' bestaande blog aangevuld' : ' bestaande blogs aangevuld'));
-    if (g.internelinks) delen.push(g.internelinks + (g.internelinks === 1 ? ' interne link toegevoegd' : ' interne links toegevoegd'));
-    if (!delen.length) return '';
-    return U().kaart({ titel: `Wat we deden in ${label}`, inhoud: `<div class="rp-tekst"><p>${rpEsc(delen.join(' en '))}.</p></div>` });
-  }
-
-  function effectenKaart(e, label) {
-    if (!e || !e.items || !e.items.length) return '';
-    return U().kaart({ titel: 'Wat hebben we gedaan en wat was het effect', uitleg: `Metingen die in ${label} zijn gedaan. Het zijn gemeten cijfers uit Google. Ze laten niet zien wat de oorzaak was.`,
-      inhoud: e.items.map((i) => `<div class="pv-effect-item"><div><span class="pv-effect-soort">${rpEsc(i.soortLabel)}</span>${i.datum ? `<span class="pv-muted"> ${rpEsc(F().datumLang(i.datum))}</span>` : ''}</div><div class="pv-ins-titel">${rpEsc(i.titel)}</div>${i.regels.map((x) => `<div class="pv-ins-tekst">${rpEsc(x)}</div>`).join('')}</div>`).join('') });
-  }
-
-  function vorigeMaand(maand) {
-    const m = /^(\d{4})-(\d{2})$/.exec(maand || '');
-    if (!m) return '';
-    const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 2, 1));
-    return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
-  }
-
-  // Telt de wekelijkse AI metingen die in een kalendermaand beginnen.
-  function aiMaand(ai, maand) {
-    if (!ai || !Array.isArray(ai.trend)) return null;
-    const weken = ai.trend.filter((w) => w && String(w.weekStart || '').slice(0, 7) === maand);
-    if (!weken.length) return null;
-    const per = {};
-    let antwoorden = 0;
-    let genoemd = 0;
-    weken.forEach((w) => {
-      Object.keys(w.platformen || {}).forEach((id) => {
-        const x = w.platformen[id] || {};
-        per[id] = per[id] || { antwoorden: 0, genoemd: 0 };
-        per[id].antwoorden += x.antwoorden || 0;
-        per[id].genoemd += x.genoemd || 0;
-        antwoorden += x.antwoorden || 0;
-        genoemd += x.genoemd || 0;
-      });
-    });
-    if (!antwoorden) return null;
-    return { weken: weken.length, antwoorden, genoemd, percentage: Math.round((genoemd / antwoorden) * 100), per };
-  }
-
-  function aiGegevens(ai, r) {
-    if (!ai || ai.beschikbaar === false) return null;
-    const nu = aiMaand(ai, r.maand);
-    const vorig = aiMaand(ai, vorigeMaand(r.maand));
-    return { ai, nu, vorig };
-  }
-
-  function aiKaart(g, label) {
-    if (!g) return '';
-    if (!g.nu) {
-      return U().kaart({ titel: `AI zichtbaarheid in ${label}`, inhoud: U().legeStand({ soort: 'wacht', titel: 'In deze maand is nog niet gemeten', tekst: 'We stellen elke week dezelfde vragen aan ChatGPT en Gemini. De metingen verschijnen hier zodra ze er zijn.' }) });
-    }
-    const namen = {};
-    (g.ai.platformen || []).forEach((p) => { if (p && p.id) namen[p.id] = p.label || p.id; });
-    const regels = Object.keys(g.nu.per).map((id) => {
-      const x = g.nu.per[id];
-      const pct = x.antwoorden ? Math.round((x.genoemd / x.antwoorden) * 100) : 0;
-      return `<div class="rp-ai-rij"><div class="rp-ai-naam">${rpEsc(namen[id] || id)}</div><div class="rp-ai-balk"><span style="width:${Math.min(100, pct)}%"></span></div><div class="rp-ai-pct">${pct}%</div><div class="rp-ai-sub">${x.genoemd} van ${x.antwoorden} antwoorden</div></div>`;
-    }).join('');
-    let vergelijking = '';
-    if (g.vorig) {
-      const d = g.nu.percentage - g.vorig.percentage;
-      vergelijking = d === 0 ? `Even hoog als de maand ervoor (${g.vorig.percentage}%).`
-        : `${Math.abs(d)} procentpunt ${d > 0 ? 'hoger' : 'lager'} dan de maand ervoor (${g.vorig.percentage}%).`;
-    } else {
-      vergelijking = 'Er is nog geen vorige maand om mee te vergelijken.';
-    }
-    const klein = g.nu.antwoorden < 100 ? ' Het gaat om een beperkt aantal antwoorden, dus kleine verschillen zeggen nog weinig.' : '';
-    return U().kaart({ titel: `AI zichtbaarheid in ${label}`, uitleg: 'Hoe vaak ChatGPT en Gemini jullie merk noemen bij vragen die jullie klanten stellen.',
-      inhoud: `<p class="rp-ai-zin"><strong>AI noemde jullie merk in ${g.nu.percentage}% van de antwoorden.</strong> ${rpEsc(vergelijking)}${rpEsc(klein)}</p><div class="rp-ai">${regels}</div><div class="pv-muted">${g.nu.weken} ${g.nu.weken === 1 ? 'meting' : 'metingen'} in ${rpEsc(label)}, ${g.nu.antwoorden} antwoorden in totaal.</div>` });
-  }
-
-  function renderRapport(r, g) {
-    const Fm = F();
-    const t = r.totalen || {};
-    const vNu = t.vertoningen || 0;
-    const regel = vNu > 0 ? `In ${r.label} stonden jullie blogs ${Fm.getal(vNu)} keer in Google` : `In ${r.label} werden jullie blogs nog niet getoond in Google`;
-    const vorig = (v) => (v === null || v === undefined ? '' : Fm.getal(v) + ' in de maand ervoor');
-    const lijst = [
-      { label: 'Keer getoond in Google', icoon: 'oog', waarde: Fm.getal(vNu), verschil: Fm.verschil(vNu, t.vertoningen_vorig), vergelijking: vorig(t.vertoningen_vorig) },
-      { label: 'Bezoekers vanuit Google', icoon: 'mensen', waarde: Fm.getal(t.clicks || 0), verschil: Fm.verschil(t.clicks || 0, t.clicks_vorig), vergelijking: vorig(t.clicks_vorig) }
-    ];
-    if (t.paginaweergaven !== null && t.paginaweergaven !== undefined) lijst.push({ label: 'Paginaweergaven', icoon: 'blad', waarde: Fm.getal(t.paginaweergaven), vergelijking: 'Gemeten in Google Analytics' });
-    if (t.hk_positie_gemiddeld !== null && t.hk_positie_gemiddeld !== undefined) lijst.push({ label: 'Positie hoofdzoekwoorden', icoon: 'grafiek', waarde: Fm.decimaal(t.hk_positie_gemiddeld, 1), vergelijking: 'Gemiddelde positie. Lager is beter.' });
-    if (g && g.nu) lijst.push({ label: 'AI noemt jullie', icoon: 'ai', waarde: g.nu.percentage + '%', vergelijking: g.vorig ? `${g.vorig.percentage}% in de maand ervoor` : 'van de antwoorden' });
-    const nieuw = r.nieuweBlogs.length
-      ? `<ul class="rp-lijst">${r.nieuweBlogs.map((b) => `<li>${rpEsc(b.titel)}${b.datum ? ` <span class="pv-muted">(${rpEsc(Fm.datumLang(b.datum))})</span>` : ''}</li>`).join('')}</ul>`
-      : U().legeStand({ soort: 'neutraal', titel: 'Geen nieuwe blogs', tekst: 'Er zijn deze maand geen nieuwe blogs live gegaan.' });
-    const status = `<section class="p-kaart p-ov-status" data-toon="goed"><div class="p-ov-status-hoofd"><div class="p-ov-status-regel"><span class="p-ov-puls"></span>${rpEsc(regel)}</div>
-      <p>${rpEsc(r.voortgang || 'Dit rapport ligt vast. De cijfers veranderen niet meer.')}</p></div>
-      <div class="p-ov-status-volgend"><div class="p-ov-volgend"><span class="p-ov-lbl">Nieuwe blogs</span><span class="p-ov-val">${r.nieuweBlogs.length}</span><span class="p-ov-txt">in ${rpEsc(r.label)}</span></div>
-      <div class="p-ov-volgend"><span class="p-ov-lbl">Vastgelegd op</span><span class="p-ov-val">${rpEsc(r.aangemaakt ? Fm.datumKort(r.aangemaakt) : '')}</span><span class="p-ov-txt">Staat vast</span></div></div></section>`;
-    const terug = r.terugblik.length ? r.terugblik.map((a) => `<p>${rpEsc(a)}</p>`).join('') : '<p class="pv-muted">Voor deze maand is geen toelichting beschikbaar.</p>';
-    return `${status}
-      <section class="p-kerncijfers${lijst.length === 5 ? ' rp-vijf' : ''}">${lijst.map((x) => U().kerncijfer(x)).join('')}</section>
-      <div class="p-ov-raster2">
-        <div class="p-ov-stapel">
-          ${U().kaart({ titel: `Terugblik op ${r.label}`, inhoud: `<div class="rp-tekst">${terug}</div>` })}
-          ${aiKaart(g, r.label)}
-          ${zoekKaart(r)}
-          ${U().kaart({ titel: 'Blogs met de meeste vertoningen', inhoud: blogTabel(r.blogs) })}
-        </div>
-        <div class="p-ov-stapel">
-          ${gedaanKaart(r.gedaan, r.label)}
-          ${U().kaart({ titel: `Nieuwe blogs in ${r.label}`, inhoud: nieuw })}
-          ${effectenKaart(r.effecten, r.label)}
-          ${U().kaart({ titel: 'Vooruitblik', inhoud: vooruitblik(r.vooruitblik) })}
+  // Het nieuwste rapport groot bovenaan. De cijfers komen erbij zodra het rapport geladen is.
+  function uitgelicht(x, r, g) {
+    const label = x.label;
+    const nieuw = isNieuw(x.aangemaakt) ? '<span class="p-pil p-pil-goed">Nieuw</span>' : '';
+    const cijfers = r ? D().kerncijfers(r, g) : null;
+    const zin = r ? `${D().kernzin(r)}.` : '';
+    const nieuweBlogs = r ? (r.nieuweBlogs || []).length : 0;
+    const strook = r
+      ? `<div class="rp-uit-cijfers">${cijfers.slice(0, 2).map((c) => `<div><b>${rpEsc(c.waarde)}</b><span>${rpEsc(c.label)}</span></div>`).join('')}<div><b>${rpEsc(F().getal(nieuweBlogs))}</b><span>${nieuweBlogs === 1 ? 'nieuwe blog' : 'nieuwe blogs'}</span></div></div>`
+      : U().laden([{ breedte: '70%', hoogte: 18 }, { breedte: '50%', hoogte: 44 }]);
+    return `<section class="p-kaart rp-uit" aria-labelledby="rpUitTitel">
+      <button type="button" class="rp-uit-papier" data-rp-open="${rpEsc(x.maand)}" aria-label="Open maandrapport ${rpEsc(label)}">${D().miniatuur({ label }, cijfers)}</button>
+      <div class="rp-uit-tekst">
+        <div class="rp-uit-meta">${nieuw}<span>${x.aangemaakt ? `Vastgelegd op ${rpEsc(F().datumLang(x.aangemaakt))}` : 'Vastgelegd'}</span></div>
+        <h2 id="rpUitTitel">Maandrapport ${rpEsc(label)}</h2>
+        ${zin ? `<p>${rpEsc(zin)}</p>` : ''}
+        ${strook}
+        <div class="rp-uit-acties">
+          <button type="button" class="p-knop p-knop-donker" data-rp-open="${rpEsc(x.maand)}">${ICOON.oog}Rapport openen</button>
+          <a class="p-knop" href="${rpEsc(pdfUrl(x.maand))}" download>${ICOON.download}Download PDF</a>
         </div>
       </div>
-      <div class="pv-muted pv-footer">${rpEsc(r.bron || '')}${r.aangemaakt ? `. Vastgelegd op ${rpEsc(Fm.datumLang(r.aangemaakt))}. Deze cijfers staan vast en veranderen niet meer.` : ''}</div>`;
+    </section>`;
   }
 
-  function el(id) { return document.getElementById(id); }
-
-  function bindRapport(inhoud) {
-    const blogs = el('rpAlleBlogs');
-    if (blogs) blogs.addEventListener('click', () => { alleBlogs = !alleBlogs; inhoud.innerHTML = renderRapport(rp.huidig, rp.ai); bindRapport(inhoud); });
-    const zoek = inhoud.querySelector('[data-zw-meer]');
-    if (zoek) zoek.addEventListener('click', () => { alleZoek = !alleZoek; inhoud.innerHTML = renderRapport(rp.huidig, rp.ai); bindRapport(inhoud); });
-    const vooruit = el('rpAlleVooruit');
-    if (vooruit) vooruit.addEventListener('click', () => { alleVooruit = !alleVooruit; inhoud.innerHTML = renderRapport(rp.huidig, rp.ai); bindRapport(inhoud); });
+  function kaart(x) {
+    return `<div class="rp-doc-kaart">
+      <button type="button" class="rp-doc-papier" data-rp-open="${rpEsc(x.maand)}" aria-label="Open maandrapport ${rpEsc(x.label)}">${D().miniatuur({ label: x.label })}</button>
+      <div class="rp-doc-onder">
+        <div class="rp-doc-tekst"><b>${rpEsc(hoofdletter(x.label))}</b><span>${x.aangemaakt ? `Vastgelegd op ${rpEsc(F().datumKort(x.aangemaakt))}` : 'Vastgelegd'}</span></div>
+        <a class="rp-icoonknop" href="${rpEsc(pdfUrl(x.maand))}" download aria-label="Download maandrapport ${rpEsc(x.label)} als PDF">${ICOON.download}</a>
+      </div>
+    </div>`;
   }
 
-  async function toon(maand) {
+  function komtKaart(v) {
+    if (!v) return '';
+    return `<div class="rp-doc-kaart rp-doc-komt">
+      <div class="rp-doc-papier rp-doc-papier-leeg"><div class="rp-mini-leegvel">${ICOON.klok}<span>${v.loopt ? 'Loopt nog' : 'Wordt gemaakt'}</span></div></div>
+      <div class="rp-doc-onder"><div class="rp-doc-tekst"><b>${rpEsc(hoofdletter(v.label))}</b><span>Klaar op ${rpEsc(v.verschijntTekst)}</span></div></div>
+    </div>`;
+  }
+
+  function renderOverzicht(nieuwste, g) {
     const inhoud = el('rapportenInhoud');
-    alleBlogs = false;
-    alleVooruit = false;
-    alleZoek = false;
-    inhoud.innerHTML = U().laden([{ breedte: '100%', hoogte: 120 }, { breedte: '100%', hoogte: 90 }, { breedte: '100%', hoogte: 200 }]);
+    const v = D().volgendRapport(rp.lijst[0].maand, vandaag());
+    const jaren = {};
+    rp.lijst.forEach((x) => { const j = String(x.maand).slice(0, 4); (jaren[j] = jaren[j] || []).push(x); });
+    const jaarLijst = Object.keys(jaren).sort().reverse();
+    const blokken = jaarLijst.map((j, i) => `<section class="rp-alle" aria-labelledby="rpJaar${rpEsc(j)}">
+      <div class="rp-alle-kop"><h2 id="rpJaar${rpEsc(j)}">${i === 0 ? 'Alle rapporten' : rpEsc(j)}</h2>${i === 0 ? `<span>${rpEsc(j)}</span>` : ''}</div>
+      <div class="rp-doc-raster">${i === 0 ? komtKaart(v && String(v.maand).slice(0, 4) === j ? v : null) : ''}${jaren[j].map(kaart).join('')}</div>
+    </section>`).join('');
+    inhoud.innerHTML = `${uitgelicht(rp.lijst[0], nieuwste, g)}${blokken}
+      <p class="rp-slot">${ICOON.slot}<span>Een vastgelegd rapport verandert niet meer. De actuele cijfers zie je altijd onder Google.</span></p>`;
+  }
+
+  // ---------- Het rapport als document in een venster ----------
+
+  function viewerHtml(x) {
+    return `<div class="rp-viewer" id="rpViewer" role="dialog" aria-modal="true" aria-labelledby="rpViewerTitel">
+      <div class="rp-viewer-doos">
+        <div class="rp-viewer-balk">
+          <span class="rp-viewer-icoon">${ICOON.bestand}</span>
+          <div class="rp-viewer-naam"><div id="rpViewerTitel">Maandrapport ${rpEsc(x.label)}</div><div class="rp-viewer-sub" id="rpViewerSub">${rpEsc(klantNaam())}${x.aangemaakt ? ` · vastgelegd op ${rpEsc(F().datumLang(x.aangemaakt))}` : ''}</div></div>
+          <a class="p-knop p-knop-donker" href="${rpEsc(pdfUrl(x.maand))}" download>${ICOON.download}<span>Download PDF</span></a>
+          <button type="button" class="rp-icoonknop" id="rpPrint" aria-label="Afdrukken">${ICOON.print}</button>
+          <button type="button" class="rp-icoonknop" id="rpSluit" aria-label="Sluiten">${ICOON.sluit}</button>
+        </div>
+        <div class="rp-viewer-vel" id="rpViewerVel" tabindex="-1">
+          <div class="rd-pagina rd-pagina-laden">${U().laden([{ breedte: '30%', hoogte: 22 }, { breedte: '70%', hoogte: 34 }, { breedte: '100%', hoogte: 70 }, { breedte: '100%', hoogte: 90 }, { breedte: '100%', hoogte: 160 }])}</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function sluitViewer() {
+    const v = el('rpViewer');
+    if (v) v.remove();
+    document.body.classList.remove('rp-viewer-open');
+    rp.open = null;
+    const terug = rp.terugFocus;
+    rp.terugFocus = null;
+    if (terug && document.contains(terug)) terug.focus();
+  }
+
+  // Houdt de focus binnen het venster zolang het open is.
+  function houdFocus(e) {
+    if (e.key === 'Escape') { e.preventDefault(); sluitViewer(); return; }
+    if (e.key !== 'Tab') return;
+    const v = el('rpViewer');
+    const knoppen = Array.from(v.querySelectorAll('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'));
+    if (!knoppen.length) return;
+    const eerste = knoppen[0];
+    const laatste = knoppen[knoppen.length - 1];
+    if (e.shiftKey && document.activeElement === eerste) { e.preventDefault(); laatste.focus(); }
+    else if (!e.shiftKey && document.activeElement === laatste) { e.preventDefault(); eerste.focus(); }
+  }
+
+  async function openRapport(maand, bron) {
+    const x = rp.lijst.find((r) => r.maand === maand);
+    if (!x) return;
+    if (el('rpViewer')) sluitViewer();
+    rp.open = maand;
+    rp.terugFocus = bron || document.activeElement;
+    document.body.insertAdjacentHTML('beforeend', viewerHtml(x));
+    document.body.classList.add('rp-viewer-open');
+    const v = el('rpViewer');
+    v.addEventListener('keydown', houdFocus);
+    v.addEventListener('click', (e) => { if (e.target === v) sluitViewer(); });
+    el('rpSluit').addEventListener('click', sluitViewer);
+    el('rpPrint').addEventListener('click', () => window.print());
+    el('rpSluit').focus();
+    const vel = el('rpViewerVel');
     try {
-      const [rapport, ai] = await Promise.all([
-        api(`/${state.clientId}/rapporten/${encodeURIComponent(maand)}`),
-        api(`/${state.clientId}/ai-zichtbaarheid`).catch(() => null)
-      ]);
-      rp.huidig = rapport;
-      rp.ai = aiGegevens(ai, rapport);
-      inhoud.innerHTML = renderRapport(rp.huidig, rp.ai);
-      bindRapport(inhoud);
+      const [r, ai] = await Promise.all([haalRapport(maand), haalAi()]);
+      if (rp.open !== maand || !el('rpViewer')) return;
+      const g = D().aiGegevens(ai, r);
+      vel.innerHTML = D().documentHtml(r, g, klantNaam());
+      const aantal = vel.querySelectorAll('.rd-pagina').length;
+      const sub = el('rpViewerSub');
+      if (sub) sub.textContent = `${klantNaam()}${klantNaam() ? ' · ' : ''}${aantal} ${aantal === 1 ? 'pagina' : "pagina's"}${r.aangemaakt ? ` · vastgelegd op ${F().datumLang(r.aangemaakt)}` : ''}`;
     } catch (err) {
-      inhoud.innerHTML = U().foutStand({ titel: 'Dit maandrapport laadt even niet', tekst: 'De rest van het portaal werkt gewoon. Probeer het straks opnieuw.' });
+      if (rp.open !== maand || !el('rpViewer')) return;
+      vel.innerHTML = `<div class="rd-pagina rd-pagina-fout">${U().foutStand({ titel: 'Dit maandrapport laadt even niet', tekst: 'De rest van het portaal werkt gewoon. Probeer het straks opnieuw, of download de PDF.' })}</div>`;
     }
   }
 
-  const KOP = (acties) => `<div class="p-ov-kop"><div><h1>Maandrapporten</h1><p>Een maandrapport ligt vast: de cijfers veranderen niet meer. De laatste stand zie je altijd bij Google.</p></div><div class="p-ov-kop-acties">${acties || ''}</div></div>`;
+  function bindOverzicht() {
+    const inhoud = el('rapportenInhoud');
+    if (inhoud.dataset.rpGebonden) return;
+    inhoud.dataset.rpGebonden = '1';
+    inhoud.addEventListener('click', (e) => {
+      const knop = e.target.closest('[data-rp-open]');
+      if (!knop) return;
+      openRapport(knop.getAttribute('data-rp-open'), knop);
+    });
+  }
 
   async function laad() {
     const kop = el('rapportenKop');
     const inhoud = el('rapportenInhoud');
+    kop.innerHTML = KOP;
+    bindOverzicht();
     try {
       const data = await api(`/${state.clientId}/rapporten`);
       rp.lijst = data.rapporten || [];
     } catch (err) {
-      kop.innerHTML = KOP('');
       inhoud.innerHTML = U().foutStand({ titel: 'De maandrapporten laden even niet', tekst: 'De rest van het portaal werkt gewoon. Probeer het straks opnieuw.' });
       return;
     }
     if (!rp.lijst.length) {
-      kop.innerHTML = KOP('');
       inhoud.innerHTML = U().kaart({ inhoud: U().legeStand({ soort: 'wacht', titel: 'Het eerste maandrapport volgt', tekst: 'Het verschijnt op de 4e van de volgende maand, met een terugblik, de cijfers die vastliggen en een vooruitblik.' }) });
       return;
     }
-    const gekozen = rp.lijst.some((x) => x.maand === rp.gevraagd) ? rp.gevraagd : rp.lijst[0].maand;
+    renderOverzicht(null, null);
+    // Een link uit de maandrapport mail (/slug/rapportages/2026-09) opent dat rapport meteen.
+    const gevraagd = rp.lijst.some((x) => x.maand === rp.gevraagd) ? rp.gevraagd : null;
     rp.gevraagd = null;
-    kop.innerHTML = KOP(`<label class="rp-kies"><span>Maand</span><select id="rapportKeuze" aria-label="Kies een maand">${rp.lijst.map((x) => `<option value="${rpEsc(x.maand)}"${x.maand === gekozen ? ' selected' : ''}>${rpEsc(x.label)}</option>`).join('')}</select></label><button type="button" class="p-knop" id="rpPdf">Download als PDF</button>`);
-    el('rpPdf').addEventListener('click', () => {
-      if (!rp.huidig) return;
-      window.location.href = `/api/${encodeURIComponent(state.clientId)}/rapporten/${encodeURIComponent(rp.huidig.maand)}/pdf`;
-    });
-    el('rapportKeuze').addEventListener('change', (e) => toon(e.target.value));
-    toon(gekozen);
+    if (gevraagd) openRapport(gevraagd, null);
+    try {
+      const [r, ai] = await Promise.all([haalRapport(rp.lijst[0].maand), haalAi()]);
+      renderOverzicht(r, D().aiGegevens(ai, r));
+    } catch (err) {
+      // Het overzicht werkt ook zonder de cijfers van het nieuwste rapport.
+      renderOverzicht(null, null);
+      const uit = inhoud.querySelector('.rp-uit-tekst .p-laden');
+      if (uit) uit.remove();
+    }
   }
 
   window.loadRapportages = function (maand) {
