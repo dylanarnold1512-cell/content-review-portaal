@@ -276,6 +276,7 @@ test('campagnesjabloon heeft geen eigen invoervelden en de AI schrijft vrij', ()
   assert.match(ck.CAMPAGNE_CONTENT_REGELS, /Jij bepaalt hoe de pagina wordt/);
   assert.match(ck.CAMPAGNE_CONTENT_REGELS, /Verzin geen harde gegevens/);
   assert.match(ck.CAMPAGNE_SJABLOON_REGELS, /minmax\(0, 1fr\)/);
+  assert.match(ck.CAMPAGNE_SJABLOON_REGELS, /verdwijnen helemaal als hun slot leeg is/);
   assert.match(ck.bouwCampagneBlok({ kanaal: 'google', zoekwoord: '', aanbieding: '' }), /opdracht aan jou en geen tekst om over te nemen/);
 });
 
