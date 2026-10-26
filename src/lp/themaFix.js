@@ -27,6 +27,9 @@ function themaCss(rootClass) {
 body:has(.${rootClass}) { overflow-x: clip; }
 .${rootClass} { width: 100vw; max-width: 100vw; margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw); }
 html body .${rootClass} > * { max-width: none !important; width: 100% !important; margin-left: 0 !important; margin-right: 0 !important; }
+/* Vangnet: WordPress (wpautop) kan lege alinea's of regeleinden tussen blokken zetten. In een grid of flex wordt zo'n leeg element een extra kolom of cel (reviews staan dan niet in het midden, stappen lijnen niet uit). */
+.${rootClass} p:empty { display: none; }
+.${rootClass} :where(div, ul, ol, section)[class] > br { display: none; }
 </style>`;
 }
 

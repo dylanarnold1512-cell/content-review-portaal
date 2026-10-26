@@ -65,3 +65,9 @@ test('wrapForWordPress: regelovergangen tussen tags worden spaties, scripts blij
   assert.ok(uit.includes('<script>\nvar a=1;\n</script>'));
   assert.ok(!uit.includes('</script>script'));
 });
+
+test('themaCss: lege alinea en br als direct kind van een blok worden verborgen (wpautop vangnet)', () => {
+  const css = themaCss('lpt');
+  assert.ok(css.includes('.lpt p:empty { display: none; }'));
+  assert.ok(css.includes('> br { display: none; }'));
+});
