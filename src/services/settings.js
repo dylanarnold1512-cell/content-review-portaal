@@ -94,6 +94,7 @@ async function fetchAllFromNotion() {
         paginameting: Boolean(props['Paginameting']?.checkbox),
         internAutomatisering: Boolean(props['Automatisering intern']?.checkbox),
         searchConsoleSite: (props['Search Console site']?.rich_text || []).map((t) => t.plain_text).join('').trim(),
+        laatsteLogin: props['Laatste login']?.date?.start || '',
         productenIngesteld: PRODUCT_WAARDEN.includes(props['Producten']?.select?.name),
         klantstatusIngesteld: KLANTSTATUS_WAARDEN.includes(props['Klantstatus']?.select?.name)
       });
@@ -182,6 +183,7 @@ async function listAllSettings(clientsConfig) {
       paginameting: settings ? settings.paginameting : false,
       internAutomatisering: settings ? settings.internAutomatisering : false,
       searchConsoleSite: settings ? settings.searchConsoleSite : '',
+      laatsteLogin: settings ? settings.laatsteLogin : '',
       producten: settings && settings.productenIngesteld ? settings.producten : normaliseerProducten(c.producten),
       // Leeg in Notion telt voor het portaal als actief, maar de n8n sync ziet dan geen status.
       klantstatusIngesteld: settings ? settings.klantstatusIngesteld : false,
@@ -269,7 +271,24 @@ async function zetNieuweKlant(clientId, naam, velden = {}) {
   return { aangemaakt: !bestaand };
 }
 
+// Laatste login van de klant (voor de cockpit). Hooguit 1 keer per dag per klant naar Notion, en een fout
+// hierin mag het inloggen nooit tegenhouden.
+const loginGeschreven = new Map();
+async function registreerLogin(clientId, nu = new Date()) {
+  const dag = nu.toISOString().slice(0, 10);
+  if (loginGeschreven.get(clientId) === dag) return false;
+  const map = await getSettingsMap();
+  const rij = map.get(clientId);
+  if (!rij) return false;
+  if (rij.laatsteLogin && String(rij.laatsteLogin).slice(0, 10) === dag) { loginGeschreven.set(clientId, dag); return false; }
+  await getNotionClient().pages.update({ page_id: rij.pageId, properties: { 'Laatste login': { date: { start: dag } } } });
+  loginGeschreven.set(clientId, dag);
+  rij.laatsteLogin = dag;
+  return true;
+}
+
 module.exports = {
+  registreerLogin,
   getSettingsMap,
   zetNieuweKlant,
   getClientSettings,

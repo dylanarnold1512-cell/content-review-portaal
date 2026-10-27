@@ -117,3 +117,87 @@ test('bekijk als klant: een admin komt door requireLogin, ook bij een gepauzeerd
     settings.getClientSettings = origineel;
   }
 });
+
+const qa = (datum, extra = {}) => ({ klant: 'X', gebeurtenis: 'qa_gate', uitkomst: 'niet geslaagd', datum, redenen: 'Keyword onnatuurlijk', ...extra });
+
+test('kwaliteit: 3 QA afkeuringen in 14 dagen is oranje, 2 niet, oude tellen niet', () => {
+  assert.equal(c.kwaliteitSignalen([qa('2026-10-20'), qa('2026-10-22')], NU).length, 0);
+  const s = c.kwaliteitSignalen([qa('2026-10-20'), qa('2026-10-22'), qa('2026-10-25', { redenen: 'Te kort' })], NU);
+  assert.equal(s[0].niveau, 'oranje');
+  assert.match(s[0].tekst, /3 QA afkeuringen/);
+  assert.deepEqual(s[0].details, ['Keyword onnatuurlijk', 'Te kort']);
+  assert.equal(c.kwaliteitSignalen([qa('2026-09-01'), qa('2026-09-02'), qa('2026-09-03')], NU).length, 0);
+});
+
+test('kwaliteit: afwijzingen door de klant vanaf 40% oranje, vanaf 60% rood, pas vanaf 3 beoordelingen', () => {
+  const r = (g, datum) => ({ klant: 'X', gebeurtenis: g, uitkomst: g === 'klant_afgewezen' ? 'afgewezen' : 'goedgekeurd', datum, feedback_tekst: 'Te algemeen' });
+  assert.equal(c.kwaliteitSignalen([r('klant_afgewezen', '2026-10-20'), r('klant_goedgekeurd', '2026-10-21')], NU).length, 0);
+  const oranje = c.kwaliteitSignalen([r('klant_afgewezen', '2026-10-20'), r('klant_afgewezen', '2026-10-21'), r('klant_goedgekeurd', '2026-10-01'), r('klant_goedgekeurd', '2026-10-02'), r('klant_goedgekeurd', '2026-10-03')], NU);
+  assert.equal(oranje[0].niveau, 'oranje');
+  assert.match(oranje[0].tekst, /2 van 5 blogs af/);
+  const rood = c.kwaliteitSignalen([r('klant_afgewezen', '2026-10-20'), r('klant_afgewezen', '2026-10-21'), r('klant_goedgekeurd', '2026-10-01')], NU);
+  assert.equal(rood[0].niveau, 'rood');
+});
+
+test('kwaliteit: herschrijving die de controle niet haalt is oranje', () => {
+  const s = c.kwaliteitSignalen([{ gebeurtenis: 'herschrijving_check', uitkomst: 'niet geslaagd', datum: '2026-10-20', redenen: 'woordaantal' }, { gebeurtenis: 'herschrijving_check', uitkomst: 'geslaagd', datum: '2026-10-21' }], NU);
+  assert.equal(s.length, 1);
+  assert.match(s[0].tekst, /1 herschrijving/);
+});
+
+test('data: daling in vertoningen en clicks, alleen bij genoeg verkeer', () => {
+  const basis = { bijgewerkt: '2026-10-27T05:00:00Z' };
+  assert.equal(c.dataSignalen({ ...basis, vertoningen: 900, vertoningen_vorig: 1000, clicks: 50, clicks_vorig: 55 }, NU).length, 0);
+  const s = c.dataSignalen({ ...basis, vertoningen: 600, vertoningen_vorig: 1000, clicks: 20, clicks_vorig: 50 }, NU);
+  assert.deepEqual(s.map((x) => [x.soort, x.niveau]), [['data', 'oranje'], ['data', 'rood']]);
+  assert.equal(c.dataSignalen({ ...basis, vertoningen: 10, vertoningen_vorig: 100, clicks: 0, clicks_vorig: 5 }, NU).length, 0);
+  assert.equal(c.dataSignalen(null, NU).length, 0);
+});
+
+test('data: prestatiedata die niet meer wordt bijgewerkt is een techniek signaal', () => {
+  const s = c.dataSignalen({ bijgewerkt: '2026-10-20T05:00:00Z', vertoningen: 0, vertoningen_vorig: 0 }, NU);
+  assert.equal(s[0].soort, 'techniek');
+  assert.match(s[0].tekst, /7 dagen niet bijgewerkt/);
+});
+
+test('data: de rij van 28 dagen wordt gekozen, oude rij zonder periode als terugval', () => {
+  const rijen = [{ client_name: 'Basecamp Utrecht', periode_type: '90d', clicks: 1 }, { client_name: 'basecamp utrecht', periode_type: '28d', clicks: 2 }, { client_name: 'PPExport', clicks: 3 }];
+  assert.equal(c.overzichtVoorKlant(rijen, 'Basecamp Utrecht').clicks, 2);
+  assert.equal(c.overzichtVoorKlant(rijen, 'PPExport').clicks, 3);
+  assert.equal(c.overzichtVoorKlant(rijen, 'Onbekend'), null);
+});
+
+test('klant: lang wachtende reviews en lang niet ingelogd, alleen als review aan staat', () => {
+  const blogs = [blog('Ter review', '2026-11-01', { laatstGewijzigd: '2026-10-15T10:00:00Z' }), blog('Ter review', '2026-11-02', { laatstGewijzigd: '2026-10-25T10:00:00Z' })];
+  const s = c.klantSignalen({ blogs, statussen: sv, reviewEnabled: true, laatsteLogin: '2026-09-01', nu: NU });
+  assert.equal(s.length, 2);
+  assert.match(s[0].tekst, /1 blog wacht/);
+  assert.match(s[1].tekst, /56 dagen niet in het portaal/);
+  assert.equal(c.klantSignalen({ blogs, statussen: sv, reviewEnabled: false, laatsteLogin: '2026-09-01', nu: NU }).length, 0);
+  assert.equal(c.klantSignalen({ blogs: [], statussen: sv, reviewEnabled: true, laatsteLogin: '', nu: NU }).length, 0);
+});
+
+test('samenvatting: alleen klanten die aandacht vragen, met link, zonder streepjes', () => {
+  const data = {
+    klanten: [
+      { naam: 'Basecamp Utrecht', kleur: 'rood', signalen: [{ niveau: 'rood', tekst: '1 blog staat op Fout' }, { niveau: 'info', tekst: 'Nog geen gepubliceerde blog' }] },
+      { naam: 'PPExport', kleur: 'groen', signalen: [] },
+      { naam: 'Roots', kleur: 'uit', signalen: [] }
+    ],
+    gedeeld: { signalen: [{ niveau: 'oranje', tekst: 'BA - Shared - Blog Generatie: 1 mislukte run' }] },
+    problemen: []
+  };
+  const t = c.samenvattingTekst(data, 'https://portaal.advertisr.nl/');
+  assert.match(t, /1 direct aandacht, 0 let op, 1 draaien goed/);
+  assert.match(t, /Basecamp Utrecht \(direct aandacht\)\n• 1 blog staat op Fout/);
+  assert.ok(!/Nog geen gepubliceerde/.test(t));
+  assert.ok(!/PPExport/.test(t));
+  assert.match(t, /https:\/\/portaal\.advertisr\.nl\/admin#cockpit$/);
+  const rustig = c.samenvattingTekst({ klanten: [{ naam: 'A', kleur: 'groen', signalen: [] }], gedeeld: { signalen: [] } });
+  assert.match(rustig, /Alle 1 actieve klanten draaien goed/);
+});
+
+test('signalen worden gesorteerd op ernst en dan op soort', () => {
+  const s = c.sorteerSignalen([{ niveau: 'oranje', soort: 'klant' }, { niveau: 'rood', soort: 'data' }, { niveau: 'oranje', soort: 'techniek' }]);
+  assert.deepEqual(s.map((x) => x.soort), ['data', 'techniek', 'klant']);
+});

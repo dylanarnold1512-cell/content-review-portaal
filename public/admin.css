@@ -174,3 +174,8 @@
 .ck-klant-kop { flex-wrap: wrap; }
 .ck-klant-kop .ad-klant-naam { flex: 1 1 140px; }
 .ck-klant-kop .ad-klant-naam b { overflow-wrap: break-word; word-break: normal; }
+.ck-soort { display: inline-block; margin-right: 6px; padding: 1px 7px; border-radius: 6px; background: var(--p-vlak-2); border: 1px solid var(--border); font-size: 11px; font-weight: 600; color: var(--p-tekst-zacht); vertical-align: 1px; }
+.ck-uitleg-blok { margin-top: 28px; font-size: 13px; color: var(--p-tekst-zacht); max-width: 80ch; }
+.ck-uitleg-blok summary { cursor: pointer; font-weight: 600; color: var(--p-tekst); }
+.ck-uitleg-blok ul { margin: 10px 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+.ck-uitleg-blok b { color: var(--p-tekst); }
