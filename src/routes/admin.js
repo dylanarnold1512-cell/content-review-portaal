@@ -63,6 +63,15 @@ router.get('/cockpit/samenvatting', async (req, res) => {
   }
 });
 
+// Oordeel over een blog uit de wekelijkse steekproef (goed of niet goed met opmerking).
+router.post('/cockpit/steekproef', requireAdmin, async (req, res) => {
+  try {
+    res.json(await cockpitService.bewaarSteekproef(req.body || {}));
+  } catch (err) {
+    res.status(/moet|ontbreekt|Zet er/.test(err.message) ? 400 : 500).json({ error: err.message });
+  }
+});
+
 // Bekijk als klant: zet de klant in dezelfde sessie, zodat het klantportaal opent zonder klantwachtwoord.
 // De admin sessie blijft staan. Werkt ook voor een gepauzeerde klant.
 router.post('/bekijk-als/:clientId', requireAdmin, (req, res) => {

@@ -201,3 +201,78 @@ test('signalen worden gesorteerd op ernst en dan op soort', () => {
   const s = c.sorteerSignalen([{ niveau: 'oranje', soort: 'klant' }, { niveau: 'rood', soort: 'data' }, { niveau: 'oranje', soort: 'techniek' }]);
   assert.deepEqual(s.map((x) => x.soort), ['data', 'techniek', 'klant']);
 });
+
+const pub = (titel, datum, extra = {}) => ({ id: 'p' + titel, titel, status: 'Gepubliceerd', publicatiedatum: datum, liveUrl: `https://site.nl/blog/${titel}/`, seoTitle: 'T', seoDescription: 'D', laatstGewijzigd: '2026-10-01T00:00:00Z', ...extra });
+
+test('blog: pad wordt overal hetzelfde gelezen', () => {
+  assert.equal(c.padVan('https://www.site.nl/Blog/Test/'), '/blog/test');
+  assert.equal(c.padVan('/blog/test'), '/blog/test');
+  assert.equal(c.padVan(''), '');
+});
+
+test('blog: interne links, lengte, koppen, SEO en afbeelding', () => {
+  const blogs = [pub('a', '2026-10-01'), pub('b', '2026-10-05', { seoDescription: '' }), pub('oud', '2026-01-01')];
+  const inventaris = [
+    { pad: '/blog/a/', links_intern: 0, woorden: 450, koppen: 0 },
+    { pad: '/blog/b', links_intern: 3, woorden: 900, koppen: 4 },
+    { pad: '/blog/oud', links_intern: 0, woorden: 100, koppen: 0 }
+  ];
+  const s = c.blogInhoudSignalen({ blogs, statussen: sv, inventaris, indexatie: [], heeftSeoVelden: true, zonderAfbeelding: ['b'], nu: NU });
+  const teksten = s.map((x) => x.tekst).join(' | ');
+  assert.match(teksten, /1 blog mist een SEO titel/);
+  assert.match(teksten, /1 blog heeft geen enkele interne link/);
+  assert.match(teksten, /1 blog is korter dan 500 woorden/);
+  assert.match(teksten, /1 blog heeft geen tussenkoppen/);
+  assert.match(teksten, /1 blog heeft geen uitgelichte afbeelding/);
+  assert.ok(s.every((x) => x.soort === 'blog'));
+  assert.ok(!teksten.includes('oud'));
+});
+
+test('blog: indexatie, geblokkeerd rood, niet in Google pas na 21 dagen', () => {
+  const blogs = [pub('a', '2026-09-20'), pub('b', '2026-10-20'), pub('c', '2026-10-01')];
+  const indexatie = [
+    { blog_pad: '/blog/a/', status_code: 'gecrawld_niet_geindexeerd' },
+    { blog_pad: '/blog/b/', status_code: 'ontdekt_niet_geindexeerd' },
+    { blog_pad: '/blog/c/', status_code: 'geblokkeerd', status_tekst: 'Geblokkeerd door robots.txt' },
+    { blog_pad: '/andere-pagina/', status_code: 'geblokkeerd' }
+  ];
+  const s = c.blogInhoudSignalen({ blogs, statussen: sv, inventaris: [], indexatie, heeftSeoVelden: false, zonderAfbeelding: [], nu: NU });
+  assert.equal(s.find((x) => x.niveau === 'rood').details[0], 'c: Geblokkeerd door robots.txt');
+  const oranje = s.find((x) => /nog niet in Google/.test(x.tekst));
+  assert.deepEqual(oranje.details, ['a (37 dagen live)']);
+});
+
+test('gedeelde fout: klant wordt gevonden in de invoer van de mislukte stap', () => {
+  const klanten = [{ id: 'trockenblumengrosshandel', naam: 'Trockenblumengrosshandel' }, { id: 'ppe', naam: 'PPExport' }];
+  assert.deepEqual(c.klantenInTekst('{"client_name":"Trockenblumengrosshandel"}', klanten), ['trockenblumengrosshandel']);
+  assert.deepEqual(c.klantenInTekst('niets', klanten), []);
+  const exec = {
+    workflowData: { connections: { 'Loop per klant': { main: [[{ node: 'Schrijf blog', type: 'main', index: 0 }]] }, 'Haal klanten op': { main: [[{ node: 'Loop per klant', type: 'main', index: 0 }]] } } },
+    data: { resultData: { lastNodeExecuted: 'Schrijf blog', runData: {
+      'Haal klanten op': [{ data: { main: [[{ json: { client_name: 'PPExport' } }, { json: { client_name: 'Trockenblumengrosshandel' } }]] } }],
+      'Loop per klant': [{ data: { main: [[], [{ json: { client_name: 'PPExport' } }]] } }, { data: { main: [[], [{ json: { client_name: 'Trockenblumengrosshandel' } }]] } }]
+    } } }
+  };
+  assert.deepEqual(c.klantenInTekst(c.invoerVanMislukteStap(exec), klanten), ['trockenblumengrosshandel']);
+});
+
+test('steekproef: vaste keuze per week, verschillende klanten eerst', () => {
+  const k = (klantId, n) => ({ klantId, blogId: klantId + n });
+  const kandidaten = [k('a', 1), k('a', 2), k('a', 3), k('b', 1), k('c', 1)];
+  const een = c.kiesSteekproef(kandidaten, '2026-W44');
+  assert.equal(een.length, 3);
+  assert.deepEqual(new Set(een.map((x) => x.klantId)), new Set(['a', 'b', 'c']));
+  assert.deepEqual(c.kiesSteekproef(kandidaten, '2026-W44'), een);
+  assert.equal(c.kiesSteekproef([k('a', 1)], '2026-W44').length, 1);
+  assert.equal(c.weekSleutel(NU), '2026-W44');
+  assert.equal(c.weekSleutel(new Date('2027-01-01T12:00:00Z').getTime()), '2026-W53');
+});
+
+test('steekproef: afkeuring wordt een kwaliteitssignaal en staat in het weekoverzicht', () => {
+  const s = c.kwaliteitSignalen([{ gebeurtenis: 'steekproef', uitkomst: 'niet goed', datum: '2026-10-26', blog_titel: 'Blog X', feedback_tekst: 'Te algemeen' }, { gebeurtenis: 'steekproef', uitkomst: 'goed', datum: '2026-10-26' }], NU);
+  assert.equal(s.length, 1);
+  assert.equal(s[0].details[0], 'Blog X: Te algemeen');
+  const t = c.samenvattingTekst({ klanten: [], gedeeld: { signalen: [] }, steekproef: { blogs: [{ klantNaam: 'PPExport', titel: 'Rozen inkopen', oordeel: '' }, { klantNaam: 'A', titel: 'B', oordeel: 'goed' }] } });
+  assert.match(t, /Steekproef deze week: lees 1 blog/);
+  assert.match(t, /• PPExport: Rozen inkopen/);
+});
