@@ -42,6 +42,8 @@ router.post('/login', async (req, res) => {
       return res.status(403).json({ error: settingsService.klantstatusMelding(status), code: 'KLANT_INACTIEF' });
     }
     req.session.clientId = clientId;
+    // Voor de cockpit: wanneer logde de klant voor het laatst in. Mag het inloggen nooit tegenhouden.
+    settingsService.registreerLogin(clientId).catch((err) => console.error('Laatste login niet bewaard:', err.message));
     res.json({ ok: true, clientId });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -66,6 +68,8 @@ router.get('/me', async (req, res) => {
     } catch (err) {
       // Bij een fout blijft de klant actief.
     }
+    // De sessie blijft 30 dagen staan, dus ook een bezoek met een open sessie telt als laatste login.
+    settingsService.registreerLogin(clientId).catch((err) => console.error('Laatste login niet bewaard:', err.message));
   }
   res.json({ clientId });
 });

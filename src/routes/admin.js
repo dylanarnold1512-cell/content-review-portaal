@@ -46,6 +46,23 @@ router.get('/cockpit', requireAdmin, async (req, res) => {
   }
 });
 
+// Wekelijkse samenvatting voor Telegram (workflow "BA - Systeem - Cockpit Weekoverzicht" in n8n).
+// Geen admin sessie: n8n stuurt de header X-N8N-API-KEY mee, die moet gelijk zijn aan N8N_API_KEY van het portaal.
+router.get('/cockpit/samenvatting', async (req, res) => {
+  const verwacht = String(process.env.N8N_API_KEY || '');
+  const gekregen = String(req.get('x-n8n-api-key') || '');
+  const crypto = require('crypto');
+  const gelijk = verwacht && gekregen.length === verwacht.length && crypto.timingSafeEqual(Buffer.from(gekregen), Buffer.from(verwacht));
+  if (!gelijk) return res.status(401).json({ error: 'Geen toegang.' });
+  try {
+    const data = await cockpitService.getCockpit({ ververs: true });
+    const basis = process.env.PORTAAL_URL || 'https://portaal.advertisr.nl';
+    res.json({ tekst: cockpitService.samenvattingTekst(data, basis), aandacht: data.klanten.filter((k) => k.kleur === 'rood' || k.kleur === 'oranje').length });
+  } catch (err) {
+    res.status(500).json({ error: err.message, tekst: `Cockpit weekoverzicht kon niet worden gemaakt: ${err.message}` });
+  }
+});
+
 // Bekijk als klant: zet de klant in dezelfde sessie, zodat het klantportaal opent zonder klantwachtwoord.
 // De admin sessie blijft staan. Werkt ook voor een gepauzeerde klant.
 router.post('/bekijk-als/:clientId', requireAdmin, (req, res) => {

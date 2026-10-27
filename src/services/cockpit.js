@@ -7,8 +7,14 @@
 //   2. n8n uitvoeringen (public API, header X-N8N-API-KEY): mislukte runs in de laatste 7 dagen
 //      en workflows met een schema die niet meer draaien.
 //   3. De Clients tabel in n8n: de kritieke punten uit de controle voor livegang (alleen Shared klanten).
-// Elk signaal heeft een soort (techniek, later ook kwaliteit, data en klant), zodat de volgende
-// stappen er alleen signalen bij hoeven te zetten.
+//
+// Stap 2 tot en met 4 (27-10-2026):
+//   Kwaliteit: n8n tabel blog_kwaliteit (QA afkeuringen, herschrijvingen die de controle niet halen,
+//              afwijzingen door de klant).
+//   Data:      n8n tabel Prestaties Overzicht (28 dagen tegenover de 28 dagen ervoor, en of de sync nog draait).
+//   Klant:     blogs die lang op Ter review staan en wanneer de klant voor het laatst in het portaal was
+//              (Portaal Instellingen, kolom Laatste login).
+//   Samenvatting: samenvattingTekst() maakt het wekelijkse Telegram bericht (workflow BA - Systeem - Cockpit Weekoverzicht).
 
 const { clients, getClient } = require('../config/clients');
 const settingsService = require('./settings');
@@ -30,7 +36,25 @@ const DREMPELS = {
   foutRoodUren: 48 // een mislukte run in de laatste 48 uur is rood, ouder (tot 7 dagen) oranje
 };
 
+const KWALITEIT = {
+  qaDagen: 14, qaMin: 3, // zoveel QA afkeuringen in zoveel dagen = oranje
+  herschrijfDagen: 30,
+  klantDagen: 60, klantMinBeoordelingen: 3, afwijsOranje: 0.4, afwijsRood: 0.6
+};
+const DATA = {
+  verouderdDagen: 3,
+  vertoningenMin: 300, clicksMin: 30, // onder deze aantallen zegt een daling weinig
+  dalingOranje: 0.25, dalingRood: 0.5, clicksDalingOranje: 0.3
+};
+const KLANT = { reviewWachtDagen: 7, loginDagen: 30 };
+
+const TABELLEN = {
+  kwaliteit: process.env.N8N_BLOG_KWALITEIT_TABLE_ID || 'MhwS0Xor195VzQZP',
+  overzicht: process.env.N8N_PRESTATIES_OVERZICHT_TABLE_ID || 'caOsvqDNlG79IjTA'
+};
+
 const NIVEAU_GEWICHT = { rood: 3, oranje: 2, info: 1 };
+const SOORT_VOLGORDE = { techniek: 0, kwaliteit: 1, data: 2, klant: 3 };
 
 function getApiKey() {
   const key = process.env.N8N_API_KEY;
@@ -200,10 +224,142 @@ function sorteerKlanten(rijen) {
 }
 
 function sorteerSignalen(signalen) {
-  return signalen.slice().sort((a, b) => NIVEAU_GEWICHT[b.niveau] - NIVEAU_GEWICHT[a.niveau]);
+  return signalen.slice().sort((a, b) => (NIVEAU_GEWICHT[b.niveau] - NIVEAU_GEWICHT[a.niveau]) || ((SOORT_VOLGORDE[a.soort] || 0) - (SOORT_VOLGORDE[b.soort] || 0)));
+}
+
+function zelfdeKlant(a, b) {
+  return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+}
+
+function binnenDagen(datum, dagen, nu) {
+  if (!datum) return false;
+  const t = new Date(String(datum).length === 10 ? datum + 'T12:00:00Z' : datum).getTime();
+  return !Number.isNaN(t) && nu - t <= dagen * DAG;
+}
+
+function kort(tekst, max = 160) {
+  const t = String(tekst || '').replace(/\s+/g, ' ').trim();
+  return t.length > max ? t.slice(0, max - 3).trim() + '...' : t;
+}
+
+// Kwaliteit uit blog_kwaliteit. rijen: alleen de rijen van deze klant.
+function kwaliteitSignalen(rijen, nu) {
+  const signalen = [];
+  const voeg = (niveau, tekst, details) => signalen.push({ soort: 'kwaliteit', niveau, tekst, details: details || [] });
+  const niet = (r) => /niet geslaagd/i.test(String(r.uitkomst || ''));
+
+  const qa = rijen.filter((r) => r.gebeurtenis === 'qa_gate' && niet(r) && binnenDagen(r.datum, KWALITEIT.qaDagen, nu));
+  if (qa.length >= KWALITEIT.qaMin) {
+    const redenen = [...new Set(qa.map((r) => kort(r.redenen)).filter(Boolean))].slice(0, 3);
+    voeg('oranje', `${meervoud(qa.length, 'QA afkeuring', 'QA afkeuringen')} in ${KWALITEIT.qaDagen} dagen, de schrijfstap mist vaker dan normaal`, redenen);
+  }
+
+  const herschrijf = rijen.filter((r) => r.gebeurtenis === 'herschrijving_check' && niet(r) && binnenDagen(r.datum, KWALITEIT.herschrijfDagen, nu));
+  if (herschrijf.length) voeg('oranje', `${meervoud(herschrijf.length, 'herschrijving na feedback haalde', 'herschrijvingen na feedback haalden')} de controle niet (${KWALITEIT.herschrijfDagen} dagen)`, [...new Set(herschrijf.map((r) => kort(r.redenen)).filter(Boolean))].slice(0, 3));
+
+  const afgewezen = rijen.filter((r) => r.gebeurtenis === 'klant_afgewezen' && binnenDagen(r.datum, KWALITEIT.klantDagen, nu));
+  const goedgekeurd = rijen.filter((r) => r.gebeurtenis === 'klant_goedgekeurd' && binnenDagen(r.datum, KWALITEIT.klantDagen, nu));
+  const totaal = afgewezen.length + goedgekeurd.length;
+  if (totaal >= KWALITEIT.klantMinBeoordelingen) {
+    const aandeel = afgewezen.length / totaal;
+    if (aandeel >= KWALITEIT.afwijsOranje) {
+      const feedback = afgewezen.slice().sort((a, b) => String(b.datum).localeCompare(String(a.datum))).map((r) => kort(r.feedback_tekst)).filter(Boolean).slice(0, 2);
+      voeg(aandeel >= KWALITEIT.afwijsRood ? 'rood' : 'oranje', `Klant wees ${afgewezen.length} van ${totaal} blogs af in ${KWALITEIT.klantDagen} dagen (${Math.round(aandeel * 100)}%)`, feedback);
+    }
+  }
+  return signalen;
+}
+
+// Data uit Prestaties Overzicht (rij met periode 28 dagen). Geen rij = geen prestatiekoppeling, dan niets.
+function dataSignalen(rij, nu) {
+  if (!rij) return [];
+  const signalen = [];
+  const num = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
+  const dagen = dagenGeleden(rij.bijgewerkt, nu);
+  if (dagen !== null && dagen > DATA.verouderdDagen) {
+    signalen.push({ soort: 'techniek', niveau: 'oranje', tekst: `Prestatiedata is ${dagen} dagen niet bijgewerkt (laatste ${datumNl(rij.bijgewerkt)})`, details: [] });
+  }
+  const verschil = (nuW, vorig) => (vorig ? (nuW - vorig) / vorig : 0);
+  const v = num(rij.vertoningen), vv = num(rij.vertoningen_vorig);
+  if (v !== null && vv !== null && vv >= DATA.vertoningenMin) {
+    const d = verschil(v, vv);
+    if (d <= -DATA.dalingOranje) signalen.push({ soort: 'data', niveau: d <= -DATA.dalingRood ? 'rood' : 'oranje', tekst: `Vertoningen in Google ${Math.round(-d * 100)}% lager dan de 28 dagen ervoor (${v.toLocaleString('nl-NL')} tegenover ${vv.toLocaleString('nl-NL')})`, details: [] });
+  }
+  const c = num(rij.clicks), cv = num(rij.clicks_vorig);
+  if (c !== null && cv !== null && cv >= DATA.clicksMin) {
+    const d = verschil(c, cv);
+    if (d <= -DATA.clicksDalingOranje) signalen.push({ soort: 'data', niveau: d <= -DATA.dalingRood ? 'rood' : 'oranje', tekst: `Clicks uit Google ${Math.round(-d * 100)}% lager dan de 28 dagen ervoor (${c.toLocaleString('nl-NL')} tegenover ${cv.toLocaleString('nl-NL')})`, details: [] });
+  }
+  return signalen;
+}
+
+// Kies uit alle overzichtrijen van een klant de rij van 28 dagen (oude rijen zonder periode_type tellen als 28 dagen).
+function overzichtVoorKlant(rijen, naam) {
+  const eigen = rijen.filter((r) => zelfdeKlant(r.client_name, naam));
+  return eigen.find((r) => r.periode_type === '28d') || eigen.find((r) => !r.periode_type) || null;
+}
+
+// Klantgedrag: blogs die lang op de klant wachten en wanneer de klant voor het laatst in het portaal was.
+function klantSignalen({ blogs, statussen, reviewEnabled, laatsteLogin, nu }) {
+  if (!reviewEnabled) return [];
+  const signalen = [];
+  const review = (statussen && statussen.review) || 'Ter review';
+  const wachten = blogs.filter((b) => b.status === review && b.laatstGewijzigd && nu - new Date(b.laatstGewijzigd).getTime() > KLANT.reviewWachtDagen * DAG);
+  if (wachten.length) {
+    signalen.push({ soort: 'klant', niveau: 'oranje', tekst: `${meervoud(wachten.length, 'blog wacht', 'blogs wachten')} langer dan ${KLANT.reviewWachtDagen} dagen op goedkeuring van de klant`, details: wachten.map((b) => `${b.titel} (sinds ${datumNl(b.laatstGewijzigd)})`) });
+  }
+  const dagen = dagenGeleden(laatsteLogin, nu);
+  if (dagen !== null && dagen > KLANT.loginDagen) {
+    signalen.push({ soort: 'klant', niveau: 'oranje', tekst: `Klant was ${dagen} dagen niet in het portaal (laatste keer ${datumNl(laatsteLogin)})`, details: [] });
+  }
+  return signalen;
+}
+
+const KLEUR_WOORD = { rood: 'direct aandacht', oranje: 'let op' };
+
+// Het wekelijkse bericht voor Telegram. Platte tekst, kort, alleen wat afwijkt.
+function samenvattingTekst(data, basisUrl) {
+  const link = `${String(basisUrl || 'https://portaal.advertisr.nl').replace(/\/+$/, '')}/admin#cockpit`;
+  const actief = data.klanten.filter((k) => k.kleur !== 'uit');
+  const aandacht = actief.filter((k) => k.kleur === 'rood' || k.kleur === 'oranje');
+  const rood = aandacht.filter((k) => k.kleur === 'rood').length;
+  const gedeeld = (data.gedeeld && data.gedeeld.signalen) || [];
+  const regels = ['Cockpit weekoverzicht', ''];
+  if (!aandacht.length && !gedeeld.length) {
+    regels.push(`Alle ${actief.length} actieve klanten draaien goed. Niets te doen deze week.`);
+  } else {
+    regels.push(`${rood} direct aandacht, ${aandacht.length - rood} let op, ${actief.length - aandacht.length} draaien goed.`);
+    for (const k of aandacht) {
+      const sig = k.signalen.filter((x) => x.niveau !== 'info');
+      regels.push('', `${k.naam} (${KLEUR_WOORD[k.kleur]})`);
+      sig.slice(0, 3).forEach((x) => regels.push(`• ${x.tekst}`));
+      if (sig.length > 3) regels.push(`• en nog ${sig.length - 3}`);
+    }
+    if (gedeeld.length) {
+      regels.push('', 'Gedeelde workflows');
+      gedeeld.slice(0, 4).forEach((x) => regels.push(`• ${x.tekst}`));
+      if (gedeeld.length > 4) regels.push(`• en nog ${gedeeld.length - 4}`);
+    }
+  }
+  (data.problemen || []).forEach((p) => regels.push('', `Let op: ${p}`));
+  regels.push('', `Open de cockpit: ${link}`);
+  return regels.join('\n');
 }
 
 // ---- Ophalen ----
+
+// Alle rijen van een n8n data table, met paginering (max 10 x 250).
+async function alleRijen(tabelId) {
+  const rijen = [];
+  let cursor = '';
+  for (let i = 0; i < 10; i++) {
+    const data = await n8nGet(`/data-tables/${tabelId}/rows?limit=250${cursor ? '&cursor=' + encodeURIComponent(cursor) : ''}`);
+    rijen.push(...(data.data || []));
+    if (!data.nextCursor) break;
+    cursor = data.nextCursor;
+  }
+  return rijen;
+}
 
 async function alleBlogs(config) {
   const { listAllPages } = require('./notion');
@@ -291,6 +447,14 @@ async function bouwCockpit() {
     problemen.push(`n8n kon niet worden gelezen: ${err.message}`);
   }
 
+  let kwaliteitRijen = [];
+  let overzichtRijen = [];
+  try {
+    [kwaliteitRijen, overzichtRijen] = await Promise.all([alleRijen(TABELLEN.kwaliteit), alleRijen(TABELLEN.overzicht)]);
+  } catch (err) {
+    problemen.push(`Kwaliteit en prestatiedata konden niet worden gelezen: ${err.message}`);
+  }
+
   const klanten = await Promise.all(instellingen.map(async (inst) => {
     const config = getClient(inst.id);
     const rij = { id: inst.id, naam: inst.naam, producten: inst.producten, klantstatus: inst.klantstatus, signalen: [], laatstePublicatie: null };
@@ -316,9 +480,14 @@ async function bouwCockpit() {
       const uit = blogSignalen(blogs, { statussen: config.statusValues || {}, blogsPerMaand, nu });
       rij.signalen.push(...uit.signalen);
       rij.laatstePublicatie = uit.laatstePublicatie;
+      rij.signalen.push(...klantSignalen({ blogs, statussen: config.statusValues || {}, reviewEnabled: inst.reviewEnabled, laatsteLogin: inst.laatsteLogin, nu }));
     } catch (err) {
       rij.signalen.push({ soort: 'techniek', niveau: 'rood', tekst: `Notion planning kon niet worden gelezen: ${err.message}`, details: [] });
     }
+
+    rij.signalen.push(...kwaliteitSignalen(kwaliteitRijen.filter((r) => zelfdeKlant(r.klant, inst.naam)), nu));
+    rij.signalen.push(...dataSignalen(overzichtVoorKlant(overzichtRijen, inst.naam), nu));
+    rij.laatsteLogin = inst.laatsteLogin || '';
 
     const eigenFouten = fouten.filter((f) => klantVanWorkflow(f.workflowNaam) === inst.id);
     rij.signalen.push(...foutSignalen(eigenFouten, nu));
@@ -356,6 +525,12 @@ async function getCockpit({ ververs = false } = {}) {
 
 module.exports = {
   getCockpit,
+  kwaliteitSignalen,
+  dataSignalen,
+  klantSignalen,
+  overzichtVoorKlant,
+  samenvattingTekst,
+  sorteerSignalen,
   blogSignalen,
   foutSignalen,
   stilSignalen,
