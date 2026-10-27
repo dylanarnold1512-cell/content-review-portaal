@@ -45,6 +45,7 @@ document.getElementById('adminLogoutBtn').addEventListener('click', async () => 
 
 // ---- Navigatie: een eigen adres per scherm (#klanten, #nieuw, #ideeen, #klant/<id>/<tabblad>) ----
 const KLANT_TABS = [
+  { id: 'overzicht', titel: 'Overzicht' },
   { id: 'onboarding', titel: 'Onboarding' },
   { id: 'instellingen', titel: 'Instellingen' },
   { id: 'ideeen', titel: 'Ideeën' },
@@ -68,7 +69,7 @@ function leesHash() {
 // Een klant in onboarding opent op het tabblad Onboarding, een klant die klaar is op Instellingen.
 function beginTab(klantId) {
   const o = adminState.onboarding[klantId];
-  return o && !o.samenvatting.gereed ? 'onboarding' : 'instellingen';
+  return o && !o.samenvatting.gereed ? 'onboarding' : 'overzicht';
 }
 
 function gaNaar(view, klantId, tab) {
@@ -262,7 +263,20 @@ function renderKlanten() {
   const inOnboarding = lijst.filter((c) => { const o = adminState.onboarding[c.id]; return o && !o.samenvatting.gereed; }).length;
   const wachtOpJou = Object.values(adminState.onboarding).reduce((n, o) => n + o.samenvatting.wachtOpDylan.length, 0);
   const ideeen = Object.values(adminState.ideeen).reduce((n, l) => n + l.length, 0);
-  const rijen = lijst.map((c) => {
+  const f = adminState.klantFilter || (adminState.klantFilter = { product: 'alle', zoek: '' });
+  const heeftMelding = (c) => {
+    const os = adminState.onboarding[c.id] && adminState.onboarding[c.id].samenvatting;
+    return !!((os && os.wachtOpDylan.length) || wachtendeIdeeen(c.id) > 0 || c.klantstatusIngesteld === false);
+  };
+  const productVan = (c) => c.producten || 'Blogr.';
+  const zicht = lijst.filter((c) => {
+    if (f.zoek && !c.naam.toLowerCase().includes(f.zoek.toLowerCase())) return false;
+    if (f.product === 'blogr') return ['Blogr.', 'Beide'].includes(productVan(c));
+    if (f.product === 'pagr') return ['Pagr.', 'Beide'].includes(productVan(c));
+    if (f.product === 'melding') return heeftMelding(c);
+    return true;
+  });
+  const rijen = zicht.map((c) => {
     const o = adminState.onboarding[c.id];
     const os = o && o.samenvatting;
     const lopend = os && !os.gereed;
@@ -301,13 +315,22 @@ function renderKlanten() {
       <div class="p-kerncijfer"><div class="p-kerncijfer-kop">Ideeën ter beoordeling</div><div class="ad-getal">${ideeen}</div></div>
     </div>
     <section class="ck-kaart" style="margin-top:24px" aria-label="Klantenlijst">
-      ${rijen ? `<div class="ad-tabel-wrap"><table class="ad-tabel"><thead><tr><th>Klant</th><th>Producten</th><th>Wacht op jou</th><th>Status</th><th><span class="sr-only">Acties</span></th></tr></thead><tbody>${rijen}</tbody></table></div>` : '<div class="ck-leeg">Nog geen klanten.</div>'}
+      <div class="ck-kaart-kop">
+        <div class="ck-seg" role="group" aria-label="Filter op product">
+          ${[['alle', 'Alle'], ['blogr', 'Blogr.'], ['pagr', 'Pagr.'], ['melding', 'Met melding']].map(([id, t]) => `<button type="button" class="${f.product === id ? 'on' : ''}" data-kfilter="${id}" aria-pressed="${f.product === id}">${t}</button>`).join('')}
+        </div>
+        <label class="ad-top-zoek" style="margin-left:0;width:260px"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input type="search" id="kZoek" placeholder="Zoek in klanten" aria-label="Zoek in klanten" value="${escapeHtmlAdmin(f.zoek)}"></label>
+      </div>
+      ${rijen ? `<div class="ad-tabel-wrap"><table class="ad-tabel"><thead><tr><th>Klant</th><th>Producten</th><th>Wacht op jou</th><th>Status</th><th><span class="sr-only">Acties</span></th></tr></thead><tbody>${rijen}</tbody></table></div>` : `<div class="ck-leeg">${lijst.length ? 'Geen klanten met dit filter.' : 'Nog geen klanten.'}</div>`}
     </section>
     ${adminState.onboardingFout ? `<p class="admin-footnote">De onboarding kon niet worden geladen: ${escapeHtmlAdmin(adminState.onboardingFout)}</p>` : ''}
     <p class="admin-footnote">Nieuwe klant nog niet in de lijst met modules? Voeg 'm toe in <code>src/config/clients.js</code>, dan verschijnt hij daar vanzelf. Dit is stap 11 van de onboarding.</p>
   </div>`;
   const root = document.getElementById('viewKlanten');
   root.querySelectorAll('[data-klant]').forEach((k) => k.addEventListener('click', () => gaNaar('klant', k.dataset.klant)));
+  root.querySelectorAll('[data-kfilter]').forEach((b) => b.addEventListener('click', () => { f.product = b.dataset.kfilter; renderKlanten(); }));
+  const zoekVeld = root.querySelector('#kZoek');
+  zoekVeld.addEventListener('input', () => { f.zoek = zoekVeld.value; const pos = zoekVeld.selectionStart; renderKlanten(); const nieuw = root.querySelector('#kZoek'); nieuw.focus(); nieuw.setSelectionRange(pos, pos); });
   root.querySelectorAll('[data-bekijk]').forEach((b) => b.addEventListener('click', () => bekijkAlsKlant(b.dataset.bekijk)));
   root.querySelector('[data-nieuw]').addEventListener('click', () => gaNaar('nieuw'));
 }
@@ -323,7 +346,7 @@ function renderKlant(c, tab) {
   const st = c.alleenOnboarding ? { tekst: 'Onboarding', klasse: 'p-pil-plan' } : statusVanKlant(c);
   const zichtbareTabs = c.alleenOnboarding ? KLANT_TABS.filter((t) => t.id === 'onboarding') : KLANT_TABS.filter((t) => t.id !== 'ideeen' || heeftBlogr(c));
   if (c.alleenOnboarding && tab !== 'onboarding') tab = 'onboarding';
-  if (tab === 'ideeen' && !heeftBlogr(c)) tab = 'instellingen';
+  if (tab === 'ideeen' && !heeftBlogr(c)) tab = 'overzicht';
   const tabs = zichtbareTabs.map((t) => {
     const teller = t.id === 'ideeen' && wachtendeIdeeen(c.id) ? `<span class="p-teller">${wachtendeIdeeen(c.id)}</span>` : '';
     return `<button type="button" class="ad-tab${t.id === tab ? ' active' : ''}" data-tab="${t.id}">${t.titel}${teller}</button>`;
@@ -346,10 +369,47 @@ function renderKlant(c, tab) {
   root.querySelectorAll('[data-bekijk]').forEach((b) => b.addEventListener('click', () => bekijkAlsKlant(b.dataset.bekijk)));
   root.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => gaNaar('klant', c.id, b.dataset.tab)));
   const inhoud = document.getElementById('klantTabInhoud');
+  if (tab === 'overzicht') renderOverzicht(c, inhoud);
   if (tab === 'onboarding') renderOnboarding(c, inhoud);
   if (tab === 'instellingen') renderInstellingen(c, inhoud);
   if (tab === 'ideeen') { inhoud.innerHTML = ideeenHtml([c], true); bindIdeeen(inhoud); }
   if (tab === 'merkprofiel') renderMerkprofielBouw(c, inhoud);
+}
+
+
+// ---- Overzicht van één klant: open meldingen en een samenvatting ----
+function renderOverzicht(c, inhoud) {
+  const e = escapeHtmlAdmin;
+  const st = statusVanKlant(c);
+  const aan = MODULES.filter((m) => m.kort && c[m.veld] && (heeftBlogr(c) || !BLOG_MODULES.includes(m.veld)));
+  const login = c.laatsteLogin ? new Date(c.laatsteLogin).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Nog niet bekend';
+  const regel = (titel, uitleg, waarde) => `<div class="ad-regel"><div class="ad-regel-tekst"><b>${titel}</b><span>${uitleg}</span></div><div>${waarde}</div></div>`;
+  inhoud.innerHTML = `
+  <div class="ck-kolommen" style="margin-top:0">
+    <section class="ck-kaart ck-hoofd" aria-labelledby="ovMKop">
+      <div class="ck-kaart-kop"><div><h2 id="ovMKop">Open meldingen</h2><p id="ovMSub">Alleen voor deze klant, uit dezelfde controle als de cockpit</p></div></div>
+      <div id="ovMeldingen"><div class="ck-leeg">Meldingen worden geladen. Dit kan een halve minuut duren.</div></div>
+    </section>
+    <div class="ck-zij">
+      <section class="ck-kaart" aria-labelledby="ovSKop">
+        <div class="ck-kaart-kop"><div><h2 id="ovSKop">Samenvatting</h2></div><button type="button" class="p-knop" data-naar-instellingen>Instellingen</button></div>
+        ${regel('Klantstatus', 'Bepaalt of de klant kan inloggen', `<span class="p-pil ${st.klasse}">${st.tekst}</span>`)}
+        ${regel('Product', 'Wat de klant gebruikt', `<span class="p-pil p-pil-neutraal">${e(c.producten || 'Blogr.')}</span>`)}
+        ${regel('Modules aan', 'Wat de klant in het portaal ziet', aan.length ? `<div class="ad-tabel-mod">${aan.map((m) => `<span class="p-pil p-pil-neutraal">${m.kort}</span>`).join('')}</div>` : '<span class="ad-vaag">Geen</span>')}
+        ${regel('Laatste login', 'In het klantportaal', e(login))}
+      </section>
+    </div>
+  </div>`;
+  inhoud.querySelector('[data-naar-instellingen]').addEventListener('click', () => gaNaar('klant', c.id, 'instellingen'));
+  const lijstEl = inhoud.querySelector('#ovMeldingen');
+  window.cockpitVoorKlant(c.id).then((r) => {
+    if (!document.body.contains(lijstEl) || huidig.klantId !== c.id || huidig.tab !== 'overzicht') return;
+    if (r.fout) { lijstEl.innerHTML = `<div class="ck-leeg">${e(r.fout)}</div>`; return; }
+    if (r.tijd) inhoud.querySelector('#ovMSub').textContent = `Alleen voor deze klant. Laatst gecontroleerd om ${r.tijd}.`;
+    if (!r.meldingen.length) { lijstEl.innerHTML = '<div class="ck-leeg">Geen enkele melding. Alles draait.</div>'; return; }
+    lijstEl.innerHTML = `<ul class="ck-lijst">${r.meldingen.map((m, i) => window.cockpitMeldingRij(m, i)).join('')}</ul>`;
+    lijstEl.querySelectorAll('[data-melding]').forEach((b) => b.addEventListener('click', () => window.openCockpitMelding(r.meldingen[Number(b.dataset.melding)])));
+  });
 }
 
 // ---- Onboarding ----

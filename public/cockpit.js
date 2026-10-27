@@ -341,6 +341,16 @@
   }
 
   window.avatarKleur = avatarKleur;
+  window.cockpitMeldingRij = meldingRij;
+  window.openCockpitMelding = openMelding;
+  // Voor de klantpagina: de meldingen van één klant, uit dezelfde controle als de cockpit.
+  window.cockpitVoorKlant = async function (id) {
+    if (!stand.data && !stand.laden) await laadCockpit(false);
+    for (let i = 0; i < 100 && stand.laden; i++) await new Promise((r) => setTimeout(r, 300));
+    const k = stand.data && stand.data.klanten.find((x) => x.id === id);
+    if (!k) return { fout: stand.fout || 'Deze klant staat niet in de cockpit.', meldingen: [], bijgewerkt: '' };
+    return { fout: '', meldingen: meldingenVan({ klanten: [k], gedeeld: { signalen: [] } }), bijgewerkt: stand.data.bijgewerkt, tijd: tijd(stand.data.bijgewerkt) };
+  };
   window.renderCockpit = teken;
   window.laadCockpit = laadCockpit;
   window.bekijkAlsKlant = bekijkAlsKlant;
