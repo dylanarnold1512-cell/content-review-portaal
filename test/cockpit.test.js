@@ -24,8 +24,13 @@ test('een blog op Fout is rood en noemt de titel', () => {
 test('In generatie is pas vastgelopen na 6 uur', () => {
   const kort = signalen([blog('In generatie', '2026-10-28', { laatstGewijzigd: '2026-10-27T09:00:00Z' }), blog('Gepubliceerd', '2026-10-20')]);
   assert.ok(!kort.some((x) => /hangt/.test(x.tekst)));
-  const lang = signalen([blog('In generatie', '2026-10-28', { laatstGewijzigd: '2026-10-26T20:00:00Z' }), blog('Gepubliceerd', '2026-10-20')]);
+  const lang = signalen([blog('In generatie', '2026-10-27', { laatstGewijzigd: '2026-10-26T20:00:00Z' }), blog('Gepubliceerd', '2026-10-20')]);
   assert.ok(lang.some((x) => x.niveau === 'rood' && /hangt/.test(x.tekst)));
+});
+
+test('In generatie met een publicatiedatum in de toekomst is een wachtrij, geen storing', () => {
+  const wacht = signalen([blog('In generatie', '2026-11-02', { laatstGewijzigd: '2026-10-09T07:57:00Z' }), blog('Gepubliceerd', '2026-10-20')]);
+  assert.ok(!wacht.some((x) => /hangt|hangen/.test(x.tekst)));
 });
 
 test('een geplande blog met een datum die ruim voorbij is, is oranje', () => {

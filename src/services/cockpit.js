@@ -170,7 +170,9 @@ function blogSignalen(blogs, { statussen, blogsPerMaand, nu }) {
   const fout = blogs.filter((b) => b.status === s.fout);
   if (fout.length) voeg('rood', `${meervoud(fout.length, 'blog staat', 'blogs staan')} op Fout`, fout.map((b) => b.titel));
 
-  const vast = blogs.filter((b) => b.status === s.generatie && nu - new Date(b.laatstGewijzigd).getTime() > DREMPELS.vastgelopenUren * UUR);
+  // PPE zet blogs vooraf op In generatie en schrijft ze pas op de publicatiedatum. Met een datum in de toekomst staat zo'n blog dus gewoon te wachten.
+  const wacht = (b) => b.publicatiedatum && new Date(b.publicatiedatum).getTime() > vandaag.getTime() + DAG - 1;
+  const vast = blogs.filter((b) => b.status === s.generatie && !wacht(b) && nu - new Date(b.laatstGewijzigd).getTime() > DREMPELS.vastgelopenUren * UUR);
   if (vast.length) voeg('rood', `${meervoud(vast.length, 'blog hangt', 'blogs hangen')} al langer dan ${DREMPELS.vastgelopenUren} uur op ${s.generatie}`, vast.map((b) => b.titel));
 
   const teLaat = blogs.filter((b) => b.status === s.gepland && b.publicatiedatum && (vandaag.getTime() - new Date(b.publicatiedatum).getTime()) > DREMPELS.teLaatDagen * DAG);
