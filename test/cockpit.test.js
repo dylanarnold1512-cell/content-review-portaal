@@ -299,3 +299,44 @@ test('samenvatting: zonder geldige n8n sleutel geen toegang', async () => {
     global.fetch = origineel;
   }
 });
+
+test('meldingenVan zet rood voor oranje, laat info weg en neemt gedeelde workflows mee', () => {
+  const data = {
+    gedeeld: { signalen: [{ soort: 'techniek', niveau: 'rood', tekst: 'Stuur Review Email: 4 mislukte runs, laatste 22 oktober', details: [] }] },
+    klanten: [
+      { id: 'a', naam: 'Klant A', signalen: [{ soort: 'blog', niveau: 'oranje', tekst: '2 blogs hebben geen enkele interne link', details: ['x'] }, { soort: 'blog', niveau: 'info', tekst: 'Nog geen gepubliceerde blog', details: [] }] },
+      { id: 'b', naam: 'Klant B', signalen: [{ soort: 'techniek', niveau: 'rood', tekst: '1 blog staat op Fout', details: [] }] }
+    ]
+  };
+  const lijst = model.meldingenVan(data);
+  assert.deepEqual(lijst.map((m) => m.niveau), ['rood', 'rood', 'oranje']);
+  assert.equal(lijst[0].klantNaam, 'Alle klanten');
+  assert.equal(lijst[0].gedeeld, true);
+  assert.equal(lijst[1].klantId, 'b');
+  assert.ok(!lijst.some((m) => m.niveau === 'info'));
+  assert.deepEqual(model.meldingenVan(null), []);
+});
+
+test('uitlegVan geeft bij elke melding een uitleg en een actiepunt', () => {
+  const teksten = [
+    ['techniek', '1 blog staat op Fout'], ['techniek', '2 blogs hangen al langer dan 6 uur op In generatie'], ['techniek', 'BA - X draait niet meer: laatste geslaagde run 1 oktober'],
+    ['kwaliteit', '4 QA afkeuringen in 14 dagen, de schrijfstap mist vaker dan normaal'], ['blog', '2 blogs hebben geen enkele interne link'], ['data', 'Clicks uit Google 35% lager dan de 28 dagen ervoor'],
+    ['klant', 'Klant was 40 dagen niet in het portaal (laatste keer 1 september)'], ['blog', 'iets heel anders']
+  ];
+  for (const [soort, tekst] of teksten) {
+    const u = model.uitlegVan({ soort, tekst });
+    assert.ok(u.wat && u.doe, tekst);
+  }
+  assert.match(model.uitlegVan({ soort: 'techniek', tekst: '1 blog staat op Fout' }).doe, /Gepland/);
+  assert.notEqual(model.uitlegVan({ soort: 'blog', tekst: 'iets heel anders' }).wat, model.uitlegVan({ soort: 'data', tekst: 'iets heel anders' }).wat);
+});
+
+test('avatarKleur is stabiel per naam en kopieerTekst bevat de melding en de uitleg', () => {
+  assert.equal(model.avatarKleur('PPExport'), model.avatarKleur('PPExport'));
+  assert.match(model.avatarKleur('Basecamp Utrecht'), /^#[0-9a-f]{6}$/);
+  const tekst = model.kopieerTekst({ niveau: 'rood', soort: 'techniek', klantNaam: 'PPExport', tekst: '1 blog staat op Fout', details: ['Blog X'], link: 'https://n8n.example/run/1' });
+  assert.match(tekst, /PPExport/);
+  assert.match(tekst, /1 blog staat op Fout/);
+  assert.match(tekst, /- Blog X/);
+  assert.match(tekst, /https:\/\/n8n\.example\/run\/1/);
+});

@@ -28,24 +28,99 @@
     return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
   }
 
-  const model = { tellingen, aandacht, KLEUR };
+
+  // Wat een melding betekent en wat jij eraan doet. De eerste regel die past wint, daarna de standaard per soort.
+  const UITLEG = [
+    { re: /(staat|staan) op Fout/, wat: 'De workflow kon dit blog niet afmaken. In Notion staat bij het blog een foutmelding.', doe: 'Open het blog in Notion en lees Laatste foutmelding. Vraag Claude de oorzaak te zoeken. Zet het blog daarna terug op Gepland, dan schrijft de workflow het opnieuw.' },
+    { re: /hangt|hangen/, wat: 'De workflow is begonnen met schrijven en nooit klaar gekomen. Het blog blijft op In generatie staan en wordt niet meer opgepakt.', doe: 'Kijk in n8n of de run is gestopt. Zet het blog terug op Gepland met een datum van vandaag, dan gaat het opnieuw.' },
+    { re: /niet geschreven terwijl de datum/, wat: 'Deze blogs stonden gepland, de datum is voorbij en er is niets geschreven.', doe: 'Controleer of de Blog Generatie van deze klant draait en of de klant niet gepauzeerd staat. Zet de datum op vandaag.' },
+    { re: /Geen blog gepland/, wat: 'Er staat niets meer in de planning voor de komende weken. Straks komt er dus geen blog meer uit.', doe: 'Keur nieuwe onderwerpen goed bij Ideeën, of draai de Topic Generator van deze klant.' },
+    { re: /Laatste publicatie was/, wat: 'Er is al lang geen blog meer gepubliceerd voor deze klant.', doe: 'Kijk of er blogs gepland staan en of de Publicatie Sync draait. Meestal zit het ergens in de planning vast.' },
+    { re: /mislukte run/, wat: 'Een n8n workflow is mislukt. Welke stap misging staat in de details.', doe: 'Open de run in n8n, lees bij welke stap het misging en vraag Claude de oorzaak te zoeken. Daarna de run opnieuw starten.' },
+    { re: /draait niet meer/, wat: 'Een workflow heeft al lang geen geslaagde run meer gehad, terwijl hij dat dagelijks hoort te hebben.', doe: 'Open de workflow in n8n. Staat hij nog op actief en draait de trigger? Zo niet, zet hem weer aan.' },
+    { re: /QA afkeuring/, wat: 'De kwaliteitscontrole keurt blogs vaker af dan normaal. De schrijfstap haalt de controle dus niet steeds.', doe: 'Lees de afkeurredenen in de details. Komt dezelfde reden terug, dan moet de prompt of het kennisdocument van deze klant worden aangepast.' },
+    { re: /herschrijving/, wat: 'Een blog is na feedback van de klant herschreven en haalde de controle niet.', doe: 'Open het blog en kijk wat er is veranderd. Pas het zo nodig zelf aan voordat de klant het ziet.' },
+    { re: /door jou afgekeurd/, wat: 'Je hebt blogs uit de steekproef afgekeurd.', doe: 'Lees je eigen opmerkingen terug. Komt dezelfde klacht vaker terug, pas dan de prompt aan.' },
+    { re: /wees .* af/, wat: 'De klant wijst veel blogs af. Het schrijven past dus niet goed bij wat de klant wil.', doe: 'Lees de feedback in de details en bel of mail de klant. Pas daarna het kennisdocument of de toon aan.' },
+    { re: /Prestatiedata is/, wat: 'De dagelijkse prestatiesync heeft de cijfers van deze klant al een tijd niet bijgewerkt.', doe: 'Kijk of de Prestatie Sync draait en of de koppeling met Search Console en GA4 nog werkt.' },
+    { re: /Vertoningen|Clicks/, wat: 'Het verkeer uit Google is lager dan in de 28 dagen ervoor.', doe: 'Kijk in Search Console of een enkele pagina is weggevallen of dat het breder speelt. Pas dan geen blogs aan voordat je weet waar de daling zit.' },
+    { re: /wacht.* op goedkeuring/, wat: 'De klant heeft blogs te lang laten liggen en het portaal wacht op een reactie.', doe: 'Stuur de klant een herinnering of bel even. De Ter Review Reminder doet dit ook, maar een persoonlijk bericht werkt beter.' },
+    { re: /niet in het portaal/, wat: 'De klant is al lang niet ingelogd in het portaal.', doe: 'Neem contact op en vraag of ze nog tevreden zijn. Meestal is een korte check genoeg.' },
+    { re: /Live URL/, wat: 'In Notion staat geen Live URL bij deze gepubliceerde blogs. Daardoor kunnen metingen en interne linking ze niet vinden.', doe: 'Vul de Live URL in bij het blog in Notion, of draai de Publicatie Sync opnieuw.' },
+    { re: /SEO titel/, wat: 'Bij deze blogs ontbreekt een SEO titel of omschrijving.', doe: 'Vul ze aan in Notion en WordPress, of laat de SEO stap van de Blog Generatie opnieuw lopen.' },
+    { re: /interne link/, wat: 'Deze blogs verwijzen niet naar andere pagina\'s van de site. Dat kost SEO waarde.', doe: 'Laat de Interne Linking voor deze blogs opnieuw lopen, of voeg handmatig één of twee links toe.' },
+    { re: /tussenkoppen/, wat: 'Deze blogs hebben geen tussenkoppen en lezen daardoor als een lange tekst.', doe: 'Open de blogs en laat de tekst herschrijven met tussenkoppen via Feedback Revisie.' },
+    { re: /afbeelding/, wat: 'Deze blogs hebben geen uitgelichte afbeelding in WordPress.', doe: 'Controleer of de beeldbank van de klant gevuld is en voeg een afbeelding toe.' },
+    { re: /geblokkeerd/, wat: 'Google mag deze blogs niet indexeren of ziet een andere pagina als hoofdversie.', doe: 'Controleer in WordPress of noindex of een canonical aanstaat. Dit moet snel worden opgelost.' },
+    { re: /niet in Google/, wat: 'Deze blogs staan na drie weken nog niet in Google.', doe: 'Vraag indexering aan in Search Console en kijk of de blog is gelinkt vanaf andere pagina\'s.' }
+  ];
+  const STANDAARD_UITLEG = {
+    techniek: { wat: 'Er is iets technisch misgegaan of vastgelopen.', doe: 'Open de link naar n8n als die er is, en vraag Claude de oorzaak te zoeken.' },
+    kwaliteit: { wat: 'De kwaliteit van de blogs voor deze klant wijkt af.', doe: 'Lees de details en pas zo nodig de prompt of het kennisdocument aan.' },
+    blog: { wat: 'Aan gepubliceerde blogs ontbreekt iets.', doe: 'Open de blogs in de details en vul aan wat mist.' },
+    data: { wat: 'De cijfers van deze klant wijken af.', doe: 'Kijk in het tabblad Prestaties van de klant waar het verschil zit.' },
+    klant: { wat: 'De klant moet iets doen, of reageert niet.', doe: 'Neem contact op met de klant.' }
+  };
+  function uitlegVan(s) {
+    const gevonden = UITLEG.find((u) => u.re.test(s.tekst || ''));
+    return gevonden || STANDAARD_UITLEG[s.soort] || { wat: 'Dit vraagt aandacht.', doe: 'Open de details en beslis wat er moet gebeuren.' };
+  }
+
+  // Alle meldingen van alle klanten en de gedeelde workflows in één lijst, ernstigste eerst. Info telt niet mee.
+  function meldingenVan(data) {
+    if (!data) return [];
+    const lijst = [];
+    const voeg = (s, klant) => { if (s.niveau !== 'info') lijst.push({ ...s, klantNaam: klant.naam, klantId: klant.id || '', gedeeld: !!klant.gedeeld }); };
+    for (const s of (data.gedeeld && data.gedeeld.signalen) || []) voeg(s, { naam: 'Alle klanten', gedeeld: true });
+    for (const k of data.klanten || []) for (const s of k.signalen || []) voeg(s, k);
+    const rang = { rood: 0, oranje: 1 };
+    return lijst.map((m, i) => ({ m, i })).sort((a, b) => (rang[a.m.niveau] - rang[b.m.niveau]) || (a.i - b.i)).map((x) => x.m);
+  }
+
+  const AVATAARKLEUREN = ['#3a5fd9', '#17885a', '#6a35ff', '#9a5a00', '#c2410c', '#0e7490', '#a21caf', '#4d7c0f'];
+  function avatarKleur(naam) {
+    let h = 0;
+    for (const c of String(naam || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    return AVATAARKLEUREN[h % AVATAARKLEUREN.length];
+  }
+
+  function kopieerTekst(m) {
+    const u = uitlegVan(m);
+    return [
+      `Cockpit melding (${m.niveau}, ${SOORT[m.soort] || m.soort}) voor ${m.klantNaam}`,
+      m.tekst,
+      ...(m.details && m.details.length ? ['Details:', ...m.details.map((d) => `- ${d}`)] : []),
+      `Wat het betekent: ${u.wat}`,
+      m.link ? `n8n: ${m.link}` : '',
+      'Zoek uit wat de oorzaak is en stel een oplossing voor.'
+    ].filter(Boolean).join('\n');
+  }
+
+  const model = { tellingen, aandacht, KLEUR, uitlegVan, meldingenVan, avatarKleur, kopieerTekst };
   if (typeof module !== 'undefined' && module.exports) { module.exports = model; return; }
 
-  let stand = { data: null, fout: '', laden: false };
-
-  function signaalHtml(s) {
-    const e = escapeHtmlAdmin;
-    const details = s.details && s.details.length
-      ? `<details class="ck-details"><summary>Toon ${s.details.length === 1 ? 'details' : s.details.length + ' items'}</summary><ul>${s.details.map((d) => `<li>${e(d)}</li>`).join('')}</ul></details>`
-      : '';
-    const link = s.link ? ` <a class="ck-link" href="${e(s.link)}" target="_blank" rel="noopener">Open in n8n</a>` : '';
-    const soort = SOORT[s.soort] ? `<span class="ck-soort">${SOORT[s.soort]}</span>` : '';
-    return `<li class="ck-signaal ck-${e(s.niveau)}"><span class="ck-stip" aria-hidden="true"></span><div>${soort}<span>${e(s.tekst)}</span>${link}${details}</div></li>`;
-  }
+  let stand = { data: null, fout: '', laden: false, filter: 'alles' };
 
   function datumKort(iso) {
     const d = new Date(iso);
     return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' });
+  }
+
+  function avatar(naam, klein) {
+    return `<span class="ck-av${klein ? ' ck-av-klein' : ''}" style="background:${avatarKleur(naam)}" aria-hidden="true">${escapeHtmlAdmin(adminInitialen(naam))}</span>`;
+  }
+
+  function meldingRij(m, i) {
+    const e = escapeHtmlAdmin;
+    const rood = m.niveau === 'rood';
+    const eerste = (m.details && m.details[0]) ? `: ${e(m.details[0])}${m.details.length > 1 ? ` en ${m.details.length - 1} meer` : ''}` : '';
+    return `<li><button type="button" class="ck-rij" data-melding="${i}">
+      ${avatar(m.klantNaam)}
+      <span class="ck-rij-tekst"><b>${e(m.tekst)}</b><span>${e(m.klantNaam)}${eerste}</span></span>
+      <span class="ck-soort">${e(SOORT[m.soort] || m.soort)}</span>
+      <span class="p-pil ${rood ? 'p-pil-fout' : 'p-pil-let-op'}">${rood ? 'Rood' : 'Oranje'}</span>
+      <svg class="p-i ck-pijl" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+    </button></li>`;
   }
 
   function steekproefHtml(sp) {
@@ -63,31 +138,33 @@
       </li>`;
     }).join('');
     return `
-      <section class="ck-sectie">
-        <h2>Steekproef deze week ${open ? `<span class="p-teller">${open}</span>` : ''}</h2>
-        <p class="ck-uitleg">Lees deze blogs zoals een klant ze leest. De controles vangen fouten, jij vangt of een blog echt goed is. Een afkeuring komt als kwaliteitssignaal bij de klant en in blog_kwaliteit.</p>
-        <ul class="ck-klant ck-sp">${rijen}</ul>
+      <section class="ck-kaart" aria-labelledby="ckSpKop">
+        <div class="ck-kaart-kop"><div><h2 id="ckSpKop">Steekproef van de week ${open ? `<span class="p-teller">${open}</span>` : ''}</h2><p>Lees er een paar, de rest vertrouw je</p></div></div>
+        <ul class="ck-sp">${rijen}</ul>
       </section>`;
   }
 
-  function klantKaart(k) {
+  function perKlantHtml(klanten) {
     const e = escapeHtmlAdmin;
-    const kl = KLEUR[k.kleur] || KLEUR.groen;
-    const signalen = k.signalen.filter((s) => s.niveau !== 'info');
-    const info = k.signalen.filter((s) => s.niveau === 'info');
+    const rijen = klanten.map((k) => {
+      const tel = { rood: 0, oranje: 0 };
+      for (const s of k.signalen || []) if (tel[s.niveau] !== undefined) tel[s.niveau]++;
+      const pillen = k.kleur === 'uit'
+        ? '<span class="p-pil p-pil-neutraal">Niet actief</span>'
+        : (!tel.rood && !tel.oranje
+          ? '<span class="p-pil p-pil-goed">Draait goed</span>'
+          : `${tel.rood ? `<span class="p-pil p-pil-fout">${tel.rood} rood</span>` : ''}${tel.oranje ? `<span class="p-pil p-pil-let-op">${tel.oranje} oranje</span>` : ''}`);
+      return `<li><button type="button" class="ck-kl" data-beheer="${e(k.id)}">
+        ${avatar(k.naam)}
+        <span class="ck-rij-tekst"><b>${e(k.naam)}</b><span>${e(k.producten || '')}</span></span>
+        <span class="ck-pillen">${pillen}</span>
+      </button></li>`;
+    }).join('');
     return `
-    <article class="ck-klant ck-rand-${e(k.kleur)}">
-      <div class="ck-klant-kop">
-        <div class="p-klant-av" aria-hidden="true">${e(adminInitialen(k.naam))}</div>
-        <div class="ad-klant-naam"><b>${e(k.naam)}</b><span>${e(k.producten || '')}</span></div>
-        <span class="p-pil ${kl.pil}">${kl.label}</span>
-      </div>
-      <ul class="ck-signalen">${signalen.map(signaalHtml).join('')}${info.map(signaalHtml).join('')}</ul>
-      <div class="ck-acties">
-        <button type="button" class="p-knop" data-bekijk="${e(k.id)}">Bekijk als klant</button>
-        <button type="button" class="p-knop" data-beheer="${e(k.id)}">Beheer</button>
-      </div>
-    </article>`;
+      <section class="ck-kaart" aria-labelledby="ckKlKop">
+        <div class="ck-kaart-kop"><div><h2 id="ckKlKop">Per klant</h2><p>Aantal open meldingen</p></div></div>
+        <ul class="ck-lijst">${rijen}</ul>
+      </section>`;
   }
 
   function teken() {
@@ -97,9 +174,9 @@
     const d = stand.data;
     const kop = `
     <div class="p-ov-kop">
-      <div><h1>Cockpit</h1><p>Alleen wat afwijkt. Groene klanten hoef je niet te openen.</p></div>
+      <div><h1>Cockpit</h1><p>Alleen wat aandacht vraagt. Wat goed gaat zie je hier niet.</p></div>
       <div class="p-ov-kop-acties ck-kop-acties">
-        ${d ? `<span class="ck-tijd">Bijgewerkt om ${e(tijd(d.bijgewerkt))}</span>` : ''}
+        ${d ? `<span class="ck-tijd">Laatst gecontroleerd om ${e(tijd(d.bijgewerkt))}</span>` : ''}
         <button type="button" class="p-knop" data-ververs ${stand.laden ? 'disabled' : ''}>${stand.laden ? 'Bezig met controleren' : 'Opnieuw controleren'}</button>
       </div>
     </div>`;
@@ -108,42 +185,38 @@
       bind(root);
       return;
     }
-    const t = tellingen(d);
-    const aandachtKlanten = d.klanten.filter((k) => k.kleur === 'rood' || k.kleur === 'oranje');
-    const groen = d.klanten.filter((k) => k.kleur === 'groen');
-    const uit = d.klanten.filter((k) => k.kleur === 'uit');
-    const gedeeld = d.gedeeld || { signalen: [], kleur: 'groen' };
+    const alle = meldingenVan(d);
+    stand.meldingen = alle;
+    const rood = alle.filter((m) => m.niveau === 'rood').length;
+    const oranje = alle.length - rood;
+    const metMelding = d.klanten.filter((k) => (k.signalen || []).some((s) => s.niveau !== 'info')).length;
+    const sp = (d.steekproef && d.steekproef.blogs) || [];
+    const beoordeeld = sp.filter((b) => b.oordeel).length;
+    const zichtbaar = alle.map((m, i) => ({ m, i })).filter((x) => stand.filter === 'alles' || x.m.niveau === stand.filter);
+    const knop = (id, tekst, n) => `<button type="button" class="${stand.filter === id ? 'on' : ''}" data-filter="${id}" aria-pressed="${stand.filter === id}">${tekst}${n !== undefined ? ` <span class="ck-n">${n}</span>` : ''}</button>`;
     root.innerHTML = `
     <div class="p-pagina">
       ${kop}
-      <div class="p-kerncijfers ad-kerncijfers">
-        <div class="p-kerncijfer"><div class="p-kerncijfer-kop">Direct aandacht</div><div class="ad-getal ck-getal-rood">${t.rood}</div></div>
-        <div class="p-kerncijfer"><div class="p-kerncijfer-kop">Let op</div><div class="ad-getal ck-getal-oranje">${t.oranje}</div></div>
-        <div class="p-kerncijfer"><div class="p-kerncijfer-kop">Draait goed</div><div class="ad-getal ck-getal-groen">${t.groen}</div></div>
-        <div class="p-kerncijfer"><div class="p-kerncijfer-kop">Gedeelde workflows met fouten</div><div class="ad-getal ${gedeeld.signalen.length ? 'ck-getal-' + gedeeld.kleur : 'ck-getal-groen'}">${gedeeld.signalen.length}</div></div>
+      <div class="ck-kpis">
+        <div class="ck-kpi"><div class="ck-kpi-l"><span class="ck-dot ck-dot-rood"></span>Direct oppakken</div><div class="ck-kpi-v">${rood}</div><div class="ck-kpi-s">rode meldingen</div></div>
+        <div class="ck-kpi"><div class="ck-kpi-l"><span class="ck-dot ck-dot-oranje"></span>Binnenkort kijken</div><div class="ck-kpi-v">${oranje}</div><div class="ck-kpi-s">oranje meldingen</div></div>
+        <div class="ck-kpi"><div class="ck-kpi-l"><span class="ck-dot ck-dot-plan"></span>Klanten met melding</div><div class="ck-kpi-v">${metMelding}<small> van ${d.klanten.length}</small></div><div class="ck-kpi-s">${metMelding ? 'minstens één punt open' : 'alles in orde'}</div></div>
+        <div class="ck-kpi"><div class="ck-kpi-l"><span class="ck-dot ck-dot-groen"></span>Steekproef van de week</div><div class="ck-kpi-v">${beoordeeld}<small> van ${sp.length}</small></div><div class="ck-kpi-s">blogs beoordeeld</div></div>
       </div>
       ${(d.problemen || []).map((p) => `<div class="ck-probleem">${e(p)}</div>`).join('')}
-      ${gedeeld.signalen.length ? `
-      <section class="ck-sectie">
-        <h2>Gedeelde workflows</h2>
-        <p class="ck-uitleg">Deze workflows draaien voor alle Shared klanten tegelijk. Een fout hier kan meerdere klanten raken.</p>
-        <article class="ck-klant ck-rand-${e(gedeeld.kleur)}"><ul class="ck-signalen">${gedeeld.signalen.map(signaalHtml).join('')}</ul></article>
-      </section>` : ''}
-      <section class="ck-sectie">
-        <h2>Klanten die aandacht vragen</h2>
-        ${aandachtKlanten.length ? `<div class="ck-raster">${aandachtKlanten.map(klantKaart).join('')}</div>` : '<div class="p-kaart ck-leeg">Geen enkele klant vraagt nu aandacht.</div>'}
-      </section>
-      ${steekproefHtml(d.steekproef)}
-      ${groen.length ? `
-      <section class="ck-sectie">
-        <h2>Draait goed</h2>
-        <div class="ck-chips">${groen.map((k) => `<button type="button" class="ck-chip" data-beheer="${e(k.id)}" title="${e(k.samenvatting || '')}"><span class="ck-stip ck-groen-stip" aria-hidden="true"></span>${e(k.naam)}</button>`).join('')}</div>
-      </section>` : ''}
-      ${uit.length ? `
-      <section class="ck-sectie">
-        <h2>Niet actief</h2>
-        <div class="ck-chips">${uit.map((k) => `<button type="button" class="ck-chip ck-chip-uit" data-beheer="${e(k.id)}">${e(k.naam)} <small>${e(k.samenvatting || '')}</small></button>`).join('')}</div>
-      </section>` : ''}
+      <div class="ck-kolommen">
+        <section class="ck-kaart ck-hoofd" aria-labelledby="ckMKop">
+          <div class="ck-kaart-kop">
+            <div><h2 id="ckMKop">Meldingen</h2><p>Klik op een melding voor uitleg en wat je eraan doet</p></div>
+            <div class="ck-seg" role="group" aria-label="Filter op ernst">${knop('alles', 'Alles', alle.length)}${knop('rood', 'Rood', rood)}${knop('oranje', 'Oranje', oranje)}</div>
+          </div>
+          ${zichtbaar.length ? `<ul class="ck-lijst">${zichtbaar.map((x) => meldingRij(x.m, x.i)).join('')}</ul>` : `<div class="ck-leeg">${alle.length ? 'Geen meldingen met dit filter.' : 'Geen enkele melding. Alles draait.'}</div>`}
+        </section>
+        <div class="ck-zij">
+          ${steekproefHtml(d.steekproef)}
+          ${perKlantHtml(d.klanten)}
+        </div>
+      </div>
       <details class="ck-uitleg-blok"><summary>Wat wordt er gecontroleerd</summary>
         <ul>
           <li><b>Techniek:</b> blogs op Fout of vastgelopen, geplande blogs die te laat zijn, een planning die leegloopt, de laatste publicatie, mislukte n8n runs in 7 dagen, workflows die niet meer draaien, prestatiedata die niet meer wordt bijgewerkt en de kritieke punten uit de Clients tabel.</li>
@@ -157,6 +230,48 @@
       </details>
     </div>`;
     bind(root);
+  }
+
+  // Popup met uitleg en actiepunt bij een melding.
+  function openMelding(m) {
+    const e = escapeHtmlAdmin;
+    const u = uitlegVan(m);
+    let dlg = document.getElementById('ckDialog');
+    if (!dlg) {
+      dlg = document.createElement('dialog');
+      dlg.id = 'ckDialog';
+      dlg.className = 'ck-dialog';
+      dlg.setAttribute('aria-labelledby', 'ckDialoogTitel');
+      document.body.appendChild(dlg);
+      dlg.addEventListener('click', (ev) => { if (ev.target === dlg) dlg.close(); });
+    }
+    const rood = m.niveau === 'rood';
+    const details = m.details && m.details.length
+      ? `<div class="ck-dl-blok"><h3>Betreft</h3><ul>${m.details.map((x) => `<li>${e(x)}</li>`).join('')}</ul></div>` : '';
+    dlg.innerHTML = `
+      <div class="ck-dl-kop">
+        ${avatar(m.klantNaam)}
+        <div class="ck-dl-titel"><span class="ck-dl-klant">${e(m.klantNaam)}</span><h2 id="ckDialoogTitel">${e(m.tekst)}</h2></div>
+        <button type="button" class="ck-dl-sluit" data-sluit aria-label="Sluiten"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+      <div class="ck-dl-pillen"><span class="p-pil ${rood ? 'p-pil-fout' : 'p-pil-let-op'}">${rood ? 'Direct oppakken' : 'Binnenkort kijken'}</span><span class="ck-soort">${e(SOORT[m.soort] || m.soort)}</span></div>
+      <div class="ck-dl-blok"><h3>Wat is er aan de hand</h3><p>${e(u.wat)}</p></div>
+      ${details}
+      <div class="ck-dl-actie"><h3>Wat moet je doen</h3><p>${e(u.doe)}</p></div>
+      <div class="ck-dl-knoppen">
+        ${m.link ? `<a class="p-knop" href="${e(m.link)}" target="_blank" rel="noopener">Open in n8n</a>` : ''}
+        ${m.klantId ? `<button type="button" class="p-knop" data-dl-beheer="${e(m.klantId)}">Naar klant</button><button type="button" class="p-knop" data-dl-bekijk="${e(m.klantId)}">Bekijk als klant</button>` : ''}
+        <button type="button" class="p-knop" data-dl-kopieer>Kopieer voor Claude</button>
+        <button type="button" class="p-knop p-knop-hoofd" data-sluit>Sluiten</button>
+      </div>`;
+    dlg.querySelectorAll('[data-sluit]').forEach((b) => b.addEventListener('click', () => dlg.close()));
+    dlg.querySelectorAll('[data-dl-beheer]').forEach((b) => b.addEventListener('click', () => { dlg.close(); gaNaar('klant', b.dataset.dlBeheer); }));
+    dlg.querySelectorAll('[data-dl-bekijk]').forEach((b) => b.addEventListener('click', () => bekijkAlsKlant(b.dataset.dlBekijk)));
+    dlg.querySelector('[data-dl-kopieer]').addEventListener('click', async (ev) => {
+      const knop = ev.currentTarget;
+      try { await navigator.clipboard.writeText(kopieerTekst(m)); knop.textContent = 'Gekopieerd'; } catch (err) { knop.textContent = 'Kopiëren lukt niet'; }
+    });
+    dlg.showModal();
   }
 
   async function bewaarOordeel(i, oordeel, opmerking) {
@@ -183,6 +298,8 @@
       const i = b.dataset.spOpslaan;
       bewaarOordeel(Number(i), 'niet goed', root.querySelector(`[data-sp-tekst="${i}"]`).value);
     }));
+    root.querySelectorAll('[data-melding]').forEach((b) => b.addEventListener('click', () => { const m = (stand.meldingen || [])[Number(b.dataset.melding)]; if (m) openMelding(m); }));
+    root.querySelectorAll('[data-filter]').forEach((b) => b.addEventListener('click', () => { stand.filter = b.dataset.filter; teken(); }));
     root.querySelectorAll('[data-ververs]').forEach((b) => b.addEventListener('click', () => laadCockpit(true)));
     root.querySelectorAll('[data-bekijk]').forEach((b) => b.addEventListener('click', () => bekijkAlsKlant(b.dataset.bekijk)));
     root.querySelectorAll('[data-beheer]').forEach((b) => b.addEventListener('click', () => gaNaar('klant', b.dataset.beheer)));
@@ -223,6 +340,7 @@
     }
   }
 
+  window.avatarKleur = avatarKleur;
   window.renderCockpit = teken;
   window.laadCockpit = laadCockpit;
   window.bekijkAlsKlant = bekijkAlsKlant;
