@@ -124,7 +124,6 @@ function toonScherm() {
     btn.classList.toggle('active', actief);
     if (actief) btn.setAttribute('aria-current', 'page'); else btn.removeAttribute('aria-current');
   });
-  zetBroodkruimel(view, klant);
   document.getElementById('pMobielTab').textContent = view === 'klant' && klant ? klant.naam : (view === 'pagr' ? 'Pagr.' : VIEW_TITELS[view]);
   if (view === 'cockpit') renderCockpit();
   if (view === 'klanten') renderKlanten();
@@ -142,28 +141,58 @@ function toonScherm() {
 }
 let pagrVanFrame = null;
 
-function zetBroodkruimel(view, klant) {
-  const el = document.getElementById('adPad');
-  if (!el) return;
+// Klantkiezer: dezelfde keuze telt op alle pagina's waar hij staat (Cockpit en Ideeën).
+function kiezerHtml(opties) {
   const e = escapeHtmlAdmin;
-  const titel = view === 'pagr' ? 'Pagr.' : (VIEW_TITELS[view] || '');
-  el.innerHTML = view === 'klant' && klant
-    ? `Beheer <span aria-hidden="true">/</span> <a href="#klanten" class="p-link">Alle klanten</a> <span aria-hidden="true">/</span> <b>${e(klant.naam)}</b>`
-    : `Beheer <span aria-hidden="true">/</span> <b>${e(titel)}</b>`;
-  const lijst = document.getElementById('adZoekLijst');
-  if (lijst && !lijst.children.length) lijst.innerHTML = alleKlanten().map((c) => `<option value="${e(c.naam)}"></option>`).join('');
+  const gekozen = opties.find((o) => o.id === adminState.klantKeuze);
+  const av = (o) => `<span class="ck-av ck-av-klein" style="background:${avatarKleur(o.naam)}" aria-hidden="true">${e(adminInitialen(o.naam))}</span>`;
+  return `
+  <div class="ad-kiezer" data-kiezer>
+    <button type="button" class="ad-kiezer-knop" aria-haspopup="listbox" aria-expanded="false">
+      ${gekozen ? av(gekozen) : '<svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg>'}
+      <span>${gekozen ? e(gekozen.naam) : 'Alle klanten'}</span>
+      <svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="ad-kiezer-paneel hidden">
+      ${opties.length > 6 ? '<input type="search" class="ad-kiezer-zoek" placeholder="Zoek een klant" aria-label="Zoek een klant">' : ''}
+      <ul class="ad-kiezer-lijst" role="listbox">
+        <li><button type="button" role="option" data-kies="" aria-selected="${!gekozen}"><span class="ck-av ck-av-klein ad-kiezer-alle" aria-hidden="true">A</span>Alle klanten</button></li>
+        ${opties.map((o) => `<li data-naam="${e(o.naam.toLowerCase())}"><button type="button" role="option" data-kies="${e(o.id)}" aria-selected="${o.id === adminState.klantKeuze}">${av(o)}${e(o.naam)}</button></li>`).join('')}
+      </ul>
+    </div>
+  </div>`;
 }
 
-(function koppelZoek() {
-  const veld = document.getElementById('adZoek');
-  if (!veld) return;
-  veld.addEventListener('change', () => {
-    const q = veld.value.trim().toLowerCase();
-    if (!q) return;
-    const gevonden = alleKlanten().find((c) => c.naam.toLowerCase() === q) || alleKlanten().find((c) => c.naam.toLowerCase().includes(q));
-    if (gevonden) { veld.value = ''; gaNaar('klant', gevonden.id); }
+function bindKiezer(root, naKeuze) {
+  const k = root.querySelector('[data-kiezer]');
+  if (!k) return;
+  const knop = k.querySelector('.ad-kiezer-knop');
+  const paneel = k.querySelector('.ad-kiezer-paneel');
+  const sluit = () => { paneel.classList.add('hidden'); knop.setAttribute('aria-expanded', 'false'); document.removeEventListener('click', buiten, true); };
+  const buiten = (ev) => { if (!k.contains(ev.target)) sluit(); };
+  knop.addEventListener('click', () => {
+    const open = paneel.classList.contains('hidden');
+    if (!open) { sluit(); return; }
+    paneel.classList.remove('hidden');
+    knop.setAttribute('aria-expanded', 'true');
+    document.addEventListener('click', buiten, true);
+    const zoek = paneel.querySelector('.ad-kiezer-zoek');
+    if (zoek) zoek.focus();
   });
-})();
+  k.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') { sluit(); knop.focus(); } });
+  const zoek = paneel.querySelector('.ad-kiezer-zoek');
+  if (zoek) zoek.addEventListener('input', () => {
+    const q = zoek.value.trim().toLowerCase();
+    paneel.querySelectorAll('li[data-naam]').forEach((li) => li.classList.toggle('hidden', !!q && !li.dataset.naam.includes(q)));
+  });
+  paneel.querySelectorAll('[data-kies]').forEach((b) => b.addEventListener('click', () => {
+    adminState.klantKeuze = b.dataset.kies;
+    try { sessionStorage.setItem('adKlantKeuze', adminState.klantKeuze); } catch (err) { /* geen opslag, geen probleem */ }
+    sluit();
+    naKeuze();
+  }));
+}
+try { adminState.klantKeuze = sessionStorage.getItem('adKlantKeuze') || ''; } catch (err) { adminState.klantKeuze = ''; }
 window.addEventListener('hashchange', toonScherm);
 
 // De ingebedde Pagr. omgeving meldt zijn hoogte, zodat de pagina als geheel scrolt.
@@ -874,7 +903,12 @@ function bindIdeeen(root) {
 
 function renderIdeeenScherm() {
   const el = document.getElementById('ideaProposals');
-  el.innerHTML = ideeenHtml(adminState.clients, false);
+  const alle = adminState.clients;
+  if (adminState.klantKeuze && !alle.some((c) => c.id === adminState.klantKeuze)) adminState.klantKeuze = '';
+  const kiezerEl = document.getElementById('ideeKiezer');
+  kiezerEl.innerHTML = kiezerHtml(alle.map((c) => ({ id: c.id, naam: c.naam })));
+  bindKiezer(kiezerEl, renderIdeeenScherm);
+  el.innerHTML = ideeenHtml(adminState.klantKeuze ? alle.filter((c) => c.id === adminState.klantKeuze) : alle, false);
   bindIdeeen(el);
 }
 

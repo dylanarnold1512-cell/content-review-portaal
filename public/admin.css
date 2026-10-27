@@ -197,13 +197,9 @@
 @media (max-width: 700px) { .ck-sp-oordeel { align-items: flex-start; } .ck-sp-opm { text-align: left; } }
 
 /* Beheer redesign (27 okt 2026): balk bovenaan, cijfertegels, lijst met meldingen, popup, tabel met klanten. */
-.ad-top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 14px 32px; background: var(--panel); border-bottom: 1px solid var(--border); }
-.ad-top-pad { font-size: 13px; color: var(--p-tekst-zacht); }
-.ad-top-pad b { color: var(--p-tekst); font-weight: 600; }
 .ad-top-zoek { margin-left: auto; display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; border: 1px solid var(--p-rand-sterk); border-radius: 10px; background: var(--p-vlak-2); width: 300px; max-width: 100%; color: var(--p-tekst-zacht); }
 .ad-top-zoek input { border: 0; background: none; outline: 0; font: inherit; font-size: 14px; color: var(--p-tekst); width: 100%; }
 .ad-top-zoek:focus-within { border-color: var(--p-plan); }
-@media (max-width: 860px) { .ad-top { display: none; } }
 
 .ck-av { width: 34px; height: 34px; border-radius: 9px; color: #fff; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex: none; letter-spacing: 0.02em; }
 .ck-av-groot { width: 52px; height: 52px; border-radius: 14px; font-size: 16px; }
@@ -283,3 +279,35 @@
 .ad-kop-klant { display: flex; align-items: center; gap: 16px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .ck-kl { flex-wrap: nowrap; } .ck-kl .ck-rij-tekst { flex: 1 1 auto; } .ck-kl .ck-pillen { flex: none; justify-content: flex-end; }
+
+/* Donkerblauwe zijbalk, alleen in het beheer */
+#adminApp .p-side { background: #14142b; border-right: 0; color: rgba(255, 255, 255, 0.76); }
+#adminApp .p-side .p-logo { filter: brightness(0) invert(1); }
+#adminApp .p-side .p-klant { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.12); }
+#adminApp .p-side .p-klant-av { background: #ff3951; }
+#adminApp .p-side .p-klant-naam { color: #fff; }
+#adminApp .p-side .p-klant-sub { color: rgba(255, 255, 255, 0.62); }
+#adminApp .p-side .p-nav-label { color: rgba(255, 255, 255, 0.52); }
+#adminApp .p-side .p-nav-item { color: rgba(255, 255, 255, 0.78); }
+#adminApp .p-side .p-nav-item:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
+#adminApp .p-side .p-nav-item.active { background: rgba(255, 255, 255, 0.11); color: #fff; font-weight: 600; }
+#adminApp .p-side .p-nav-item.active .p-i { color: #ff6b7e; }
+#adminApp .p-side .p-nav-item:focus-visible { outline-color: #fff; }
+#adminApp .p-side .p-side-voet { border-top-color: rgba(255, 255, 255, 0.12); }
+
+/* Klantkiezer */
+.ck-av-klein { width: 22px; height: 22px; border-radius: 6px; font-size: 10px; }
+.ad-kiezer { position: relative; }
+.ad-kiezer-knop { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; border: 1px solid var(--p-rand-sterk); border-radius: 10px; background: var(--panel); font: inherit; font-size: 14px; font-weight: 500; color: var(--p-tekst); cursor: pointer; max-width: 260px; }
+.ad-kiezer-knop span:not(.ck-av) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ad-kiezer-knop:hover { background: var(--p-vlak-2); }
+.ad-kiezer-knop:focus-visible { outline: 2px solid var(--p-plan); outline-offset: 2px; }
+.ad-kiezer-paneel { position: absolute; z-index: 30; right: 0; top: calc(100% + 6px); width: 280px; max-width: calc(100vw - 32px); background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 36px rgba(20, 20, 43, 0.18); padding: 6px; }
+.ad-kiezer-paneel.hidden { display: none; }
+.ad-kiezer-zoek { width: 100%; height: 34px; margin-bottom: 4px; padding: 0 10px; border: 1px solid var(--p-rand-sterk); border-radius: 8px; background: var(--p-vlak-2); font: inherit; font-size: 14px; color: var(--p-tekst); }
+.ad-kiezer-lijst { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto; }
+.ad-kiezer-lijst li.hidden { display: none; }
+.ad-kiezer-lijst button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: none; font: inherit; font-size: 14px; color: var(--p-tekst); text-align: left; cursor: pointer; }
+.ad-kiezer-lijst button:hover { background: var(--p-vlak-2); }
+.ad-kiezer-lijst button[aria-selected="true"] { background: var(--p-plan-zacht); font-weight: 600; }
+.ad-kiezer-alle { background: var(--p-tekst); }

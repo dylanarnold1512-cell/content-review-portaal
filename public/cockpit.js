@@ -123,11 +123,13 @@
     </button></li>`;
   }
 
-  function steekproefHtml(sp) {
+  function steekproefHtml(sp, klantNaam) {
     const e = escapeHtmlAdmin;
     if (!sp || !sp.blogs || !sp.blogs.length) return '';
-    const open = sp.blogs.filter((b) => !b.oordeel).length;
-    const rijen = sp.blogs.map((b, i) => {
+    const zichtbaar = sp.blogs.map((b, i) => ({ b, i })).filter((x) => !klantNaam || x.b.klantNaam === klantNaam);
+    if (!zichtbaar.length) return '';
+    const open = zichtbaar.filter((x) => !x.b.oordeel).length;
+    const rijen = zichtbaar.map(({ b, i }) => {
       const oordeel = b.oordeel
         ? `<span class="p-pil ${b.oordeel === 'goed' ? 'p-pil-goed' : 'p-pil-fout'}">${b.oordeel === 'goed' ? 'Goed' : 'Niet goed'}</span>${b.opmerking ? `<span class="ck-sp-opm">${e(b.opmerking)}</span>` : ''}`
         : `<div class="ck-sp-knoppen"><button type="button" class="p-knop" data-sp-goed="${i}">Goed</button><button type="button" class="p-knop" data-sp-niet="${i}">Niet goed</button></div>
@@ -176,6 +178,7 @@
     <div class="p-ov-kop">
       <div><h1>Cockpit</h1><p>Alleen wat aandacht vraagt. Wat goed gaat zie je hier niet.</p></div>
       <div class="p-ov-kop-acties ck-kop-acties">
+        ${d ? kiezerHtml(d.klanten.map((k) => ({ id: k.id, naam: k.naam }))) : ''}
         ${d ? `<span class="ck-tijd">Laatst gecontroleerd om ${e(tijd(d.bijgewerkt))}</span>` : ''}
         <button type="button" class="p-knop" data-ververs ${stand.laden ? 'disabled' : ''}>${stand.laden ? 'Bezig met controleren' : 'Opnieuw controleren'}</button>
       </div>
@@ -185,12 +188,16 @@
       bind(root);
       return;
     }
-    const alle = meldingenVan(d);
+    if (adminState.klantKeuze && !d.klanten.some((k) => k.id === adminState.klantKeuze)) adminState.klantKeuze = '';
+    const keuze = adminState.klantKeuze;
+    const gekozen = keuze ? d.klanten.find((k) => k.id === keuze) : null;
+    const alle = meldingenVan(d).filter((m) => !keuze || m.klantId === keuze);
     stand.meldingen = alle;
     const rood = alle.filter((m) => m.niveau === 'rood').length;
     const oranje = alle.length - rood;
-    const metMelding = d.klanten.filter((k) => (k.signalen || []).some((s) => s.niveau !== 'info')).length;
-    const sp = (d.steekproef && d.steekproef.blogs) || [];
+    const klantenZicht = gekozen ? [gekozen] : d.klanten;
+    const metMelding = klantenZicht.filter((k) => (k.signalen || []).some((s) => s.niveau !== 'info')).length;
+    const sp = ((d.steekproef && d.steekproef.blogs) || []).filter((b) => !gekozen || b.klantNaam === gekozen.naam);
     const beoordeeld = sp.filter((b) => b.oordeel).length;
     const zichtbaar = alle.map((m, i) => ({ m, i })).filter((x) => stand.filter === 'alles' || x.m.niveau === stand.filter);
     const knop = (id, tekst, n) => `<button type="button" class="${stand.filter === id ? 'on' : ''}" data-filter="${id}" aria-pressed="${stand.filter === id}">${tekst}${n !== undefined ? ` <span class="ck-n">${n}</span>` : ''}</button>`;
@@ -200,7 +207,7 @@
       <div class="ck-kpis">
         <div class="ck-kpi"><div class="ck-kpi-l"><span class="ck-dot ck-dot-rood"></span>Direct oppakken</div><div class="ck-kpi-v">${rood}</div><div class="ck-kpi-s">rode meldingen</div></div>
         <div class="ck-kpi"><div class="ck-kpi-l"><span class="ck-dot ck-dot-oranje"></span>Binnenkort kijken</div><div class="ck-kpi-v">${oranje}</div><div class="ck-kpi-s">oranje meldingen</div></div>
-        <div class="ck-kpi"><div class="ck-kpi-l"><span class="ck-dot ck-dot-plan"></span>Klanten met melding</div><div class="ck-kpi-v">${metMelding}<small> van ${d.klanten.length}</small></div><div class="ck-kpi-s">${metMelding ? 'minstens één punt open' : 'alles in orde'}</div></div>
+        <div class="ck-kpi"><div class="ck-kpi-l"><span class="ck-dot ck-dot-plan"></span>Klanten met melding</div><div class="ck-kpi-v">${metMelding}<small> van ${klantenZicht.length}</small></div><div class="ck-kpi-s">${metMelding ? 'minstens één punt open' : 'alles in orde'}</div></div>
         <div class="ck-kpi"><div class="ck-kpi-l"><span class="ck-dot ck-dot-groen"></span>Steekproef van de week</div><div class="ck-kpi-v">${beoordeeld}<small> van ${sp.length}</small></div><div class="ck-kpi-s">blogs beoordeeld</div></div>
       </div>
       ${(d.problemen || []).map((p) => `<div class="ck-probleem">${e(p)}</div>`).join('')}
@@ -213,8 +220,8 @@
           ${zichtbaar.length ? `<ul class="ck-lijst">${zichtbaar.map((x) => meldingRij(x.m, x.i)).join('')}</ul>` : `<div class="ck-leeg">${alle.length ? 'Geen meldingen met dit filter.' : 'Geen enkele melding. Alles draait.'}</div>`}
         </section>
         <div class="ck-zij">
-          ${steekproefHtml(d.steekproef)}
-          ${perKlantHtml(d.klanten)}
+          ${steekproefHtml(d.steekproef, gekozen && gekozen.naam)}
+          ${gekozen ? '' : perKlantHtml(d.klanten)}
         </div>
       </div>
       <details class="ck-uitleg-blok"><summary>Wat wordt er gecontroleerd</summary>
@@ -288,6 +295,7 @@
   }
 
   function bind(root) {
+    bindKiezer(root, teken);
     root.querySelectorAll('[data-sp-goed]').forEach((b) => b.addEventListener('click', () => bewaarOordeel(Number(b.dataset.spGoed), 'goed', '')));
     root.querySelectorAll('[data-sp-niet]').forEach((b) => b.addEventListener('click', () => {
       const form = root.querySelector(`[data-sp-form="${b.dataset.spNiet}"]`);
