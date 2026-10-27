@@ -8,7 +8,7 @@
     uit: { label: 'Uit', pil: 'p-pil-neutraal' }
   };
 
-  const SOORT = { techniek: 'Techniek', kwaliteit: 'Kwaliteit', data: 'Data', klant: 'Klant' };
+  const SOORT = { techniek: 'Techniek', kwaliteit: 'Kwaliteit', blog: 'Blog', data: 'Data', klant: 'Klant' };
 
   function tellingen(data) {
     const t = { rood: 0, oranje: 0, groen: 0, uit: 0 };
@@ -41,6 +41,33 @@
     const link = s.link ? ` <a class="ck-link" href="${e(s.link)}" target="_blank" rel="noopener">Open in n8n</a>` : '';
     const soort = SOORT[s.soort] ? `<span class="ck-soort">${SOORT[s.soort]}</span>` : '';
     return `<li class="ck-signaal ck-${e(s.niveau)}"><span class="ck-stip" aria-hidden="true"></span><div>${soort}<span>${e(s.tekst)}</span>${link}${details}</div></li>`;
+  }
+
+  function datumKort(iso) {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' });
+  }
+
+  function steekproefHtml(sp) {
+    const e = escapeHtmlAdmin;
+    if (!sp || !sp.blogs || !sp.blogs.length) return '';
+    const open = sp.blogs.filter((b) => !b.oordeel).length;
+    const rijen = sp.blogs.map((b, i) => {
+      const oordeel = b.oordeel
+        ? `<span class="p-pil ${b.oordeel === 'goed' ? 'p-pil-goed' : 'p-pil-fout'}">${b.oordeel === 'goed' ? 'Goed' : 'Niet goed'}</span>${b.opmerking ? `<span class="ck-sp-opm">${e(b.opmerking)}</span>` : ''}`
+        : `<div class="ck-sp-knoppen"><button type="button" class="p-knop" data-sp-goed="${i}">Goed</button><button type="button" class="p-knop" data-sp-niet="${i}">Niet goed</button></div>
+           <div class="ck-sp-form hidden" data-sp-form="${i}"><textarea rows="2" placeholder="Wat is er niet goed? Bijvoorbeeld: te algemeen, verkeerde toon, feit klopt niet" data-sp-tekst="${i}"></textarea><button type="button" class="p-knop p-knop-hoofd" data-sp-opslaan="${i}">Opslaan</button></div>`;
+      return `<li class="ck-sp-rij">
+        <div class="ck-sp-info"><a href="${e(b.url)}" target="_blank" rel="noopener">${e(b.titel)}</a><span>${e(b.klantNaam)}, gepubliceerd ${e(datumKort(b.datum))}</span></div>
+        <div class="ck-sp-oordeel">${oordeel}</div>
+      </li>`;
+    }).join('');
+    return `
+      <section class="ck-sectie">
+        <h2>Steekproef deze week ${open ? `<span class="p-teller">${open}</span>` : ''}</h2>
+        <p class="ck-uitleg">Lees deze blogs zoals een klant ze leest. De controles vangen fouten, jij vangt of een blog echt goed is. Een afkeuring komt als kwaliteitssignaal bij de klant en in blog_kwaliteit.</p>
+        <ul class="ck-klant ck-sp">${rijen}</ul>
+      </section>`;
   }
 
   function klantKaart(k) {
@@ -106,6 +133,7 @@
         <h2>Klanten die aandacht vragen</h2>
         ${aandachtKlanten.length ? `<div class="ck-raster">${aandachtKlanten.map(klantKaart).join('')}</div>` : '<div class="p-kaart ck-leeg">Geen enkele klant vraagt nu aandacht.</div>'}
       </section>
+      ${steekproefHtml(d.steekproef)}
       ${groen.length ? `
       <section class="ck-sectie">
         <h2>Draait goed</h2>
@@ -119,17 +147,42 @@
       <details class="ck-uitleg-blok"><summary>Wat wordt er gecontroleerd</summary>
         <ul>
           <li><b>Techniek:</b> blogs op Fout of vastgelopen, geplande blogs die te laat zijn, een planning die leegloopt, de laatste publicatie, mislukte n8n runs in 7 dagen, workflows die niet meer draaien, prestatiedata die niet meer wordt bijgewerkt en de kritieke punten uit de Clients tabel.</li>
+          <li><b>Blog:</b> per gepubliceerde blog van de laatste 4 maanden: na 21 dagen nog niet in Google of geblokkeerd, geen interne link, korter dan 500 woorden, geen tussenkoppen, geen SEO titel of omschrijving, geen Live URL en geen uitgelichte afbeelding.</li>
           <li><b>Kwaliteit:</b> 3 of meer QA afkeuringen in 14 dagen, herschrijvingen na feedback die de controle niet halen, en een klant die 40% of meer van de blogs afwijst (60 dagen, vanaf 3 beoordelingen).</li>
           <li><b>Data:</b> vertoningen 25% of clicks 30% lager dan de 28 dagen ervoor. Vanaf 50% is het rood. Alleen bij genoeg verkeer om iets te zeggen.</li>
+          <li><b>Gedeelde workflows:</b> staat de naam van een klant in de invoer van de stap die misging, dan komt de fout ook bij die klant te staan.</li>
           <li><b>Klant:</b> blogs die langer dan 7 dagen op goedkeuring wachten en een klant die langer dan 30 dagen niet in het portaal was.</li>
         </ul>
-        <p>Elke maandagochtend komt er één samenvatting in Telegram met alleen de klanten die aandacht vragen.</p>
+        <p>Elke maandagochtend komt er één samenvatting in Telegram met alleen de klanten die aandacht vragen en de steekproef van die week.</p>
       </details>
     </div>`;
     bind(root);
   }
 
+  async function bewaarOordeel(i, oordeel, opmerking) {
+    const b = stand.data.steekproef.blogs[i];
+    try {
+      await adminApi('/cockpit/steekproef', { method: 'POST', body: JSON.stringify({ klantNaam: b.klantNaam, blogId: b.blogId, titel: b.titel, oordeel, opmerking }) });
+      b.oordeel = oordeel;
+      b.opmerking = opmerking || '';
+      renderError('');
+      teken();
+    } catch (err) {
+      renderError(err.message);
+    }
+  }
+
   function bind(root) {
+    root.querySelectorAll('[data-sp-goed]').forEach((b) => b.addEventListener('click', () => bewaarOordeel(Number(b.dataset.spGoed), 'goed', '')));
+    root.querySelectorAll('[data-sp-niet]').forEach((b) => b.addEventListener('click', () => {
+      const form = root.querySelector(`[data-sp-form="${b.dataset.spNiet}"]`);
+      form.classList.remove('hidden');
+      form.querySelector('textarea').focus();
+    }));
+    root.querySelectorAll('[data-sp-opslaan]').forEach((b) => b.addEventListener('click', () => {
+      const i = b.dataset.spOpslaan;
+      bewaarOordeel(Number(i), 'niet goed', root.querySelector(`[data-sp-tekst="${i}"]`).value);
+    }));
     root.querySelectorAll('[data-ververs]').forEach((b) => b.addEventListener('click', () => laadCockpit(true)));
     root.querySelectorAll('[data-bekijk]').forEach((b) => b.addEventListener('click', () => bekijkAlsKlant(b.dataset.bekijk)));
     root.querySelectorAll('[data-beheer]').forEach((b) => b.addEventListener('click', () => gaNaar('klant', b.dataset.beheer)));
@@ -138,7 +191,7 @@
   function zetTeller() {
     const el = document.getElementById('cockpitTeller');
     if (!el) return;
-    const n = aandacht(stand.data);
+    const n = aandacht(stand.data) + (((stand.data && stand.data.steekproef && stand.data.steekproef.blogs) || []).some((b) => !b.oordeel) ? 1 : 0);
     el.textContent = n ? String(n) : '';
     el.classList.toggle('hidden', !n);
   }

@@ -179,3 +179,19 @@
 .ck-uitleg-blok summary { cursor: pointer; font-weight: 600; color: var(--p-tekst); }
 .ck-uitleg-blok ul { margin: 10px 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
 .ck-uitleg-blok b { color: var(--p-tekst); }
+.ck-sp { list-style: none; margin: 0; padding: 0; gap: 0; }
+.ck-sp-rij { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; padding: 14px 18px; border-top: 1px solid var(--p-raster); }
+.ck-sp-rij:first-child { border-top: 0; }
+.ck-sp-info { min-width: 0; flex: 1 1 280px; display: flex; flex-direction: column; gap: 2px; }
+.ck-sp-info a { font-weight: 600; color: var(--p-tekst); text-decoration: none; overflow-wrap: anywhere; }
+.ck-sp-info a:hover { text-decoration: underline; }
+.ck-sp-info span { font-size: 12.5px; color: var(--p-tekst-zacht); }
+.ck-sp-oordeel { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex: 0 1 auto; max-width: 100%; }
+.ck-sp-knoppen { display: flex; gap: 8px; }
+.ck-sp-form { display: flex; flex-direction: column; gap: 8px; width: min(420px, 100%); }
+.ck-sp-form.hidden { display: none; }
+.ck-sp-form textarea { width: 100%; font: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 9px; resize: vertical; }
+.ck-sp-opm { font-size: 12.5px; color: var(--p-tekst-zacht); max-width: 420px; text-align: right; }
+.ck-sectie h2 .p-teller { margin-left: 6px; vertical-align: 2px; }
+.ck-sp.ck-klant { padding: 0; }
+@media (max-width: 700px) { .ck-sp-oordeel { align-items: flex-start; } .ck-sp-opm { text-align: left; } }

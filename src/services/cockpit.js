@@ -15,6 +15,15 @@
 //   Klant:     blogs die lang op Ter review staan en wanneer de klant voor het laatst in het portaal was
 //              (Portaal Instellingen, kolom Laatste login).
 //   Samenvatting: samenvattingTekst() maakt het wekelijkse Telegram bericht (workflow BA - Systeem - Cockpit Weekoverzicht).
+//
+// Afronding (27-10-2026):
+//   Blog:      per gepubliceerde blog van de automation: in Google (Prestaties Indexatie), interne links, lengte en
+//              tussenkoppen (content_inventory), SEO titel en omschrijving (Notion) en een uitgelichte afbeelding
+//              (WordPress REST, alleen lezen).
+//   Gedeeld:   een fout in een Shared workflow wordt aan de klant gekoppeld als de klantnaam in de invoer van de
+//              mislukte stap staat.
+//   Steekproef: elke week 3 recent gepubliceerde blogs om zelf te lezen. Het oordeel gaat naar blog_kwaliteit
+//              (gebeurtenis steekproef), een afkeuring wordt een kwaliteitssignaal.
 
 const { clients, getClient } = require('../config/clients');
 const settingsService = require('./settings');
@@ -48,13 +57,18 @@ const DATA = {
 };
 const KLANT = { reviewWachtDagen: 7, loginDagen: 30 };
 
+const BLOG = { recentDagen: 120, indexatieDagen: 21, minWoorden: 500, afbeeldingDagen: 60, steekproefDagen: 30, steekproefAantal: 3 };
+
 const TABELLEN = {
   kwaliteit: process.env.N8N_BLOG_KWALITEIT_TABLE_ID || 'MhwS0Xor195VzQZP',
-  overzicht: process.env.N8N_PRESTATIES_OVERZICHT_TABLE_ID || 'caOsvqDNlG79IjTA'
+  overzicht: process.env.N8N_PRESTATIES_OVERZICHT_TABLE_ID || 'caOsvqDNlG79IjTA',
+  clients: process.env.N8N_CLIENTS_TABLE_ID || '42vYfT6ktan72bpa',
+  inventaris: process.env.N8N_CONTENT_INVENTORY_TABLE_ID || 'NamGvL5UcQVHgZ7F',
+  indexatie: process.env.N8N_PRESTATIES_INDEXATIE_TABLE_ID || 'OCXbGmfnEipDHU9b'
 };
 
 const NIVEAU_GEWICHT = { rood: 3, oranje: 2, info: 1 };
-const SOORT_VOLGORDE = { techniek: 0, kwaliteit: 1, data: 2, klant: 3 };
+const SOORT_VOLGORDE = { techniek: 0, kwaliteit: 1, blog: 2, data: 3, klant: 4 };
 
 function getApiKey() {
   const key = process.env.N8N_API_KEY;
@@ -257,6 +271,9 @@ function kwaliteitSignalen(rijen, nu) {
   const herschrijf = rijen.filter((r) => r.gebeurtenis === 'herschrijving_check' && niet(r) && binnenDagen(r.datum, KWALITEIT.herschrijfDagen, nu));
   if (herschrijf.length) voeg('oranje', `${meervoud(herschrijf.length, 'herschrijving na feedback haalde', 'herschrijvingen na feedback haalden')} de controle niet (${KWALITEIT.herschrijfDagen} dagen)`, [...new Set(herschrijf.map((r) => kort(r.redenen)).filter(Boolean))].slice(0, 3));
 
+  const steekproef = rijen.filter((r) => r.gebeurtenis === 'steekproef' && /niet/i.test(String(r.uitkomst || '')) && binnenDagen(r.datum, KWALITEIT.herschrijfDagen, nu));
+  if (steekproef.length) voeg('oranje', `${meervoud(steekproef.length, 'blog uit de steekproef is', 'blogs uit de steekproef zijn')} door jou afgekeurd (${KWALITEIT.herschrijfDagen} dagen)`, steekproef.map((r) => kort(`${r.blog_titel || r.blog_id}: ${r.feedback_tekst || 'geen opmerking'}`)));
+
   const afgewezen = rijen.filter((r) => r.gebeurtenis === 'klant_afgewezen' && binnenDagen(r.datum, KWALITEIT.klantDagen, nu));
   const goedgekeurd = rijen.filter((r) => r.gebeurtenis === 'klant_goedgekeurd' && binnenDagen(r.datum, KWALITEIT.klantDagen, nu));
   const totaal = afgewezen.length + goedgekeurd.length;
@@ -315,6 +332,91 @@ function klantSignalen({ blogs, statussen, reviewEnabled, laatsteLogin, nu }) {
   return signalen;
 }
 
+// Pad van een URL, zonder domein, kleine letters en zonder slash aan het eind. Zo vinden we dezelfde blog in elke tabel.
+function padVan(url) {
+  if (!url) return '';
+  let pad = String(url).trim();
+  try { pad = new URL(pad, 'https://x.nl').pathname; } catch (err) { /* geen geldige URL */ }
+  return decodeURIComponent(pad).toLowerCase().replace(/\/+$/, '') || '/';
+}
+
+// Controle per gepubliceerde blog van de automation. blogs: Notion samenvattingen. inventaris en indexatie: rijen van deze klant.
+function blogInhoudSignalen({ blogs, statussen, inventaris, indexatie, heeftSeoVelden, zonderAfbeelding, nu }) {
+  const signalen = [];
+  const voeg = (niveau, tekst, details) => signalen.push({ soort: 'blog', niveau, tekst, details: details || [] });
+  const gepubliceerd = (statussen && statussen.published) || 'Gepubliceerd';
+  const eigen = blogs.filter((b) => b.status === gepubliceerd);
+  const recent = eigen.filter((b) => binnenDagen(b.publicatiedatum, BLOG.recentDagen, nu));
+
+  const zonderUrl = recent.filter((b) => !b.liveUrl);
+  if (zonderUrl.length) voeg('oranje', `${meervoud(zonderUrl.length, 'gepubliceerde blog heeft', 'gepubliceerde blogs hebben')} geen Live URL in Notion, de metingen kunnen die niet vinden`, zonderUrl.map((b) => b.titel));
+
+  if (heeftSeoVelden) {
+    const zonderSeo = recent.filter((b) => !String(b.seoTitle || '').trim() || !String(b.seoDescription || '').trim());
+    if (zonderSeo.length) voeg('oranje', `${meervoud(zonderSeo.length, 'blog mist', 'blogs missen')} een SEO titel of omschrijving`, zonderSeo.map((b) => b.titel));
+  }
+
+  const perPad = new Map((inventaris || []).map((r) => [padVan(r.pad || r.url), r]));
+  const metInventaris = recent.filter((b) => b.liveUrl).map((b) => ({ b, inv: perPad.get(padVan(b.liveUrl)) })).filter((x) => x.inv);
+  const zonderLinks = metInventaris.filter((x) => Number(x.inv.links_intern) === 0);
+  if (zonderLinks.length) voeg('oranje', `${meervoud(zonderLinks.length, 'blog heeft', 'blogs hebben')} geen enkele interne link`, zonderLinks.map((x) => x.b.titel));
+  const kort = metInventaris.filter((x) => x.inv.woorden !== null && x.inv.woorden !== undefined && x.inv.woorden !== '' && Number(x.inv.woorden) < BLOG.minWoorden);
+  if (kort.length) voeg('oranje', `${meervoud(kort.length, 'blog is', 'blogs zijn')} korter dan ${BLOG.minWoorden} woorden`, kort.map((x) => `${x.b.titel} (${x.inv.woorden} woorden)`));
+  const zonderKoppen = metInventaris.filter((x) => Number(x.inv.koppen) === 0 && x.inv.koppen !== null && x.inv.koppen !== '');
+  if (zonderKoppen.length) voeg('oranje', `${meervoud(zonderKoppen.length, 'blog heeft', 'blogs hebben')} geen tussenkoppen`, zonderKoppen.map((x) => x.b.titel));
+
+  if (zonderAfbeelding && zonderAfbeelding.length) voeg('oranje', `${meervoud(zonderAfbeelding.length, 'blog heeft', 'blogs hebben')} geen uitgelichte afbeelding in WordPress`, zonderAfbeelding);
+
+  // Indexatie: geblokkeerd is altijd rood, niet in Google pas na een paar weken oranje.
+  const datumPerPad = new Map(eigen.filter((b) => b.liveUrl).map((b) => [padVan(b.liveUrl), b]));
+  const geblokkeerd = [];
+  const nietInGoogle = [];
+  for (const r of indexatie || []) {
+    const b = datumPerPad.get(padVan(r.blog_pad || r.blog_url));
+    if (!b) continue;
+    if (r.status_code === 'geblokkeerd' || r.status_code === 'canonical_probleem') geblokkeerd.push(`${b.titel}: ${r.status_tekst || r.status_code}`);
+    else if (['ontdekt_niet_geindexeerd', 'gecrawld_niet_geindexeerd', 'niet_gevonden'].includes(r.status_code)) {
+      const dagen = dagenGeleden(b.publicatiedatum, nu);
+      if (dagen !== null && dagen >= BLOG.indexatieDagen) nietInGoogle.push(`${b.titel} (${dagen} dagen live)`);
+    }
+  }
+  if (geblokkeerd.length) voeg('rood', `${meervoud(geblokkeerd.length, 'blog is', 'blogs zijn')} geblokkeerd voor Google of heeft een andere hoofdversie`, geblokkeerd);
+  if (nietInGoogle.length) voeg('oranje', `${meervoud(nietInGoogle.length, 'blog staat', 'blogs staan')} na ${BLOG.indexatieDagen} dagen nog niet in Google`, nietInGoogle);
+  return signalen;
+}
+
+// Welke klanten staan in een stuk tekst (invoer van een mislukte stap). Alleen namen van minstens 4 tekens.
+function klantenInTekst(tekst, klanten) {
+  const t = String(tekst || '').toLowerCase();
+  if (!t) return [];
+  return klanten.filter((k) => (k.naam && k.naam.length >= 4 && t.includes(k.naam.toLowerCase())) || (k.id && k.id.length >= 4 && t.includes(`"${k.id.toLowerCase()}"`))).map((k) => k.id);
+}
+
+// ISO week als sleutel, bijvoorbeeld 2026-W44.
+function weekSleutel(nu) {
+  const d = new Date(nu);
+  d.setUTCHours(0, 0, 0, 0);
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const jaarStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((d - jaarStart) / DAG + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+}
+
+function hash(tekst) {
+  let h = 2166136261;
+  for (const c of String(tekst)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+
+// Elke week dezelfde 3 blogs (vaste keuze per week), liefst van verschillende klanten.
+function kiesSteekproef(kandidaten, week, aantal = BLOG.steekproefAantal) {
+  const geschud = kandidaten.slice().sort((a, b) => hash(week + a.blogId) - hash(week + b.blogId));
+  const keuze = [];
+  for (const k of geschud) if (keuze.length < aantal && !keuze.some((x) => x.klantId === k.klantId)) keuze.push(k);
+  for (const k of geschud) if (keuze.length < aantal && !keuze.includes(k)) keuze.push(k);
+  return keuze;
+}
+
 const KLEUR_WOORD = { rood: 'direct aandacht', oranje: 'let op' };
 
 // Het wekelijkse bericht voor Telegram. Platte tekst, kort, alleen wat afwijkt.
@@ -341,6 +443,11 @@ function samenvattingTekst(data, basisUrl) {
       if (gedeeld.length > 4) regels.push(`• en nog ${gedeeld.length - 4}`);
     }
   }
+  const open = ((data.steekproef && data.steekproef.blogs) || []).filter((b) => !b.oordeel);
+  if (open.length) {
+    regels.push('', `Steekproef deze week: lees ${meervoud(open.length, 'blog', 'blogs')} en geef je oordeel in de cockpit`);
+    open.forEach((b) => regels.push(`• ${b.klantNaam}: ${b.titel}`));
+  }
   (data.problemen || []).forEach((p) => regels.push('', `Let op: ${p}`));
   regels.push('', `Open de cockpit: ${link}`);
   return regels.join('\n');
@@ -349,10 +456,10 @@ function samenvattingTekst(data, basisUrl) {
 // ---- Ophalen ----
 
 // Alle rijen van een n8n data table, met paginering (max 10 x 250).
-async function alleRijen(tabelId) {
+async function alleRijen(tabelId, maxPaginas = 10) {
   const rijen = [];
   let cursor = '';
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < maxPaginas; i++) {
     const data = await n8nGet(`/data-tables/${tabelId}/rows?limit=250${cursor ? '&cursor=' + encodeURIComponent(cursor) : ''}`);
     rijen.push(...(data.data || []));
     if (!data.nextCursor) break;
@@ -378,7 +485,28 @@ async function alleWorkflows() {
   return lijst.filter((w) => isBlogWorkflow(w.name));
 }
 
-async function recenteFouten(workflows, nu) {
+// Uitvoeringsdata verandert niet meer, dus de gevonden klanten per uitvoering mogen blijven staan.
+const klantenPerUitvoering = new Map();
+
+// De invoer van de mislukte stap: de laatste uitvoer van de stappen die erheen leiden.
+function invoerVanMislukteStap(exec) {
+  const rd = ((exec.data || {}).resultData) || {};
+  const stap = rd.lastNodeExecuted || (rd.error && rd.error.node && rd.error.node.name) || '';
+  const verbindingen = ((exec.workflowData || {}).connections) || {};
+  const ouders = Object.entries(verbindingen).filter(([, c]) => JSON.stringify(c).includes(`"node":${JSON.stringify(stap)}`)).map(([naam]) => naam);
+  const runData = rd.runData || {};
+  let tekst = '';
+  for (const naam of ouders) {
+    const runs = runData[naam] || [];
+    const laatste = runs[runs.length - 1];
+    if (laatste) tekst += JSON.stringify(laatste.data || {}).slice(0, 200000);
+  }
+  const eigen = (runData[stap] || [])[(runData[stap] || []).length - 1];
+  if (eigen) tekst += JSON.stringify(eigen.data || {}).slice(0, 50000);
+  return tekst;
+}
+
+async function recenteFouten(workflows, nu, klanten = []) {
   const namen = new Map(workflows.map((w) => [w.id, w.name]));
   const grens = nu - 7 * DAG;
   const fouten = [];
@@ -399,15 +527,43 @@ async function recenteFouten(workflows, nu) {
   // Van de laatste fout per workflow halen we de foutmelding op, zodat je ziet wat er misging zonder n8n te openen.
   const laatstePer = new Map();
   for (const f of fouten) if (!laatstePer.has(f.workflowId) || f.startedAt > laatstePer.get(f.workflowId).startedAt) laatstePer.set(f.workflowId, f);
-  await inPartijen([...laatstePer.values()].slice(0, 15), 3, async (f) => {
+  // Bij gedeelde workflows ook de andere fouten (max 25): daarmee koppelen we de fout aan de klant.
+  const laatste = new Set([...laatstePer.values()].slice(0, 15));
+  const gedeeld = fouten.filter((f) => !klantVanWorkflow(f.workflowNaam)).slice(0, 25);
+  const ophalen = [...new Set([...laatste, ...gedeeld])];
+  await inPartijen(ophalen, 3, async (f) => {
+    const bekend = klantenPerUitvoering.get(f.id);
+    if (bekend && !laatste.has(f)) { f.klanten = bekend.klanten; return; }
     try {
       const d = await n8nGet(`/executions/${f.id}?includeData=true`);
       const rd = ((d.data || {}).resultData) || {};
       f.bericht = (rd.error && (rd.error.message || rd.error.description)) || '';
       f.node = rd.lastNodeExecuted || (rd.error && rd.error.node && rd.error.node.name) || '';
+      if (!klantVanWorkflow(f.workflowNaam)) {
+        f.klanten = klantenInTekst(invoerVanMislukteStap(d) + ' ' + f.bericht, klanten);
+        klantenPerUitvoering.set(f.id, { klanten: f.klanten });
+      }
     } catch (err) { /* zonder melding is de fout er nog steeds */ }
   });
   return fouten;
+}
+
+// Uitgelichte afbeelding van recente blogs, via de openbare WordPress REST API (alleen lezen, max 20 blogs per klant).
+async function zonderUitgelichteAfbeelding(clientsRij, blogs, statussen, nu) {
+  if (!clientsRij || !clientsRij.wp_url) return [];
+  const gepubliceerd = (statussen && statussen.published) || 'Gepubliceerd';
+  const recent = blogs.filter((b) => b.status === gepubliceerd && /^\d+$/.test(String(b.wordpressPostId || '').trim()) && binnenDagen(b.publicatiedatum, BLOG.afbeeldingDagen, nu)).slice(0, 20);
+  if (!recent.length) return [];
+  const wp = String(clientsRij.wp_url).trim().replace(/\/+$/, '');
+  const type = String(clientsRij.wp_post_type || 'posts').trim() || 'posts';
+  const basis = /\/wp-json\//.test(wp) ? wp : `${wp}/wp-json/wp/v2/${type}`;
+  const ids = recent.map((b) => String(b.wordpressPostId).trim());
+  const res = await fetch(`${basis}?include=${ids.join(',')}&per_page=20&_fields=id,featured_media`, { signal: AbortSignal.timeout(8000) });
+  if (!res.ok) return [];
+  const posts = await res.json();
+  if (!Array.isArray(posts)) return [];
+  const zonder = new Set(posts.filter((p) => !p.featured_media).map((p) => String(p.id)));
+  return recent.filter((b) => zonder.has(String(b.wordpressPostId).trim())).map((b) => b.titel);
 }
 
 async function stilgevallenWorkflows(workflows, nu) {
@@ -437,23 +593,34 @@ async function bouwCockpit() {
   const instellingen = await settingsService.listAllSettings(clients);
   const problemen = [];
 
+  const klantNamen = instellingen.map((i) => ({ id: i.id, naam: i.naam }));
   let workflows = [];
   let fouten = [];
   let stil = [];
   try {
     workflows = await alleWorkflows();
-    [fouten, stil] = await Promise.all([recenteFouten(workflows, nu), stilgevallenWorkflows(workflows, nu)]);
+    [fouten, stil] = await Promise.all([recenteFouten(workflows, nu, klantNamen), stilgevallenWorkflows(workflows, nu)]);
   } catch (err) {
     problemen.push(`n8n kon niet worden gelezen: ${err.message}`);
   }
 
   let kwaliteitRijen = [];
   let overzichtRijen = [];
+  let clientsRijen = [];
+  let inventarisRijen = [];
+  let indexatieRijen = [];
   try {
     [kwaliteitRijen, overzichtRijen] = await Promise.all([alleRijen(TABELLEN.kwaliteit), alleRijen(TABELLEN.overzicht)]);
   } catch (err) {
     problemen.push(`Kwaliteit en prestatiedata konden niet worden gelezen: ${err.message}`);
   }
+  const clientsFout = await alleRijen(TABELLEN.clients).then((r) => { clientsRijen = r; return ''; }).catch((err) => err.message);
+  await Promise.all([
+    alleRijen(TABELLEN.inventaris, 30).then((r) => { inventarisRijen = r; }).catch((err) => problemen.push(`content_inventory kon niet worden gelezen: ${err.message}`)),
+    alleRijen(TABELLEN.indexatie, 20).then((r) => { indexatieRijen = r; }).catch((err) => problemen.push(`Prestaties Indexatie kon niet worden gelezen: ${err.message}`))
+  ]);
+  const clientsRijVan = (inst) => clientsRijen.find((r) => String(r.portaal_slug || '').trim() === inst.id) || clientsRijen.find((r) => zelfdeKlant(r.client_name, inst.naam)) || null;
+  const steekproefKandidaten = [];
 
   const klanten = await Promise.all(instellingen.map(async (inst) => {
     const config = getClient(inst.id);
@@ -464,9 +631,10 @@ async function bouwCockpit() {
     }
 
     let blogsPerMaand = null;
+    const clientsRij = clientsRijVan(inst);
     if (!Object.values(EIGEN_WORKFLOWS).includes(inst.id)) {
       try {
-        const clientsRij = await workflowGegevens.zoekRij(inst.id, inst.naam);
+        if (clientsFout) throw new Error(clientsFout);
         const controle = workflowGegevens.bouwControle({ rij: clientsRij, clientId: inst.id, portaalStatus: inst.klantstatus, portaalStatusIngesteld: inst.klantstatusIngesteld });
         for (const c of controle.filter((r) => !r.ok && r.kritiek)) rij.signalen.push({ soort: 'techniek', niveau: 'rood', tekst: c.tekst, details: [] });
         if (clientsRij && clientsRij.blogs_per_maand !== undefined && clientsRij.blogs_per_maand !== null && clientsRij.blogs_per_maand !== '') blogsPerMaand = Number(clientsRij.blogs_per_maand);
@@ -481,6 +649,19 @@ async function bouwCockpit() {
       rij.signalen.push(...uit.signalen);
       rij.laatstePublicatie = uit.laatstePublicatie;
       rij.signalen.push(...klantSignalen({ blogs, statussen: config.statusValues || {}, reviewEnabled: inst.reviewEnabled, laatsteLogin: inst.laatsteLogin, nu }));
+      const zonderAfbeelding = await zonderUitgelichteAfbeelding(clientsRij, blogs, config.statusValues, nu).catch(() => []);
+      rij.signalen.push(...blogInhoudSignalen({
+        blogs,
+        statussen: config.statusValues || {},
+        inventaris: inventarisRijen.filter((r) => zelfdeKlant(r.client_name, inst.naam)),
+        indexatie: indexatieRijen.filter((r) => zelfdeKlant(r.client_name, inst.naam)),
+        heeftSeoVelden: Boolean(config.fields && config.fields.seoTitle && config.fields.seoDescription),
+        zonderAfbeelding,
+        nu
+      }));
+      const gepubliceerd = (config.statusValues && config.statusValues.published) || 'Gepubliceerd';
+      blogs.filter((b) => b.status === gepubliceerd && b.liveUrl && binnenDagen(b.publicatiedatum, BLOG.steekproefDagen, nu))
+        .forEach((b) => steekproefKandidaten.push({ klantId: inst.id, klantNaam: inst.naam, blogId: b.id, titel: b.titel, url: b.liveUrl, datum: b.publicatiedatum }));
     } catch (err) {
       rij.signalen.push({ soort: 'techniek', niveau: 'rood', tekst: `Notion planning kon niet worden gelezen: ${err.message}`, details: [] });
     }
@@ -492,6 +673,9 @@ async function bouwCockpit() {
     const eigenFouten = fouten.filter((f) => klantVanWorkflow(f.workflowNaam) === inst.id);
     rij.signalen.push(...foutSignalen(eigenFouten, nu));
     rij.signalen.push(...stilSignalen(stil.filter((w) => klantVanWorkflow(w.naam) === inst.id)));
+    // Fouten in gedeelde workflows waarbij deze klant in de invoer van de mislukte stap stond.
+    const gedeeldVoorKlant = fouten.filter((f) => !klantVanWorkflow(f.workflowNaam) && (f.klanten || []).includes(inst.id));
+    rij.signalen.push(...foutSignalen(gedeeldVoorKlant, nu).map((x) => ({ ...x, tekst: `${x.tekst} (gedeelde workflow, bij deze klant)` })));
 
     rij.signalen = sorteerSignalen(rij.signalen);
     const kleur = kleurVan(rij.signalen);
@@ -504,8 +688,19 @@ async function bouwCockpit() {
     ...stilSignalen(stil.filter((w) => !klantVanWorkflow(w.naam)))
   ]);
 
+  const week = weekSleutel(nu);
+  const oordelen = new Map(kwaliteitRijen.filter((r) => r.gebeurtenis === 'steekproef').map((r) => [r.blog_id, r]));
+  const steekproef = {
+    week,
+    blogs: kiesSteekproef(steekproefKandidaten, week).map((b) => {
+      const o = oordelen.get(b.blogId);
+      return { ...b, oordeel: o ? (/niet/i.test(o.uitkomst) ? 'niet goed' : 'goed') : '', opmerking: o ? o.feedback_tekst || '' : '' };
+    })
+  };
+
   return {
     bijgewerkt: new Date(nu).toISOString(),
+    steekproef,
     klanten: sorteerKlanten(klanten),
     gedeeld: { kleur: kleurVan(gedeeld), signalen: gedeeld, workflows: workflows.length },
     problemen
@@ -513,6 +708,30 @@ async function bouwCockpit() {
 }
 
 let cache = { op: 0, data: null, bezig: null };
+
+// Oordeel over een blog uit de steekproef: een rij in blog_kwaliteit. Een afkeuring wordt een kwaliteitssignaal.
+async function bewaarSteekproef({ klantNaam, blogId, titel, oordeel, opmerking }) {
+  if (!['goed', 'niet goed'].includes(oordeel)) throw new Error('Oordeel moet goed of niet goed zijn.');
+  if (!blogId || !klantNaam) throw new Error('Blog of klant ontbreekt.');
+  if (oordeel === 'niet goed' && !String(opmerking || '').trim()) throw new Error('Zet er kort bij wat er niet goed is, dan leert het systeem ervan.');
+  const rij = {
+    blog_id: String(blogId).slice(0, 200), klant: String(klantNaam).slice(0, 120), workflow: 'cockpit',
+    datum: new Date().toISOString().slice(0, 10), gebeurtenis: 'steekproef', uitkomst: oordeel,
+    redenen: '', feedback_tekst: String(opmerking || '').trim().slice(0, 1000), feedback_categorie: '',
+    revisie_nummer: 0, prompt_versie: '', model: '', blog_titel: String(titel || '').slice(0, 200)
+  };
+  const res = await fetch(`${N8N_BASE_URL}/api/v1/data-tables/${TABELLEN.kwaliteit}/rows`, {
+    method: 'POST',
+    headers: { 'X-N8N-API-KEY': getApiKey(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ data: [rij], returnType: 'count' })
+  });
+  if (!res.ok) throw new Error(`Opslaan in blog_kwaliteit mislukte (${res.status}): ${(await res.text()).slice(0, 200)}`);
+  if (cache.data && cache.data.steekproef) {
+    const b = cache.data.steekproef.blogs.find((x) => x.blogId === blogId);
+    if (b) { b.oordeel = oordeel; b.opmerking = rij.feedback_tekst; }
+  }
+  return { ok: true };
+}
 
 async function getCockpit({ ververs = false } = {}) {
   if (!ververs && cache.data && Date.now() - cache.op < CACHE_MS) return cache.data;
@@ -525,6 +744,13 @@ async function getCockpit({ ververs = false } = {}) {
 
 module.exports = {
   getCockpit,
+  bewaarSteekproef,
+  blogInhoudSignalen,
+  klantenInTekst,
+  invoerVanMislukteStap,
+  kiesSteekproef,
+  weekSleutel,
+  padVan,
   kwaliteitSignalen,
   dataSignalen,
   klantSignalen,
