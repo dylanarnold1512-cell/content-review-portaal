@@ -282,7 +282,8 @@
 
 /* Donkerblauwe zijbalk, alleen in het beheer */
 #adminApp .p-side { background: #14142b; border-right: 0; color: rgba(255, 255, 255, 0.76); }
-#adminApp .p-side .p-logo { filter: brightness(0) invert(1); }
+#adminApp .p-side .p-merk { padding: 0; }
+#adminApp .p-side .p-merk .p-logo { box-sizing: content-box; background: #fff; padding: 9px 14px; border-radius: 10px; height: 22px; }
 #adminApp .p-side .p-klant { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.12); }
 #adminApp .p-side .p-klant-av { background: #ff3951; }
 #adminApp .p-side .p-klant-naam { color: #fff; }
