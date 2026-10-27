@@ -208,6 +208,7 @@ async function bewaarVeld({ clientId, naam, veld, waarde }) {
 
 module.exports = {
   GROEPEN,
+  zoekRij,
   leesGegevens,
   bewaarVeld,
   valideerVeld,

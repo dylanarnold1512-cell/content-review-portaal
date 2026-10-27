@@ -19,6 +19,8 @@ async function requireLogin(req, res, next) {
   if (!(req.session && req.session.clientId === clientId)) {
     return res.status(401).json({ error: 'Niet ingelogd voor deze klant.' });
   }
+  // Dylan die via de cockpit meekijkt (admin sessie) mag altijd door, ook bij een gepauzeerde klant.
+  if (req.session.isAdmin) return next();
   // Gepauzeerde en beëindigde klanten komen er niet meer in, ook niet met een
   // sessie die nog openstaat. Lukt het ophalen van de status niet, dan blijft
   // de klant actief (zie getClientSettings).

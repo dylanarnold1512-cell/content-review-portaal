@@ -73,6 +73,7 @@ async function init() {
   const me = await api('/me');
   if (me.clientId) {
     const meInfo = await api('/client-info?slug=' + encodeURIComponent(me.clientId)).catch(() => null);
+    if (me.alsBeheerder) toonMeekijkBalk(meInfo ? meInfo.naam : me.clientId);
     await enterApp(me.clientId, meInfo);
   }
 }
@@ -96,6 +97,22 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
   document.getElementById('app').classList.add('hidden');
   document.getElementById('loginScreen').classList.remove('hidden');
 });
+
+// Dylan kijkt mee vanuit de cockpit: een smalle balk bovenaan, zodat duidelijk is dat acties als de klant tellen.
+function toonMeekijkBalk(naam) {
+  if (document.getElementById('meekijkBalk')) return;
+  const balk = document.createElement('div');
+  balk.id = 'meekijkBalk';
+  balk.className = 'p-meekijk';
+  balk.setAttribute('role', 'status');
+  const tekst = document.createElement('span');
+  tekst.textContent = `Je kijkt mee als ${naam}. Goedkeuren of afwijzen telt als actie van de klant.`;
+  const terug = document.createElement('a');
+  terug.href = '/admin#cockpit';
+  terug.textContent = 'Terug naar de cockpit';
+  balk.append(tekst, terug);
+  document.body.prepend(balk);
+}
 
 async function enterApp(clientId, clientMeta) {
   state.clientId = clientId;
