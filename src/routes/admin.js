@@ -47,13 +47,29 @@ router.get('/cockpit', requireAdmin, async (req, res) => {
 });
 
 // Wekelijkse samenvatting voor Telegram (workflow "BA - Systeem - Cockpit Weekoverzicht" in n8n).
-// Geen admin sessie: n8n stuurt de header X-N8N-API-KEY mee, die moet gelijk zijn aan N8N_API_KEY van het portaal.
-router.get('/cockpit/samenvatting', async (req, res) => {
-  const verwacht = String(process.env.N8N_API_KEY || '');
-  const gekregen = String(req.get('x-n8n-api-key') || '');
+// Geen admin sessie: n8n stuurt een API sleutel van de eigen n8n mee (header X-N8N-API-KEY). Die is geldig als hij gelijk is
+// aan N8N_API_KEY van het portaal, of als n8n zelf de sleutel accepteert. Zo hoeven de twee sleutels niet gelijk te zijn.
+const geldigeSleutels = new Map(); // sha256 van de sleutel -> geldig tot
+async function n8nSleutelGeldig(sleutel) {
   const crypto = require('crypto');
-  const gelijk = verwacht && gekregen.length === verwacht.length && crypto.timingSafeEqual(Buffer.from(gekregen), Buffer.from(verwacht));
-  if (!gelijk) return res.status(401).json({ error: 'Geen toegang.' });
+  if (!sleutel || sleutel.length < 20) return false;
+  const eigen = String(process.env.N8N_API_KEY || '');
+  if (eigen && sleutel.length === eigen.length && crypto.timingSafeEqual(Buffer.from(sleutel), Buffer.from(eigen))) return true;
+  const vingerafdruk = crypto.createHash('sha256').update(sleutel).digest('hex');
+  if ((geldigeSleutels.get(vingerafdruk) || 0) > Date.now()) return true;
+  const basis = (process.env.N8N_BASE_URL || 'https://n8n.advertisr.nl').replace(/\/+$/, '');
+  try {
+    const res = await fetch(`${basis}/api/v1/workflows?limit=1`, { headers: { 'X-N8N-API-KEY': sleutel }, signal: AbortSignal.timeout(10000) });
+    if (!res.ok) return false;
+    geldigeSleutels.set(vingerafdruk, Date.now() + 60 * 60 * 1000);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+router.get('/cockpit/samenvatting', async (req, res) => {
+  if (!(await n8nSleutelGeldig(String(req.get('x-n8n-api-key') || '')))) return res.status(401).json({ error: 'Geen toegang.' });
   try {
     const data = await cockpitService.getCockpit({ ververs: true });
     const basis = process.env.PORTAAL_URL || 'https://portaal.advertisr.nl';
