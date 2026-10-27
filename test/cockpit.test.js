@@ -276,3 +276,21 @@ test('steekproef: afkeuring wordt een kwaliteitssignaal en staat in het weekover
   assert.match(t, /Steekproef deze week: lees 1 blog/);
   assert.match(t, /• PPExport: Rozen inkopen/);
 });
+
+test('samenvatting: zonder geldige n8n sleutel geen toegang', async () => {
+  const router = require('../src/routes/admin');
+  const laag = router.stack.find((l) => l.route && l.route.path === '/cockpit/samenvatting');
+  const handler = laag.route.stack[0].handle;
+  const origineel = global.fetch;
+  global.fetch = async () => ({ ok: false, status: 401 });
+  try {
+    let code = 200;
+    await handler({ get: () => 'een-verkeerde-sleutel-van-lengte' }, { status(c) { code = c; return this; }, json() {} });
+    assert.equal(code, 401);
+    code = 200;
+    await handler({ get: () => '' }, { status(c) { code = c; return this; }, json() {} });
+    assert.equal(code, 401);
+  } finally {
+    global.fetch = origineel;
+  }
+});
