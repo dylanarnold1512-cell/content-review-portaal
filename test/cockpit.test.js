@@ -221,7 +221,7 @@ test('blog: interne links, lengte, koppen, SEO en afbeelding', () => {
   const teksten = s.map((x) => x.tekst).join(' | ');
   assert.match(teksten, /1 blog mist een SEO titel/);
   assert.match(teksten, /1 blog heeft geen enkele interne link/);
-  assert.match(teksten, /1 blog is korter dan 500 woorden/);
+  assert.ok(!/woorden/.test(teksten), 'lengte telt niet mee');
   assert.match(teksten, /1 blog heeft geen tussenkoppen/);
   assert.match(teksten, /1 blog heeft geen uitgelichte afbeelding/);
   assert.ok(s.every((x) => x.soort === 'blog'));

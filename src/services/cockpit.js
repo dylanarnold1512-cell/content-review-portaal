@@ -57,7 +57,7 @@ const DATA = {
 };
 const KLANT = { reviewWachtDagen: 7, loginDagen: 30 };
 
-const BLOG = { recentDagen: 120, indexatieDagen: 21, minWoorden: 500, afbeeldingDagen: 60, steekproefDagen: 30, steekproefAantal: 3 };
+const BLOG = { recentDagen: 120, indexatieDagen: 21, afbeeldingDagen: 60, steekproefDagen: 30, steekproefAantal: 3 };
 
 const TABELLEN = {
   kwaliteit: process.env.N8N_BLOG_KWALITEIT_TABLE_ID || 'MhwS0Xor195VzQZP',
@@ -360,8 +360,7 @@ function blogInhoudSignalen({ blogs, statussen, inventaris, indexatie, heeftSeoV
   const metInventaris = recent.filter((b) => b.liveUrl).map((b) => ({ b, inv: perPad.get(padVan(b.liveUrl)) })).filter((x) => x.inv);
   const zonderLinks = metInventaris.filter((x) => Number(x.inv.links_intern) === 0);
   if (zonderLinks.length) voeg('oranje', `${meervoud(zonderLinks.length, 'blog heeft', 'blogs hebben')} geen enkele interne link`, zonderLinks.map((x) => x.b.titel));
-  const kort = metInventaris.filter((x) => x.inv.woorden !== null && x.inv.woorden !== undefined && x.inv.woorden !== '' && Number(x.inv.woorden) < BLOG.minWoorden);
-  if (kort.length) voeg('oranje', `${meervoud(kort.length, 'blog is', 'blogs zijn')} korter dan ${BLOG.minWoorden} woorden`, kort.map((x) => `${x.b.titel} (${x.inv.woorden} woorden)`));
+  // Lengte wordt bewust niet gecontroleerd: Dylan vindt de lengte van een blog geen signaal (27-10-2026).
   const zonderKoppen = metInventaris.filter((x) => Number(x.inv.koppen) === 0 && x.inv.koppen !== null && x.inv.koppen !== '');
   if (zonderKoppen.length) voeg('oranje', `${meervoud(zonderKoppen.length, 'blog heeft', 'blogs hebben')} geen tussenkoppen`, zonderKoppen.map((x) => x.b.titel));
 

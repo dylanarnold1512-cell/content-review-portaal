@@ -147,7 +147,7 @@
       <details class="ck-uitleg-blok"><summary>Wat wordt er gecontroleerd</summary>
         <ul>
           <li><b>Techniek:</b> blogs op Fout of vastgelopen, geplande blogs die te laat zijn, een planning die leegloopt, de laatste publicatie, mislukte n8n runs in 7 dagen, workflows die niet meer draaien, prestatiedata die niet meer wordt bijgewerkt en de kritieke punten uit de Clients tabel.</li>
-          <li><b>Blog:</b> per gepubliceerde blog van de laatste 4 maanden: na 21 dagen nog niet in Google of geblokkeerd, geen interne link, korter dan 500 woorden, geen tussenkoppen, geen SEO titel of omschrijving, geen Live URL en geen uitgelichte afbeelding.</li>
+          <li><b>Blog:</b> per gepubliceerde blog van de laatste 4 maanden: na 21 dagen nog niet in Google of geblokkeerd, geen interne link, geen tussenkoppen, geen SEO titel of omschrijving, geen Live URL en geen uitgelichte afbeelding.</li>
           <li><b>Kwaliteit:</b> 3 of meer QA afkeuringen in 14 dagen, herschrijvingen na feedback die de controle niet halen, en een klant die 40% of meer van de blogs afwijst (60 dagen, vanaf 3 beoordelingen).</li>
           <li><b>Data:</b> vertoningen 25% of clicks 30% lager dan de 28 dagen ervoor. Vanaf 50% is het rood. Alleen bij genoeg verkeer om iets te zeggen.</li>
           <li><b>Gedeelde workflows:</b> staat de naam van een klant in de invoer van de stap die misging, dan komt de fout ook bij die klant te staan.</li>
