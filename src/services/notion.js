@@ -142,6 +142,21 @@ async function listItems(clientId, statusFilter) {
   return res.results.map((page) => summarizePage(page, config.fields));
 }
 
+// Alle pagina's van de contentplanning, met paginering (voor de cockpit). Max 1000 om een eindeloze lus te voorkomen.
+async function listAllPages(clientId) {
+  const config = getClient(clientId);
+  const notion = getNotionClient(clientId);
+  const pages = [];
+  let cursor;
+  for (let i = 0; i < 10; i++) {
+    const res = await notion.databases.query({ database_id: config.databaseId, page_size: 100, ...(cursor ? { start_cursor: cursor } : {}) });
+    pages.push(...res.results);
+    if (!res.has_more) break;
+    cursor = res.next_cursor;
+  }
+  return pages.map((page) => summarizePage(page, config.fields));
+}
+
 async function getItemDetail(clientId, pageId) {
   const config = getClient(clientId);
   const notion = getNotionClient(clientId);
@@ -274,6 +289,7 @@ async function getPerformanceLog(clientId, days = 90) {
 }
 
 module.exports = {
+  listAllPages,
   listItems,
   getItemDetail,
   approveItem,

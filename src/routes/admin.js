@@ -10,6 +10,7 @@ const intakeService = require('../services/intake');
 const onboardingService = require('../services/onboarding');
 const lpKlantgegevens = require('../lp/klantgegevens');
 const aiZichtbaarheidService = require('../services/aiZichtbaarheid');
+const cockpitService = require('../services/cockpit');
 const { checkAdminPassword, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
@@ -34,6 +35,28 @@ router.post('/logout', (req, res) => {
 
 router.get('/me', (req, res) => {
   res.json({ isAdmin: Boolean(req.session && req.session.isAdmin) });
+});
+
+// Cockpit: per klant een kleur en de signalen die afwijken. ?ververs=1 haalt alles opnieuw op (anders 10 minuten cache).
+router.get('/cockpit', requireAdmin, async (req, res) => {
+  try {
+    res.json(await cockpitService.getCockpit({ ververs: Boolean(req.query.ververs) }));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Bekijk als klant: zet de klant in dezelfde sessie, zodat het klantportaal opent zonder klantwachtwoord.
+// De admin sessie blijft staan. Werkt ook voor een gepauzeerde klant.
+router.post('/bekijk-als/:clientId', requireAdmin, (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    if (!config) return res.status(404).json({ error: 'Onbekende klant.' });
+    req.session.clientId = config.id;
+    res.json({ ok: true, url: '/' + encodeURIComponent(config.id) });
+  } catch (err) {
+    res.status(404).json({ error: 'Onbekende klant.' });
+  }
 });
 
 router.get('/settings', requireAdmin, async (req, res) => {

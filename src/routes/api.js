@@ -49,12 +49,16 @@ router.post('/login', async (req, res) => {
 });
 
 router.post('/logout', (req, res) => {
-  req.session = null;
+  // Kijkt Dylan mee als klant, dan sluit uitloggen alleen het klantportaal en blijft de admin sessie staan.
+  if (req.session && req.session.isAdmin) req.session.clientId = null;
+  else req.session = null;
   res.json({ ok: true });
 });
 
 router.get('/me', async (req, res) => {
   const clientId = req.session?.clientId || null;
+  const alsBeheerder = Boolean(req.session?.isAdmin && clientId);
+  if (alsBeheerder) return res.json({ clientId, alsBeheerder });
   if (clientId) {
     try {
       const status = (await settingsService.getClientSettings(clientId, getClient(clientId))).klantstatus;

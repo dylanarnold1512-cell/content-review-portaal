@@ -36,7 +36,8 @@
     <nav class="p-nav" id="adminNav" aria-label="Onderdelen van het beheer">
       <div class="p-nav-groep">
         <div class="p-nav-label">Klanten</div>
-        <button type="button" class="p-nav-item active" data-view="klanten"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg>Alle klanten</button>
+        <button type="button" class="p-nav-item active" data-view="cockpit"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>Cockpit<span class="p-teller hidden" id="cockpitTeller" aria-label="Klanten die aandacht vragen"></span></button>
+        <button type="button" class="p-nav-item" data-view="klanten"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg>Alle klanten</button>
         <button type="button" class="p-nav-item" data-view="nieuw"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Nieuwe klant</button>
       </div>
       <div class="p-nav-groep">
@@ -66,13 +67,14 @@
   <div class="p-main">
     <header class="p-mtop">
       <img class="p-logo" src="https://advertisr.nl/wp-content/uploads/2025/03/Logo_Advertisr_new_2025.svg" alt="Advertisr." style="height:20px">
-      <div><div class="p-mtop-klant">Beheer</div><div class="p-mtop-tab" id="pMobielTab">Alle klanten</div></div>
+      <div><div class="p-mtop-klant">Beheer</div><div class="p-mtop-tab" id="pMobielTab">Cockpit</div></div>
       <button type="button" class="p-menuknop" id="pMenuknop" aria-label="Menu openen" aria-expanded="false" aria-controls="pSide"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     </header>
 
     <div id="adminError" class="admin-error hidden"></div>
 
-    <div id="viewKlanten" class="tab-panel"></div>
+    <div id="viewCockpit" class="tab-panel"></div>
+    <div id="viewKlanten" class="tab-panel hidden"></div>
     <div id="viewKlant" class="tab-panel hidden"></div>
 
     <div id="viewPagr" class="tab-panel hidden">
@@ -255,5 +257,6 @@
 </div>
 
 <script src="/admin.js"></script>
+<script src="/cockpit.js"></script>
 </body>
 </html>

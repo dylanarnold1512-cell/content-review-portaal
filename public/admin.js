@@ -50,9 +50,9 @@ const KLANT_TABS = [
   { id: 'ideeen', titel: 'Ideeën' },
   { id: 'merkprofiel', titel: 'Merkprofiel opbouwen' }
 ];
-const VIEW_TITELS = { klanten: 'Alle klanten', nieuw: 'Nieuwe klant', ideeen: 'Ideeën', pagr: 'Pagr.', klant: 'Klant' };
+const VIEW_TITELS = { cockpit: 'Cockpit', klanten: 'Alle klanten', nieuw: 'Nieuwe klant', ideeen: 'Ideeën', pagr: 'Pagr.', klant: 'Klant' };
 const PAGR_TABS = ['overzicht', 'werkplaats', 'nieuw', 'sjablonen', 'paginas', 'kloon', 'vervang', 'klantgegevens'];
-let huidig = { view: 'klanten', klantId: '', tab: 'instellingen' };
+let huidig = { view: 'cockpit', klantId: '', tab: 'instellingen' };
 
 function leesHash() {
   const delen = String(window.location.hash || '').replace(/^#/, '').split('/').map(decodeURIComponent);
@@ -61,8 +61,8 @@ function leesHash() {
     return { view: 'klant', klantId: delen[1], tab };
   }
   if (delen[0] === 'pagr') return { view: 'pagr', klantId: '', tab: PAGR_TABS.includes(delen[1]) ? delen[1] : 'overzicht' };
-  if (['klanten', 'nieuw', 'ideeen'].includes(delen[0])) return { view: delen[0], klantId: '', tab: 'instellingen' };
-  return { view: 'klanten', klantId: '', tab: 'instellingen' };
+  if (['cockpit', 'klanten', 'nieuw', 'ideeen'].includes(delen[0])) return { view: delen[0], klantId: '', tab: 'instellingen' };
+  return { view: 'cockpit', klantId: '', tab: 'instellingen' };
 }
 
 // Een klant in onboarding opent op het tabblad Onboarding, een klant die klaar is op Instellingen.
@@ -113,7 +113,7 @@ function toonScherm() {
   sluitMenu();
   const { view, klantId, tab } = huidig;
   const klant = zoekKlant(klantId);
-  ['Klanten', 'Klant', 'Ideeen', 'Nieuw', 'Pagr'].forEach((naam) => {
+  ['Cockpit', 'Klanten', 'Klant', 'Ideeen', 'Nieuw', 'Pagr'].forEach((naam) => {
     document.getElementById('view' + naam).classList.toggle('hidden', naam.toLowerCase() !== (view === 'klant' ? 'klant' : view));
   });
   document.querySelectorAll('#adminNav [data-view]').forEach((btn) => {
@@ -124,6 +124,7 @@ function toonScherm() {
     if (actief) btn.setAttribute('aria-current', 'page'); else btn.removeAttribute('aria-current');
   });
   document.getElementById('pMobielTab').textContent = view === 'klant' && klant ? klant.naam : (view === 'pagr' ? 'Pagr.' : VIEW_TITELS[view]);
+  if (view === 'cockpit') renderCockpit();
   if (view === 'klanten') renderKlanten();
   if (view === 'klant') renderKlant(klant, tab);
   if (view === 'ideeen') renderIdeeenScherm();
@@ -311,11 +312,13 @@ function renderKlant(c, tab) {
         <h1>${escapeHtmlAdmin(c.naam)}</h1>
         <p><span class="p-pil ${st.klasse}">${st.tekst}</span></p>
       </div>
+      ${c.alleenOnboarding ? '' : `<div class="p-ov-kop-acties"><button type="button" class="p-knop" data-bekijk="${escapeHtmlAdmin(c.id)}">Bekijk als klant</button></div>`}
     </div>
     <div class="ad-tabs" role="tablist">${tabs}</div>
     <div id="klantTabInhoud"></div>
   </div>`;
   root.querySelector('[data-terug]').addEventListener('click', () => gaNaar('klanten'));
+  root.querySelectorAll('[data-bekijk]').forEach((b) => b.addEventListener('click', () => bekijkAlsKlant(b.dataset.bekijk)));
   root.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => gaNaar('klant', c.id, b.dataset.tab)));
   const inhoud = document.getElementById('klantTabInhoud');
   if (tab === 'onboarding') renderOnboarding(c, inhoud);
@@ -843,6 +846,7 @@ setInterval(ververWachtTeller, 5 * 60 * 1000);
 
 async function startAdmin() {
   ververWachtTeller();
+  laadCockpit();
   await loadOnboarding();
   await loadSettings();
   await loadIdeaProposals();

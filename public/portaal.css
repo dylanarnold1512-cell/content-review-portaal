@@ -962,3 +962,7 @@ button.pa-item:focus-visible, .pa-filter:focus-visible, .pa-volgende:focus-visib
   .pa-item { padding: 12px 13px; }
   .pa-maand-sam { display: none; }
 }
+
+/* Meekijken vanuit de cockpit (admin) */
+.p-meekijk{position:sticky;top:0;z-index:60;display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;justify-content:center;padding:8px 16px;background:#14142b;color:#fff;font-size:13px;line-height:1.4;text-align:center}
+.p-meekijk a{color:#fff;font-weight:600;text-decoration:underline}
