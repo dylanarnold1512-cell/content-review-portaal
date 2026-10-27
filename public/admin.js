@@ -123,6 +123,7 @@ function toonScherm() {
     btn.classList.toggle('active', actief);
     if (actief) btn.setAttribute('aria-current', 'page'); else btn.removeAttribute('aria-current');
   });
+  zetBroodkruimel(view, klant);
   document.getElementById('pMobielTab').textContent = view === 'klant' && klant ? klant.naam : (view === 'pagr' ? 'Pagr.' : VIEW_TITELS[view]);
   if (view === 'cockpit') renderCockpit();
   if (view === 'klanten') renderKlanten();
@@ -139,6 +140,29 @@ function toonScherm() {
   window.scrollTo(0, 0);
 }
 let pagrVanFrame = null;
+
+function zetBroodkruimel(view, klant) {
+  const el = document.getElementById('adPad');
+  if (!el) return;
+  const e = escapeHtmlAdmin;
+  const titel = view === 'pagr' ? 'Pagr.' : (VIEW_TITELS[view] || '');
+  el.innerHTML = view === 'klant' && klant
+    ? `Beheer <span aria-hidden="true">/</span> <a href="#klanten" class="p-link">Alle klanten</a> <span aria-hidden="true">/</span> <b>${e(klant.naam)}</b>`
+    : `Beheer <span aria-hidden="true">/</span> <b>${e(titel)}</b>`;
+  const lijst = document.getElementById('adZoekLijst');
+  if (lijst && !lijst.children.length) lijst.innerHTML = alleKlanten().map((c) => `<option value="${e(c.naam)}"></option>`).join('');
+}
+
+(function koppelZoek() {
+  const veld = document.getElementById('adZoek');
+  if (!veld) return;
+  veld.addEventListener('change', () => {
+    const q = veld.value.trim().toLowerCase();
+    if (!q) return;
+    const gevonden = alleKlanten().find((c) => c.naam.toLowerCase() === q) || alleKlanten().find((c) => c.naam.toLowerCase().includes(q));
+    if (gevonden) { veld.value = ''; gaNaar('klant', gevonden.id); }
+  });
+})();
 window.addEventListener('hashchange', toonScherm);
 
 // De ingebedde Pagr. omgeving meldt zijn hoogte, zodat de pagina als geheel scrolt.
@@ -238,7 +262,7 @@ function renderKlanten() {
   const inOnboarding = lijst.filter((c) => { const o = adminState.onboarding[c.id]; return o && !o.samenvatting.gereed; }).length;
   const wachtOpJou = Object.values(adminState.onboarding).reduce((n, o) => n + o.samenvatting.wachtOpDylan.length, 0);
   const ideeen = Object.values(adminState.ideeen).reduce((n, l) => n + l.length, 0);
-  const kaarten = lijst.map((c) => {
+  const rijen = lijst.map((c) => {
     const o = adminState.onboarding[c.id];
     const os = o && o.samenvatting;
     const lopend = os && !os.gereed;
@@ -250,22 +274,19 @@ function renderKlanten() {
     if (wacht > 0) meldingen.push(`${wacht} ${wacht === 1 ? 'idee wacht' : 'ideeën wachten'} op jou`);
     if (c.klantstatusIngesteld === false) meldingen.push('Kies een status, anders weten de workflows het niet');
     const open = meldingen.length
-      ? `<div class="ad-open">${meldingen.map(escapeHtmlAdmin).join('<br>')}</div>`
-      : (lopend && os.volgende ? `<div class="ad-open ad-open-neutraal">Volgende stap: ${escapeHtmlAdmin(os.volgende.titel)}</div>` : '<div class="ad-open ad-open-ok">Niets dat op jou wacht</div>');
-    const voortgang = os && os.totaal
-      ? `<div><div class="ad-voortgang-tekst"><span>Onboarding</span><span>${os.afgerond} van ${os.totaal} stappen</span></div><div class="p-voortgang" role="progressbar" aria-valuenow="${os.procent}" aria-valuemin="0" aria-valuemax="100"><span class="p-balk-goed" style="width:${os.procent}%"></span></div></div>`
-      : '';
+      ? `<div class="ad-tabel-open wacht">${meldingen.map(escapeHtmlAdmin).join('<br>')}</div>`
+      : (lopend && os.volgende ? `<div class="ad-tabel-open">Volgende stap: ${escapeHtmlAdmin(os.volgende.titel)}</div>` : '<div class="ad-tabel-open">Niets dat op jou wacht</div>');
+    const modules = aan.length ? aan.map((m) => `<span class="p-pil p-pil-neutraal">${m.kort}</span>`).join('') : `<span class="ad-vaag">${c.alleenOnboarding ? 'Nog niet in het portaal' : 'Geen modules aan'}</span>`;
+    const voortgang = os && os.totaal ? `<span>Onboarding ${os.afgerond} van ${os.totaal} stappen</span>` : `<span>${escapeHtmlAdmin(c.id)}</span>`;
+    const bekijk = c.alleenOnboarding ? '' : `<button type="button" class="p-knop" data-bekijk="${escapeHtmlAdmin(c.id)}">Bekijk als klant</button>`;
     return `
-    <button type="button" class="ad-klant" data-klant="${escapeHtmlAdmin(c.id)}">
-      <div class="ad-klant-kop">
-        <div class="p-klant-av" aria-hidden="true">${escapeHtmlAdmin(adminInitialen(c.naam))}</div>
-        <div class="ad-klant-naam"><b>${escapeHtmlAdmin(c.naam)}</b><span>${escapeHtmlAdmin(c.id)}</span></div>
-        <span class="p-pil ${st.klasse}">${st.tekst}</span>
-      </div>
-      ${voortgang}
-      <div class="ad-modules">${aan.length ? aan.map((m) => `<span class="p-pil p-pil-neutraal">${m.kort}</span>`).join('') : `<span class="ad-vaag">${c.alleenOnboarding ? 'Nog niet in het portaal' : 'Nog geen modules aan voor de klant'}</span>`}</div>
-      ${open}
-    </button>`;
+    <tr>
+      <td><div class="ad-tabel-naam"><span class="ck-av" style="background:${avatarKleur(c.naam)}" aria-hidden="true">${escapeHtmlAdmin(adminInitialen(c.naam))}</span><div><b>${escapeHtmlAdmin(c.naam)}</b>${voortgang}</div></div></td>
+      <td><div class="ad-tabel-mod">${modules}</div></td>
+      <td>${open}</td>
+      <td><span class="p-pil ${st.klasse}">${st.tekst}</span></td>
+      <td><div class="ad-tabel-acties">${bekijk}<button type="button" class="p-knop" data-klant="${escapeHtmlAdmin(c.id)}">Open</button></div></td>
+    </tr>`;
   }).join('');
   document.getElementById('viewKlanten').innerHTML = `
   <div class="p-pagina">
@@ -279,12 +300,15 @@ function renderKlanten() {
       <div class="p-kerncijfer"><div class="p-kerncijfer-kop">Onboarding wacht op jou</div><div class="ad-getal">${wachtOpJou}</div></div>
       <div class="p-kerncijfer"><div class="p-kerncijfer-kop">Ideeën ter beoordeling</div><div class="ad-getal">${ideeen}</div></div>
     </div>
-    <div class="ad-raster">${kaarten || '<p class="admin-footnote">Nog geen klanten.</p>'}</div>
+    <section class="ck-kaart" style="margin-top:24px" aria-label="Klantenlijst">
+      ${rijen ? `<div class="ad-tabel-wrap"><table class="ad-tabel"><thead><tr><th>Klant</th><th>Producten</th><th>Wacht op jou</th><th>Status</th><th><span class="sr-only">Acties</span></th></tr></thead><tbody>${rijen}</tbody></table></div>` : '<div class="ck-leeg">Nog geen klanten.</div>'}
+    </section>
     ${adminState.onboardingFout ? `<p class="admin-footnote">De onboarding kon niet worden geladen: ${escapeHtmlAdmin(adminState.onboardingFout)}</p>` : ''}
     <p class="admin-footnote">Nieuwe klant nog niet in de lijst met modules? Voeg 'm toe in <code>src/config/clients.js</code>, dan verschijnt hij daar vanzelf. Dit is stap 11 van de onboarding.</p>
   </div>`;
   const root = document.getElementById('viewKlanten');
   root.querySelectorAll('[data-klant]').forEach((k) => k.addEventListener('click', () => gaNaar('klant', k.dataset.klant)));
+  root.querySelectorAll('[data-bekijk]').forEach((b) => b.addEventListener('click', () => bekijkAlsKlant(b.dataset.bekijk)));
   root.querySelector('[data-nieuw]').addEventListener('click', () => gaNaar('nieuw'));
 }
 
@@ -307,17 +331,18 @@ function renderKlant(c, tab) {
   root.innerHTML = `
   <div class="p-pagina">
     <div class="p-ov-kop">
-      <div>
-        <button type="button" class="p-link ad-terug" data-terug>&larr; Alle klanten</button>
-        <h1>${escapeHtmlAdmin(c.naam)}</h1>
-        <p><span class="p-pil ${st.klasse}">${st.tekst}</span></p>
+      <div class="ad-kop-klant">
+        <span class="ck-av ck-av-groot" style="background:${avatarKleur(c.naam)}" aria-hidden="true">${escapeHtmlAdmin(adminInitialen(c.naam))}</span>
+        <div>
+          <h1>${escapeHtmlAdmin(c.naam)}</h1>
+          <p><span class="p-pil ${st.klasse}">${st.tekst}</span></p>
+        </div>
       </div>
       ${c.alleenOnboarding ? '' : `<div class="p-ov-kop-acties"><button type="button" class="p-knop" data-bekijk="${escapeHtmlAdmin(c.id)}">Bekijk als klant</button></div>`}
     </div>
     <div class="ad-tabs" role="tablist">${tabs}</div>
     <div id="klantTabInhoud"></div>
   </div>`;
-  root.querySelector('[data-terug]').addEventListener('click', () => gaNaar('klanten'));
   root.querySelectorAll('[data-bekijk]').forEach((b) => b.addEventListener('click', () => bekijkAlsKlant(b.dataset.bekijk)));
   root.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => gaNaar('klant', c.id, b.dataset.tab)));
   const inhoud = document.getElementById('klantTabInhoud');
