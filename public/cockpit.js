@@ -8,6 +8,8 @@
     uit: { label: 'Uit', pil: 'p-pil-neutraal' }
   };
 
+  const SOORT = { techniek: 'Techniek', kwaliteit: 'Kwaliteit', data: 'Data', klant: 'Klant' };
+
   function tellingen(data) {
     const t = { rood: 0, oranje: 0, groen: 0, uit: 0 };
     for (const k of (data && data.klanten) || []) t[k.kleur] = (t[k.kleur] || 0) + 1;
@@ -37,7 +39,8 @@
       ? `<details class="ck-details"><summary>Toon ${s.details.length === 1 ? 'details' : s.details.length + ' items'}</summary><ul>${s.details.map((d) => `<li>${e(d)}</li>`).join('')}</ul></details>`
       : '';
     const link = s.link ? ` <a class="ck-link" href="${e(s.link)}" target="_blank" rel="noopener">Open in n8n</a>` : '';
-    return `<li class="ck-signaal ck-${e(s.niveau)}"><span class="ck-stip" aria-hidden="true"></span><div><span>${e(s.tekst)}</span>${link}${details}</div></li>`;
+    const soort = SOORT[s.soort] ? `<span class="ck-soort">${SOORT[s.soort]}</span>` : '';
+    return `<li class="ck-signaal ck-${e(s.niveau)}"><span class="ck-stip" aria-hidden="true"></span><div>${soort}<span>${e(s.tekst)}</span>${link}${details}</div></li>`;
   }
 
   function klantKaart(k) {
@@ -113,7 +116,15 @@
         <h2>Niet actief</h2>
         <div class="ck-chips">${uit.map((k) => `<button type="button" class="ck-chip ck-chip-uit" data-beheer="${e(k.id)}">${e(k.naam)} <small>${e(k.samenvatting || '')}</small></button>`).join('')}</div>
       </section>` : ''}
-      <p class="admin-footnote">Gecontroleerd: blogs op Fout of vastgelopen, geplande blogs die te laat zijn, een planning die leegloopt, de laatste publicatie, mislukte n8n runs in de laatste 7 dagen, workflows die niet meer draaien en de kritieke punten uit de Clients tabel. Kwaliteit, data en klantgedrag volgen.</p>
+      <details class="ck-uitleg-blok"><summary>Wat wordt er gecontroleerd</summary>
+        <ul>
+          <li><b>Techniek:</b> blogs op Fout of vastgelopen, geplande blogs die te laat zijn, een planning die leegloopt, de laatste publicatie, mislukte n8n runs in 7 dagen, workflows die niet meer draaien, prestatiedata die niet meer wordt bijgewerkt en de kritieke punten uit de Clients tabel.</li>
+          <li><b>Kwaliteit:</b> 3 of meer QA afkeuringen in 14 dagen, herschrijvingen na feedback die de controle niet halen, en een klant die 40% of meer van de blogs afwijst (60 dagen, vanaf 3 beoordelingen).</li>
+          <li><b>Data:</b> vertoningen 25% of clicks 30% lager dan de 28 dagen ervoor. Vanaf 50% is het rood. Alleen bij genoeg verkeer om iets te zeggen.</li>
+          <li><b>Klant:</b> blogs die langer dan 7 dagen op goedkeuring wachten en een klant die langer dan 30 dagen niet in het portaal was.</li>
+        </ul>
+        <p>Elke maandagochtend komt er één samenvatting in Telegram met alleen de klanten die aandacht vragen.</p>
+      </details>
     </div>`;
     bind(root);
   }
