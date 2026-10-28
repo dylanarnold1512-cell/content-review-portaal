@@ -1,65 +1,73 @@
-/* Pagr. overzicht. Zelfde taal als de cockpit: lichte kaarten, een donkere hoofdtegel en avatars per klant. */
+/* Pagr. overzicht: een statusbalk, een strook met cijfers en een tabel voor alle klanten. Zelfde taal als de cockpit. */
 .ov { display: flex; flex-direction: column; gap: 24px; }
 .ov-kop { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between; }
+.ov-sub { margin: 6px 0 0; font-size: 15px; font-weight: 400; color: #5c5f80; max-width: 640px; line-height: 1.5; }
 
-.ov-kern { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
-.ov-cijfer { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-card); padding: 18px 20px; }
-.ov-cijfer-l { font-size: 13px; color: var(--text-muted); }
-.ov-getal { font-size: 32px; font-weight: 600; letter-spacing: -0.03em; line-height: 1; margin: 12px 0 8px; font-variant-numeric: tabular-nums; }
-.ov-cijfer-s { font-size: 13px; color: var(--text-muted); }
+.ov-banner { display: flex; align-items: center; gap: 16px; padding: 18px 22px; border-radius: 14px; background: #14142b; color: #fff; }
+.ov-banner-ic { width: 40px; height: 40px; border-radius: 12px; background: rgba(255, 255, 255, 0.12); color: #6ee7a8; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.ov-banner-actie .ov-banner-ic { color: #ffb4be; }
+.ov-banner-kop { font-size: 17px; font-weight: 600; }
+.ov-banner-sub { font-size: 14px; color: rgba(255, 255, 255, 0.72); margin-top: 2px; }
+
+.ov-kern { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); background: var(--panel); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-card); }
+.ov-cijfer { padding: 18px 22px; border-left: 1px solid #eef0f6; min-width: 0; }
+.ov-cijfer:first-child { border-left: 0; }
+.ov-cijfer-l { font-size: 13px; color: #5c5f80; }
+.ov-getal { font-size: 30px; font-weight: 600; letter-spacing: -0.03em; margin: 8px 0; line-height: 1; font-variant-numeric: tabular-nums; }
+.ov-cijfer-s { font-size: 13px; color: #5c5f80; }
 .ov-accent { color: #c4142c; }
-.ov-cijfer-todo { background: #14142b; border-color: #14142b; }
-.ov-cijfer-todo .ov-cijfer-l, .ov-cijfer-todo .ov-cijfer-s { color: rgba(255, 255, 255, 0.7); }
-.ov-cijfer-todo .ov-getal { color: #fff; font-size: 40px; margin-top: 10px; }
 
-.ov-kolommen { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
 .ov-blok { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-card); overflow: hidden; }
-.ov-blok-kop { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 18px 20px 14px; border-bottom: 1px solid var(--border); }
+.ov-blok-kop { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 18px 22px; border-bottom: 1px solid #eef0f6; }
 .ov-blok-kop h2 { margin: 0; font-size: 17px; font-weight: 600; }
-.ov-blok-kop p { margin: 3px 0 0; font-size: 13px; color: var(--text-muted); }
-.ov-los { padding: 0 2px 12px; border-bottom: 0; }
+.ov-blok-kop p { margin: 3px 0 0; font-size: 13px; color: #5c5f80; }
 .ov-bulk { display: flex; gap: 10px; flex-wrap: wrap; }
-.ov-melding { margin: 0; padding: 12px 20px; font-weight: 600; border-top: 1px solid var(--border); }
-.ov-leeg { margin: 0; padding: 22px 20px; color: var(--text-muted); font-size: 14px; }
+.ov-melding { margin: 0; padding: 12px 22px; font-weight: 600; border-top: 1px solid #eef0f6; }
+.ov-leeg { margin: 0; padding: 22px; color: #5c5f80; font-size: 14px; }
 
-.ov-av { width: 36px; height: 36px; border-radius: 10px; color: #fff; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex: none; letter-spacing: 0.02em; }
-.ov-rij { display: flex; align-items: center; gap: 14px; padding: 14px 20px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+.ov-av { width: 38px; height: 38px; border-radius: 10px; color: #fff; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex: none; letter-spacing: 0.02em; }
+
+/* Wacht op jou */
+.ov-rij { display: flex; align-items: center; gap: 14px; padding: 14px 22px; border-top: 1px solid #eef0f6; flex-wrap: wrap; }
 .ov-rij:first-child { border-top: 0; }
-.ov-rij-tekst { flex: 1 1 260px; min-width: 0; font-size: 14px; color: var(--text-muted); }
+.ov-rij-tekst { flex: 1 1 260px; min-width: 0; font-size: 14px; color: #5c5f80; }
 .ov-rij-kop { display: flex; align-items: center; gap: 10px; margin-bottom: 2px; }
-.ov-rij-kop b { color: var(--text, #14142b); font-size: 14px; }
+.ov-rij-kop b { color: #14142b; font-size: 14px; }
 .ov-soort { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: #f1f2f8; color: #4b4e6d; }
 .ov-soort.fout { background: #fde8e8; color: #b42318; }
 .ov-soort.plan { background: #e9efff; color: #2d4ac0; }
-.ov-soort.idee { background: #fff3dc; color: #9a5b00; }
+.ov-soort.idee { background: #fff3dc; color: #8a5200; }
 .ov-rij .wp-idee-knoppen { display: flex; gap: 8px; }
 
-.ov-tijdlijn { padding: 8px 20px 14px; }
-.ov-tijd { display: flex; gap: 12px; padding: 10px 0; position: relative; }
-.ov-tijd + .ov-tijd::before { content: ""; position: absolute; left: 4px; top: -8px; height: 18px; width: 2px; background: var(--border); }
-.ov-tijd-stip { width: 10px; height: 10px; border-radius: 50%; background: #17885a; margin-top: 5px; flex: none; }
-.ov-tijd div { display: flex; flex-direction: column; font-size: 13px; color: var(--text-muted); min-width: 0; }
-.ov-tijd b { color: var(--text, #14142b); font-size: 13px; }
-.ov-tijd small { margin-top: 2px; color: #9a9db8; }
-
-.ov-kaarten { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 16px; }
-.ov-kaart { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-card); padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; }
-.ov-kaart-fout { border-color: #f3b9b9; }
-.ov-kaart-kop { display: flex; align-items: center; gap: 12px; }
-.ov-kaart-naam { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.ov-kaart-naam strong { font-size: 15px; }
-.ov-kaart-naam small { color: var(--text-muted); font-size: 12px; margin-top: 2px; }
-.ov-voortgang-tekst { display: flex; align-items: baseline; gap: 6px; font-size: 14px; }
-.ov-voortgang-tekst span { color: var(--text-muted); font-size: 13px; }
-.ov-balk { height: 6px; border-radius: 999px; background: #eceef5; margin-top: 8px; overflow: hidden; }
+/* Klantentabel */
+.ov-scroll { overflow-x: auto; }
+.ov-tabel2 { min-width: 980px; }
+.ov-thead, .ov-trij { display: grid; grid-template-columns: minmax(230px, 1.6fr) minmax(160px, 1.1fr) minmax(150px, 1fr) minmax(130px, 1fr) 110px 130px 28px; gap: 16px; align-items: center; padding: 0 22px; }
+.ov-thead { padding-top: 10px; padding-bottom: 10px; background: #f8f9fd; border-bottom: 1px solid #eef0f6; font-size: 12px; font-weight: 600; color: #5c5f80; letter-spacing: 0.02em; }
+.ov-trij { padding-top: 16px; padding-bottom: 16px; border-bottom: 1px solid #eef0f6; cursor: pointer; color: #14142b; }
+.ov-trij:hover, .ov-trij:focus-visible { background: #f8f9fd; outline: none; }
+.ov-trij:focus-visible { box-shadow: inset 0 0 0 2px #2d4ac0; }
+.ov-trij-fout { box-shadow: inset 3px 0 0 #d92d20; }
+.ov-trij-eigen { padding-top: 13px; padding-bottom: 13px; }
+.ov-klantcel { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.ov-klantcel strong { display: block; font-size: 15px; font-weight: 600; }
+.ov-klantcel small { display: block; font-size: 12px; color: #5c5f80; margin-top: 2px; }
+.ov-maandcel b { font-size: 14px; font-weight: 600; }
+.ov-balk { height: 6px; border-radius: 999px; background: #eceef5; margin-top: 8px; overflow: hidden; max-width: 170px; }
 .ov-balk span { display: block; height: 100%; background: #17885a; border-radius: 999px; }
-.ov-regel { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; border-top: 1px solid var(--border); padding-top: 10px; }
-.ov-regel-l { color: var(--text-muted); flex: none; }
-.ov-regel .wp-pil { display: inline-flex; width: fit-content; }
-.ov-pillen { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.ov-gewoon { font-size: 13px; color: #5c5f80; }
+.ov-pillen { display: flex; flex-wrap: wrap; gap: 6px; }
 .ov-fout { background: #fde8e8; color: #b42318; }
-.ov-kaart-voet { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 10px; margin-top: auto; }
+.ov-pijl { color: #8a8dab; }
+.ov-tussen { padding: 10px 22px; background: #f8f9fd; border-bottom: 1px solid #eef0f6; border-top: 1px solid #eef0f6; font-size: 12px; font-weight: 600; color: #5c5f80; letter-spacing: 0.02em; }
+.ov-trij .wp-pil { display: inline-flex; width: fit-content; }
 
-@media (max-width: 1000px) { .ov-kolommen { grid-template-columns: minmax(0, 1fr); } }
-@media (max-width: 900px) { .ov-kern { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 520px) { .ov-kern { grid-template-columns: minmax(0, 1fr); } .ov-kaarten { grid-template-columns: minmax(0, 1fr); } }
+/* Logboek */
+.ov-logrij { display: flex; align-items: center; gap: 14px; padding: 13px 22px; border-top: 1px solid #f1f2f8; }
+.ov-logrij:first-child { border-top: 0; }
+.ov-tijd-stip { width: 9px; height: 9px; border-radius: 50%; background: #17885a; flex: none; }
+.ov-logtekst { font-size: 14px; flex: 1; min-width: 0; color: #5c5f80; }
+.ov-logtekst b { color: #14142b; font-weight: 600; }
+.ov-logdatum { font-size: 13px; color: #5c5f80; flex: none; }
+
+@media (max-width: 520px) { .ov-kern { grid-template-columns: minmax(0, 1fr); } .ov-cijfer { border-left: 0; border-top: 1px solid #eef0f6; } .ov-cijfer:first-child { border-top: 0; } }

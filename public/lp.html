@@ -253,28 +253,28 @@
       <div class="ov-kop">
         <div>
           <h1 class="lp-h1">Overzicht</h1>
-          <p class="wp-sub">Alle klanten die Pagr. afnemen. Het systeem plant, schrijft, controleert en zet live. Jij ziet alleen wat aandacht nodig heeft.</p>
+          <p class="ov-sub">Alle klanten met Pagr. op een rij. Het systeem plant, schrijft, controleert en zet live. Jij ziet alleen wat aandacht nodig heeft.</p>
         </div>
         <span class="wp-pil wp-live"><span class="wp-stip"></span>Automatische ronde elke 6 uur</span>
       </div>
+      <div id="ovBanner" class="ov-banner"></div>
       <div id="ovKerncijfers" class="ov-kern"></div>
-      <div class="ov-kolommen">
-        <section class="ov-blok" aria-labelledby="ovWachtTitel">
-          <div class="ov-blok-kop"><div><h2 id="ovWachtTitel">Wacht op jou</h2><p>Alle klanten, belangrijkste bovenaan</p></div><div id="ovBulk" class="ov-bulk"></div></div>
-          <div id="ovWacht"></div>
-        </section>
-        <section class="ov-blok" aria-labelledby="ovLogTitel">
-          <div class="ov-blok-kop"><div><h2 id="ovLogTitel">Wat het systeem deed</h2><p>Laatste 7 dagen</p></div></div>
-          <div id="ovLog" class="ov-tijdlijn"></div>
-        </section>
-      </div>
-      <section aria-labelledby="ovKlantenTitel">
-        <div class="ov-blok-kop ov-los"><div><h2 id="ovKlantenTitel">Klanten met Pagr.</h2><p id="ovKlantenNoot"></p></div></div>
-        <div id="ovKlanten" class="ov-kaarten"></div>
+      <section class="ov-blok hidden" id="ovWachtKaart" aria-labelledby="ovWachtTitel">
+        <div class="ov-blok-kop"><div><h2 id="ovWachtTitel">Wacht op jou</h2><p>Alle klanten, belangrijkste bovenaan</p></div><div id="ovBulk" class="ov-bulk"></div></div>
+        <div id="ovWacht"></div>
       </section>
-      <section class="hidden" id="ovEigenKaart" aria-labelledby="ovEigenTitel">
-        <div class="ov-blok-kop ov-los"><div><h2 id="ovEigenTitel">Eigen werk</h2><p>Interne automatisering, buiten de afspraak met klanten</p></div></div>
-        <div id="ovEigen" class="ov-kaarten"></div>
+      <section class="ov-blok" aria-labelledby="ovKlantenTitel">
+        <div class="ov-blok-kop"><div><h2 id="ovKlantenTitel">Klanten</h2><p>Eén regel per klant. Klik op een regel voor de werkplaats.</p></div></div>
+        <div class="ov-scroll"><div class="ov-tabel2">
+          <div class="ov-thead"><span>Klant</span><span>Deze maand</span><span>Volgende maand</span><span>Onderweg</span><span>Live zetten</span><span>Planning</span><span></span></div>
+          <div id="ovKlanten"></div>
+          <div class="ov-tussen hidden" id="ovEigenKop">Eigen werk, interne automatisering buiten de afspraak met klanten</div>
+          <div id="ovEigen"></div>
+        </div></div>
+      </section>
+      <section class="ov-blok" aria-labelledby="ovLogTitel">
+        <div class="ov-blok-kop"><div><h2 id="ovLogTitel">Wat het systeem deed</h2><p>De laatste 7 dagen, alle klanten</p></div></div>
+        <div id="ovLog"></div>
       </section>
     </div>
   </div>
