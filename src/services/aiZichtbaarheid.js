@@ -11,6 +11,8 @@
 // merken van anderen (top_merken), bronnen van anderen (top_bronnen), kosten en
 // foutaantallen blijven intern, zie getAiIntern.
 
+const aiFaqService = require('./aiFaq');
+
 const N8N_BASE_URL = (process.env.N8N_BASE_URL || 'https://n8n.advertisr.nl').replace(/\/+$/, '');
 const TABLE_ID = process.env.N8N_AI_SAMENVATTING_TABLE_ID || 'PO71b1z9NwtgTFoO';
 
@@ -522,7 +524,7 @@ function veiligeUrl(url) {
   return /^https?:\/\/[^\s"'<>]+$/i.test(u) ? u : '';
 }
 
-function bouwVraagKansen(vragen, prompts, koppelingen, weekStart) {
+function bouwVraagKansen(vragen, prompts, koppelingen, weekStart, faqStatus) {
   const koppel = new Map();
   for (const k of koppelingen || []) if (k && k.prompt_id) koppel.set(String(k.prompt_id), k);
   const kern = new Set((prompts || []).filter((p) => p && p.soort === 'kern' && (p.actief === true || p.actief === 'true')).map((p) => String(p.prompt_id)));
@@ -553,6 +555,7 @@ function bouwVraagKansen(vragen, prompts, koppelingen, weekStart) {
     gekozen.push(c);
   }
   return gekozen.map((c) => {
+    const faq = (faqStatus && faqStatus[String(c.v.id)] && faqStatus[String(c.v.id)].status) || '';
     const eigenBron = c.v.chatgpt.geciteerd + c.v.gemini.geciteerd;
     const onderbouwing = `AI meting, ${week}: 0 van ${c.metingen} antwoorden (ChatGPT en Gemini samen) noemen het merk.` +
       (eigenBron ? ` De website werd in ${eigenBron} van deze antwoorden wel als bron getoond.` : '') +
@@ -565,7 +568,12 @@ function bouwVraagKansen(vragen, prompts, koppelingen, weekStart) {
       waarom: c.nieuw
         ? 'We vonden op jullie website geen pagina die deze vraag duidelijk beantwoordt.'
         : `Op jullie website staat al een pagina die bij dit onderwerp past${c.titel ? `: "${c.titel}"` : ''}. AI noemt jullie merk bij deze vraag toch niet.`,
-      actie: c.nieuw
+      faqStatus: faq === 'toegepast' || faq === 'goedgekeurd' ? faq : '',
+      actie: faq === 'toegepast'
+        ? 'Het antwoord op deze vraag staat inmiddels als korte veelgestelde vraag op de pagina. We meten of AI jullie merk hierna vaker noemt. Er is geen garantie.'
+        : faq === 'goedgekeurd'
+          ? 'Het antwoord op deze vraag wordt als korte veelgestelde vraag aan de pagina toegevoegd. Er is geen garantie dat AI jullie merk daarna noemt.'
+          : c.nieuw
         ? 'Advertisr beoordeelt of hier een nieuw onderwerp voor komt. Er is geen garantie dat AI jullie merk daarna noemt.'
         : 'Advertisr beoordeelt of het antwoord op deze vraag, bijvoorbeeld als korte veelgestelde vraag, in deze pagina kan worden toegevoegd. Er is geen garantie dat AI jullie merk daarna noemt.',
       onderbouwing,
@@ -585,7 +593,11 @@ async function getVraagKansen(klantNaam, overzicht) {
       n8nTabel(PROMPTS_TABLE_ID, [klantFilter]),
       n8nTabel(METINGEN_TABLE_ID, [klantFilter, { columnName: 'datum', condition: 'gte', value: weekStart }])
     ]);
-    return bouwVraagKansen(bouwVragen(prompts, metingen, weekStart), prompts, koppelingen, weekStart);
+    let faqStatus = {};
+    try {
+      faqStatus = aiFaqService.statusPerVraag(await optioneleTabel(aiFaqService.TABLE_ID, [klantFilter]));
+    } catch (err) { /* geen FAQ voorstellen beschikbaar, de kans blijft gewoon staan */ }
+    return bouwVraagKansen(bouwVragen(prompts, metingen, weekStart), prompts, koppelingen, weekStart, faqStatus);
   } catch (err) {
     return [];
   }

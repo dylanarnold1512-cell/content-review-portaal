@@ -64,3 +64,20 @@ test('validatie van e-mail, getal en website', () => {
   assert.throws(() => w.valideerVeld('wp_url', 'www.x.nl'), /https/);
   assert.equal(w.valideerVeld('ai_meting', true), true);
 });
+
+test('faq_modus: leeg of onbekend wordt voorstel, geldige keuze blijft staan', () => {
+  assert.equal(w.bouwWaarden({ ...basisRij }).waarden.faq_modus, 'voorstel');
+  assert.equal(w.bouwWaarden({ ...basisRij, faq_modus: 'raar' }).waarden.faq_modus, 'voorstel');
+  assert.equal(w.bouwWaarden({ ...basisRij, faq_modus: 'uit' }).waarden.faq_modus, 'uit');
+  assert.equal(w.bouwWaarden({ ...basisRij, faq_modus: 'automatisch' }).waarden.faq_modus, 'automatisch');
+});
+
+test('faq_modus: alleen uit, voorstel of automatisch mag worden opgeslagen', () => {
+  assert.equal(w.valideerVeld('faq_modus', 'automatisch'), 'automatisch');
+  assert.throws(() => w.valideerVeld('faq_modus', 'altijd'));
+  assert.throws(() => w.valideerVeld('faq_modus', ''));
+});
+
+test('faq_html_sjabloon is een bewerkbaar tekstveld', () => {
+  assert.equal(w.valideerVeld('faq_html_sjabloon', ' <div>{{vragen}}</div> '), '<div>{{vragen}}</div>');
+});

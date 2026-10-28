@@ -1,4 +1,4 @@
-let adminState = { clients: [], ideeen: {}, onboarding: {}, onboardingFout: '' };
+let adminState = { clients: [], ideeen: {}, onboarding: {}, onboardingFout: '', faq: { voorstellen: [], toegepast: [] } };
 
 async function adminApi(path, options) {
   const res = await fetch('/api/admin' + path, {
@@ -51,7 +51,7 @@ const KLANT_TABS = [
   { id: 'ideeen', titel: 'Ideeën' },
   { id: 'merkprofiel', titel: 'Merkprofiel opbouwen' }
 ];
-const VIEW_TITELS = { cockpit: 'Cockpit', klanten: 'Alle klanten', nieuw: 'Nieuwe klant', ideeen: 'Ideeën', pagr: 'Pagr.', klant: 'Klant' };
+const VIEW_TITELS = { cockpit: 'Cockpit', klanten: 'Alle klanten', nieuw: 'Nieuwe klant', ideeen: 'Ideeën', faq: 'FAQ\'s', pagr: 'Pagr.', klant: 'Klant' };
 const PAGR_TABS = ['overzicht', 'werkplaats', 'nieuw', 'sjablonen', 'paginas', 'kloon', 'vervang', 'klantgegevens'];
 let huidig = { view: 'cockpit', klantId: '', tab: 'instellingen' };
 
@@ -62,7 +62,7 @@ function leesHash() {
     return { view: 'klant', klantId: delen[1], tab };
   }
   if (delen[0] === 'pagr') return { view: 'pagr', klantId: '', tab: PAGR_TABS.includes(delen[1]) ? delen[1] : 'overzicht' };
-  if (['cockpit', 'klanten', 'nieuw', 'ideeen'].includes(delen[0])) return { view: delen[0], klantId: '', tab: 'instellingen' };
+  if (['cockpit', 'klanten', 'nieuw', 'ideeen', 'faq'].includes(delen[0])) return { view: delen[0], klantId: '', tab: 'instellingen' };
   return { view: 'cockpit', klantId: '', tab: 'instellingen' };
 }
 
@@ -114,7 +114,7 @@ function toonScherm() {
   sluitMenu();
   const { view, klantId, tab } = huidig;
   const klant = zoekKlant(klantId);
-  ['Cockpit', 'Klanten', 'Klant', 'Ideeen', 'Nieuw', 'Pagr'].forEach((naam) => {
+  ['Cockpit', 'Klanten', 'Klant', 'Ideeen', 'Faq', 'Nieuw', 'Pagr'].forEach((naam) => {
     document.getElementById('view' + naam).classList.toggle('hidden', naam.toLowerCase() !== (view === 'klant' ? 'klant' : view));
   });
   document.querySelectorAll('#adminNav [data-view]').forEach((btn) => {
@@ -129,6 +129,7 @@ function toonScherm() {
   if (view === 'klanten') renderKlanten();
   if (view === 'klant') renderKlant(klant, tab);
   if (view === 'ideeen') renderIdeeenScherm();
+  if (view === 'faq') renderFaqScherm();
   if (view === 'nieuw') loadIntakes();
   if (view === 'pagr') {
     // De LP omgeving laadt pas bij het eerste bezoek, daarna blijft hij staan met zijn eigen stand.
@@ -678,6 +679,8 @@ function tekenWorkflowGegevens(c, houder, data) {
       let invoer;
       if (v.type === 'schakelaar') {
         invoer = toggleSwitch(id, c.id, v.veld, w, false, '').replace('data-client=', 'data-wg="1" data-client=');
+      } else if (v.type === 'keuze') {
+        invoer = `<select class="wg-invoer" data-wg="${v.veld}" aria-label="${escapeHtmlAdmin(v.label)}">${v.opties.map((o) => `<option value="${o.waarde}"${o.waarde === w ? ' selected' : ''}>${escapeHtmlAdmin(o.label)}</option>`).join('')}</select>`;
       } else if (v.type === 'lang') {
         invoer = `<textarea class="wg-invoer wg-lang" rows="3" data-wg="${v.veld}" aria-label="${escapeHtmlAdmin(v.label)}">${escapeHtmlAdmin(w)}</textarea>`;
       } else if (v.type === 'getal') {
@@ -701,7 +704,7 @@ function tekenWorkflowGegevens(c, houder, data) {
       renderError(err.message);
     }
   };
-  houder.querySelectorAll('input[data-wg], textarea[data-wg]').forEach((el) => {
+  houder.querySelectorAll('input[data-wg], textarea[data-wg], select[data-wg]').forEach((el) => {
     if (el.type === 'checkbox') return;
     const begin = el.value;
     el.addEventListener('change', () => opslaan(el.dataset.wg, el.value, () => { el.value = begin; }));
@@ -901,6 +904,105 @@ function bindIdeeen(root) {
   });
 }
 
+// ---- FAQ voorstellen uit AI vragen ----
+function updateFaqTeller() {
+  const n = (adminState.faq.voorstellen || []).length;
+  const el = document.getElementById('faqTeller');
+  if (!el) return;
+  el.textContent = n > 0 ? String(n) : '';
+  el.classList.toggle('hidden', n === 0);
+}
+
+function faqKaart(r) {
+  const e = escapeHtmlAdmin;
+  const soort = r.pagina_type === 'pagr' ? 'Pagr. pagina' : (r.pagina_type === 'post' || r.pagina_type === 'news' ? 'Blog' : 'Pagina');
+  const veiligeUrl = /^https?:\/\/[^\s"'<>]+$/i.test(r.pagina_url || '') ? r.pagina_url : '';
+  const pagina = veiligeUrl ? `<a href="${e(veiligeUrl)}" target="_blank" rel="noopener noreferrer">${e(r.pagina_titel || veiligeUrl)}</a>` : e(r.pagina_titel || '');
+  return `
+      <div class="proposal-card" data-faq-id="${e(r.id)}">
+        <div class="proposal-header">
+          <div class="proposal-title">${e(r.klant)}</div>
+          <span class="tag">${e(soort)}</span>
+        </div>
+        <div class="proposal-meta">
+          <div><span class="seo-label">Pagina</span>${pagina}</div>
+          <div><span class="seo-label">Vraag</span><input type="text" class="wg-invoer faq-vraag" value="${e(r.vraag)}" aria-label="Vraag"></div>
+          <div><span class="seo-label">Antwoord</span><textarea class="wg-invoer wg-lang faq-antwoord" rows="4" aria-label="Antwoord">${e(r.antwoord)}</textarea></div>
+          <div><span class="seo-label">Bron van het antwoord</span>${e(r.bron || '')}</div>
+          ${r.plek ? `<div><span class="seo-label">Plek op de pagina</span>${e(r.plek)}</div>` : ''}
+          ${r.genoemd_voor ? `<div><span class="seo-label">Nulmeting</span>${e(r.genoemd_voor)}</div>` : ''}
+          ${r.reden ? `<div class="proposal-overlap"><span class="seo-label">Let op</span>${e(r.reden)}</div>` : ''}
+        </div>
+        <div class="proposal-actions">
+          <button type="button" class="btn btn-approve faq-akkoord">${r.pagina_type === 'pagr' ? 'Goedkeuren en in Pagr. zetten' : 'Goedkeuren'}</button>
+          <button type="button" class="btn btn-reject faq-afwijzen">Afwijzen</button>
+        </div>
+      </div>`;
+}
+
+function faqHtml(naam) {
+  const e = escapeHtmlAdmin;
+  const pas = (r) => !naam || r.klant === naam;
+  const voorstellen = (adminState.faq.voorstellen || []).filter(pas);
+  const toegepast = (adminState.faq.toegepast || []).filter(pas);
+  const groepen = [...new Set(voorstellen.map((r) => r.klant))];
+  const kaarten = voorstellen.length
+    ? groepen.map((k) => `<div class="proposal-client-block"><div class="proposal-client-name">${e(k)}</div><div class="proposal-list">${voorstellen.filter((r) => r.klant === k).map(faqKaart).join('')}</div></div>`).join('')
+    : '<p class="admin-footnote">Geen FAQ voorstellen ter beoordeling.</p>';
+  const recent = toegepast.length
+    ? `<section class="p-kaart ad-blok"><header class="ad-blok-kop"><h2>Recent toegepast</h2><p>De nulmeting staat erbij. De AI meting laat na 4 en 8 weken zien of het merk vaker wordt genoemd.</p></header>
+        ${toegepast.map((r) => `<div class="ad-regel"><div class="ad-regel-tekst"><b>${e(r.vraag)}</b><span>${e(r.klant)}, ${e(r.pagina_titel || '')}${r.toegepast ? `, ${e(String(r.toegepast).slice(0, 10))}` : ''}${r.genoemd_voor ? `, nulmeting: ${e(r.genoemd_voor)}` : ''}</span></div></div>`).join('')}
+      </section>`
+    : '';
+  return kaarten + recent;
+}
+
+function bindFaq(root) {
+  root.querySelectorAll('.proposal-card[data-faq-id]').forEach((card) => {
+    const id = card.dataset.faqId;
+    const beslis = async (besluit, btn) => {
+      btn.disabled = true;
+      try {
+        const body = besluit === 'akkoord'
+          ? { vraag: card.querySelector('.faq-vraag').value, antwoord: card.querySelector('.faq-antwoord').value }
+          : {};
+        await adminApi(`/faq/${encodeURIComponent(id)}/${besluit}`, { method: 'POST', body: JSON.stringify(body) });
+        renderError('');
+        await loadFaq();
+      } catch (err) {
+        renderError(err.message);
+        btn.disabled = false;
+      }
+    };
+    card.querySelector('.faq-akkoord')?.addEventListener('click', (ev) => beslis('akkoord', ev.target));
+    card.querySelector('.faq-afwijzen')?.addEventListener('click', (ev) => beslis('afwijzen', ev.target));
+  });
+}
+
+function renderFaqScherm() {
+  const el = document.getElementById('faqVoorstellen');
+  const alle = adminState.clients;
+  if (adminState.klantKeuze && !alle.some((c) => c.id === adminState.klantKeuze)) adminState.klantKeuze = '';
+  const kiezerEl = document.getElementById('faqKiezer');
+  kiezerEl.innerHTML = kiezerHtml(alle.map((c) => ({ id: c.id, naam: c.naam })));
+  bindKiezer(kiezerEl, renderFaqScherm);
+  const gekozen = alle.find((c) => c.id === adminState.klantKeuze);
+  el.innerHTML = faqHtml(gekozen ? gekozen.naam : '');
+  bindFaq(el);
+}
+
+async function loadFaq() {
+  try {
+    const data = await adminApi('/faq');
+    adminState.faq = { voorstellen: data.voorstellen || [], toegepast: data.toegepast || [] };
+    updateFaqTeller();
+    if (huidig.view === 'faq') renderFaqScherm();
+  } catch (err) {
+    // De FAQ tabel is een extra onderdeel, een fout hier mag de rest van de admin niet blokkeren.
+    adminState.faq = { voorstellen: [], toegepast: [] };
+  }
+}
+
 function renderIdeeenScherm() {
   const el = document.getElementById('ideaProposals');
   const alle = adminState.clients;
@@ -969,6 +1071,7 @@ async function startAdmin() {
   await loadOnboarding();
   await loadSettings();
   await loadIdeaProposals();
+  await loadFaq();
 }
 
 const INTAKE_STATUS_OPTIONS = ['Nieuw', 'In behandeling', 'Afgerond', 'Fout'];

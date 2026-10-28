@@ -11,6 +11,7 @@ const zonderCampagne = (lijst) => (Array.isArray(lijst) ? lijst : []).filter((t)
 const { schoonScreenshots } = require('../lp/screenshots');
 const { bouwSjabloonKopie, schoonFocus, trefwoordenUitOnderwerp } = require('../lp/sjabloonKopie');
 const lpNotion = require('../lp/notion');
+const aiFaqService = require('../services/aiFaq');
 const templates = require('../lp/templates');
 const clientIntake = require('../lp/clientIntake');
 const { buildHuisstijlVoorstel } = require('../lp/huisstijl');
@@ -2885,5 +2886,50 @@ router.get('/chat/taak/:taakId', requireLpInternal, (req, res) => {
   if (taak.status === 'klaar') return res.json({ status: 'klaar', resultaat: taak.resultaat });
   res.json({ status: 'bezig', seconden: Math.round((Date.now() - taak.gestart) / 1000) });
 });
+
+// ---- FAQ uit AI vragen toevoegen aan een bestaande Pagr. pagina (stap 2 AI kansen, 28-10-2026) ----
+// Voegt de vragen toe aan de FAQ van de pagina in Pagr. zelf (slot faqItems) en publiceert opnieuw met behoud van de
+// WordPress status. Zo verdwijnt de FAQ niet als de pagina later opnieuw wordt gepubliceerd. Bestaande vragen blijven staan.
+// Welke van deze URL's zijn Pagr. pagina's van deze klant? Voor de FAQ workflow in n8n.
+router.pagrUrls = async function pagrUrls({ klant: klantNaam, urls }) {
+  const clientId = Object.keys(lpClients).find((id) => String((lpClients[id].profile || {}).naam || '').toLowerCase() === String(klantNaam || '').toLowerCase());
+  if (!clientId) return [];
+  const norm = (u) => String(u || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/[#?].*$/, '').replace(/\/+$/, '');
+  const lijst = await lpNotion.listPages({ klant: clientId });
+  const pagr = new Set(lijst.filter((p) => p.wpUrl).map((p) => norm(p.wpUrl)));
+  return (urls || []).filter((u) => pagr.has(norm(u)));
+};
+
+router.voegFaqToe = async function voegFaqToe({ klant: klantNaam, url, vragen }) {
+  const clientId = Object.keys(lpClients).find((id) => String((lpClients[id].profile || {}).naam || '').toLowerCase() === String(klantNaam || '').toLowerCase());
+  if (!clientId) throw new Error(`Geen Pagr. klant gevonden voor ${klantNaam}.`);
+  const norm = (u) => String(u || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/[#?].*$/, '').replace(/\/+$/, '');
+  const lijst = await lpNotion.listPages({ klant: clientId });
+  const gevonden = lijst.find((p) => p.wpUrl && norm(p.wpUrl) === norm(url));
+  if (!gevonden) throw new Error('Deze pagina staat niet in Pagr. (geen pagina met deze WordPress URL gevonden).');
+  const page = await lpNotion.getPage(gevonden.id);
+  if (!page.wpPaginaId) throw new Error('Deze pagina staat nog niet in WordPress.');
+  const blueprint = eigenSjabloonVan(page) || await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
+  if (contentIsEmpty(blueprint, page.content)) throw new Error('Deze pagina heeft nog geen content.');
+  const { content, toegevoegd } = aiFaqService.voegFaqItemsToe(page.content, vragen);
+  if (!toegevoegd) return { toegevoegd: 0, melding: 'Deze vraag staat al in de FAQ van de pagina.' };
+  const validation = zonderMetaLengte(validatePage({ blueprint, contentJson: content }));
+  if (!validation.ok) throw new Error(`De pagina zou niet meer geldig zijn: ${validation.errors.join('; ')}`);
+  await lpNotion.updateSection(page.id, 'content', content);
+  const client = getLpClient(page.klant);
+  const html = renderPageHtml(buildRenderPage({ blueprint, content, clientId: page.klant, slug: page.slug, invoer: page.invoer }), { forWordPress: true });
+  const slotData = content.slotData;
+  await pushDraft({
+    profile: client.profile,
+    wpPaginaId: page.wpPaginaId,
+    titel: page.titel,
+    html,
+    slug: page.slug,
+    metaTitel: slotData.metaTitle,
+    metaBeschrijving: slotData.metaDescription,
+    behoudStatus: true
+  });
+  return { toegevoegd };
+};
 
 module.exports = router;

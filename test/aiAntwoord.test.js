@@ -215,3 +215,15 @@ test('vraagKansenHtml: tekst veilig, pagina als link, knop naar het antwoord', (
   assert.match(html, /pv-tag-laag/);
   assert.strictEqual(A.vraagKansenHtml([]), '');
 });
+
+test('bouwVraagKansen: toont voor de klant of het antwoord al als veelgestelde vraag op de pagina staat', () => {
+  const vragen = [vraagRij('k01', { vraag: 'a?', onderwerp: 'A' }), vraagRij('k02', { vraag: 'b?', onderwerp: 'B' }), vraagRij('k03', { vraag: 'c?', onderwerp: 'C' })];
+  const prompts = ['k01', 'k02', 'k03'].map((id) => ({ prompt_id: id, soort: 'kern', actief: true }));
+  const koppel = ['k01', 'k02', 'k03'].map((id) => ({ prompt_id: id, oordeel: 'past', pagina_url: 'https://x.nl/' + id, pagina_titel: 'T' }));
+  const uit = S.bouwVraagKansen(vragen, prompts, koppel, '2026-10-26', { k01: { status: 'toegepast' }, k02: { status: 'goedgekeurd' }, k03: { status: 'voorstel' } });
+  assert.equal(uit.find((k) => k.vraagId === 'k01').faqStatus, 'toegepast');
+  assert.match(uit.find((k) => k.vraagId === 'k01').actie, /staat inmiddels/);
+  assert.equal(uit.find((k) => k.vraagId === 'k02').faqStatus, 'goedgekeurd');
+  assert.equal(uit.find((k) => k.vraagId === 'k03').faqStatus, '', 'een concept voorstel is nog niet voor de klant zichtbaar');
+  assert.doesNotMatch(uit.find((k) => k.vraagId === 'k03').actie, /staat inmiddels|wordt als korte/);
+});
