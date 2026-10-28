@@ -966,3 +966,20 @@ button.pa-item:focus-visible, .pa-filter:focus-visible, .pa-volgende:focus-visib
 /* Meekijken vanuit de cockpit (admin) */
 .p-meekijk{position:sticky;top:0;z-index:60;display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;justify-content:center;padding:8px 16px;background:#14142b;color:#fff;font-size:13px;line-height:1.4;text-align:center}
 .p-meekijk a{color:#fff;font-weight:600;text-decoration:underline}
+
+/* Donkerblauwe zijbalk in het beheer en in de portalen van klanten. */
+.p-side { background: #14142b; border-right: 0; color: rgba(255, 255, 255, 0.76); }
+.p-side .p-logo { box-sizing: content-box; background: #fff; border-radius: 6px; padding: 4px 8px; }
+.p-side .p-productnaam { color: #fff; }
+.p-side .p-door-tekst { color: rgba(255, 255, 255, 0.62); }
+.p-side .p-klant { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.12); }
+.p-side .p-klant-av { background: #ff3951; }
+.p-side .p-klant-naam { color: #fff; }
+.p-side .p-klant-sub { color: rgba(255, 255, 255, 0.62); }
+.p-side .p-nav-label { color: rgba(255, 255, 255, 0.52); }
+.p-side .p-nav-item { color: rgba(255, 255, 255, 0.78); }
+.p-side .p-nav-item:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
+.p-side .p-nav-item.active { background: rgba(255, 255, 255, 0.11); color: #fff; font-weight: 600; }
+.p-side .p-nav-item.active .p-i { color: #ff6b7e; }
+.p-side .p-nav-item:focus-visible { outline-color: #fff; }
+.p-side .p-side-voet { border-top-color: rgba(255, 255, 255, 0.12); }
