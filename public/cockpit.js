@@ -16,11 +16,12 @@
     return t;
   }
 
-  // Aantal dat aandacht vraagt (teller in het menu): rode en oranje klanten plus de gedeelde workflows als die niet groen zijn.
+  // Teller in het menu: het aantal meldingen (rood en oranje) in de lijst van de cockpit, dus exact het getal bij Alles.
+  // De steekproef heeft zijn eigen teller in zijn kaart en telt hier niet mee.
   function aandacht(data) {
     if (!data) return 0;
-    const t = tellingen(data);
-    return t.rood + t.oranje + (data.gedeeld && data.gedeeld.kleur !== 'groen' ? 1 : 0);
+    const tel = (lijst) => (lijst || []).filter((s) => s.niveau === 'rood' || s.niveau === 'oranje').length;
+    return tel(data.gedeeld && data.gedeeld.signalen) + (data.klanten || []).reduce((n, k) => n + tel(k.signalen), 0);
   }
 
   function tijd(iso) {
@@ -316,8 +317,9 @@
   function zetTeller() {
     const el = document.getElementById('cockpitTeller');
     if (!el) return;
-    const n = aandacht(stand.data) + (((stand.data && stand.data.steekproef && stand.data.steekproef.blogs) || []).some((b) => !b.oordeel) ? 1 : 0);
+    const n = aandacht(stand.data);
     el.textContent = n ? String(n) : '';
+    el.title = n ? `${n} ${n === 1 ? 'melding' : 'meldingen'} in de cockpit` : '';
     el.classList.toggle('hidden', !n);
   }
 

@@ -770,7 +770,8 @@ router.get('/wacht-op-jou', requireLpInternal, async (req, res) => {
   try {
     const resultaat = [];
     for (const klant of Object.keys(lpClients)) {
-      if (!(await pagrModuleAan(klant))) continue;
+      // Alleen klanten met betaald Pagr., net als de lijst Wacht op jou in het Pagr. overzicht. Eigen werk telt hier niet mee.
+      if (!(await planAan(klant))) continue;
       const pages = await lpNotion.listPages({ klant });
       const tel = pages.filter((p) => p.status === 'Idee').length ? await telKlantIdeeen(klant) : { ideeen: 0, voorstellen: 0 };
       const w = wachtOpJou(pages, tel.ideeen, tel.voorstellen);
