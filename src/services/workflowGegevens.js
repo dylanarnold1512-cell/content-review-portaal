@@ -13,7 +13,7 @@ const CLIENTS_TABLE_ID = process.env.N8N_CLIENTS_TABLE_ID || '42vYfT6ktan72bpa';
 
 const FAQ_MODI = [
   { waarde: 'uit', label: 'Uit' },
-  { waarde: 'voorstel', label: 'Aan, Advertisr keurt de voorstellen goed' }
+  { waarde: 'aan', label: 'Aan' }
 ];
 
 // type: tekst | lang | getal | schakelaar | keuze (met opties)
@@ -71,7 +71,7 @@ const GROEPEN = [
   {
     id: 'faq', titel: 'FAQ\'s uit AI vragen',
     velden: [
-      { veld: 'faq_modus', label: 'FAQ voorstellen', type: 'keuze', opties: FAQ_MODI, standaard: 'uit', tip: 'Alleen aanzetten voor klanten die hiervoor betalen. Uit: er worden geen FAQ voorstellen gemaakt. Aan: een AI vraag vervangt een algemene vraag in de FAQ van een bestaande pagina of blog, en Advertisr keurt dat eerst goed. Nieuwe pagina\'s en blogs krijgen de AI vragen meteen in de FAQ.' },
+      { veld: 'faq_modus', label: 'FAQ voorstellen', type: 'keuze', opties: FAQ_MODI, standaard: 'uit', tip: 'Alleen aanzetten voor klanten die hiervoor betalen. Aan: een AI vraag vervangt een algemene vraag in de FAQ van een bestaande pagina of blog. Er is geen goedkeuring, de aanpassingen komen in Telegram en in het FAQ scherm.' },
       { veld: 'faq_html_sjabloon', label: 'Opmaak van een FAQ blok (HTML)', type: 'lang', tip: 'Leeg is een eenvoudig blok met kop en uitklapbare vragen. Gebruik {{vragen}} voor de plek van de vragen.' }
     ]
   }

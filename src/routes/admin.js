@@ -230,7 +230,7 @@ router.post('/:clientId/idea-proposals/:pageId/reject', requireAdmin, async (req
   }
 });
 
-// FAQ voorstellen uit AI vragen (workflow "BA - AI FAQ Voorstel"). Alleen Dylan keurt goed of af.
+// FAQ aanpassingen uit AI vragen (workflow "BA - AI FAQ Voorstel"). Geen goedkeuring, alleen meldingen.
 // n8n vraagt welke pagina's Pagr. pagina's zijn (die krijgen hun FAQ via Pagr., niet rechtstreeks in WordPress).
 router.post('/faq/pagr-paginas', async (req, res) => {
   if (!(await n8nSleutelGeldig(String(req.get('x-n8n-api-key') || '')))) return res.status(401).json({ error: 'Geen toegang.' });
@@ -250,22 +250,14 @@ router.get('/faq', requireAdmin, async (req, res) => {
   }
 });
 
-router.post('/faq/:id/akkoord', requireAdmin, async (req, res) => {
+// n8n laat hier de Pagr. aanpassingen toepassen (status goedgekeurd), direct na het maken ervan.
+router.post('/faq/pagr-toepassen', async (req, res) => {
+  if (!(await n8nSleutelGeldig(String(req.get('x-n8n-api-key') || '')))) return res.status(401).json({ error: 'Geen toegang.' });
   try {
-    const { vraag, antwoord } = req.body || {};
-    // lp.js wordt pas hier geladen, zodat de admin routes ook zonder de LP omgeving te testen zijn.
     const lpRoutes = require('./lp');
-    res.json(await aiFaq.keurGoed({ id: req.params.id, vraag, antwoord, voegToe: lpRoutes.voegFaqToe }));
+    res.json(await aiFaq.pasPagrToe({ voegToe: lpRoutes.voegFaqToe }));
   } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-router.post('/faq/:id/afwijzen', requireAdmin, async (req, res) => {
-  try {
-    res.json(await aiFaq.wijsAf({ id: req.params.id, reden: (req.body || {}).reden }));
-  } catch (err) {
-    res.status(400).json({ error: err.message });
+    res.status(500).json({ error: err.message, toegepast: [], mislukt: [] });
   }
 });
 

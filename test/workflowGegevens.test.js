@@ -65,15 +65,17 @@ test('validatie van e-mail, getal en website', () => {
   assert.equal(w.valideerVeld('ai_meting', true), true);
 });
 
-test('faq_modus: leeg of onbekend wordt uit, geldige keuze blijft staan', () => {
+test('faq_modus: leeg of onbekend wordt uit, aan blijft staan', () => {
   assert.equal(w.bouwWaarden({ ...basisRij }).waarden.faq_modus, 'uit');
   assert.equal(w.bouwWaarden({ ...basisRij, faq_modus: 'raar' }).waarden.faq_modus, 'uit');
   assert.equal(w.bouwWaarden({ ...basisRij, faq_modus: 'automatisch' }).waarden.faq_modus, 'uit');
-  assert.equal(w.bouwWaarden({ ...basisRij, faq_modus: 'voorstel' }).waarden.faq_modus, 'voorstel');
+  assert.equal(w.bouwWaarden({ ...basisRij, faq_modus: 'voorstel' }).waarden.faq_modus, 'uit');
+  assert.equal(w.bouwWaarden({ ...basisRij, faq_modus: 'aan' }).waarden.faq_modus, 'aan');
 });
 
-test('faq_modus: alleen uit of voorstel mag worden opgeslagen', () => {
-  assert.equal(w.valideerVeld('faq_modus', 'voorstel'), 'voorstel');
+test('faq_modus: alleen uit of aan mag worden opgeslagen', () => {
+  assert.equal(w.valideerVeld('faq_modus', 'aan'), 'aan');
+  assert.throws(() => w.valideerVeld('faq_modus', 'voorstel'));
   assert.throws(() => w.valideerVeld('faq_modus', 'automatisch'));
   assert.throws(() => w.valideerVeld('faq_modus', 'altijd'));
   assert.throws(() => w.valideerVeld('faq_modus', ''));

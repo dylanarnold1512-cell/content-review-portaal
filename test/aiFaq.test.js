@@ -48,67 +48,51 @@ test('groepeerPerPagina, zelfdeUrl en statusPerVraag', () => {
   assert.equal(st.k01.status, 'toegepast');
 });
 
-// Een nagebootste n8n data table met een rij.
-function nepTabel(rij) {
-  const aanroepen = [];
+test('pasPagrToe: Pagr. rijen worden per pagina in een keer toegepast, andere rijen blijven staan', async () => {
+  const rijen = [
+    { id: 1, klant: 'Hirs', status: 'goedgekeurd', pagina_type: 'pagr', pagina_url: 'https://h.nl/b/', pagina_titel: 'B', vraag: 'Welke installateur regelt alles?', antwoord: LANG, vervangt_vraag: 'Hoe lang duurt het?', aangemaakt: '1' },
+    { id: 2, klant: 'Hirs', status: 'goedgekeurd', pagina_type: 'pagr', pagina_url: 'https://h.nl/b/', pagina_titel: 'B', vraag: 'Wie verbouwt in Haarlem?', antwoord: LANG, vervangt_vraag: '', aangemaakt: '2' },
+    { id: 3, klant: 'BCU', status: 'goedgekeurd', pagina_type: 'post', pagina_url: 'https://b.nl/a/', vraag: 'Blog vraag?', antwoord: LANG }
+  ];
   const oud = global.fetch;
   process.env.N8N_API_KEY = 'test';
   global.fetch = async (url, opties = {}) => {
-    aanroepen.push({ url: String(url), opties });
     if (String(url).includes('/rows/update')) {
-      Object.assign(rij, JSON.parse(opties.body).data);
+      const body = JSON.parse(opties.body);
+      const id = body.filter.filters[0].value;
+      Object.assign(rijen.find((r) => r.id === id), body.data);
       return { ok: true, status: 200, text: async () => '{}' };
     }
-    return { ok: true, status: 200, text: async () => JSON.stringify({ data: [rij] }) };
+    return { ok: true, status: 200, text: async () => JSON.stringify({ data: rijen }) };
   };
-  return { aanroepen, herstel: () => { global.fetch = oud; } };
-}
-
-test('keurGoed: een blog of gewone pagina wordt goedgekeurd voor de n8n workflow', async () => {
-  const rij = { id: 7, klant: 'Hirs Installaties', status: 'voorstel', pagina_type: 'page', pagina_url: 'https://h.nl/a/', vraag: 'Hoe lang duurt het?', antwoord: LANG };
-  const t = nepTabel(rij);
-  try {
-    const uit = await faq.keurGoed({ id: 7, voegToe: async () => { throw new Error('mag niet'); } });
-    assert.equal(uit.status, 'goedgekeurd');
-    assert.equal(rij.status, 'goedgekeurd');
-  } finally { t.herstel(); }
-});
-
-test('keurGoed: een Pagr. pagina wordt direct in Pagr. gezet, met de aangepaste tekst', async () => {
-  const rij = { id: 8, klant: 'Hirs Installaties', status: 'voorstel', pagina_type: 'pagr', pagina_url: 'https://h.nl/b/', vraag: 'Oud?', antwoord: LANG };
-  const t = nepTabel(rij);
   const gekregen = [];
   try {
-    const uit = await faq.keurGoed({ id: 8, vraag: 'Hoe lang duurt een badkamer?', antwoord: LANG, voegToe: async (x) => { gekregen.push(x); }, nu: () => '2026-10-29T10:00:00Z' });
-    assert.equal(uit.status, 'toegepast');
-    assert.equal(rij.status, 'toegepast');
-    assert.equal(rij.toegepast, '2026-10-29T10:00:00Z');
-    assert.equal(gekregen[0].vragen[0].question, 'Hoe lang duurt een badkamer?');
-    assert.equal(gekregen[0].url, 'https://h.nl/b/');
-  } finally { t.herstel(); }
+    const uit = await faq.pasPagrToe({ voegToe: async (x) => { gekregen.push(x); }, nu: () => 'NU' });
+    assert.equal(gekregen.length, 1, 'een pagina is een keer aangepast');
+    assert.equal(gekregen[0].vragen.length, 2);
+    assert.equal(gekregen[0].vragen[0].vervang, 'Hoe lang duurt het?');
+    assert.equal(rijen[0].status, 'toegepast');
+    assert.equal(rijen[0].toegepast, 'NU');
+    assert.equal(rijen[2].status, 'goedgekeurd', 'blogs zijn voor de n8n workflow');
+    assert.deepEqual(uit.toegepast[0].wijzigingen[0], { oud: 'Hoe lang duurt het?', nieuw: 'Welke installateur regelt alles?' });
+    assert.equal(uit.mislukt.length, 0);
+  } finally { global.fetch = oud; }
 });
 
-test('keurGoed: mislukt Pagr. toepassen laat het voorstel staan met de reden', async () => {
-  const rij = { id: 9, klant: 'Hirs Installaties', status: 'voorstel', pagina_type: 'pagr', pagina_url: 'https://h.nl/b/', vraag: 'Vraag?', antwoord: LANG };
-  const t = nepTabel(rij);
+test('pasPagrToe: een fout bij het toepassen zet de rijen op mislukt met de reden', async () => {
+  const rijen = [{ id: 5, klant: 'Hirs', status: 'goedgekeurd', pagina_type: 'pagr', pagina_url: 'https://h.nl/b/', vraag: 'Vraag?', antwoord: LANG }];
+  const oud = global.fetch;
+  process.env.N8N_API_KEY = 'test';
+  global.fetch = async (url, opties = {}) => {
+    if (String(url).includes('/rows/update')) { Object.assign(rijen[0], JSON.parse(opties.body).data); return { ok: true, status: 200, text: async () => '{}' }; }
+    return { ok: true, status: 200, text: async () => JSON.stringify({ data: rijen }) };
+  };
   try {
-    await assert.rejects(faq.keurGoed({ id: 9, voegToe: async () => { throw new Error('Pagina niet geldig'); } }), /Pagina niet geldig/);
-    assert.equal(rij.status, 'voorstel');
-    assert.match(rij.reden, /Pagina niet geldig/);
-  } finally { t.herstel(); }
-});
-
-test('keurGoed en wijsAf: alleen voorstellen, geen tweede keer', async () => {
-  const rij = { id: 10, klant: 'K', status: 'toegepast', pagina_type: 'page', vraag: 'Vraag?', antwoord: LANG };
-  const t = nepTabel(rij);
-  try {
-    await assert.rejects(faq.keurGoed({ id: 10 }), /staat al op/);
-    await assert.rejects(faq.wijsAf({ id: 10 }), /staat al op/);
-    rij.status = 'voorstel';
-    const uit = await faq.wijsAf({ id: 10, reden: 'Past niet' });
-    assert.equal(uit.status, 'afgewezen');
-    assert.equal(rij.reden, 'Past niet');
-  } finally { t.herstel(); }
+    const uit = await faq.pasPagrToe({ voegToe: async () => { throw new Error('Pagina niet geldig'); } });
+    assert.equal(rijen[0].status, 'mislukt');
+    assert.match(rijen[0].reden, /Pagina niet geldig/);
+    assert.equal(uit.mislukt.length, 1);
+  } finally { global.fetch = oud; }
 });
 
 test('voegFaqItemsToe: bestaande vragen blijven, dubbele en lege vragen niet, rest van de inhoud ongemoeid', () => {
