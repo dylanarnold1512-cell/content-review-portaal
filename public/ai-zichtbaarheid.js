@@ -81,6 +81,16 @@
     return U().kaart({ titel: 'Kansen voor AI zichtbaarheid', inhoud: items + '<div class="pv-muted pv-kans-noot">Dit zijn signalen uit de meting, geen garanties. AI antwoorden verschillen van keer tot keer.</div>' });
   }
 
+  // Kansen per vraag: per vraag zonder vermelding de pagina van de site die erbij past.
+  function vraagKansenBlok(kansen) {
+    if (!kansen || !kansen.length) return '';
+    return '<div id="aiVraagKansen">' + U().kaart({
+      titel: 'Kansen per vraag',
+      uitleg: 'Vragen waarbij AI jullie merk niet noemt. Daarbij zie je welke pagina op jullie site bij het onderwerp past.',
+      inhoud: A().vraagKansenHtml(kansen) + '<div class="pv-muted pv-kans-noot">Dit zijn signalen uit de meting, geen garanties. De pagina is gekozen op onderwerp. We hebben nog niet gecontroleerd of het antwoord al in de pagina staat.</div>'
+    }) + '</div>';
+  }
+
   function urlBlok(urls) {
     if (!urls.length) return '';
     const lijst = urls.map((u) => `<li><a href="${esc(u.url)}" target="_blank" rel="noopener noreferrer">${esc(u.url.replace(/^https?:\/\//, ''))}</a> <span class="ai-klein">${u.aantal} keer</span></li>`).join('');
@@ -141,7 +151,7 @@
     antw.terugFocus = bron || document.activeElement;
     antw.bezig = id;
     antw.data = null;
-    document.body.insertAdjacentHTML('beforeend', `<div class="pa-paneel-achter" id="aiAntwoord"><aside class="pa-paneel ai-antw-paneel" role="dialog" aria-modal="true" aria-labelledby="aiAntwoordTitel"><div class="pa-paneel-kop"><div><span class="ai-antw-label">Antwoord wordt geladen</span><h2 id="aiAntwoordTitel">${esc(bron ? bron.firstChild.textContent : '')}</h2></div><button type="button" class="rp-icoonknop" data-ai-sluit aria-label="Sluiten"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div><div class="pa-paneel-body">${U().laden([{ breedte: '60%', hoogte: 18 }, { breedte: '100%', hoogte: 220 }])}</div></aside></div>`);
+    document.body.insertAdjacentHTML('beforeend', `<div class="pa-paneel-achter" id="aiAntwoord"><aside class="pa-paneel ai-antw-paneel" role="dialog" aria-modal="true" aria-labelledby="aiAntwoordTitel"><div class="pa-paneel-kop"><div><span class="ai-antw-label">Antwoord wordt geladen</span><h2 id="aiAntwoordTitel">${esc(bron ? (bron.getAttribute('data-ai-titel') || bron.firstChild.textContent) : '')}</h2></div><button type="button" class="rp-icoonknop" data-ai-sluit aria-label="Sluiten"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div><div class="pa-paneel-body">${U().laden([{ breedte: '60%', hoogte: 18 }, { breedte: '100%', hoogte: 220 }])}</div></aside></div>`);
     document.body.classList.add('rp-viewer-open');
     const v = el('aiAntwoord');
     v.addEventListener('click', (e) => {
@@ -231,8 +241,15 @@
       ${data.clusterSoort === 'markt' ? '<p class="ai-uitleg">De cijfers hierboven zijn het totaal over alle markten.</p>' : ''}
       <div class="p-ov-raster2">
         <div class="p-ov-stapel">${verloop}${onderwerpKaarten(data.clusters, data.clusterSoort === 'markt')}<div id="aiVragenBlok"></div></div>
-        <div class="p-ov-stapel">${kansenBlok(data.kansen)}${urlBlok(data.eigenUrls)}<p class="ai-voet">Het gaat om vragen die wij zelf hebben opgesteld. AI antwoorden verschillen van keer tot keer, dus het gaat om het grote beeld.</p></div>
+        <div class="p-ov-stapel">${kansenBlok(data.kansen)}${vraagKansenBlok(data.vraagKansen)}${urlBlok(data.eigenUrls)}<p class="ai-voet">Het gaat om vragen die wij zelf hebben opgesteld. AI antwoorden verschillen van keer tot keer, dus het gaat om het grote beeld.</p></div>
       </div></div>`;
+    const kansenVraag = el('aiVraagKansen');
+    if (kansenVraag) {
+      kansenVraag.addEventListener('click', (e) => {
+        const v = e.target.closest('[data-ai-vraag]');
+        if (v) openAntwoord(v.getAttribute('data-ai-vraag'), v);
+      });
+    }
     laadVragen();
   }
 

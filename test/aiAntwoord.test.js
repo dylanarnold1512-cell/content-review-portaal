@@ -143,3 +143,75 @@ test('maandrapport document en PDF tonen de vragen in de AI sectie', async () =>
   const buf = await bouwPdf({ rapport, klantNaam: 'Bubbel Broeders', ai: { ...ai, vragenMaand: vragen } });
   assert.strictEqual(buf.slice(0, 4).toString(), '%PDF');
 });
+
+function vraagRij(id, o = {}) {
+  return { id, vraag: o.vraag || 'Vraag ' + id, onderwerp: o.onderwerp || 'Teamdagen', urls: [],
+    chatgpt: { metingen: o.cm ?? 3, genoemd: o.cg ?? 0, geciteerd: o.cc ?? 0 },
+    gemini: { metingen: o.gm ?? 3, genoemd: o.gg ?? 0, geciteerd: 0 } };
+}
+
+test('bouwVraagKansen: alleen vragen zonder vermelding, met pagina of zonder passende pagina, kernvragen eerst', () => {
+  const vragen = [
+    vraagRij('w01', { vraag: 'Wissel vraag' }),
+    vraagRij('k01', { vraag: 'Kern vraag', onderwerp: 'Vergaderen' }),
+    vraagRij('k02', { vraag: 'Wel genoemd', cg: 1 }),
+    vraagRij('k03', { vraag: 'Te weinig metingen', cm: 1, gm: 0 }),
+    vraagRij('k04', { vraag: 'Geen pagina', onderwerp: 'Feesten' }),
+    vraagRij('k05', { vraag: 'Deels', onderwerp: 'Feesten' }),
+    vraagRij('k06', { vraag: 'Onveilige link', onderwerp: 'Feesten' }),
+    vraagRij('k07', { vraag: 'Site als bron', cc: 2, onderwerp: 'Locatie' })
+  ];
+  const prompts = [{ prompt_id: 'k01', soort: 'kern', actief: true }, { prompt_id: 'w01', soort: 'wissel', actief: true }];
+  const koppelingen = [
+    { prompt_id: 'w01', oordeel: 'past', pagina_url: 'https://x.nl/teamdag/', pagina_titel: 'Teamdag organiseren' },
+    { prompt_id: 'k01', oordeel: 'past', pagina_url: 'https://x.nl/vergaderen/', pagina_titel: 'Vergaderen' },
+    { prompt_id: 'k02', oordeel: 'past', pagina_url: 'https://x.nl/a/', pagina_titel: 'A' },
+    { prompt_id: 'k03', oordeel: 'past', pagina_url: 'https://x.nl/b/', pagina_titel: 'B' },
+    { prompt_id: 'k04', oordeel: 'geen', pagina_url: '', pagina_titel: '' },
+    { prompt_id: 'k05', oordeel: 'deels', pagina_url: 'https://x.nl/c/', pagina_titel: 'C' },
+    { prompt_id: 'k06', oordeel: 'past', pagina_url: 'javascript:alert(1)', pagina_titel: 'Gevaarlijk' },
+    { prompt_id: 'k07', oordeel: 'past', pagina_url: 'https://x.nl/locatie/', pagina_titel: 'Locatie' }
+  ];
+  const kansen = S.bouwVraagKansen(vragen, prompts, koppelingen, '2026-10-26');
+  assert.deepStrictEqual(kansen.map((k) => k.vraagId), ['k01', 'k04', 'k07', 'w01']);
+  const k01 = kansen[0];
+  assert.strictEqual(k01.prioriteit, 'hoog');
+  assert.strictEqual(kansen[1].prioriteit, 'laag');
+  assert.strictEqual(kansen[3].prioriteit, 'middel');
+  assert.strictEqual(k01.pagina.url, 'https://x.nl/vergaderen/');
+  assert.match(k01.signaal, /Kern vraag/);
+  assert.match(k01.signaal, /geen van de 6 antwoorden/);
+  assert.match(k01.waarom, /"Vergaderen"/);
+  assert.match(k01.actie, /geen garantie/);
+  assert.match(k01.onderbouwing, /week van 26 oktober 2026: 0 van 6 antwoorden/);
+  assert.match(kansen[2].onderbouwing, /wel als bron getoond/);
+  assert.strictEqual(kansen[1].pagina, null);
+  assert.match(kansen[1].waarom, /geen pagina/);
+});
+
+test('bouwVraagKansen: maximaal twee per onderwerp en vijf met een pagina, zonder koppelingen niets', () => {
+  const vragen = Array.from({ length: 12 }, (_, i) => vraagRij('k' + String(i + 1).padStart(2, '0'), { onderwerp: 'O' + (i % 4) }));
+  const koppelingen = vragen.map((v) => ({ prompt_id: v.id, oordeel: 'past', pagina_url: 'https://x.nl/p/', pagina_titel: 'P' }));
+  const kansen = S.bouwVraagKansen(vragen, [], koppelingen, '2026-10-26');
+  assert.strictEqual(kansen.length, 5);
+  const perO = {};
+  vragen.forEach((v) => { if (kansen.some((k) => k.vraagId === v.id)) perO[v.onderwerp] = (perO[v.onderwerp] || 0) + 1; });
+  assert.ok(Object.values(perO).every((n) => n <= 2));
+  assert.deepStrictEqual(S.bouwVraagKansen(vragen, [], [], '2026-10-26'), []);
+});
+
+test('vraagKansenHtml: tekst veilig, pagina als link, knop naar het antwoord', () => {
+  const html = A.vraagKansenHtml([
+    { vraagId: 'k01', vraag: 'Is <b>dit</b> een vraag?', prioriteit: 'hoog', signaal: 'Bij de vraag "<img src=x>"', waarom: 'W', actie: 'Doen', onderbouwing: 'O', pagina: { titel: 'Pagina <i>1</i>', url: 'https://x.nl/a/' } },
+    { vraagId: 'k02', vraag: 'V2', prioriteit: 'laag', signaal: 'S', waarom: '', actie: '', onderbouwing: '', pagina: { titel: 'Eval', url: 'javascript:alert(1)' } },
+    { vraagId: 'k03', vraag: 'V3', prioriteit: 'onbekend', signaal: 'S3', pagina: null }
+  ]);
+  assert.doesNotMatch(html, /<img|<b>dit|<i>1/);
+  assert.match(html, /&lt;img src=x&gt;/);
+  assert.match(html, /<a href="https:\/\/x\.nl\/a\/" target="_blank" rel="noopener noreferrer">Pagina &lt;i&gt;1&lt;\/i&gt;<\/a>/);
+  assert.doesNotMatch(html, /href="javascript/);
+  assert.match(html, /data-ai-vraag="k01" data-ai-titel="Is &lt;b&gt;dit&lt;\/b&gt; een vraag\?"/);
+  assert.match(html, /pv-tag-hoog/);
+  assert.match(html, /pv-tag-laag/);
+  assert.strictEqual(A.vraagKansenHtml([]), '');
+});

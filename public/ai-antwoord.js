@@ -185,7 +185,27 @@
     return { platform: p ? p.id : 'chatgpt', run: 0 };
   }
 
-  const api = { markdownNaarHtml, vensterHtml, antwoordHtml, startKeuze, telMerk, merkRegex };
+  // Kansen per vraag: vragen waarbij AI het merk niet noemt, met de pagina van de site die erbij past.
+  // Alleen de items; de kaart eromheen tekent het scherm.
+  function vraagKansenHtml(kansen) {
+    const label = { hoog: 'Hoge prioriteit', middel: 'Middelhoge prioriteit', laag: 'Lage prioriteit' };
+    return (kansen || []).map((k) => {
+      const prio = ['hoog', 'middel', 'laag'].includes(k.prioriteit) ? k.prioriteit : 'laag';
+      const url = k.pagina && /^https?:\/\/[^\s"'<>]+$/i.test(String(k.pagina.url || '')) ? k.pagina.url : '';
+      const pagina = url ? `<div class="ai-kans-pagina"><span class="ai-klein">Pagina op jullie site</span> <a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(k.pagina.titel || url)}</a></div>` : '';
+      return `<div class="pv-kans">
+      <div class="pv-kans-tags"><span class="pv-tag pv-tag-${prio}">${esc(label[prio])}</span></div>
+      <div class="pv-ins-titel">${esc(k.signaal)}</div>
+      ${k.waarom ? `<div class="pv-ins-tekst">${esc(k.waarom)}</div>` : ''}
+      ${pagina}
+      ${k.actie ? `<div class="pv-ins-actie">Wat wij doen: ${esc(k.actie)}</div>` : ''}
+      <div class="ai-kans-acties"><button type="button" class="pv-toggle" data-ai-vraag="${esc(k.vraagId)}" data-ai-titel="${esc(k.vraag)}">Lees wat AI antwoordt</button></div>
+      ${k.onderbouwing ? `<details class="pv-onderbouwing"><summary>Onderbouwing</summary><div class="pv-ins-tekst">${esc(k.onderbouwing)}</div></details>` : ''}
+    </div>`;
+    }).join('');
+  }
+
+  const api = { markdownNaarHtml, vensterHtml, antwoordHtml, startKeuze, telMerk, merkRegex, vraagKansenHtml };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.AiAntwoord = api;
 })();
