@@ -300,3 +300,6 @@
 .ad-kiezer-lijst button:hover { background: var(--p-vlak-2); }
 .ad-kiezer-lijst button[aria-selected="true"] { background: var(--p-plan-zacht); font-weight: 600; }
 .ad-kiezer-alle { background: var(--p-tekst); }
+.ck-kpi-todo { border-color: #14142b; box-shadow: 0 0 0 1px #14142b, var(--p-schaduw); }
+.ck-kpi-todo .ck-kpi-v { font-size: 40px; }
+.ck-n-groot { display: inline-block; margin-left: 6px; padding: 1px 9px; border-radius: 999px; background: #14142b; color: #fff; font-size: 13px; font-weight: 600; vertical-align: middle; }

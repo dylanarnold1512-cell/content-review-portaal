@@ -206,8 +206,7 @@
     <div class="p-pagina">
       ${kop}
       <div class="ck-kpis">
-        <div class="ck-kpi"><div class="ck-kpi-l"><span class="ck-dot ck-dot-rood"></span>Direct oppakken</div><div class="ck-kpi-v">${rood}</div><div class="ck-kpi-s">rode meldingen</div></div>
-        <div class="ck-kpi"><div class="ck-kpi-l"><span class="ck-dot ck-dot-oranje"></span>Binnenkort kijken</div><div class="ck-kpi-v">${oranje}</div><div class="ck-kpi-s">oranje meldingen</div></div>
+        <div class="ck-kpi ck-kpi-todo"><div class="ck-kpi-l"><span class="ck-dot ${rood ? 'ck-dot-rood' : 'ck-dot-groen'}"></span>Om weg te werken</div><div class="ck-kpi-v">${alle.length}</div><div class="ck-kpi-s">${alle.length ? `${rood} direct oppakken, ${oranje} binnenkort kijken` : 'niets open, alles draait'}</div></div>
         <div class="ck-kpi"><div class="ck-kpi-l"><span class="ck-dot ck-dot-plan"></span>Klanten met melding</div><div class="ck-kpi-v">${metMelding}<small> van ${klantenZicht.length}</small></div><div class="ck-kpi-s">${metMelding ? 'minstens één punt open' : 'alles in orde'}</div></div>
         <div class="ck-kpi"><div class="ck-kpi-l"><span class="ck-dot ck-dot-groen"></span>Steekproef van de week</div><div class="ck-kpi-v">${beoordeeld}<small> van ${sp.length}</small></div><div class="ck-kpi-s">blogs beoordeeld</div></div>
       </div>
@@ -215,7 +214,7 @@
       <div class="ck-kolommen">
         <section class="ck-kaart ck-hoofd" aria-labelledby="ckMKop">
           <div class="ck-kaart-kop">
-            <div><h2 id="ckMKop">Meldingen</h2><p>Klik op een melding voor uitleg en wat je eraan doet</p></div>
+            <div><h2 id="ckMKop">Om weg te werken <span class="ck-n ck-n-groot">${alle.length}</span></h2><p>Klik op een melding voor uitleg en wat je eraan doet. Is het opgelost, dan verdwijnt hij hier vanzelf.</p></div>
             <div class="ck-seg" role="group" aria-label="Filter op ernst">${knop('alles', 'Alles', alle.length)}${knop('rood', 'Rood', rood)}${knop('oranje', 'Oranje', oranje)}</div>
           </div>
           ${zichtbaar.length ? `<ul class="ck-lijst">${zichtbaar.map((x) => meldingRij(x.m, x.i)).join('')}</ul>` : `<div class="ck-leeg">${alle.length ? 'Geen meldingen met dit filter.' : 'Geen enkele melding. Alles draait.'}</div>`}
