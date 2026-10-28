@@ -358,10 +358,12 @@ function parseBronnen(tekst) {
   return uit;
 }
 
-// Woorden waarop het merk in een antwoord gemarkeerd wordt: de zoektermen van de
-// AI meting (Clients.ai_zoektermen) en de klantnaam. Korte termen (zoals "ppe")
-// laten we weg, die geven te veel valse treffers. Zelfde grens als de meting.
-function merkTermen(klantNaam, zoektermen) {
+// Woorden waarop het merk in een antwoord gemarkeerd wordt. Zelfde regel als de
+// meting in n8n (BA - AI Meting, Verwerk antwoord): de zoektermen uit
+// Clients.ai_zoektermen van minimaal 6 tekens, plus het domein (ai_domein).
+// Alleen als er geen van beide is, geldt de klantnaam. Een klant met een gewone
+// woordnaam (zoals Trockenblumengrosshandel) krijgt alleen het domein als zoekterm.
+function merkTermen(klantNaam, zoektermen, domein) {
   const termen = [];
   const voeg = (t) => {
     const schoon = String(t || '').trim();
@@ -369,7 +371,8 @@ function merkTermen(klantNaam, zoektermen) {
     if (!termen.some((x) => x.toLowerCase() === schoon.toLowerCase())) termen.push(schoon);
   };
   String(zoektermen || '').split(',').forEach(voeg);
-  voeg(klantNaam);
+  voeg(String(domein || '').replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/.*$/, ''));
+  if (!termen.length) voeg(klantNaam);
   return termen.sort((a, b) => b.length - a.length);
 }
 
@@ -411,9 +414,9 @@ async function klantTermen(klantNaam) {
   try {
     const rijen = await n8nTabel(CLIENTS_TABLE_ID, [{ columnName: 'client_name', condition: 'eq', value: klantNaam }]);
     const rij = rijen[0] || {};
-    return merkTermen(klantNaam, rij.ai_zoektermen);
+    return merkTermen(klantNaam, rij.ai_zoektermen, rij.ai_domein);
   } catch (err) {
-    return merkTermen(klantNaam, '');
+    return merkTermen(klantNaam, '', '');
   }
 }
 
