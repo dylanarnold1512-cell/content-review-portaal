@@ -5,9 +5,11 @@
 // per klant, week, platform en cluster, plus een rij met cluster "totaal").
 // Het portaal leest alleen die samenvatting en rekent niets opnieuw uit.
 //
-// Wat de klant ziet: alleen het eigen merk. Concurrenten (top_merken), bronnen
-// van anderen (top_bronnen), kosten en foutaantallen blijven intern, zie
-// getAiIntern en het adminpaneel.
+// Wat de klant ziet: de cijfers van het eigen merk, en per vraag het antwoord
+// van de AI zelf (daarin kunnen ook andere bedrijven staan, dat is bewust: zo
+// ziet de klant bij welke vraag hij zichtbaar is). De samengevatte lijsten met
+// merken van anderen (top_merken), bronnen van anderen (top_bronnen), kosten en
+// foutaantallen blijven intern, zie getAiIntern.
 
 const N8N_BASE_URL = (process.env.N8N_BASE_URL || 'https://n8n.advertisr.nl').replace(/\/+$/, '');
 const TABLE_ID = process.env.N8N_AI_SAMENVATTING_TABLE_ID || 'PO71b1z9NwtgTFoO';
@@ -16,6 +18,10 @@ const PROMPTS_TABLE_ID = process.env.N8N_AI_PROMPTS_TABLE_ID || 'fOe0eUDOQ7FNaL1
 const METINGEN_TABLE_ID = process.env.N8N_AI_METINGEN_TABLE_ID || 'IRsXYL5ndnD6Yy7m';
 const KERN_WIJZIGINGEN_TABLE_ID = process.env.N8N_AI_KERN_WIJZIGINGEN_TABLE_ID || 'SeItyAsQZfNQXZ3t';
 const KANSEN_TABLE_ID = process.env.N8N_KANSEN_TABLE_ID || 'C0ASGyrj8nT1zXOS';
+const CLIENTS_TABLE_ID = process.env.N8N_CLIENTS_TABLE_ID || '42vYfT6ktan72bpa';
+// De AI meting bewaarde eerst steeds de eerste 1500 tekens van een antwoord.
+// Sinds november 2026 wordt een antwoord waarin het merk staat helemaal bewaard (tot 9000 tekens).
+const OUDE_GRENS_ANTWOORD = 1500;
 
 const PLATFORMEN = ['chatgpt', 'gemini'];
 const PLATFORM_LABEL = { chatgpt: 'ChatGPT', gemini: 'Gemini' };
@@ -299,7 +305,7 @@ function parseUrls(tekst) {
 }
 
 // Per vraag: werd het merk genoemd, en werd de eigen website als bron gebruikt.
-// Alleen het eigen merk. De antwoordtekst zelf blijft weg, want daarin staan concurrenten.
+// Het antwoord zelf haalt het portaal pas op als de klant op een vraag klikt (getAiAntwoord).
 function bouwVragen(prompts, metingen, weekStart) {
   const perVraag = new Map();
   for (const m of metingen) {
@@ -333,6 +339,146 @@ function bouwVragen(prompts, metingen, weekStart) {
   const score = (r) => r.chatgpt.genoemd + r.gemini.genoemd;
   rijen.sort((a, b) => score(b) - score(a) || String(a.id).localeCompare(String(b.id), 'nl', { numeric: true }));
   return rijen;
+}
+
+// Bronnen staan in ai_metingen als regels "titel | url".
+function parseBronnen(tekst) {
+  const uit = [];
+  const gezien = new Set();
+  for (const regel of String(tekst || '').split('\n')) {
+    const i = regel.lastIndexOf(' | ');
+    const url = (i >= 0 ? regel.slice(i + 3) : regel).trim();
+    if (!/^https?:\/\//i.test(url) || gezien.has(url)) continue;
+    gezien.add(url);
+    const titel = (i >= 0 ? regel.slice(0, i) : '').trim();
+    let domein = '';
+    try { domein = new URL(url).hostname.replace(/^www\./, ''); } catch (err) { domein = ''; }
+    uit.push({ titel: titel || domein || url, url, domein });
+  }
+  return uit;
+}
+
+// Woorden waarop het merk in een antwoord gemarkeerd wordt: de zoektermen van de
+// AI meting (Clients.ai_zoektermen) en de klantnaam. Korte termen (zoals "ppe")
+// laten we weg, die geven te veel valse treffers. Zelfde grens als de meting.
+function merkTermen(klantNaam, zoektermen) {
+  const termen = [];
+  const voeg = (t) => {
+    const schoon = String(t || '').trim();
+    if (schoon.replace(/[^\p{L}\p{N}]/gu, '').length < 6) return;
+    if (!termen.some((x) => x.toLowerCase() === schoon.toLowerCase())) termen.push(schoon);
+  };
+  String(zoektermen || '').split(',').forEach(voeg);
+  voeg(klantNaam);
+  return termen.sort((a, b) => b.length - a.length);
+}
+
+const waar = (v) => v === true || v === 'true';
+
+// Het antwoord van ChatGPT en Gemini op een vraag, in een week. Per platform alle
+// runs, de runs waarin het merk genoemd werd eerst.
+function bouwAntwoord(prompt, metingen, weekStart, termen) {
+  const platformen = PLATFORMEN.map((id) => {
+    const runs = (metingen || [])
+      .filter((m) => m && m.platform === id && m.prompt_id === prompt.prompt_id && maandagVan(m.datum) === weekStart && !m.fout)
+      .map((m) => {
+        const antwoord = String(m.antwoord_ingekort || '');
+        return {
+          run: num(m.run) || 1,
+          datum: String(m.datum || '').slice(0, 10),
+          genoemd: waar(m.genoemd),
+          geciteerd: waar(m.geciteerd),
+          antwoord,
+          ingekort: antwoord.length === OUDE_GRENS_ANTWOORD,
+          bronnen: parseBronnen(m.bronnen),
+          eigenUrls: parseUrls(m.geciteerde_urls)
+        };
+      })
+      .sort((a, b) => (Number(b.genoemd) - Number(a.genoemd)) || (a.run - b.run));
+    return { id, label: PLATFORM_LABEL[id], runs };
+  });
+  return {
+    id: prompt.prompt_id,
+    vraag: prompt.prompt || '',
+    onderwerp: prompt.cluster || '',
+    week: { start: weekStart, label: weekLabel(weekStart) },
+    termen: termen || [],
+    platformen
+  };
+}
+
+async function klantTermen(klantNaam) {
+  try {
+    const rijen = await n8nTabel(CLIENTS_TABLE_ID, [{ columnName: 'client_name', condition: 'eq', value: klantNaam }]);
+    const rij = rijen[0] || {};
+    return merkTermen(klantNaam, rij.ai_zoektermen);
+  } catch (err) {
+    return merkTermen(klantNaam, '');
+  }
+}
+
+async function getAiAntwoord(klantNaam, promptId) {
+  const overzicht = bouwOverzicht(await n8nRows(klantNaam));
+  if (overzicht.status !== 'ok') return { status: 'leeg' };
+  const week = overzicht.laatsteWeek;
+  const klantFilter = { columnName: 'klant', condition: 'eq', value: klantNaam };
+  const idFilter = { columnName: 'prompt_id', condition: 'eq', value: String(promptId) };
+  const [prompts, metingen, termen] = await Promise.all([
+    n8nTabel(PROMPTS_TABLE_ID, [klantFilter, idFilter]),
+    n8nTabel(METINGEN_TABLE_ID, [klantFilter, idFilter, { columnName: 'datum', condition: 'gte', value: week.start }]),
+    klantTermen(klantNaam)
+  ]);
+  const prompt = prompts[0];
+  if (!prompt) return { status: 'onbekend' };
+  return { status: 'ok', ...bouwAntwoord(prompt, metingen, week.start, termen) };
+}
+
+// Voor het maandrapport: bij welke vragen noemde AI het merk in deze kalendermaand.
+// Telt alleen metingen uit weken die in die maand beginnen, net als de cijfers in het rapport.
+function bouwVragenMaand(prompts, metingen, maand) {
+  const perVraag = new Map();
+  for (const m of metingen || []) {
+    if (!m || !waar(m.genoemd) || m.fout || !PLATFORMEN.includes(m.platform)) continue;
+    if (maandagVan(m.datum).slice(0, 7) !== maand) continue;
+    const rec = perVraag.get(m.prompt_id) || { chatgpt: 0, gemini: 0, geciteerd: 0 };
+    rec[m.platform] += 1;
+    if (waar(m.geciteerd)) rec.geciteerd += 1;
+    perVraag.set(m.prompt_id, rec);
+  }
+  const vragen = [];
+  for (const pr of prompts || []) {
+    const rec = perVraag.get(pr.prompt_id);
+    if (!rec) continue;
+    vragen.push({ id: pr.prompt_id, vraag: pr.prompt || '', onderwerp: pr.cluster || '', chatgpt: rec.chatgpt, gemini: rec.gemini, geciteerd: rec.geciteerd, totaal: rec.chatgpt + rec.gemini });
+  }
+  vragen.sort((a, b) => b.totaal - a.totaal || String(a.vraag).localeCompare(String(b.vraag), 'nl'));
+  return vragen;
+}
+
+function maandGrenzen(maand) {
+  const m = /^(\d{4})-(\d{2})$/.exec(String(maand || ''));
+  if (!m) return null;
+  // Een week die op de laatste maandag van de maand begint, kan in de volgende maand doorlopen.
+  return { van: `${maand}-01`, tot: `${maand}-31` };
+}
+
+// Een afgesloten maand verandert niet meer, dus die bewaren we in het geheugen.
+// Zo hoeft het rapport de metingen van een maand maar een keer op te halen.
+const vragenMaandCache = new Map();
+
+async function getAiVragenMaand(klantNaam, maand, vandaag = new Date().toISOString().slice(0, 7)) {
+  const grens = maandGrenzen(maand);
+  if (!grens) return { maand, vragen: [] };
+  const sleutel = `${klantNaam}|${maand}`;
+  if (vragenMaandCache.has(sleutel)) return vragenMaandCache.get(sleutel);
+  const klantFilter = { columnName: 'klant', condition: 'eq', value: klantNaam };
+  const [prompts, metingen] = await Promise.all([
+    n8nTabel(PROMPTS_TABLE_ID, [klantFilter]),
+    n8nTabel(METINGEN_TABLE_ID, [klantFilter, { columnName: 'datum', condition: 'gte', value: grens.van }, { columnName: 'datum', condition: 'lte', value: grens.tot }])
+  ]);
+  const uitkomst = { maand, vragen: bouwVragenMaand(prompts, metingen, maand) };
+  if (maand < vandaag) vragenMaandCache.set(sleutel, uitkomst);
+  return uitkomst;
 }
 
 async function getAiVragen(klantNaam) {
@@ -372,4 +518,4 @@ async function getAiIntern(klantNaam) {
   return bouwIntern(await n8nRows(klantNaam));
 }
 
-module.exports = { n8nTabel, schoneUrl, getAiZichtbaarheid, getAiIntern, getAiVragen, bouwOverzicht, bouwIntern, bouwVragen, bouwKernWijzigingen, bouwAiKansen, weekLabel };
+module.exports = { n8nTabel, schoneUrl, getAiZichtbaarheid, getAiIntern, getAiVragen, getAiAntwoord, getAiVragenMaand, bouwOverzicht, bouwIntern, bouwVragen, bouwAntwoord, bouwVragenMaand, parseBronnen, merkTermen, bouwKernWijzigingen, bouwAiKansen, weekLabel };

@@ -54,6 +54,13 @@
     return rp.ai;
   }
 
+  // De vragen waarbij AI het merk in die maand noemde. Lukt het niet, dan blijft de rest van het rapport gewoon staan.
+  function haalAiVragen(maand) {
+    rp.aiVragen = rp.aiVragen || {};
+    if (!rp.aiVragen[maand]) rp.aiVragen[maand] = api(`/${state.clientId}/ai-zichtbaarheid/maand/${encodeURIComponent(maand)}`).then((d) => (d && d.beschikbaar !== false && Array.isArray(d.vragen) ? d.vragen : null)).catch(() => null);
+    return rp.aiVragen[maand];
+  }
+
   const KOP = `<div class="p-ov-kop"><div><h1>Maandrapporten</h1><p>Elke maand zetten we jullie resultaten vast in een rapport. Open een rapport om het te lezen, of download het als PDF om te delen.</p></div></div>`;
 
   // Het nieuwste rapport groot bovenaan. De cijfers komen erbij zodra het rapport geladen is.
@@ -171,9 +178,9 @@
     el('rpSluit').focus();
     const vel = el('rpViewerVel');
     try {
-      const [r, ai] = await Promise.all([haalRapport(maand), haalAi()]);
+      const [r, ai, aiVragen] = await Promise.all([haalRapport(maand), haalAi(), haalAiVragen(maand)]);
       if (rp.open !== maand || !el('rpViewer')) return;
-      const g = D().aiGegevens(ai, r);
+      const g = D().aiGegevens(ai, r, aiVragen);
       vel.innerHTML = D().documentHtml(r, g, klantNaam());
       const aantal = vel.querySelectorAll('.rd-pagina').length;
       const sub = el('rpViewerSub');
