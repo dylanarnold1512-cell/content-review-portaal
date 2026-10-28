@@ -11,7 +11,13 @@
 const N8N_BASE_URL = (process.env.N8N_BASE_URL || 'https://n8n.advertisr.nl').replace(/\/+$/, '');
 const CLIENTS_TABLE_ID = process.env.N8N_CLIENTS_TABLE_ID || '42vYfT6ktan72bpa';
 
-// type: tekst | lang | getal | schakelaar
+const FAQ_MODI = [
+  { waarde: 'uit', label: 'Uit' },
+  { waarde: 'voorstel', label: 'Voorstel, Advertisr keurt goed' },
+  { waarde: 'automatisch', label: 'Automatisch' }
+];
+
+// type: tekst | lang | getal | schakelaar | keuze (met opties)
 const GROEPEN = [
   {
     id: 'review', titel: 'Reviewmail en contact',
@@ -61,6 +67,13 @@ const GROEPEN = [
       { veld: 'ai_domein', label: 'Domein voor de meting', type: 'tekst', placeholder: 'voorbeeld.nl' },
       { veld: 'ai_zoektermen', label: 'Zoektermen voor de meting', type: 'lang' },
       { veld: 'ai_runs', label: 'Aantal runs per vraag', type: 'getal', min: 1, max: 10 }
+    ]
+  },
+  {
+    id: 'faq', titel: 'FAQ\'s uit AI vragen',
+    velden: [
+      { veld: 'faq_modus', label: 'FAQ voorstellen', type: 'keuze', opties: FAQ_MODI, standaard: 'voorstel', tip: 'Uit: er worden geen FAQ voorstellen gemaakt. Voorstel: Advertisr krijgt voorstellen en keurt ze zelf goed voordat er iets op de site verandert. Automatisch: goedgekeurd door het systeem, zonder controle. Zet automatisch pas aan als de voorstellen van deze klant goed zijn.' },
+      { veld: 'faq_html_sjabloon', label: 'Opmaak van een FAQ blok (HTML)', type: 'lang', tip: 'Leeg is een eenvoudig blok met kop en uitklapbare vragen. Gebruik {{vragen}} voor de plek van de vragen.' }
     ]
   }
 ];
@@ -113,6 +126,7 @@ function bouwWaarden(rij) {
   for (const [veld, def] of BEWERKBAAR) {
     const w = rij[veld];
     if (def.type === 'schakelaar') waarden[veld] = w === true || w === 'true';
+    else if (def.type === 'keuze') waarden[veld] = def.opties.some((o) => o.waarde === w) ? w : def.standaard;
     else if (def.type === 'getal') waarden[veld] = typeof w === 'number' ? w : (leeg(w) ? null : Number(w));
     else waarden[veld] = leeg(w) ? '' : String(w);
   }
@@ -158,6 +172,10 @@ function valideerVeld(veld, waarde) {
   const def = BEWERKBAAR.get(veld);
   if (!def) throw new Error(`Dit veld kan niet via het portaal worden aangepast: ${veld}`);
   if (def.type === 'schakelaar') return Boolean(waarde);
+  if (def.type === 'keuze') {
+    if (!def.opties.some((o) => o.waarde === waarde)) throw new Error(`Kies een geldige waarde voor ${def.label}.`);
+    return waarde;
+  }
   if (def.type === 'getal') {
     if (leeg(waarde)) return null;
     const n = Number(waarde);
@@ -214,5 +232,6 @@ module.exports = {
   valideerVeld,
   bouwControle,
   bouwWaarden,
-  geldigeMails
+  geldigeMails,
+  FAQ_MODI
 };

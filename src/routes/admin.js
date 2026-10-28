@@ -11,6 +11,7 @@ const onboardingService = require('../services/onboarding');
 const lpKlantgegevens = require('../lp/klantgegevens');
 const aiZichtbaarheidService = require('../services/aiZichtbaarheid');
 const cockpitService = require('../services/cockpit');
+const aiFaq = require('../services/aiFaq');
 const { checkAdminPassword, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
@@ -226,6 +227,34 @@ router.post('/:clientId/idea-proposals/:pageId/reject', requireAdmin, async (req
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// FAQ voorstellen uit AI vragen (workflow "BA - AI FAQ Voorstel"). Alleen Dylan keurt goed of af.
+router.get('/faq', requireAdmin, async (req, res) => {
+  try {
+    res.json(await aiFaq.lijstVoorstellen());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/faq/:id/akkoord', requireAdmin, async (req, res) => {
+  try {
+    const { vraag, antwoord } = req.body || {};
+    // lp.js wordt pas hier geladen, zodat de admin routes ook zonder de LP omgeving te testen zijn.
+    const lpRoutes = require('./lp');
+    res.json(await aiFaq.keurGoed({ id: req.params.id, vraag, antwoord, voegToe: lpRoutes.voegFaqToe }));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/faq/:id/afwijzen', requireAdmin, async (req, res) => {
+  try {
+    res.json(await aiFaq.wijsAf({ id: req.params.id, reden: (req.body || {}).reden }));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 
