@@ -252,27 +252,29 @@
       <div id="ovFout" class="admin-error hidden"></div>
       <div class="ov-kop">
         <div>
-          <h1 class="lp-h1">Pagr. overzicht</h1>
+          <h1 class="lp-h1">Overzicht</h1>
           <p class="wp-sub">Alle klanten die Pagr. afnemen. Het systeem plant, schrijft, controleert en zet live. Jij ziet alleen wat aandacht nodig heeft.</p>
         </div>
         <span class="wp-pil wp-live"><span class="wp-stip"></span>Automatische ronde elke 6 uur</span>
       </div>
       <div id="ovKerncijfers" class="ov-kern"></div>
-      <section class="wp-kaart" aria-labelledby="ovWachtTitel">
-        <div class="wp-kaart-kop"><h2 id="ovWachtTitel">Wacht op jou, alle klanten</h2><div id="ovBulk" class="ov-bulk"></div></div>
-        <div id="ovWacht"></div>
+      <div class="ov-kolommen">
+        <section class="ov-blok" aria-labelledby="ovWachtTitel">
+          <div class="ov-blok-kop"><div><h2 id="ovWachtTitel">Wacht op jou</h2><p>Alle klanten, belangrijkste bovenaan</p></div><div id="ovBulk" class="ov-bulk"></div></div>
+          <div id="ovWacht"></div>
+        </section>
+        <section class="ov-blok" aria-labelledby="ovLogTitel">
+          <div class="ov-blok-kop"><div><h2 id="ovLogTitel">Wat het systeem deed</h2><p>Laatste 7 dagen</p></div></div>
+          <div id="ovLog" class="ov-tijdlijn"></div>
+        </section>
+      </div>
+      <section aria-labelledby="ovKlantenTitel">
+        <div class="ov-blok-kop ov-los"><div><h2 id="ovKlantenTitel">Klanten met Pagr.</h2><p id="ovKlantenNoot"></p></div></div>
+        <div id="ovKlanten" class="ov-kaarten"></div>
       </section>
-      <section class="wp-kaart" aria-labelledby="ovKlantenTitel">
-        <div class="wp-kaart-kop"><h2 id="ovKlantenTitel">Klanten met Pagr.</h2><span class="wp-muted" id="ovKlantenNoot"></span></div>
-        <div class="ov-tabelwrap"><table class="ov-tabel"><thead><tr><th>Klant</th><th>Deze maand</th><th>Volgende maand</th><th>Onderweg</th><th>Automatisch</th><th>Google, 28 dagen</th><th>Laatst</th><th></th></tr></thead><tbody id="ovKlanten"></tbody></table></div>
-      </section>
-      <section class="wp-kaart" aria-labelledby="ovLogTitel">
-        <div class="wp-kaart-kop"><h2 id="ovLogTitel">Wat het systeem deed</h2><span class="wp-muted">Laatste 7 dagen, alle klanten</span></div>
-        <div id="ovLog"></div>
-      </section>
-      <section class="wp-kaart hidden" id="ovEigenKaart" aria-labelledby="ovEigenTitel">
-        <div class="wp-kaart-kop"><h2 id="ovEigenTitel">Eigen werk</h2><span class="wp-muted">Interne automatisering, buiten de afspraak met klanten</span></div>
-        <div class="ov-tabelwrap"><table class="ov-tabel"><thead><tr><th>Klant</th><th>Deze maand</th><th>Volgende maand</th><th>Onderweg</th><th>Automatisch</th><th>Google, 28 dagen</th><th>Laatst</th><th></th></tr></thead><tbody id="ovEigen"></tbody></table></div>
+      <section class="hidden" id="ovEigenKaart" aria-labelledby="ovEigenTitel">
+        <div class="ov-blok-kop ov-los"><div><h2 id="ovEigenTitel">Eigen werk</h2><p>Interne automatisering, buiten de afspraak met klanten</p></div></div>
+        <div id="ovEigen" class="ov-kaarten"></div>
       </section>
     </div>
   </div>
