@@ -2911,8 +2911,8 @@ router.voegFaqToe = async function voegFaqToe({ klant: klantNaam, url, vragen })
   if (!page.wpPaginaId) throw new Error('Deze pagina staat nog niet in WordPress.');
   const blueprint = eigenSjabloonVan(page) || await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
   if (contentIsEmpty(blueprint, page.content)) throw new Error('Deze pagina heeft nog geen content.');
-  const { content, toegevoegd } = aiFaqService.voegFaqItemsToe(page.content, vragen);
-  if (!toegevoegd) return { toegevoegd: 0, melding: 'Deze vraag staat al in de FAQ van de pagina.' };
+  const { content, toegevoegd, vervangen } = aiFaqService.voegFaqItemsToe(page.content, vragen);
+  if (!toegevoegd && !vervangen.length) return { toegevoegd: 0, vervangen: [], melding: 'Deze vraag staat al in de FAQ van de pagina.' };
   const validation = zonderMetaLengte(validatePage({ blueprint, contentJson: content }));
   if (!validation.ok) throw new Error(`De pagina zou niet meer geldig zijn: ${validation.errors.join('; ')}`);
   await lpNotion.updateSection(page.id, 'content', content);
@@ -2929,7 +2929,7 @@ router.voegFaqToe = async function voegFaqToe({ klant: klantNaam, url, vragen })
     metaBeschrijving: slotData.metaDescription,
     behoudStatus: true
   });
-  return { toegevoegd };
+  return { toegevoegd, vervangen };
 };
 
 module.exports = router;

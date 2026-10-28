@@ -926,7 +926,8 @@ function faqKaart(r) {
         </div>
         <div class="proposal-meta">
           <div><span class="seo-label">Pagina</span>${pagina}</div>
-          <div><span class="seo-label">Vraag</span><input type="text" class="wg-invoer faq-vraag" value="${e(r.vraag)}" aria-label="Vraag"></div>
+          ${r.vervangt_vraag ? `<div class="proposal-overlap"><span class="seo-label">Nu op de pagina (wordt vervangen)</span><strong>${e(r.vervangt_vraag)}</strong><br>${e(r.vervangt_antwoord || '')}</div>` : '<div><span class="seo-label">Geen bestaande vraag vervangen</span>De vraag komt erbij.</div>'}
+          <div><span class="seo-label">${r.vervangt_vraag ? 'Nieuw' : 'Vraag'}</span><input type="text" class="wg-invoer faq-vraag" value="${e(r.vraag)}" aria-label="Vraag"></div>
           <div><span class="seo-label">Antwoord</span><textarea class="wg-invoer wg-lang faq-antwoord" rows="4" aria-label="Antwoord">${e(r.antwoord)}</textarea></div>
           <div><span class="seo-label">Bron van het antwoord</span>${e(r.bron || '')}</div>
           ${r.plek ? `<div><span class="seo-label">Plek op de pagina</span>${e(r.plek)}</div>` : ''}
