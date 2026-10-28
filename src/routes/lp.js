@@ -2890,6 +2890,16 @@ router.get('/chat/taak/:taakId', requireLpInternal, (req, res) => {
 // ---- FAQ uit AI vragen toevoegen aan een bestaande Pagr. pagina (stap 2 AI kansen, 28-10-2026) ----
 // Voegt de vragen toe aan de FAQ van de pagina in Pagr. zelf (slot faqItems) en publiceert opnieuw met behoud van de
 // WordPress status. Zo verdwijnt de FAQ niet als de pagina later opnieuw wordt gepubliceerd. Bestaande vragen blijven staan.
+// Welke van deze URL's zijn Pagr. pagina's van deze klant? Voor de FAQ workflow in n8n.
+router.pagrUrls = async function pagrUrls({ klant: klantNaam, urls }) {
+  const clientId = Object.keys(lpClients).find((id) => String((lpClients[id].profile || {}).naam || '').toLowerCase() === String(klantNaam || '').toLowerCase());
+  if (!clientId) return [];
+  const norm = (u) => String(u || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/[#?].*$/, '').replace(/\/+$/, '');
+  const lijst = await lpNotion.listPages({ klant: clientId });
+  const pagr = new Set(lijst.filter((p) => p.wpUrl).map((p) => norm(p.wpUrl)));
+  return (urls || []).filter((u) => pagr.has(norm(u)));
+};
+
 router.voegFaqToe = async function voegFaqToe({ klant: klantNaam, url, vragen }) {
   const clientId = Object.keys(lpClients).find((id) => String((lpClients[id].profile || {}).naam || '').toLowerCase() === String(klantNaam || '').toLowerCase());
   if (!clientId) throw new Error(`Geen Pagr. klant gevonden voor ${klantNaam}.`);

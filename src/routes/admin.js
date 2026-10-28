@@ -231,6 +231,17 @@ router.post('/:clientId/idea-proposals/:pageId/reject', requireAdmin, async (req
 });
 
 // FAQ voorstellen uit AI vragen (workflow "BA - AI FAQ Voorstel"). Alleen Dylan keurt goed of af.
+// n8n vraagt welke pagina's Pagr. pagina's zijn (die krijgen hun FAQ via Pagr., niet rechtstreeks in WordPress).
+router.post('/faq/pagr-paginas', async (req, res) => {
+  if (!(await n8nSleutelGeldig(String(req.get('x-n8n-api-key') || '')))) return res.status(401).json({ error: 'Geen toegang.' });
+  try {
+    const lpRoutes = require('./lp');
+    res.json({ pagr: await lpRoutes.pagrUrls({ klant: (req.body || {}).klant, urls: (req.body || {}).urls }) });
+  } catch (err) {
+    res.status(500).json({ error: err.message, pagr: [] });
+  }
+});
+
 router.get('/faq', requireAdmin, async (req, res) => {
   try {
     res.json(await aiFaq.lijstVoorstellen());
