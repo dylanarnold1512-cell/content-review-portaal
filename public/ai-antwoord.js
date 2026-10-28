@@ -8,11 +8,16 @@
 
   const regexEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-  // "Bubbel Broeders" vindt ook "BubbelBroeders" en "Bubbel-Broeders".
+  // Zelfde regel als de meting in n8n (BA - AI Meting, Verwerk antwoord).
+  // Een domein (bubbelbroeders.nl) moet precies zo in de tekst staan.
+  // Een naam mag met of zonder spatie of streepje: "Bubbel Broeders" vindt ook
+  // "BubbelBroeders" en "Bubbel-Broeders". Altijd als los woord, nooit midden in een ander woord.
   function termPatroon(term) {
-    const tekens = Array.from(String(term || '').replace(/[^\p{L}\p{N}]/gu, ''));
+    const t = String(term || '').trim().toLowerCase();
+    if (/\.[a-z]{2,}$/.test(t)) return t.split('').map(regexEsc).join('');
+    const tekens = Array.from(t.replace(/[^\p{L}\p{N}]/gu, ''));
     if (tekens.length < 2) return null;
-    return tekens.map(regexEsc).join('[\\s.\\-]?');
+    return tekens.map(regexEsc).join('[\\s\\-]?');
   }
 
   function merkRegex(termen) {

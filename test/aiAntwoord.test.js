@@ -69,9 +69,24 @@ test('bouwAntwoord: per platform de runs, met vermelding eerst, alleen die week 
   assert.deepStrictEqual(A.startKeuze(a), { platform: 'chatgpt', run: 0 });
 });
 
-test('merkTermen: zoektermen en klantnaam, korte termen vallen weg', () => {
-  assert.deepStrictEqual(S.merkTermen('PPExport', 'ppexport,pp export,ppe'), ['pp export', 'ppexport']);
-  assert.deepStrictEqual(S.merkTermen('Basecamp Utrecht', ''), ['Basecamp Utrecht']);
+test('merkTermen: zoektermen en domein, korte termen vallen weg, klantnaam alleen als er niets anders is', () => {
+  assert.deepStrictEqual(S.merkTermen('PPExport', 'ppexport,pp export,ppe', 'ppexport.eu'), ['ppexport.eu', 'pp export', 'ppexport']);
+  assert.deepStrictEqual(S.merkTermen('Trockenblumengrosshandel', 'trockenblumengrosshandel.de', 'https://www.trockenblumengrosshandel.de/'), ['trockenblumengrosshandel.de']);
+  assert.deepStrictEqual(S.merkTermen('Basecamp Utrecht', '', ''), ['Basecamp Utrecht']);
+});
+
+test('merkregel: bij een gewone woordnaam telt alleen het domein', () => {
+  const termen = ['trockenblumengrosshandel.de'];
+  const tekst = 'Das hängt vom jeweiligen Trockenblumen-Großhandel ab. Ein Trockenblumengroßhandel liefert. Siehe [Decofleur](https://www.decofleur.com/de/trockenblumen-grosshandel). Trockenblumengrosshandel. De rest.';
+  assert.strictEqual(A.telMerk(tekst, termen), 0);
+  assert.doesNotMatch(A.markdownNaarHtml(tekst, termen), /<mark/);
+  const echt = 'Ein Anbieter ist **Trockenblumengrosshandel** (trockenblumengrosshandel.de) mit Lager in NRW.';
+  assert.strictEqual(A.telMerk(echt, termen), 1);
+  assert.match(A.markdownNaarHtml(echt, termen), /<mark class="ai-merk">trockenblumengrosshandel\.de<\/mark>/);
+});
+
+test('merkregel: een naam nooit midden in een ander woord', () => {
+  assert.strictEqual(A.telMerk('Het Basecampgebouw en basecamp utrecht.', ['Basecamp']), 1);
 });
 
 test('vensterHtml: tabs per platform, merk gemarkeerd, bronnen en noot bij een ingekort antwoord', () => {
