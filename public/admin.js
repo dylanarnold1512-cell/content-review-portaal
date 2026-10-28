@@ -1,4 +1,4 @@
-let adminState = { clients: [], ideeen: {}, onboarding: {}, onboardingFout: '', faq: { voorstellen: [], toegepast: [] } };
+let adminState = { clients: [], ideeen: {}, onboarding: {}, onboardingFout: '', faq: { mislukt: [], toegepast: [] } };
 
 async function adminApi(path, options) {
   const res = await fetch('/api/admin' + path, {
@@ -904,80 +904,38 @@ function bindIdeeen(root) {
   });
 }
 
-// ---- FAQ voorstellen uit AI vragen ----
+// ---- FAQ aanpassingen uit AI vragen (geen goedkeuring, alleen een logboek) ----
 function updateFaqTeller() {
-  const n = (adminState.faq.voorstellen || []).length;
+  const n = (adminState.faq.mislukt || []).length;
   const el = document.getElementById('faqTeller');
   if (!el) return;
   el.textContent = n > 0 ? String(n) : '';
   el.classList.toggle('hidden', n === 0);
 }
 
-function faqKaart(r) {
+function faqRegel(r, mislukt) {
   const e = escapeHtmlAdmin;
   const soort = r.pagina_type === 'pagr' ? 'Pagr. pagina' : (r.pagina_type === 'post' || r.pagina_type === 'news' ? 'Blog' : 'Pagina');
   const veiligeUrl = /^https?:\/\/[^\s"'<>]+$/i.test(r.pagina_url || '') ? r.pagina_url : '';
   const pagina = veiligeUrl ? `<a href="${e(veiligeUrl)}" target="_blank" rel="noopener noreferrer">${e(r.pagina_titel || veiligeUrl)}</a>` : e(r.pagina_titel || '');
-  return `
-      <div class="proposal-card" data-faq-id="${e(r.id)}">
-        <div class="proposal-header">
-          <div class="proposal-title">${e(r.klant)}</div>
-          <span class="tag">${e(soort)}</span>
-        </div>
-        <div class="proposal-meta">
-          <div><span class="seo-label">Pagina</span>${pagina}</div>
-          ${r.vervangt_vraag ? `<div class="proposal-overlap"><span class="seo-label">Nu op de pagina (wordt vervangen)</span><strong>${e(r.vervangt_vraag)}</strong><br>${e(r.vervangt_antwoord || '')}</div>` : '<div><span class="seo-label">Geen bestaande vraag vervangen</span>De vraag komt erbij.</div>'}
-          <div><span class="seo-label">${r.vervangt_vraag ? 'Nieuw' : 'Vraag'}</span><input type="text" class="wg-invoer faq-vraag" value="${e(r.vraag)}" aria-label="Vraag"></div>
-          <div><span class="seo-label">Antwoord</span><textarea class="wg-invoer wg-lang faq-antwoord" rows="4" aria-label="Antwoord">${e(r.antwoord)}</textarea></div>
-          <div><span class="seo-label">Bron van het antwoord</span>${e(r.bron || '')}</div>
-          ${r.plek ? `<div><span class="seo-label">Plek op de pagina</span>${e(r.plek)}</div>` : ''}
-          ${r.genoemd_voor ? `<div><span class="seo-label">Nulmeting</span>${e(r.genoemd_voor)}</div>` : ''}
-          ${r.reden ? `<div class="proposal-overlap"><span class="seo-label">Let op</span>${e(r.reden)}</div>` : ''}
-        </div>
-        <div class="proposal-actions">
-          <button type="button" class="btn btn-approve faq-akkoord">${r.pagina_type === 'pagr' ? 'Goedkeuren en in Pagr. zetten' : 'Goedkeuren'}</button>
-          <button type="button" class="btn btn-reject faq-afwijzen">Afwijzen</button>
-        </div>
-      </div>`;
+  const wijziging = r.vervangt_vraag
+    ? `<span>Was: ${e(r.vervangt_vraag)}</span>`
+    : '<span>Toegevoegd aan de FAQ, er is geen vraag vervangen.</span>';
+  const datum = mislukt ? String(r.aangemaakt || '').slice(0, 10) : String(r.toegepast || '').slice(0, 10);
+  return `<div class="ad-regel"><div class="ad-regel-tekst"><b>${e(r.vraag)}</b>${wijziging}<span>${e(r.klant)}, ${e(soort)}, ${pagina}${datum ? `, ${e(datum)}` : ''}${!mislukt && r.genoemd_voor ? `, nulmeting: ${e(r.genoemd_voor)}` : ''}</span>${mislukt && r.reden ? `<span>Reden: ${e(r.reden)}</span>` : ''}</div></div>`;
 }
 
 function faqHtml(naam) {
-  const e = escapeHtmlAdmin;
   const pas = (r) => !naam || r.klant === naam;
-  const voorstellen = (adminState.faq.voorstellen || []).filter(pas);
+  const mislukt = (adminState.faq.mislukt || []).filter(pas);
   const toegepast = (adminState.faq.toegepast || []).filter(pas);
-  const groepen = [...new Set(voorstellen.map((r) => r.klant))];
-  const kaarten = voorstellen.length
-    ? groepen.map((k) => `<div class="proposal-client-block"><div class="proposal-client-name">${e(k)}</div><div class="proposal-list">${voorstellen.filter((r) => r.klant === k).map(faqKaart).join('')}</div></div>`).join('')
-    : '<p class="admin-footnote">Geen FAQ voorstellen ter beoordeling.</p>';
-  const recent = toegepast.length
-    ? `<section class="p-kaart ad-blok"><header class="ad-blok-kop"><h2>Recent toegepast</h2><p>De nulmeting staat erbij. De AI meting laat na 4 en 8 weken zien of het merk vaker wordt genoemd.</p></header>
-        ${toegepast.map((r) => `<div class="ad-regel"><div class="ad-regel-tekst"><b>${e(r.vraag)}</b><span>${e(r.klant)}, ${e(r.pagina_titel || '')}${r.toegepast ? `, ${e(String(r.toegepast).slice(0, 10))}` : ''}${r.genoemd_voor ? `, nulmeting: ${e(r.genoemd_voor)}` : ''}</span></div></div>`).join('')}
-      </section>`
+  const aandacht = mislukt.length
+    ? `<section class="p-kaart ad-blok"><header class="ad-blok-kop"><h2>Niet gelukt</h2><p>Hier is niets op de site veranderd. De reden staat erbij.</p></header>${mislukt.map((r) => faqRegel(r, true)).join('')}</section>`
     : '';
-  return kaarten + recent;
-}
-
-function bindFaq(root) {
-  root.querySelectorAll('.proposal-card[data-faq-id]').forEach((card) => {
-    const id = card.dataset.faqId;
-    const beslis = async (besluit, btn) => {
-      btn.disabled = true;
-      try {
-        const body = besluit === 'akkoord'
-          ? { vraag: card.querySelector('.faq-vraag').value, antwoord: card.querySelector('.faq-antwoord').value }
-          : {};
-        await adminApi(`/faq/${encodeURIComponent(id)}/${besluit}`, { method: 'POST', body: JSON.stringify(body) });
-        renderError('');
-        await loadFaq();
-      } catch (err) {
-        renderError(err.message);
-        btn.disabled = false;
-      }
-    };
-    card.querySelector('.faq-akkoord')?.addEventListener('click', (ev) => beslis('akkoord', ev.target));
-    card.querySelector('.faq-afwijzen')?.addEventListener('click', (ev) => beslis('afwijzen', ev.target));
-  });
+  const recent = toegepast.length
+    ? `<section class="p-kaart ad-blok"><header class="ad-blok-kop"><h2>Aangepast</h2><p>De nulmeting staat erbij. De AI meting laat na 4 en 8 weken zien of het merk vaker wordt genoemd. De oude tekst staat in het Activity Log.</p></header>${toegepast.map((r) => faqRegel(r, false)).join('')}</section>`
+    : '<p class="admin-footnote">Er zijn nog geen FAQ aanpassingen gedaan.</p>';
+  return aandacht + recent;
 }
 
 function renderFaqScherm() {
@@ -989,18 +947,17 @@ function renderFaqScherm() {
   bindKiezer(kiezerEl, renderFaqScherm);
   const gekozen = alle.find((c) => c.id === adminState.klantKeuze);
   el.innerHTML = faqHtml(gekozen ? gekozen.naam : '');
-  bindFaq(el);
 }
 
 async function loadFaq() {
   try {
     const data = await adminApi('/faq');
-    adminState.faq = { voorstellen: data.voorstellen || [], toegepast: data.toegepast || [] };
+    adminState.faq = { mislukt: data.mislukt || [], toegepast: data.toegepast || [] };
     updateFaqTeller();
     if (huidig.view === 'faq') renderFaqScherm();
   } catch (err) {
     // De FAQ tabel is een extra onderdeel, een fout hier mag de rest van de admin niet blokkeren.
-    adminState.faq = { voorstellen: [], toegepast: [] };
+    adminState.faq = { mislukt: [], toegepast: [] };
   }
 }
 
