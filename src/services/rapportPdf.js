@@ -64,6 +64,17 @@ function verschilTekst(nu, vorig) {
   return p === 0 ? 'gelijk aan vorige maand' : `${p > 0 ? '+' : ''}${p}% t.o.v. vorige maand`;
 }
 
+// Zelfde aantal en tekst als in het document in het portaal (public/rapport-document.js).
+const AI_VRAGEN_IN_PDF = 8;
+function aiPlatformTelling(v) {
+  const delen = [];
+  if (v.chatgpt) delen.push(`ChatGPT ${v.chatgpt} keer`);
+  if (v.gemini) delen.push(`Gemini ${v.gemini} keer`);
+  let t = delen.join(', ');
+  if (v.geciteerd) t += `. Jullie website ${v.geciteerd} keer als bron`;
+  return t;
+}
+
 function bouwPdf({ rapport: r, klantNaam, ai }) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margins: { top: 48, bottom: 56, left: 48, right: 48 }, bufferPages: true,
@@ -251,6 +262,28 @@ function bouwPdf({ rapport: r, klantNaam, ai }) {
           doc.y = y + 30;
         });
         tekst(`${g.nu.weken} ${g.nu.weken === 1 ? 'meting' : 'metingen'} in ${r.label}, ${g.nu.antwoorden} antwoorden in totaal.`, { maat: 8.5, kleur: KLEUR.zacht });
+        const vragen = Array.isArray(ai.vragenMaand) ? ai.vragenMaand : null;
+        if (vragen && !vragen.length) {
+          doc.moveDown(0.5);
+          tekst(`In ${r.label} noemde AI jullie merk bij geen van de vragen.`, { kleur: KLEUR.zacht });
+        } else if (vragen) {
+          doc.moveDown(0.6);
+          ruimte(40);
+          tekst('Bij deze vragen noemde AI jullie merk', { vet: true, maat: 10.5, regel: 3 });
+          doc.moveDown(0.3);
+          vragen.slice(0, AI_VRAGEN_IN_PDF).forEach((v, i) => {
+            const sub = aiPlatformTelling(v);
+            ruimte(hoogte(v.vraag, 10, W - 18) + hoogte(sub, 8.5, W - 18) + 8);
+            const y = doc.y;
+            tekst(`${i + 1}.`, { maat: 10, kleur: KLEUR.zacht, x: L, y, breed: 16 });
+            doc.y = y;
+            tekst(v.vraag, { maat: 10, x: L + 18, breed: W - 18 });
+            tekst(sub, { maat: 8.5, kleur: KLEUR.zacht, x: L + 18, breed: W - 18 });
+            doc.moveDown(0.35);
+          });
+          const rest = vragen.length - Math.min(vragen.length, AI_VRAGEN_IN_PDF);
+          tekst(rest > 0 ? `En bij ${rest} ${rest === 1 ? 'andere vraag' : 'andere vragen'}. Alle antwoorden staan in het tabblad AI zichtbaarheid van het portaal.` : 'De antwoorden zelf staan in het tabblad AI zichtbaarheid van het portaal.', { maat: 8.5, kleur: KLEUR.zacht });
+        }
       }
     }
 

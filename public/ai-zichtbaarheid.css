@@ -49,3 +49,50 @@
 .ai-kans-rij { display: grid; grid-template-columns: 110px 1fr; gap: 10px; font-size: 14px; line-height: 1.5; margin-bottom: 4px; }
 .ai-kans-lbl { font-weight: 600; }
 @media (max-width: 600px) { .ai-kans-rij { grid-template-columns: 1fr; gap: 0; } }
+
+/* Per vraag: de vraag is een knop die het antwoord van de AI opent. */
+.ai-vraag-knop { all: unset; cursor: pointer; display: block; line-height: 1.45; color: inherit; }
+.ai-vraag-knop:hover { color: var(--purple); }
+.ai-vraag-knop:focus-visible { outline: 2px solid var(--purple); outline-offset: 3px; border-radius: 4px; }
+.ai-vraag-lees { display: block; font-size: 12px; color: var(--purple); margin-top: 2px; font-weight: 500; }
+.ai-rij-zwak .ai-vraag-lees { color: var(--text-faint); }
+
+/* Venster met het antwoord */
+.pa-paneel.ai-antw-paneel { width: 680px; }
+.ai-antw-label { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); }
+.ai-antw-paneel .pa-paneel-kop h2 { margin-top: 6px; font-size: 20px; }
+.ai-antw-body { gap: 16px; }
+.ai-antw-tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--border); }
+.ai-antw-tab { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; font-size: 14px; font-weight: 600; color: var(--text-muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.ai-antw-tab.is-actief { color: var(--text); border-bottom-color: var(--purple); }
+.ai-antw-tab:focus-visible, .ai-antw-run:focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; border-radius: 6px; }
+.ai-antw-runs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-muted); }
+.ai-antw-runs > span { margin-right: 4px; }
+.ai-antw-run { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--border); border-radius: var(--radius-pill); font-size: 12.5px; color: var(--text-muted); }
+.ai-antw-run.is-actief { border-color: var(--purple); color: var(--text); font-weight: 600; }
+.ai-antw-status { display: flex; flex-wrap: wrap; gap: 8px; }
+.ai-antw-pil { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; padding: 4px 10px; border-radius: var(--radius-pill); background: var(--gray-soft); color: var(--text-muted); }
+.ai-antw-pil.ai-antw-ja { background: #e5f6eb; color: #17713a; }
+.ai-antw-tekst { font-size: 14.5px; line-height: 1.65; color: var(--text); overflow-wrap: anywhere; }
+.ai-antw-tekst p { margin: 0 0 12px; }
+.ai-antw-tekst h4 { margin: 18px 0 8px; font-size: 15px; }
+.ai-antw-tekst ul, .ai-antw-tekst ol { margin: 0 0 12px; padding-left: 20px; }
+.ai-antw-tekst li { margin-bottom: 6px; }
+.ai-antw-tekst hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+.ai-antw-tekst a { color: var(--purple); }
+.ai-antw-tekst a.ai-ref { display: inline-block; font-size: 11px; font-weight: 600; line-height: 1; padding: 2px 5px; margin: 0 1px; border-radius: 4px; background: var(--gray-soft); color: var(--text-muted); text-decoration: none; vertical-align: 2px; }
+.ai-antw-tabel { overflow-x: auto; margin: 0 0 12px; }
+.ai-antw-tabel table { border-collapse: collapse; font-size: 13px; min-width: 100%; }
+.ai-antw-tabel th, .ai-antw-tabel td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+.ai-antw-tabel th { background: var(--gray-soft); }
+mark.ai-merk { background: #fff1a8; color: inherit; padding: 0 2px; border-radius: 3px; box-shadow: 0 0 0 1px #f0d66a inset; font-weight: 600; }
+.ai-antw-noot { margin: 0; font-size: 13px; color: #8a5a00; background: #fff6dd; border: 1px solid #ecd07a; border-radius: 8px; padding: 8px 12px; }
+.ai-antw-leeg { color: var(--text-muted); font-size: 14px; }
+.ai-antw-bronnen h3 { margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+.ai-antw-bronnen ol { margin: 0; padding-left: 20px; font-size: 13.5px; line-height: 1.5; }
+.ai-antw-bronnen li { margin-bottom: 6px; overflow-wrap: anywhere; }
+.ai-antw-bronnen li span { display: block; font-size: 12px; color: var(--text-faint); }
+.ai-antw-bronnen li.ai-antw-eigen a { font-weight: 600; }
+.ai-antw-bronnen li.ai-antw-eigen span { color: #17713a; }
+.ai-antw-voet { margin: 0; font-size: 12.5px; color: var(--text-faint); }
+@media (max-width: 720px) { .pa-paneel.ai-antw-paneel { width: 100%; } }

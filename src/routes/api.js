@@ -236,6 +236,9 @@ router.get('/:clientId/rapporten/:maand/pdf', requireLogin, async (req, res) => 
     let ai = null;
     if (settings.aiZichtbaarheid) {
       try { ai = { beschikbaar: true, ...(await aiZichtbaarheidService.getAiZichtbaarheid(config.naam, { clusterSoort: config.aiClusterSoort })) }; } catch (err) { ai = null; }
+      if (ai) {
+        try { ai.vragenMaand = (await aiZichtbaarheidService.getAiVragenMaand(config.naam, rapport.maand)).vragen; } catch (err) { ai.vragenMaand = null; }
+      }
     }
     const pdf = await require('../services/rapportPdf').bouwPdf({ rapport, klantNaam: config.naam, ai });
     const bestand = `Maandrapport-${String(config.naam).replace(/[^A-Za-z0-9]+/g, '-')}-${rapport.maand}.pdf`;
@@ -426,6 +429,34 @@ router.get('/:clientId/ai-zichtbaarheid/vragen', requireLogin, async (req, res) 
     const settings = await settingsService.getClientSettings(req.params.clientId, config);
     if (!settings.aiZichtbaarheid) return res.json({ beschikbaar: false });
     res.json({ beschikbaar: true, clusterSoort: config.aiClusterSoort === 'markt' ? 'markt' : 'onderwerp', ...(await aiZichtbaarheidService.getAiVragen(config.naam)) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Het antwoord van ChatGPT en Gemini op een vraag in de laatste gemeten week, zodat
+// de klant ziet in welk antwoord het merk stond. Daarin staan ook andere bedrijven.
+router.get('/:clientId/ai-zichtbaarheid/vragen/:promptId', requireLogin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    const settings = await settingsService.getClientSettings(req.params.clientId, config);
+    if (!settings.aiZichtbaarheid) return res.json({ beschikbaar: false });
+    const data = await aiZichtbaarheidService.getAiAntwoord(config.naam, req.params.promptId);
+    if (data.status === 'onbekend') return res.status(404).json({ error: 'Deze vraag bestaat niet.' });
+    res.json({ beschikbaar: true, ...data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Voor het maandrapport: bij welke vragen noemde AI het merk in die maand.
+router.get('/:clientId/ai-zichtbaarheid/maand/:maand', requireLogin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    const settings = await settingsService.getClientSettings(req.params.clientId, config);
+    if (!settings.aiZichtbaarheid) return res.json({ beschikbaar: false });
+    if (!/^\d{4}-\d{2}$/.test(req.params.maand)) return res.status(400).json({ error: 'Geef een maand op als 2026-10.' });
+    res.json({ beschikbaar: true, ...(await aiZichtbaarheidService.getAiVragenMaand(config.naam, req.params.maand)) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

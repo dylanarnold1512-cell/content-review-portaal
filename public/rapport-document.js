@@ -60,10 +60,34 @@
     return { weken: weken.length, antwoorden, genoemd, percentage: Math.round((genoemd / antwoorden) * 100), per };
   }
 
-  // null als AI zichtbaarheid niet aan staat. Anders { ai, nu, vorig } waarbij nu leeg kan zijn (nog niet gemeten).
-  function aiGegevens(ai, r) {
+  // null als AI zichtbaarheid niet aan staat. Anders { ai, nu, vorig, vragen } waarbij nu leeg kan zijn (nog niet gemeten).
+  // vragen: de vragen waarbij AI het merk in die maand noemde (null als die niet geladen konden worden).
+  function aiGegevens(ai, r, vragen) {
     if (!ai || ai.beschikbaar === false || !r) return null;
-    return { ai, nu: aiMaand(ai, r.maand), vorig: aiMaand(ai, vorigeMaand(r.maand)) };
+    return { ai, nu: aiMaand(ai, r.maand), vorig: aiMaand(ai, vorigeMaand(r.maand)), vragen: Array.isArray(vragen) ? vragen : null };
+  }
+
+  // Hoeveel vragen het rapport bij naam noemt. Zelfde aantal als de PDF.
+  const AI_VRAGEN_IN_DOCUMENT = 8;
+
+  function keerTekst(n) { return `${n} keer`; }
+
+  // "ChatGPT 2 keer, Gemini 1 keer". Platformen zonder vermelding vallen weg.
+  function platformTelling(v) {
+    const delen = [];
+    if (v.chatgpt) delen.push('ChatGPT ' + keerTekst(v.chatgpt));
+    if (v.gemini) delen.push('Gemini ' + keerTekst(v.gemini));
+    let t = delen.join(', ');
+    if (v.geciteerd) t += `. Jullie website ${keerTekst(v.geciteerd)} als bron`;
+    return t;
+  }
+
+  function aiVragenHtml(vragen, label) {
+    if (!Array.isArray(vragen)) return '';
+    if (!vragen.length) return `<p class="rd-zacht">In ${esc(label)} noemde AI jullie merk bij geen van de vragen.</p>`;
+    const getoond = vragen.slice(0, AI_VRAGEN_IN_DOCUMENT);
+    const rest = vragen.length - getoond.length;
+    return `<div class="rd-ai-vragen"><p><strong>Bij deze vragen noemde AI jullie merk</strong></p><ol>${getoond.map((v) => `<li><span class="rd-ai-vraag">${esc(v.vraag)}</span><span class="rd-ai-vraag-sub">${esc(platformTelling(v))}</span></li>`).join('')}</ol>${rest > 0 ? `<p class="rd-noot">En bij ${rest} ${rest === 1 ? 'andere vraag' : 'andere vragen'}. Alle antwoorden staan in het tabblad AI zichtbaarheid.</p>` : '<p class="rd-noot">De antwoorden zelf staan in het tabblad AI zichtbaarheid.</p>'}</div>`;
   }
 
   function kernzin(r) {
@@ -161,7 +185,7 @@
           return `<div class="rd-ai-rij"><div class="rd-ai-naam">${esc(namen[id] || id)}</div><div class="rd-ai-balk"><span style="width:${Math.min(100, pct)}%"></span></div><div class="rd-ai-pct">${pct}%</div><div class="rd-ai-sub">${x.genoemd} van ${x.antwoorden} antwoorden</div></div>`;
         }).join('');
         p3.push(sectie(`AI zichtbaarheid in ${r.label}`,
-          `<p><strong>AI noemde jullie merk in ${g.nu.percentage}% van de antwoorden.</strong> ${esc(vergelijking)}${esc(klein)}</p><div class="rd-ai">${rijen}</div><p class="rd-noot">${g.nu.weken} ${g.nu.weken === 1 ? 'meting' : 'metingen'} in ${esc(r.label)}, ${g.nu.antwoorden} antwoorden in totaal.</p>`,
+          `<p><strong>AI noemde jullie merk in ${g.nu.percentage}% van de antwoorden.</strong> ${esc(vergelijking)}${esc(klein)}</p><div class="rd-ai">${rijen}</div><p class="rd-noot">${g.nu.weken} ${g.nu.weken === 1 ? 'meting' : 'metingen'} in ${esc(r.label)}, ${g.nu.antwoorden} antwoorden in totaal.</p>${aiVragenHtml(g.vragen, r.label)}`,
           'Hoe vaak ChatGPT en Gemini jullie merk noemen bij vragen die jullie klanten stellen.'));
       }
     }
@@ -218,7 +242,7 @@
     return `<div class="rp-mini" aria-hidden="true"><div class="rp-mini-kop"><span class="rp-mini-logo">Blogr<i>.</i></span><span class="rp-mini-maand">${esc(String(r.label || '').toUpperCase())}</span></div><div class="rp-mini-streep"></div><div class="rp-mini-titel">Maandrapport ${esc(r.label)}</div><div class="rp-mini-vakken">${vakjes}</div><i class="rp-mini-regel"></i><i class="rp-mini-regel" style="width:88%"></i><i class="rp-mini-regel" style="width:74%"></i><i class="rp-mini-regel" style="width:92%;margin-top:6px"></i><i class="rp-mini-regel" style="width:66%"></i><span class="rp-mini-voet"></span></div>`;
   }
 
-  const api = { documentHtml, miniatuur, kerncijfers, kernzin, gedaanZin, volgendRapport, aiMaand, aiGegevens, vorigeMaand, volgendeMaandVan, ZOEKWOORDEN_IN_DOCUMENT };
+  const api = { documentHtml, miniatuur, kerncijfers, kernzin, gedaanZin, volgendRapport, aiMaand, aiGegevens, aiVragenHtml, platformTelling, vorigeMaand, volgendeMaandVan, ZOEKWOORDEN_IN_DOCUMENT, AI_VRAGEN_IN_DOCUMENT };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.RapportDocument = api;
 })();

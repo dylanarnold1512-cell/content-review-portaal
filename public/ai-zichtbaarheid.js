@@ -109,12 +109,72 @@
     const met = lijst.filter(genoemd);
     const zonder = lijst.length - met.length;
     const getoond = toonAlleVragen ? lijst : met;
-    const rij = (v) => `<tr class="${genoemd(v) ? '' : 'ai-rij-zwak'}"><td>${esc(v.vraag)}</td>${markt ? `<td class="ai-kol">${esc(v.onderwerp)}</td>` : ''}<td class="ai-kol">${stip(v.chatgpt)}</td><td class="ai-kol">${stip(v.gemini)}</td><td class="ai-kol-bron">${bronCel(v)}</td></tr>`;
+    const rij = (v) => `<tr class="${genoemd(v) ? '' : 'ai-rij-zwak'}"><td><button type="button" class="ai-vraag-knop" data-ai-vraag="${esc(v.id)}">${esc(v.vraag)}<span class="ai-vraag-lees">Lees het antwoord</span></button></td>${markt ? `<td class="ai-kol">${esc(v.onderwerp)}</td>` : ''}<td class="ai-kol">${stip(v.chatgpt)}</td><td class="ai-kol">${stip(v.gemini)}</td><td class="ai-kol-bron">${bronCel(v)}</td></tr>`;
     const tabel = getoond.length
       ? `<div class="ai-tabel-wrap"><table class="ai-tabel"><thead><tr><th>Vraag</th>${markt ? '<th class="ai-kol">Markt</th>' : ''}<th class="ai-kol">ChatGPT</th><th class="ai-kol">Gemini</th><th class="ai-kol-bron">Website als bron</th></tr></thead><tbody>${getoond.map(rij).join('')}</tbody></table></div>`
       : U().legeStand({ soort: 'wacht', titel: 'Nog bij geen enkele vraag genoemd', tekst: 'Zodra jullie merk in een antwoord staat, zie je de vraag hier.' });
     const knop = zonder > 0 ? `<button type="button" class="pv-toggle" id="aiVragenAlle">${toonAlleVragen ? 'Verberg de vragen zonder vermelding' : `Toon ook de vragen zonder vermelding (${zonder})`}</button>` : '';
-    return U().kaart({ titel: 'Per vraag', uitleg: `Bij ${met.length} van de ${lijst.length} vragen werd jullie merk genoemd in de ${data.week.label}. Een groene stip betekent dat het merk in het antwoord stond.`, inhoud: tabel + knop });
+    return U().kaart({ titel: 'Per vraag', uitleg: `Bij ${met.length} van de ${lijst.length} vragen werd jullie merk genoemd in de ${data.week.label}. Een groene stip betekent dat het merk in het antwoord stond. Klik op een vraag om het antwoord van de AI te lezen.`, inhoud: tabel + knop });
+  }
+
+  // Venster met het antwoord van de AI op een vraag (rechts, zelfde opbouw als het paneel bij Pagina's).
+  const antw = { data: null, keuze: null, terugFocus: null, bezig: '' };
+  const A = () => window.AiAntwoord;
+
+  function sluitAntwoord() {
+    const v = el('aiAntwoord');
+    if (v) v.remove();
+    if (!document.querySelector('.pa-paneel-achter')) document.body.classList.remove('rp-viewer-open');
+    antw.bezig = '';
+    const terug = antw.terugFocus;
+    antw.terugFocus = null;
+    if (terug && document.contains(terug)) terug.focus();
+  }
+
+  function tekenAntwoordBody() {
+    const body = el('aiAntwoordBody');
+    if (body && antw.data) body.innerHTML = A().antwoordHtml(antw.data, antw.keuze) + '<p class="ai-antw-voet">Dit is het antwoord zoals de AI het gaf op onze meetvraag. Antwoorden verschillen van keer tot keer. Andere bedrijven in het antwoord zijn door de AI genoemd, niet door ons.</p>';
+  }
+
+  async function openAntwoord(id, bron) {
+    sluitAntwoord();
+    antw.terugFocus = bron || document.activeElement;
+    antw.bezig = id;
+    antw.data = null;
+    document.body.insertAdjacentHTML('beforeend', `<div class="pa-paneel-achter" id="aiAntwoord"><aside class="pa-paneel ai-antw-paneel" role="dialog" aria-modal="true" aria-labelledby="aiAntwoordTitel"><div class="pa-paneel-kop"><div><span class="ai-antw-label">Antwoord wordt geladen</span><h2 id="aiAntwoordTitel">${esc(bron ? bron.firstChild.textContent : '')}</h2></div><button type="button" class="rp-icoonknop" data-ai-sluit aria-label="Sluiten"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div><div class="pa-paneel-body">${U().laden([{ breedte: '60%', hoogte: 18 }, { breedte: '100%', hoogte: 220 }])}</div></aside></div>`);
+    document.body.classList.add('rp-viewer-open');
+    const v = el('aiAntwoord');
+    v.addEventListener('click', (e) => {
+      if (e.target === v || e.target.closest('[data-ai-sluit]')) { sluitAntwoord(); return; }
+      const pf = e.target.closest('[data-ai-platform]');
+      if (pf) { antw.keuze = { platform: pf.getAttribute('data-ai-platform'), run: 0 }; tekenAntwoordBody(); const k = v.querySelector(`[data-ai-platform="${antw.keuze.platform}"]`); if (k) k.focus(); return; }
+      const run = e.target.closest('[data-ai-run]');
+      if (run) { antw.keuze = { ...antw.keuze, run: Number(run.getAttribute('data-ai-run')) || 0 }; tekenAntwoordBody(); const k = v.querySelector(`[data-ai-run="${antw.keuze.run}"]`); if (k) k.focus(); }
+    });
+    v.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); sluitAntwoord(); return; }
+      if (e.key !== 'Tab') return;
+      const knoppen = Array.from(v.querySelectorAll('a[href], button'));
+      if (!knoppen.length) return;
+      if (e.shiftKey && document.activeElement === knoppen[0]) { e.preventDefault(); knoppen[knoppen.length - 1].focus(); }
+      else if (!e.shiftKey && document.activeElement === knoppen[knoppen.length - 1]) { e.preventDefault(); knoppen[0].focus(); }
+    });
+    const sluit = v.querySelector('[data-ai-sluit]');
+    if (sluit) sluit.focus();
+    try {
+      const data = await apiAi(`/${clientId}/ai-zichtbaarheid/vragen/${encodeURIComponent(id)}`);
+      if (antw.bezig !== id || !el('aiAntwoord')) return;
+      if (data.status !== 'ok') throw new Error('leeg');
+      antw.data = data;
+      antw.keuze = A().startKeuze(data);
+      v.querySelector('.pa-paneel').innerHTML = A().vensterHtml(data, antw.keuze);
+      const k = v.querySelector('[data-ai-sluit]');
+      if (k) k.focus();
+    } catch (err) {
+      if (antw.bezig !== id || !el('aiAntwoord')) return;
+      const body = v.querySelector('.pa-paneel-body');
+      if (body) body.innerHTML = U().foutStand({ titel: 'Dit antwoord laadt even niet', tekst: 'Probeer het straks opnieuw.' });
+    }
   }
 
   async function laadVragen() {
@@ -128,6 +188,13 @@
         const knop = el('aiVragenAlle');
         if (knop) knop.addEventListener('click', () => { toonAlleVragen = !toonAlleVragen; teken2(); });
       };
+      if (!blok.dataset.aiGebonden) {
+        blok.dataset.aiGebonden = '1';
+        blok.addEventListener('click', (e) => {
+          const v = e.target.closest('[data-ai-vraag]');
+          if (v) openAntwoord(v.getAttribute('data-ai-vraag'), v);
+        });
+      }
       teken2();
     } catch (err) {
       blok.remove();
