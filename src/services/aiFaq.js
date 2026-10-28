@@ -101,19 +101,28 @@ function normVraag(t) {
 }
 
 // Voegt vragen toe aan slotData.faqItems van een Pagr. pagina, zonder dubbele vragen en zonder de rest aan te raken.
+// Heeft een vraag een veld "vervang" (de tekst van een bestaande vraag), dan komt de nieuwe vraag op die plek en gaat de
+// oude eruit. Wordt de oude vraag niet gevonden, dan wordt de nieuwe vraag toegevoegd.
 function voegFaqItemsToe(content, vragen) {
   const kopie = JSON.parse(JSON.stringify(content || {}));
   kopie.slotData = kopie.slotData || {};
-  const bestaand = Array.isArray(kopie.slotData.faqItems) ? kopie.slotData.faqItems : [];
+  const items = Array.isArray(kopie.slotData.faqItems) ? kopie.slotData.faqItems : [];
   const nieuw = [];
+  const vervangen = [];
   for (const v of vragen || []) {
     if (!v || !v.question || !v.answer) continue;
     const sleutel = normVraag(v.question);
-    if (bestaand.some((b) => normVraag(b.question) === sleutel) || nieuw.some((n) => normVraag(n.question) === sleutel)) continue;
-    nieuw.push({ question: v.question, answer: v.answer });
+    if (items.some((b) => normVraag(b.question) === sleutel) || nieuw.some((n) => normVraag(n.question) === sleutel)) continue;
+    const plek = v.vervang ? items.findIndex((b) => normVraag(b.question) === normVraag(v.vervang)) : -1;
+    if (plek >= 0) {
+      vervangen.push({ vraag: items[plek].question, antwoord: items[plek].answer });
+      items[plek] = { question: v.question, answer: v.answer };
+    } else {
+      nieuw.push({ question: v.question, answer: v.answer });
+    }
   }
-  kopie.slotData.faqItems = [...bestaand, ...nieuw];
-  return { content: kopie, toegevoegd: nieuw.length };
+  kopie.slotData.faqItems = [...items, ...nieuw];
+  return { content: kopie, toegevoegd: nieuw.length, vervangen };
 }
 
 function zelfdeUrl(a, b) {
@@ -158,7 +167,7 @@ async function keurGoed({ id, vraag, antwoord, voegToe, nu = () => new Date().to
   if (rij.pagina_type === 'pagr') {
     if (typeof voegToe !== 'function') throw new Error('Pagr. pagina\'s kunnen hier niet worden aangepast.');
     try {
-      await voegToe({ klant: rij.klant, url: rij.pagina_url, vragen: [{ question: schoon.vraag, answer: schoon.antwoord }] });
+      await voegToe({ klant: rij.klant, url: rij.pagina_url, vragen: [{ question: schoon.vraag, answer: schoon.antwoord, vervang: rij.vervangt_vraag || '' }] });
     } catch (err) {
       await werkRijBij(id, { vraag: schoon.vraag, antwoord: schoon.antwoord, status: 'voorstel', reden: `Toepassen in Pagr. mislukte: ${err.message}`.slice(0, 500) });
       throw err;

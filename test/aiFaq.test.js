@@ -126,3 +126,19 @@ test('voegFaqItemsToe: bestaande vragen blijven, dubbele en lege vragen niet, re
   assert.equal(content.slotData.faqItems.length, 1, 'het origineel is niet aangepast');
   assert.equal(faq.voegFaqItemsToe({}, [{ question: 'V?', answer: 'A' }]).content.slotData.faqItems.length, 1);
 });
+
+test('voegFaqItemsToe: een vraag met vervang neemt de plek van de oude vraag in, zonder vervang komt hij achteraan', () => {
+  const content = { slotData: { faqItems: [
+    { question: 'Wat kost een badkamer?', answer: 'Oud antwoord 1' },
+    { question: 'Hoe lang duurt het?', answer: 'Oud antwoord 2' }
+  ] } };
+  const uit = faq.voegFaqItemsToe(content, [
+    { question: 'Welke installateur in Haarlem regelt alles?', answer: LANG, vervang: 'hoe lang duurt het' },
+    { question: 'Nog een vraag?', answer: LANG, vervang: 'Bestaat niet' }
+  ]);
+  const vragen = uit.content.slotData.faqItems.map((i) => i.question);
+  assert.deepEqual(vragen, ['Wat kost een badkamer?', 'Welke installateur in Haarlem regelt alles?', 'Nog een vraag?']);
+  assert.equal(uit.toegevoegd, 1);
+  assert.deepEqual(uit.vervangen, [{ vraag: 'Hoe lang duurt het?', antwoord: 'Oud antwoord 2' }]);
+  assert.equal(content.slotData.faqItems.length, 2);
+});
