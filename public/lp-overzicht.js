@@ -4,6 +4,14 @@
 
 function ovEsc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 function ovMv(n, een, meer) { return `${n} ${n === 1 ? een : meer}`; }
+const OV_KLEUREN = ['#3a5fd9', '#17885a', '#6a35ff', '#9a5a00', '#c2410c', '#0e7490', '#a21caf', '#4d7c0f'];
+function ovAvatar(naam, klasse) {
+  let h = 0;
+  for (const c of String(naam || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const delen = String(naam || '').trim().split(/\s+/).filter(Boolean);
+  const init = ((delen[0] || '?')[0] + (delen.length > 1 ? delen[delen.length - 1][0] : (delen[0] || '')[1] || '')).toUpperCase();
+  return `<span class="ov-av${klasse ? ' ' + klasse : ''}" style="background:${OV_KLEUREN[h % OV_KLEUREN.length]}" aria-hidden="true">${ovEsc(init)}</span>`;
+}
 function ovHoofdletter(t) { return String(t || '').charAt(0).toUpperCase() + String(t || '').slice(1); }
 
 // Een rij per punt dat op Dylan wacht, belangrijkste eerst: mislukt, live zetten, controleren, plan, ideeen.
@@ -67,9 +75,19 @@ function ovRijHtml(k, volgendeNaam) {
   if (k.fout) onderweg.push(`<span class="wp-pil ov-fout"><span class="wp-stip"></span>${k.fout} mislukt</span>`);
   const live = d.live == null ? d.gemaakt : d.live;
   const maandTekst = d.doel ? `${live} van ${d.doel} live` : `${live} live`;
+  const procent = d.doel ? Math.max(0, Math.min(100, Math.round((live / d.doel) * 100))) : 0;
   const laatst = k.laatst ? new Date(k.laatst).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : '';
   const product = [k.product, d.doel ? `${d.doel} per maand` : ''].filter(Boolean).join(' · ');
-  return `<tr data-ov-klant="${ovEsc(k.id)}"><td><strong>${ovEsc(k.naam)}</strong><small class="wp-muted">${ovEsc(product)}</small></td><td><b>${ovEsc(maandTekst)}</b></td><td>${ovVolgendeCel(k, volgendeNaam)}</td><td><div class="ov-pillen">${onderweg.join('') || '<span class="wp-muted">Niets in de maak</span>'}</div></td><td><span class="wp-pil ${auto.klasse}"><span class="wp-stip"></span>Live: ${ovEsc(auto.tekst)}</span><small class="wp-muted">${ovEsc(auto.sub)}</small><span class="wp-pil ${plan.klasse} ov-tweede"><span class="wp-stip"></span>Planning: ${ovEsc(plan.tekst)}</span></td><td class="wp-muted">${ovEsc(k.google || '')}</td><td class="wp-muted">${laatst}</td><td><button type="button" class="btn btn-plain" data-ov-open="${ovEsc(k.id)}">Open</button></td></tr>`;
+  const aandacht = k.fout ? ' ov-kaart-fout' : '';
+  return `<article class="ov-kaart${aandacht}" data-ov-klant="${ovEsc(k.id)}">
+    <header class="ov-kaart-kop">${ovAvatar(k.naam)}<div class="ov-kaart-naam"><strong>${ovEsc(k.naam)}</strong><small>${ovEsc(product)}</small></div><button type="button" class="btn btn-plain" data-ov-open="${ovEsc(k.id)}">Open</button></header>
+    <div class="ov-voortgang"><div class="ov-voortgang-tekst"><b>${ovEsc(maandTekst)}</b><span>deze maand</span></div>${d.doel ? `<div class="ov-balk" role="img" aria-label="${ovEsc(maandTekst)}"><span style="width:${procent}%"></span></div>` : ''}</div>
+    <div class="ov-regel"><span class="ov-regel-l">Volgende maand</span>${ovVolgendeCel(k, volgendeNaam)}</div>
+    <div class="ov-regel"><span class="ov-regel-l">Onderweg</span><div class="ov-pillen">${onderweg.join('') || '<span class="wp-muted">Niets in de maak</span>'}</div></div>
+    <div class="ov-regel"><span class="ov-regel-l">Live zetten</span><span class="wp-pil ${auto.klasse}"><span class="wp-stip"></span>${ovEsc(auto.tekst)}</span></div>
+    <div class="ov-regel"><span class="ov-regel-l">Planning</span><span class="wp-pil ${plan.klasse}"><span class="wp-stip"></span>${ovEsc(plan.tekst)}</span></div>
+    <footer class="ov-kaart-voet"><span>Google, 28 dagen: ${ovEsc(k.google || 'nog niets')}</span>${laatst ? `<span>Laatst ${ovEsc(laatst)}</span>` : ''}</footer>
+  </article>`;
 }
 
 function ovOpenWerkplaats(klant) {
@@ -128,7 +146,7 @@ function ovTeken(d) {
   const t = d.totalen || {};
   const maandNaam = typeof wpMaandNaam === 'function' ? wpMaandNaam(d.maand) : '';
   const volgendeNaam = typeof wpMaandNaam === 'function' ? wpMaandNaam(wpVolgendeMaand(d.maand)) : '';
-  document.getElementById('ovKerncijfers').innerHTML = ovKerncijfers(t, maandNaam).map((c) => `<div class="wp-kaart ov-cijfer"><div class="wp-muted">${ovEsc(c.kop)}</div><div class="ov-getal${c.accent ? ' ov-accent' : ''}">${ovEsc(c.waarde)}</div><div class="wp-muted">${ovEsc(c.sub)}</div></div>`).join('');
+  document.getElementById('ovKerncijfers').innerHTML = ovKerncijfers(t, maandNaam).map((c, i) => `<div class="ov-cijfer${i === 1 && c.accent ? ' ov-cijfer-todo' : ''}"><div class="ov-cijfer-l">${ovEsc(c.kop)}</div><div class="ov-getal${c.accent && i !== 1 ? ' ov-accent' : ''}">${ovEsc(c.waarde)}</div><div class="ov-cijfer-s">${ovEsc(c.sub)}</div></div>`).join('');
 
   const verversNa = async (actie) => { try { ovMelding = await actie(); } catch (err) { ovMelding = err.message; } await ovLaad(true); };
   const items = ovInboxItems(klanten);
@@ -139,7 +157,7 @@ function ovTeken(d) {
     else it.knoppen = [{ ...open, hoofd: it.type === 'fout' }];
   });
   const wacht = document.getElementById('ovWacht');
-  wacht.innerHTML = (items.length ? items.map((it, i) => `<div class="wp-wrij"><span class="wp-wsoort ${it.klasse}">${ovEsc(it.soort)}</span><div class="wp-wtekst"><b>${ovEsc(it.naam)}</b><span class="wp-muted">${ovEsc(it.tekst)}</span></div><div class="wp-idee-knoppen">${it.knoppen.map((k, j) => `<button type="button" class="btn ${k.hoofd ? 'btn-approve' : 'btn-plain'}" data-ov-w="${i}" data-ov-k="${j}">${ovEsc(k.label)}</button>`).join('')}</div></div>`).join('') : '<p class="wp-muted">Niets wacht op jou. Het systeem draait door.</p>') + (ovMelding ? `<p class="ov-melding">${ovEsc(ovMelding)}</p>` : '');
+  wacht.innerHTML = (items.length ? items.map((it, i) => `<div class="ov-rij">${ovAvatar(it.naam)}<div class="ov-rij-tekst"><div class="ov-rij-kop"><b>${ovEsc(it.naam)}</b><span class="ov-soort ${it.klasse}">${ovEsc(it.soort)}</span></div><span>${ovEsc(it.tekst)}</span></div><div class="wp-idee-knoppen">${it.knoppen.map((k, j) => `<button type="button" class="btn ${k.hoofd ? 'btn-approve' : 'btn-plain'}" data-ov-w="${i}" data-ov-k="${j}">${ovEsc(k.label)}</button>`).join('')}</div></div>`).join('') : '<p class="ov-leeg">Niets wacht op jou. Het systeem draait door.</p>') + (ovMelding ? `<p class="ov-melding">${ovEsc(ovMelding)}</p>` : '');
   wacht.querySelectorAll('[data-ov-w]').forEach((b) => b.addEventListener('click', () => items[Number(b.dataset.ovW)].knoppen[Number(b.dataset.ovK)].actie(b)));
 
   const bulk = document.getElementById('ovBulk');
@@ -154,13 +172,13 @@ function ovTeken(d) {
   const eigen = klanten.filter((k) => k.soort === 'eigen');
   const noot = document.getElementById('ovKlantenNoot');
   if (noot) noot.textContent = eigen.length ? `Klanten zonder Pagr. (${eigen.map((k) => k.naam).join(', ')}) staan bij Eigen werk` : '';
-  document.getElementById('ovKlanten').innerHTML = pagr.map((k) => ovRijHtml(k, volgendeNaam)).join('') || '<tr><td colspan="8" class="wp-muted">Nog geen klanten met Pagr.</td></tr>';
+  document.getElementById('ovKlanten').innerHTML = pagr.map((k) => ovRijHtml(k, volgendeNaam)).join('') || '<p class="ov-leeg">Nog geen klanten met Pagr.</p>';
   document.getElementById('ovEigenKaart').classList.toggle('hidden', !eigen.length);
   document.getElementById('ovEigen').innerHTML = eigen.map((k) => ovRijHtml(k, volgendeNaam)).join('');
   document.querySelectorAll('[data-ov-open]').forEach((b) => b.addEventListener('click', () => ovOpenWerkplaats(b.dataset.ovOpen)));
 
   const log = ovLog(klanten);
-  document.getElementById('ovLog').innerHTML = log.length ? log.map((l) => `<div class="wp-wrij"><span class="wp-muted ov-wanneer">${new Date(l.op).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}</span><div class="wp-wtekst"><b>${ovEsc(l.klant)}</b><span class="wp-muted">${ovEsc(l.wat)}</span></div></div>`).join('') : '<p class="wp-muted">De afgelopen 7 dagen was er geen activiteit.</p>';
+  document.getElementById('ovLog').innerHTML = log.length ? log.map((l) => `<div class="ov-tijd"><span class="ov-tijd-stip"></span><div><b>${ovEsc(l.klant)}</b><span>${ovEsc(l.wat)}</span><small>${new Date(l.op).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}</small></div></div>`).join('') : '<p class="ov-leeg">De afgelopen 7 dagen was er geen activiteit.</p>';
 }
 
 if (typeof module !== 'undefined') module.exports = { ovInboxItems, ovAutoLiveTekst, ovKerncijfers, ovRijHtml, ovLog };
