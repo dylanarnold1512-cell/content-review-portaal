@@ -103,10 +103,15 @@ test('kleur en volgorde: rood boven oranje boven groen boven uit', () => {
   assert.deepEqual(lijst.map((k) => k.naam), ['C', 'D', 'B', 'A']);
 });
 
-test('menu teller telt rode en oranje klanten en de gedeelde workflows', () => {
-  const data = { klanten: [{ kleur: 'rood' }, { kleur: 'oranje' }, { kleur: 'groen' }, { kleur: 'uit' }], gedeeld: { kleur: 'rood' } };
-  assert.equal(model.aandacht(data), 3);
-  assert.equal(model.aandacht({ klanten: [{ kleur: 'groen' }], gedeeld: { kleur: 'groen' } }), 0);
+test('menu teller telt de rode en oranje meldingen, zonder info en zonder steekproef', () => {
+  const data = {
+    klanten: [{ signalen: [{ niveau: 'rood' }, { niveau: 'oranje' }, { niveau: 'info' }] }, { signalen: [{ niveau: 'oranje' }] }, { signalen: [] }],
+    gedeeld: { signalen: [{ niveau: 'rood' }] },
+    steekproef: { blogs: [{}, {}, {}] }
+  };
+  assert.equal(model.aandacht(data), 4);
+  assert.equal(model.aandacht({ klanten: [{ signalen: [] }], gedeeld: { signalen: [] } }), 0);
+  assert.equal(model.aandacht(null), 0);
 });
 
 test('bekijk als klant: een admin komt door requireLogin, ook bij een gepauzeerde klant', async () => {
