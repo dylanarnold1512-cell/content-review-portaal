@@ -18,6 +18,7 @@ const PROMPTS_TABLE_ID = process.env.N8N_AI_PROMPTS_TABLE_ID || 'fOe0eUDOQ7FNaL1
 const METINGEN_TABLE_ID = process.env.N8N_AI_METINGEN_TABLE_ID || 'IRsXYL5ndnD6Yy7m';
 const KERN_WIJZIGINGEN_TABLE_ID = process.env.N8N_AI_KERN_WIJZIGINGEN_TABLE_ID || 'SeItyAsQZfNQXZ3t';
 const KANSEN_TABLE_ID = process.env.N8N_KANSEN_TABLE_ID || 'C0ASGyrj8nT1zXOS';
+const KOPPELINGEN_TABLE_ID = process.env.N8N_AI_VRAAG_PAGINAS_TABLE_ID || 'ZWXBXwyJNBhRbk8e';
 const CLIENTS_TABLE_ID = process.env.N8N_CLIENTS_TABLE_ID || '42vYfT6ktan72bpa';
 // De AI meting bewaarde eerst steeds de eerste 1500 tekens van een antwoord.
 // Sinds november 2026 wordt een antwoord waarin het merk staat helemaal bewaard (tot 9000 tekens).
@@ -508,17 +509,101 @@ async function optioneleTabel(tabelId, filters) {
   }
 }
 
+// Kansen per vraag: vragen waarbij AI het merk in de laatste week nergens noemde.
+// Het oordeel "past" (de site heeft een pagina over dit onderwerp) of "geen" (nog geen pagina) komt uit ai_vraag_paginas,
+// die de workflow "BA - AI Meting Vraag Koppeling" elke week vult. Alleen die twee oordelen worden een kans.
+const VRAAGKANS_MAX_PAGINA = 5;
+const VRAAGKANS_MAX_NIEUW = 2;
+const VRAAGKANS_MAX_PER_ONDERWERP = 2;
+const VRAAGKANS_MIN_METINGEN = 2;
+
+function veiligeUrl(url) {
+  const u = String(url || '').trim();
+  return /^https?:\/\/[^\s"'<>]+$/i.test(u) ? u : '';
+}
+
+function bouwVraagKansen(vragen, prompts, koppelingen, weekStart) {
+  const koppel = new Map();
+  for (const k of koppelingen || []) if (k && k.prompt_id) koppel.set(String(k.prompt_id), k);
+  const kern = new Set((prompts || []).filter((p) => p && p.soort === 'kern' && (p.actief === true || p.actief === 'true')).map((p) => String(p.prompt_id)));
+  const week = weekLabel(weekStart);
+  const kandidaten = [];
+  for (const v of vragen || []) {
+    const metingen = v.chatgpt.metingen + v.gemini.metingen;
+    if (metingen < VRAAGKANS_MIN_METINGEN) continue;
+    if (v.chatgpt.genoemd + v.gemini.genoemd > 0) continue;
+    const k = koppel.get(String(v.id));
+    if (!k) continue;
+    const url = veiligeUrl(k.pagina_url);
+    if (k.oordeel === 'past' && url) kandidaten.push({ v, metingen, url, titel: String(k.pagina_titel || '').trim(), nieuw: false, kern: kern.has(String(v.id)) });
+    else if (k.oordeel === 'geen') kandidaten.push({ v, metingen, url: '', titel: '', nieuw: true, kern: kern.has(String(v.id)) });
+  }
+  // Vaste kernvragen eerst, daarna op volgorde van de vraag. Per onderwerp maximaal twee, zodat de kansen verspreid zijn.
+  kandidaten.sort((a, b) => (Number(b.kern) - Number(a.kern)) || String(a.v.id).localeCompare(String(b.v.id), 'nl', { numeric: true }));
+  const perOnderwerp = new Map();
+  let nPagina = 0;
+  let nNieuw = 0;
+  const gekozen = [];
+  for (const c of kandidaten) {
+    if (c.nieuw ? nNieuw >= VRAAGKANS_MAX_NIEUW : nPagina >= VRAAGKANS_MAX_PAGINA) continue;
+    const sleutel = c.v.onderwerp || '';
+    if ((perOnderwerp.get(sleutel) || 0) >= VRAAGKANS_MAX_PER_ONDERWERP) continue;
+    perOnderwerp.set(sleutel, (perOnderwerp.get(sleutel) || 0) + 1);
+    if (c.nieuw) nNieuw += 1; else nPagina += 1;
+    gekozen.push(c);
+  }
+  return gekozen.map((c) => {
+    const eigenBron = c.v.chatgpt.geciteerd + c.v.gemini.geciteerd;
+    const onderbouwing = `AI meting, ${week}: 0 van ${c.metingen} antwoorden (ChatGPT en Gemini samen) noemen het merk.` +
+      (eigenBron ? ` De website werd in ${eigenBron} van deze antwoorden wel als bron getoond.` : '') +
+      (c.url ? ` Gekoppelde pagina: ${c.url}` : '');
+    return {
+      vraagId: c.v.id,
+      vraag: c.v.vraag,
+      prioriteit: c.nieuw ? 'laag' : (c.kern ? 'hoog' : 'middel'),
+      signaal: `Bij de vraag "${c.v.vraag}" noemt AI jullie merk in geen van de ${c.metingen} antwoorden.`,
+      waarom: c.nieuw
+        ? 'We vonden op jullie website geen pagina die deze vraag duidelijk beantwoordt.'
+        : `Op jullie website staat al een pagina die bij dit onderwerp past${c.titel ? `: "${c.titel}"` : ''}. AI noemt jullie merk bij deze vraag toch niet.`,
+      actie: c.nieuw
+        ? 'Advertisr beoordeelt of hier een nieuw onderwerp voor komt. Er is geen garantie dat AI jullie merk daarna noemt.'
+        : 'Advertisr beoordeelt of het antwoord op deze vraag, bijvoorbeeld als korte veelgestelde vraag, in deze pagina kan worden toegevoegd. Er is geen garantie dat AI jullie merk daarna noemt.',
+      onderbouwing,
+      pagina: c.nieuw ? null : { titel: c.titel || c.url.replace(/^https?:\/\/(www\.)?/, ''), url: c.url }
+    };
+  });
+}
+
+async function getVraagKansen(klantNaam, overzicht) {
+  try {
+    if (!overzicht || overzicht.status !== 'ok') return [];
+    const koppelingen = await optioneleTabel(KOPPELINGEN_TABLE_ID, [{ columnName: 'klant', condition: 'eq', value: klantNaam }]);
+    if (!koppelingen.length) return [];
+    const weekStart = overzicht.laatsteWeek.start;
+    const klantFilter = { columnName: 'klant', condition: 'eq', value: klantNaam };
+    const [prompts, metingen] = await Promise.all([
+      n8nTabel(PROMPTS_TABLE_ID, [klantFilter]),
+      n8nTabel(METINGEN_TABLE_ID, [klantFilter, { columnName: 'datum', condition: 'gte', value: weekStart }])
+    ]);
+    return bouwVraagKansen(bouwVragen(prompts, metingen, weekStart), prompts, koppelingen, weekStart);
+  } catch (err) {
+    return [];
+  }
+}
+
 async function getAiZichtbaarheid(klantNaam, opties = {}) {
   const [rijen, kernWijzigingen, kansen] = await Promise.all([
     n8nRows(klantNaam),
     optioneleTabel(KERN_WIJZIGINGEN_TABLE_ID, [{ columnName: 'klant', condition: 'eq', value: klantNaam }]),
     optioneleTabel(KANSEN_TABLE_ID, [{ columnName: 'client_name', condition: 'eq', value: klantNaam }, { columnName: 'soort', condition: 'eq', value: 'ai_zichtbaarheid' }])
   ]);
-  return bouwOverzicht(rijen, { ...opties, kernWijzigingen, kansen });
+  const overzicht = bouwOverzicht(rijen, { ...opties, kernWijzigingen, kansen });
+  if (overzicht.status === 'ok') overzicht.vraagKansen = await getVraagKansen(klantNaam, overzicht);
+  return overzicht;
 }
 
 async function getAiIntern(klantNaam) {
   return bouwIntern(await n8nRows(klantNaam));
 }
 
-module.exports = { n8nTabel, schoneUrl, getAiZichtbaarheid, getAiIntern, getAiVragen, getAiAntwoord, getAiVragenMaand, bouwOverzicht, bouwIntern, bouwVragen, bouwAntwoord, bouwVragenMaand, parseBronnen, merkTermen, bouwKernWijzigingen, bouwAiKansen, weekLabel };
+module.exports = { n8nTabel, schoneUrl, getAiZichtbaarheid, getAiIntern, getAiVragen, getAiAntwoord, getAiVragenMaand, bouwOverzicht, bouwIntern, bouwVragen, bouwAntwoord, bouwVragenMaand, parseBronnen, merkTermen, bouwKernWijzigingen, bouwAiKansen, bouwVraagKansen, weekLabel };
