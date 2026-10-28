@@ -236,9 +236,9 @@ router.post('/faq/pagr-paginas', async (req, res) => {
   if (!(await n8nSleutelGeldig(String(req.get('x-n8n-api-key') || '')))) return res.status(401).json({ error: 'Geen toegang.' });
   try {
     const lpRoutes = require('./lp');
-    res.json({ pagr: await lpRoutes.pagrUrls({ klant: (req.body || {}).klant, urls: (req.body || {}).urls }) });
+    res.json(await lpRoutes.pagrFaqs({ klant: (req.body || {}).klant, urls: (req.body || {}).urls }));
   } catch (err) {
-    res.status(500).json({ error: err.message, pagr: [] });
+    res.status(500).json({ error: err.message, pagr: [], faq: {} });
   }
 });
 

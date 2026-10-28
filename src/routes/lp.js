@@ -2900,6 +2900,28 @@ router.pagrUrls = async function pagrUrls({ klant: klantNaam, urls }) {
   return (urls || []).filter((u) => pagr.has(norm(u)));
 };
 
+// Zoals pagrUrls, maar geeft ook de bestaande FAQ vragen van elke Pagr. pagina terug, zodat de workflow kan kiezen
+// welke algemene vraag door een AI vraag wordt vervangen.
+router.pagrFaqs = async function pagrFaqs({ klant: klantNaam, urls }) {
+  const pagr = await router.pagrUrls({ klant: klantNaam, urls });
+  const faq = {};
+  if (!pagr.length) return { pagr, faq };
+  const clientId = Object.keys(lpClients).find((id) => String((lpClients[id].profile || {}).naam || '').toLowerCase() === String(klantNaam || '').toLowerCase());
+  const norm = (u) => String(u || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/[#?].*$/, '').replace(/\/+$/, '');
+  const lijst = await lpNotion.listPages({ klant: clientId });
+  for (const url of pagr) {
+    try {
+      const gevonden = lijst.find((p) => p.wpUrl && norm(p.wpUrl) === norm(url));
+      const page = gevonden ? await lpNotion.getPage(gevonden.id) : null;
+      const items = page && page.content && page.content.slotData && Array.isArray(page.content.slotData.faqItems) ? page.content.slotData.faqItems : [];
+      faq[url] = items.filter((i) => i && i.question).map((i) => ({ vraag: String(i.question), antwoord: String(i.answer || '') }));
+    } catch (err) {
+      faq[url] = [];
+    }
+  }
+  return { pagr, faq };
+};
+
 router.voegFaqToe = async function voegFaqToe({ klant: klantNaam, url, vragen }) {
   const clientId = Object.keys(lpClients).find((id) => String((lpClients[id].profile || {}).naam || '').toLowerCase() === String(klantNaam || '').toLowerCase());
   if (!clientId) throw new Error(`Geen Pagr. klant gevonden voor ${klantNaam}.`);
