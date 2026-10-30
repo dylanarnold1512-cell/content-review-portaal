@@ -99,12 +99,12 @@
       .map((i) => '<span style="left:' + data[i].x + '%">' + esc((lijst[i].label || '').replace(/^Week van /, '')) + '</span>').join('');
     const nieuwStippen = data.filter((p) => p.n).map((p) => '<i class="v-vlak-blog" style="left:' + p.x + '%;top:' + p.y + '%" aria-hidden="true"></i>').join('');
     return '<div class="v-vlak" data-v-punten="' + esc(JSON.stringify(data)) + '" data-v-eenheid="' + esc(opt.eenheid || '') + '" data-v-periode="' + esc(opt.periode || 'week') + '"><span class="v-vlak-titel">' + esc(opt.titel || '') + '</span>' +
-      '<div class="v-vlak-doek"><span class="v-vlak-y v-vlak-y-top">' + esc(nl(max)) + '</span><span class="v-vlak-y v-vlak-y-nul">0</span>' +
+      '<div class="v-vlak-doek"><span class="v-vlak-y v-vlak-y-top">' + esc(nl(max)) + '</span><span class="v-vlak-y v-vlak-y-nul">0</span><div class="v-vlak-plot">' +
       '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" role="img" aria-label="' + esc(aria) + '"><defs><linearGradient id="' + id + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff3951" stop-opacity=".30"/><stop offset="1" stop-color="#ff3951" stop-opacity="0"/></linearGradient></defs>' +
       '<g class="v-vlak-raster"><line x1="0" y1="' + top + '" x2="' + W + '" y2="' + top + '"/><line x1="0" y1="' + Math.round((top + H - bodem) / 2) + '" x2="' + W + '" y2="' + Math.round((top + H - bodem) / 2) + '"/><line x1="0" y1="' + (H - bodem) + '" x2="' + W + '" y2="' + (H - bodem) + '"/></g>' +
       '<path class="v-vlak-vul" d="' + pad + ' L' + W + ',' + H + ' L0,' + H + ' Z" fill="url(#' + id + ')"/>' +
       '<path class="v-vlak-lijn" pathLength="1" d="' + pad + '" fill="none" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>' +
-      nieuwStippen + '<i class="v-vlak-cursor" aria-hidden="true"></i><i class="v-vlak-punt" aria-hidden="true"></i><div class="v-tip" role="status"></div></div>' +
+      nieuwStippen + '<i class="v-vlak-cursor" aria-hidden="true"></i><i class="v-vlak-punt" aria-hidden="true"></i><div class="v-tip" role="status"></div></div></div>' +
       '<div class="v-vlak-x" aria-hidden="true">' + labels + '</div>' +
       (nieuwStippen ? '<span class="v-vlak-sleutel"><i class="v-vlak-blog v-vlak-blog-uit"></i>Een nieuwe blog ging live</span>' : '') + '</div>';
   }
@@ -249,7 +249,7 @@
     const grafiekHover = (e) => {
       const vlak = e.target.closest && e.target.closest('.v-vlak[data-v-punten]');
       if (vlak) {
-        const doek = vlak.querySelector('.v-vlak-doek');
+        const doek = vlak.querySelector('.v-vlak-plot');
         const r = doek.getBoundingClientRect();
         if (!vlak._punten) { try { vlak._punten = JSON.parse(vlak.getAttribute('data-v-punten')); } catch (err) { vlak._punten = []; } }
         const pts = vlak._punten;
