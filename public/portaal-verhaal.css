@@ -240,3 +240,7 @@
 .v-tab .p-pagina { max-width: none; margin: 0; padding: 0; display: block; }
 .v-sectie { margin: 12px 0 0; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; color: var(--v-marine); }
 .v-sectie-lead { margin: 6px 0 0; color: var(--v-zacht); font-size: 15px; line-height: 1.5; }
+
+/* De rode lijn loopt altijd door tot het einde van het verhaal en loopt daar zacht uit. Hij stopt niet meer halverwege. */
+.v-spoor-vul { height: 100% !important; -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 140px), transparent 100%); mask-image: linear-gradient(180deg, #000 calc(100% - 140px), transparent 100%); }
+.v-spoor { background: transparent; }
