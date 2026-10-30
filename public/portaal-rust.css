@@ -1,0 +1,32 @@
+/* Portaal rust: de werk-tabbladen (Blogs, Merkprofiel, Kennisdocument, Beeldbank, Landingspagina's) in dezelfde taal
+   als de resultaattabbladen: zachte gradient, grote kop, glazen kaarten. Bewust zonder beweging: hier werk je. */
+
+/* Zachte gradient over de hele pagina, vlekken die uitlopen naar niets (geen harde randen) */
+.p-main:has(> :is(#blogsTab, #paginasTab, #merkprofielTab, #beeldbankTab, #kennisdocumentTab, #pagrOverzichtTab, #pagrResultatenTab):not(.hidden)) {
+  background-color: #f4f5fa;
+  background-repeat: no-repeat;
+  background-image:
+    radial-gradient(640px 520px at 4% 0%, rgba(255, 57, 81, 0.10), transparent 70%),
+    radial-gradient(720px 560px at 100% 8%, rgba(20, 20, 43, 0.05), transparent 70%),
+    radial-gradient(680px 520px at 0% 36%, rgba(255, 138, 152, 0.11), transparent 70%),
+    radial-gradient(720px 560px at 100% 60%, rgba(255, 57, 81, 0.07), transparent 70%),
+    radial-gradient(680px 520px at 0% 88%, rgba(255, 138, 152, 0.10), transparent 70%);
+}
+
+/* Kop zoals op de resultaattabbladen */
+:is(#blogsTab, #paginasTab, #merkprofielTab, #beeldbankTab, #kennisdocumentTab, #pagrOverzichtTab, #pagrResultatenTab) .p-ov-kop { margin-bottom: 8px; }
+:is(#blogsTab, #paginasTab, #merkprofielTab, #beeldbankTab, #kennisdocumentTab, #pagrOverzichtTab, #pagrResultatenTab) .p-ov-kop h1 { font-size: clamp(30px, 3.4vw, 44px); font-weight: 600; letter-spacing: -0.035em; line-height: 1.05; color: #14142b; }
+:is(#blogsTab, #paginasTab, #merkprofielTab, #beeldbankTab, #kennisdocumentTab, #pagrOverzichtTab, #pagrResultatenTab) .p-ov-kop p { margin-top: 10px; font-size: 16px; line-height: 1.55; color: #62657f; max-width: 62ch; }
+
+/* Glazen kaarten. Geen glas per rij in lange lijsten en niet op de leesweergave van een blog: daar telt snelheid en leesbaarheid. */
+:is(#paginasTab, #merkprofielTab, #beeldbankTab, #kennisdocumentTab, #pagrOverzichtTab, #pagrResultatenTab) :is(.p-kaart, .mp-kaart, .mp-kort, .mp-termen-sectie, .kd-dropzone),
+#blogsTab .p-bl-gereedschap {
+  background: rgba(255, 255, 255, 0.74); border: 1px solid rgba(255, 255, 255, 0.95); border-radius: 22px;
+  box-shadow: 0 1px 2px rgba(20, 20, 43, 0.05), 0 8px 24px rgba(20, 20, 43, 0.07), 0 24px 60px rgba(20, 20, 43, 0.06);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2); backdrop-filter: blur(16px) saturate(1.2);
+}
+#blogsTab .p-bl-gereedschap { padding: 14px 16px; }
+:is(#merkprofielTab, #kennisdocumentTab, #beeldbankTab) .kd-dropzone { border-style: dashed; border-color: rgba(255, 57, 81, 0.4); }
+@media (max-width: 900px) {
+  :is(#paginasTab, #merkprofielTab, #beeldbankTab, #kennisdocumentTab, #pagrOverzichtTab, #pagrResultatenTab) :is(.p-kaart, .mp-kaart, .mp-kort, .mp-termen-sectie) { border-radius: 18px; }
+}
