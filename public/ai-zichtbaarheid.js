@@ -33,7 +33,7 @@
   function platformKerncijfer(p) {
     const vt = verschilTekst(p.verschil);
     return U().kerncijfer({
-      label: p.label, icoon: 'ai', toon: 'ai', waarde: F().procent(p.percentage),
+      label: p.label, icoon: 'ai', toon: 'ai', info: 'Wij stellen elke week dezelfde vragen over jullie vakgebied aan ' + p.label + '. Dit is het percentage antwoorden waarin jullie merk genoemd wordt. Een meting is een momentopname, het antwoord van een AI assistent kan per dag verschillen.', waarde: F().procent(p.percentage),
       verschil: p.verschil && p.verschil.soort === 'meer' ? { tekst: 'Vaker genoemd', toon: 'goed' } : p.verschil && p.verschil.soort === 'minder' ? { tekst: 'Minder genoemd', toon: 'slecht' } : p.verschil && p.verschil.soort === 'schommeling' ? { tekst: 'Gelijk', toon: 'gelijk' } : null,
       vergelijking: p.genoemd + ' van de ' + p.antwoorden + ' antwoorden noemt jullie merk',
       extra: p.geciteerd + ' keer is jullie website als bron gebruikt' + (vt && p.verschil.soort !== 'schommeling' ? '. ' + vt : '')
@@ -237,7 +237,7 @@
       ? U().kaart({ titel: 'Verloop per week', inhoud: U().legeStand({ soort: 'wacht', titel: 'Het verloop volgt na drie weken', tekst: 'Zo voorkomen we dat toeval als winst of verlies wordt gezien.' }) })
       : trendBlok(data.trend, data.reeks, data.laatsteKernControle);
     inhoud.innerHTML = `<div class="p-pagina">${kop}${status}
-      <section class="p-kerncijfers">${data.platformen.map(platformKerncijfer).join('')}${U().kerncijfer({ label: 'Website als bron', icoon: 'blad', waarde: F().getal(gec), vergelijking: 'Keer dat jullie website in een antwoord werd aangehaald' })}</section>
+      <section class="p-kerncijfers">${data.platformen.map(platformKerncijfer).join('')}${U().kerncijfer({ label: 'Website als bron', icoon: 'blad', info: 'Hoe vaak een AI assistent jullie website als bron noemde onder het antwoord. Dat is waardevol, want mensen kunnen dan doorklikken.', waarde: F().getal(gec), vergelijking: 'Keer dat jullie website in een antwoord werd aangehaald' })}</section>
       ${data.clusterSoort === 'markt' ? '<p class="ai-uitleg">De cijfers hierboven zijn het totaal over alle markten.</p>' : ''}
       <div class="p-ov-raster2">
         <div class="p-ov-stapel">${verloop}${onderwerpKaarten(data.clusters, data.clusterSoort === 'markt')}<div id="aiVragenBlok"></div></div>
