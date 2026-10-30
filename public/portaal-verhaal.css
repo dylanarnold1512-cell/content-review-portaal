@@ -12,27 +12,32 @@
 }
 
 /* Achtergrond: marine naar pruim naar rood, loopt bovenaan uit in de pagina. Vlekken schuiven licht mee. */
-.v-achtergrond { position: absolute; inset: 0 0 auto 0; height: 560px; z-index: -1; overflow: hidden; pointer-events: none;
-  background: linear-gradient(135deg, #14142b 0%, #2a1630 52%, #b02a45 118%);
-  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 58%, transparent 100%); mask-image: linear-gradient(180deg, #000 0%, #000 58%, transparent 100%); }
+.v-achtergrond { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none;
+  /* Zachte kleurvlakken die zich elke 1200px herhalen, zodat de hele pagina dezelfde rustige gloed houdt. */
+  background:
+    radial-gradient(640px 420px at 8% 90px, rgba(255, 57, 81, 0.13), transparent 70%),
+    radial-gradient(720px 480px at 96% 420px, rgba(20, 20, 43, 0.07), transparent 70%),
+    radial-gradient(680px 460px at 14% 820px, rgba(255, 138, 152, 0.14), transparent 70%),
+    radial-gradient(600px 400px at 90% 1100px, rgba(255, 57, 81, 0.08), transparent 70%);
+  background-size: 100% 1250px; background-repeat: repeat-y; }
 .v-vlek { position: absolute; border-radius: 50%; filter: blur(70px); opacity: 0.55; will-change: transform; }
-.v-vlek-1 { width: 520px; height: 520px; left: -120px; top: -160px; background: #ff3951; opacity: 0.38; transform: translateY(calc(var(--v-scroll) * 0.18px)); animation: v-drijf 18s ease-in-out infinite alternate; }
-.v-vlek-2 { width: 420px; height: 420px; right: 8%; top: 40px; background: #e0263e; opacity: 0.3; transform: translateY(calc(var(--v-scroll) * 0.3px)); animation: v-drijf 22s ease-in-out -6s infinite alternate-reverse; }
-.v-vlek-3 { width: 360px; height: 360px; left: 38%; top: 260px; background: #ff8a98; opacity: 0.16; transform: translateY(calc(var(--v-scroll) * 0.12px)); animation: v-drijf 26s ease-in-out -12s infinite alternate; }
+.v-vlek-1 { width: 520px; height: 520px; left: -140px; top: -120px; background: #ff3951; opacity: 0.1; transform: translateY(calc(var(--v-scroll) * 0.18px)); animation: v-drijf 22s ease-in-out infinite alternate; }
+.v-vlek-2 { width: 460px; height: 460px; right: 4%; top: 120px; background: #e0263e; opacity: 0.07; transform: translateY(calc(var(--v-scroll) * 0.3px)); animation: v-drijf 26s ease-in-out -6s infinite alternate-reverse; }
+.v-vlek-3 { width: 380px; height: 380px; left: 42%; top: 300px; background: #ff8a98; opacity: 0.1; transform: translateY(calc(var(--v-scroll) * 0.12px)); animation: v-drijf 30s ease-in-out -12s infinite alternate; }
 @keyframes v-drijf { from { margin-left: 0; margin-top: 0; } to { margin-left: 48px; margin-top: 36px; } }
 
 .v-kolom { max-width: 1480px; margin: 0 auto; padding: 36px 40px 72px; }
 
 /* Kop op de gradient */
-.v-kop { display: flex; flex-wrap: wrap; gap: 16px 28px; align-items: flex-end; justify-content: space-between; margin-bottom: 40px; color: #fff; }
+.v-kop { display: flex; flex-wrap: wrap; gap: 16px 28px; align-items: flex-end; justify-content: space-between; margin-bottom: 40px; color: var(--v-marine); }
 .v-kop h1 { margin: 0; font-size: clamp(34px, 4vw, 52px); letter-spacing: -0.035em; font-weight: 600; line-height: 1.05; }
-.v-kop p { margin: 12px 0 0; max-width: 62ch; font-size: 16px; line-height: 1.55; color: rgba(255, 255, 255, 0.8); }
+.v-kop p { margin: 12px 0 0; max-width: 62ch; font-size: 16px; line-height: 1.55; color: var(--v-zacht); }
 .v-kop-acties { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.v-kop .pv-chip, .v-kop .p-ov-chip { background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.22); color: #fff; backdrop-filter: blur(10px); }
-.v-kop .pv-chip:hover:not(:disabled) { background: rgba(255, 255, 255, 0.22); }
-.v-kop .pv-chip-aan { background: #fff; color: var(--v-marine); border-color: #fff; }
+.v-kop .pv-chip, .v-kop .p-ov-chip { background: rgba(255, 255, 255, 0.7); border: 1px solid rgba(20, 20, 43, 0.1); color: var(--v-marine); backdrop-filter: blur(10px); }
+.v-kop .pv-chip:hover:not(:disabled) { background: #fff; }
+.v-kop .pv-chip-aan { background: var(--v-marine); color: #fff; border-color: var(--v-marine); }
 .v-kop .pv-periode { margin: 0; }
-.v-kop .pv-muted { color: rgba(255, 255, 255, 0.75); }
+.v-kop .pv-muted { color: var(--v-zacht); }
 
 /* Het verhaal: een lijn links met knopen. De lijn vult zich terwijl je leest. */
 .v-verhaal { --v-voortgang: 0%; position: relative; display: flex; flex-direction: column; gap: 56px; padding-left: 76px; }
@@ -167,9 +172,4 @@
 .v-toelichting { margin: -12px 0 36px; }
 .v-wereld .ai-voet, .v-wereld .ai-uitleg { color: var(--v-zacht); }
 
-/* Het eerste hoofdstuk begint nog op de gradient: kop in het wit */
-.v-verhaal > .v-hoofdstuk:first-of-type > .v-hoofd h2 { color: #fff; }
-.v-verhaal > .v-hoofdstuk:first-of-type > .v-hoofd p { color: rgba(255, 255, 255, 0.8); }
-.v-verhaal > .v-hoofdstuk:first-of-type > .v-hoofd .v-eyebrow { color: #ffc1c9; }
-.v-verhaal > .v-hoofdstuk:first-of-type > .v-knoop { border-color: rgba(255, 255, 255, 0.5); }
 .v-spoor { top: 52px; }
