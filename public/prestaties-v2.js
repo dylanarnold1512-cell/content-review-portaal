@@ -375,12 +375,40 @@ function renderPrestatiesV2(d) {
   const getoond = t.blogsGetoond || 0;
   const gemeten = t.blogsGemeten || 0;
   const paginaEen = d.blogs.filter((b) => b.hkPositie !== null && b.hkPositie !== undefined && b.hkPositie <= 10).length;
-  const regel = t.vertoningen > 0 ? `Jullie blogs stonden ${F.getal(t.vertoningen)} keer in Google` : 'Google heeft jullie blogs nog niet getoond';
   const uitleg = t.vertoningen > 0 ? d.samenvatting.slice(1).join(' ') : 'Een nieuwe blog heeft meestal een paar weken nodig voordat Google hem oppakt. Zodra het zover is, zie je het hier.';
-  const status = `<section class="p-kaart p-ov-status" data-toon="goed"><div class="p-ov-status-hoofd"><div class="p-ov-status-regel"><span class="p-ov-puls"></span>${pvEsc(regel)}</div><p>${pvEsc(uitleg)}</p></div>
-    <div class="p-ov-status-volgend">
-      <div class="p-ov-volgend"><span class="p-ov-lbl">Blogs in Google</span><span class="p-ov-val">${getoond} van ${gemeten}</span><span class="p-ov-txt">worden al getoond</span></div>
-      <div class="p-ov-volgend"><span class="p-ov-lbl">Op pagina 1</span><span class="p-ov-val">${paginaEen} ${paginaEen === 1 ? 'blog' : 'blogs'}</span><span class="p-ov-txt">voor het hoofdzoekwoord</span></div>
+  const heroBadge = t.vertoningen > 0 ? F.verschil(t.vertoningen, t.vertoningenVorig) : null;
+  const hero = U.hero({
+    toon: 'merk',
+    eyebrow: 'Jullie blogs stonden in Google',
+    getal: t.vertoningen > 0 ? F.getal(t.vertoningen) : 'Nog niet',
+    badge: heroBadge ? { tekst: heroBadge.tekst + (t.vertoningenVorig !== null && t.vertoningenVorig !== undefined ? ` t.o.v. ${F.getal(t.vertoningenVorig)} ervoor` : ''), toon: heroBadge.toon } : null,
+    tekst: t.vertoningen > 0
+      ? `keer in de zoekresultaten. ${F.getal(t.clicks)} ${t.clicks === 1 ? 'mens klikte' : 'mensen klikten'} door naar een blog.${t.clicksVorig !== null && t.clicksVorig !== undefined && t.clicks > t.clicksVorig ? ` Dat zijn er ${F.getal(t.clicks - t.clicksVorig)} meer dan in de periode ervoor.` : ''}`
+      : uitleg,
+    rechts: U.lijn((d.weken || []).map((w) => ({ label: w.start, waarde: w.vertoningen })), { titel: 'Keer getoond per week', aria: 'Keer getoond per week' })
+  });
+  // Route van zoekresultaat tot aanvraag. Een lege stap is geen fout: de meting loopt.
+  const directAantal = t.conversies ? (t.conversies.heeftDoorklik ? t.conversies.doorkliks : (t.conversies.leads || 0) + (t.conversies.boekingen || 0)) || 0 : 0;
+  const eerderAantal = t.eerderGelezen ? (t.eerderGelezen.leads || 0) + (t.eerderGelezen.boekingen || 0) : 0;
+  const aanvragen = Math.max(directAantal, eerderAantal);
+  const deel = (n) => (t.vertoningen > 0 ? Math.min(100, (n / t.vertoningen) * 100) : 0);
+  const routeStappen = [
+    { label: 'Getoond in Google', waarde: F.getal(t.vertoningen), aandeel: t.vertoningen > 0 ? 100 : 0, info: PV_INFO.getoond, leeg: !t.vertoningen, tekst: t.vertoningen ? 'Hoe vaak een blog in de zoekresultaten stond' : 'Zodra Google een blog toont, zie je het hier' },
+    { label: 'Doorgeklikt', waarde: F.getal(t.clicks), aandeel: deel(t.clicks), info: PV_INFO.bezoekers, leeg: !t.clicks, tekst: t.clicks ? `Bezoekers vanuit Google${t.clicksVorig !== null && t.clicksVorig !== undefined ? `, ${F.getal(t.clicksVorig)} in de periode ervoor` : ''}` : 'Zodra iemand doorklikt, zie je het hier' }
+  ];
+  if (t.paginaweergaven !== null && t.paginaweergaven !== undefined) {
+    routeStappen.push({ label: 'Blog gelezen', waarde: F.getal(t.paginaweergaven), aandeel: deel(t.paginaweergaven), info: PV_INFO.paginaweergaven, leeg: !t.paginaweergaven, tekst: 'Paginaweergaven van de blogs' });
+  }
+  if (t.conversies || t.eerderGelezen) {
+    routeStappen.push({
+      label: 'Contact of boeking', waarde: F.getal(aanvragen), aandeel: deel(aanvragen), info: PV_INFO.eerder, leeg: !aanvragen,
+      tekst: aanvragen ? 'Minstens zoveel, direct vanuit een blog of na het lezen van een blog' : 'De meting loopt. Zodra iemand na een blog contact opneemt, zie je het hier, ook als dat later gebeurt.'
+    });
+  }
+  const route = routeStappen.length >= 3 ? U.route({ titel: 'Van zoekresultaat tot aanvraag', uitleg: 'Zo ver komen mensen. Een lege stap betekent dat de meting loopt, niet dat er iets mis is.', stappen: routeStappen }) : '';
+  const status = hero + route + `<section class="p-kaart p-hero-voet"><div class="p-ov-status-volgend">
+      <div class="p-ov-volgend"><span class="p-ov-lbl">Blogs in Google</span><span class="p-ov-val">${getoond} van ${gemeten}</span>${U.voortgang([{ aandeel: gemeten ? (getoond / gemeten) * 100 : 0, toon: 'goed' }], `${getoond} van ${gemeten} blogs worden al getoond`)}<span class="p-ov-txt">worden al getoond. De rest heeft meestal een paar weken nodig.</span></div>
+      <div class="p-ov-volgend"><span class="p-ov-lbl">Op pagina 1</span><span class="p-ov-val">${paginaEen} ${paginaEen === 1 ? 'blog' : 'blogs'}</span>${U.voortgang([{ aandeel: gemeten ? (paginaEen / gemeten) * 100 : 0, toon: 'goed' }], `${paginaEen} van ${gemeten} blogs op pagina 1`)}<span class="p-ov-txt">voor het hoofdzoekwoord</span></div>
       <div class="p-ov-volgend"><span class="p-ov-lbl">Cijfers tot en met</span><span class="p-ov-val">${pvEsc(F.datumKort(d.periode && d.periode.eind))}</span><span class="p-ov-txt">Google loopt 2 tot 3 dagen achter</span></div>
     </div></section>`;
   el.innerHTML = `<div class="p-pagina">

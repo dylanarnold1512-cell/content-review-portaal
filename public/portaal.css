@@ -1008,3 +1008,53 @@ button.pa-item:focus-visible, .pa-filter:focus-visible, .pa-volgende:focus-visib
 .p-kerncijfer-kop .p-verschil { flex: none; }
 .p-info-pop { text-transform: none; }
 .p-kerncijfers-ai { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+
+/* Ontwerp Advertisr: hero, route, ringen. Rood en marine, nooit meer dan een hero per tabblad. */
+.p-hero { border-radius: 22px; background: linear-gradient(135deg, #14142b 0%, #2a1630 58%, #ff3951 150%); color: #fff; padding: 32px 36px; display: flex; flex-wrap: wrap; gap: 36px; align-items: stretch; box-shadow: 0 18px 44px rgba(255, 57, 81, 0.2); }
+.p-hero-ai { background: linear-gradient(135deg, #14142b 0%, #2b1a3c 55%, #e0263e 160%); }
+.p-hero-links { flex: 1 1 340px; min-width: 0; display: flex; flex-direction: column; gap: 12px; justify-content: center; }
+.p-hero-eyebrow { font-size: 14px; font-weight: 500; color: #ffc1c9; }
+.p-hero-getalrij { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.p-hero-getal { font-size: clamp(48px, 6vw, 84px); font-weight: 600; letter-spacing: -0.035em; line-height: 1; }
+.p-hero-badge { font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 99px; white-space: nowrap; background: rgba(255, 255, 255, 0.14); color: #fff; }
+.p-hero-badge-goed { background: var(--p-goed-zacht); color: var(--p-goed); }
+.p-hero-badge-slecht { background: var(--p-let-op-zacht); color: var(--p-let-op); }
+.p-hero-tekst { margin: 0; font-size: 15px; line-height: 1.5; color: #e7e9f6; max-width: 48ch; }
+.p-hero-rechts { flex: 2 1 460px; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 28px; flex-wrap: wrap; }
+.p-hero-grafiek { flex: 1 1 100%; display: flex; flex-direction: column; gap: 8px; }
+.p-hero-grafiek-titel { font-size: 13px; font-weight: 500; color: #ffc1c9; }
+.p-hero-grafiek svg { display: block; }
+.p-ring { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.p-ring b { font-size: 15px; font-weight: 600; }
+.p-ring span { font-size: 12px; color: #ffc1c9; max-width: 18ch; }
+
+.p-route { padding: 24px 28px; display: flex; flex-direction: column; gap: 18px; }
+.p-route-kop { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; justify-content: space-between; }
+.p-route-kop h2 { margin: 0; }
+.p-route-uitleg { font-size: 13px; color: var(--p-tekst-zacht); }
+.p-route-stappen { display: grid; grid-template-columns: repeat(var(--p-stappen, 4), minmax(0, 1fr)); gap: 12px; }
+.p-route-stap { position: relative; background: var(--p-merk-zacht); border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+.p-route-label { font-size: 13px; font-weight: 500; color: var(--p-merk-donker); display: flex; align-items: center; flex-wrap: wrap; }
+.p-route-waarde { font-size: clamp(26px, 2.6vw, 40px); font-weight: 600; letter-spacing: -0.03em; line-height: 1.05; color: var(--p-tekst); overflow-wrap: anywhere; }
+.p-route-balk { height: 8px; border-radius: 99px; background: #ffc1c9; overflow: hidden; }
+.p-route-balk i { display: block; height: 100%; border-radius: 99px; background: var(--p-merk); }
+.p-route-tekst { font-size: 13px; line-height: 1.45; color: var(--p-tekst-zacht); }
+.p-route-leeg { background: var(--p-let-op-zacht); border: 1.5px dashed #e3b45c; }
+.p-route-leeg .p-route-label { color: var(--p-let-op); }
+.p-route-leeg .p-route-balk { background: #f3d9a4; }
+.p-route-leeg .p-route-tekst { color: #7a4a00; }
+@media (max-width: 1100px) { .p-route-stappen { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .p-hero { padding: 24px 20px; gap: 24px; } .p-route-stappen { grid-template-columns: minmax(0, 1fr); } }
+
+/* Tegels in dezelfde taal: zachte rand, ruime radius, getal in marine. */
+.p-kerncijfer { border-radius: 18px; }
+.p-kaart { border-radius: 18px; }
+.p-hero-voet { overflow: hidden; }
+.p-hero-voet .p-ov-status-volgend { border-left: 0; background: transparent; }
+.p-hero-voet .p-ov-volgend .p-voortgang { margin: 4px 0 2px; }
+
+/* Dezelfde taal door het hele portaal: tegels reageren op de muis, kaarten krijgen een zachte rand. */
+.p-kerncijfer { transition: box-shadow 0.15s ease, transform 0.15s ease; }
+.p-kerncijfer:hover { box-shadow: 0 2px 4px rgba(20, 20, 43, 0.05), 0 10px 28px rgba(20, 20, 43, 0.08); transform: translateY(-1px); }
+.p-kerncijfer-waarde { letter-spacing: -0.03em; }
+@media (prefers-reduced-motion: reduce) { .p-kerncijfer { transition: none; } .p-kerncijfer:hover { transform: none; } }
