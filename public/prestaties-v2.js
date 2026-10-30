@@ -87,7 +87,7 @@ function pvHoofdstukken(d) {
     : Math.abs(t.hkPositieVerbetering) < 0.5
       ? { tekst: 'Vrijwel gelijk', toon: 'gelijk' }
       : { tekst: F.decimaal(Math.abs(t.hkPositieVerbetering), 1) + (t.hkPositieVerbetering > 0 ? ' plaatsen omhoog' : ' plaatsen omlaag'), toon: t.hkPositieVerbetering > 0 ? 'goed' : 'slecht' };
-  const grafiek1 = V.vlak(weken.map((w) => ({ label: 'Week van ' + pvDatum(w.start), waarde: w.vertoningen })), { titel: 'Keer getoond per week', aria: 'Keer getoond per week', id: 'g' });
+  const grafiek1 = V.vlak(weken.map((w) => ({ label: 'Week van ' + pvDatum(w.start), waarde: w.vertoningen, deels: !w.volledig, nieuw: w.nieuw && w.nieuw.length ? w.nieuw.map((n) => n.t).join(', ') : '' })), { titel: 'Verloop per week', aria: 'Keer getoond per week', id: 'g', eenheid: 'keer getoond' });
   const stapel1 = [
     V.stat({ label: 'Blogs in Google', info: 'Hoeveel van jullie blogs Google al ergens in de zoekresultaten liet zien. Een nieuwe blog heeft meestal een paar weken nodig.', waarde: `${getoond} van ${gemeten}`, tekst: 'Worden al getoond', inhoud: V.balk(gemeten ? (getoond / gemeten) * 100 : 0, `${getoond} van ${gemeten} blogs worden getoond`) }),
     V.stat({ label: 'Op pagina 1', info: 'Blogs waarvan het hoofdzoekwoord bij de eerste tien resultaten staat. Daar komen de meeste bezoekers vandaan.', waarde: `${paginaEen} ${paginaEen === 1 ? 'blog' : 'blogs'}`, tekst: 'Voor het hoofdzoekwoord', inhoud: V.balk(gemeten ? (paginaEen / gemeten) * 100 : 0, `${paginaEen} van ${gemeten} blogs op pagina 1`) })
@@ -104,7 +104,7 @@ function pvHoofdstukken(d) {
   });
 
   // 2. Doorklikken
-  const klikGrafiek = V.staven(weken.map((w) => ({ label: pvDatum(w.start), waarde: w.clicks, deels: !w.volledig, nieuw: w.nieuw && w.nieuw.length ? w.nieuw.map((n) => n.t).join(', ') : '' })), { titel: 'Bezoekers vanuit Google per week. Een stip onder een week betekent dat er die week een nieuwe blog live ging.' });
+  const klikGrafiek = V.staven(weken.map((w) => ({ label: 'Week van ' + pvDatum(w.start), waarde: w.clicks, deels: !w.volledig, nieuw: w.nieuw && w.nieuw.length ? w.nieuw.map((n) => n.t).join(', ') : '' })), { titel: 'Bezoekers vanuit Google per week. Een stip onder een week betekent dat er die week een nieuwe blog live ging.', eenheid: 'bezoekers' });
   const stapel2 = [];
   if (t.merk) {
     const m = t.merk;
@@ -181,8 +181,9 @@ function pvHoofdstukken(d) {
   lijst.push({
     titel: 'Elke blog apart',
     lead: 'Hoe elke blog het doet en bij welke zoekwoorden hij meeloopt.',
-    inhoud: `<div id="pvTaalRij"></div><section class="p-kaart" id="pvZwKaart"></section>
-      <section class="p-kaart"><div class="p-kaart-kop"><div class="p-kaart-titel-blok"><h2 class="p-kaart-titel">Per blog</h2></div></div><div class="p-kaart-inhoud"><div id="pvBlogControls"></div><div id="pvBlogList"></div></div></section>
+    inhoud: `<div id="pvTaalRij"></div>` +
+      V.inklap({ titel: 'Zoekwoorden', uitleg: 'Waar mensen op zochten toen ze jullie blogs in Google zagen.', inhoud: '<section class="p-kaart" id="pvZwKaart"></section>' }) +
+      V.inklap({ titel: 'Per blog', open: true, inhoud: '<section class="p-kaart"><div class="p-kaart-kop"><div class="p-kaart-titel-blok"><h2 class="p-kaart-titel">Per blog</h2></div></div><div class="p-kaart-inhoud"><div id="pvBlogControls"></div><div id="pvBlogList"></div></div></section>' }) + `
       <details class="p-kaart pv-uitleg"><summary>Hoe lees ik dit?</summary><div class="p-kaart-inhoud">
         <p><b>Getoond</b> betekent dat een blog in de zoekresultaten van Google stond. Dat gebeurt vaak eerder dan dat iemand doorklikt.</p>
         <p><b>Positie</b> laten we in pagina’s zien. Pagina 1 zijn de eerste tien resultaten, en daar komen de meeste bezoekers vandaan. Een lagere positie is beter.</p>

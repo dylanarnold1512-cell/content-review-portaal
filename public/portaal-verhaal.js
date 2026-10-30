@@ -79,38 +79,58 @@
       '<b>' + esc(naam) + (U ? U.infoKnop(info, naam) : '') + '</b>' + (sub ? '<span>' + esc(sub) + '</span>' : '') + '</div>';
   }
 
-  // Vlakgrafiek op een lichte kaart. punten: [{ label, waarde }]. De lijn tekent zichzelf bij het verschijnen.
+  // Vlakgrafiek op een lichte kaart. punten: [{ label, waarde, deels, nieuw }]. De lijn tekent zichzelf bij het verschijnen.
+  // Met de muis (of een vinger) over de grafiek zie je per week de exacte waarde, het verschil met de week ervoor en of er een blog live ging.
   function vlak(punten, o) {
     const opt = o || {};
-    const lijst = (Array.isArray(punten) ? punten : []).map((p) => ({ label: String(p.label == null ? '' : p.label), waarde: Math.max(0, Number(p.waarde) || 0) }));
+    const lijst = (Array.isArray(punten) ? punten : []).map((p) => ({ label: String(p.label == null ? '' : p.label), waarde: Math.max(0, Number(p.waarde) || 0), deels: Boolean(p.deels), nieuw: p.nieuw || '' }));
     if (lijst.length < 2) return '';
-    const W = 640, H = 220, top = 40, bodem = 14;
+    const W = 640, H = 220, top = 30, bodem = 14;
     const max = Math.max.apply(null, lijst.map((p) => p.waarde)) || 1;
     const xy = lijst.map((p, i) => [Math.round(i / (lijst.length - 1) * W), Math.round(H - bodem - (p.waarde / max) * (H - top - bodem))]);
     const pad = xy.map((c, i) => (i ? 'L' : 'M') + c[0] + ',' + c[1]).join(' ');
     const hi = lijst.reduce((m, p, i) => (p.waarde > lijst[m].waarde ? i : m), 0);
-    const ankerX = Math.min(Math.max(xy[hi][0], 26), W - 26);
     const id = 'vVlak' + (opt.id || '1');
-    const aria = (opt.aria || 'Grafiek') + ': van ' + nl(lijst[0].waarde) + ' naar ' + nl(lijst[lijst.length - 1].waarde) + ', hoogste ' + nl(lijst[hi].waarde);
-    const stippen = xy.map((c, i) => '<circle class="v-vlak-stip" cx="' + c[0] + '" cy="' + c[1] + '" r="14" fill="transparent"><title>' + esc((lijst[i].label ? lijst[i].label + ': ' : '') + nl(lijst[i].waarde)) + '</title></circle>').join('');
-    return '<div class="v-vlak"><span class="v-vlak-titel">' + esc(opt.titel || '') + '</span>' +
+    const aria = (opt.aria || 'Grafiek') + ': van ' + nl(lijst[0].waarde) + ' naar ' + nl(lijst[lijst.length - 1].waarde) + ', hoogste ' + nl(lijst[hi].waarde) + '. Beweeg over de grafiek voor de waarde per week.';
+    const data = lijst.map((p, i) => ({ l: p.label, w: p.waarde, x: Math.round(xy[i][0] / W * 1000) / 10, y: Math.round(xy[i][1] / H * 1000) / 10, d: p.deels, n: p.nieuw }));
+    const aantalLabels = Math.min(6, lijst.length);
+    const labels = Array.from({ length: aantalLabels }, (_, k) => Math.round(k * (lijst.length - 1) / Math.max(1, aantalLabels - 1)))
+      .filter((v, k, arr) => arr.indexOf(v) === k)
+      .map((i) => '<span style="left:' + data[i].x + '%">' + esc((lijst[i].label || '').replace(/^Week van /, '')) + '</span>').join('');
+    const nieuwStippen = data.filter((p) => p.n).map((p) => '<i class="v-vlak-blog" style="left:' + p.x + '%;top:' + p.y + '%" aria-hidden="true"></i>').join('');
+    return '<div class="v-vlak" data-v-punten="' + esc(JSON.stringify(data)) + '" data-v-eenheid="' + esc(opt.eenheid || '') + '"><span class="v-vlak-titel">' + esc(opt.titel || '') + '</span>' +
+      '<div class="v-vlak-doek"><span class="v-vlak-y v-vlak-y-top">' + esc(nl(max)) + '</span><span class="v-vlak-y v-vlak-y-nul">0</span>' +
       '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" role="img" aria-label="' + esc(aria) + '"><defs><linearGradient id="' + id + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff3951" stop-opacity=".30"/><stop offset="1" stop-color="#ff3951" stop-opacity="0"/></linearGradient></defs>' +
       '<g class="v-vlak-raster"><line x1="0" y1="' + top + '" x2="' + W + '" y2="' + top + '"/><line x1="0" y1="' + Math.round((top + H - bodem) / 2) + '" x2="' + W + '" y2="' + Math.round((top + H - bodem) / 2) + '"/><line x1="0" y1="' + (H - bodem) + '" x2="' + W + '" y2="' + (H - bodem) + '"/></g>' +
       '<path class="v-vlak-vul" d="' + pad + ' L' + W + ',' + H + ' L0,' + H + ' Z" fill="url(#' + id + ')"/>' +
-      '<path class="v-vlak-lijn" pathLength="1" d="' + pad + '" fill="none" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>' + stippen + '</svg>' +
-      '<span class="v-vlak-piek" style="left:' + Math.round(ankerX / W * 100) + '%;top:' + Math.round(xy[hi][1] / H * 100) + '%">' + esc(nl(lijst[hi].waarde)) + '</span></div>';
+      '<path class="v-vlak-lijn" pathLength="1" d="' + pad + '" fill="none" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>' +
+      nieuwStippen + '<i class="v-vlak-cursor" aria-hidden="true"></i><i class="v-vlak-punt" aria-hidden="true"></i><div class="v-tip" role="status"></div></div>' +
+      '<div class="v-vlak-x" aria-hidden="true">' + labels + '</div>' +
+      (nieuwStippen ? '<span class="v-vlak-sleutel"><i class="v-vlak-blog v-vlak-blog-uit"></i>Een nieuwe blog ging live</span>' : '') + '</div>';
   }
 
-  // Staven per week. De laatste staaf is de week die nog loopt (lichter, volgens partial).
+  // Staven per week. De laatste staaf is de week die nog loopt (lichter). Muis of vinger erop toont de exacte waarde.
   function staven(weken, o) {
     const opt = o || {};
     const lijst = (Array.isArray(weken) ? weken : []).map((w) => ({ label: String(w.label == null ? '' : w.label), waarde: Math.max(0, Number(w.waarde) || 0), deels: Boolean(w.deels), nieuw: w.nieuw || '' }));
     if (!lijst.length) return '';
     const max = Math.max.apply(null, lijst.map((w) => w.waarde)) || 1;
-    return '<div class="v-staven"><span class="v-vlak-titel">' + esc(opt.titel || '') + '</span><div class="v-staven-rij">' + lijst.map((w) =>
-      '<div class="v-staaf-kolom" title="' + esc(w.label + ': ' + nl(w.waarde) + (w.deels ? ' (week is nog bezig)' : '') + (w.nieuw ? '. Nieuwe blog: ' + w.nieuw : '')) + '"><span class="v-staaf-val">' + (w.waarde ? esc(nl(w.waarde)) : '') + '</span>' +
-      '<div class="v-staaf-vak"><i class="v-staaf' + (w.deels ? ' v-staaf-deels' : '') + '" style="--v-hoogte:' + (w.waarde ? Math.max(3, Math.round(w.waarde / max * 100)) : 0) + '%"></i></div>' +
-      '<span class="v-staaf-stip' + (w.nieuw ? ' v-staaf-stip-aan' : '') + '"></span><span class="v-staaf-lbl">' + esc(w.label) + '</span></div>').join('') + '</div></div>';
+    const stap = Math.max(1, Math.ceil(lijst.length / 6));
+    return '<div class="v-staven" data-v-eenheid="' + esc(opt.eenheid || '') + '"><span class="v-vlak-titel">' + esc(opt.titel || '') + '</span><div class="v-staven-doek"><div class="v-staven-rij">' + lijst.map((w, i) => {
+      const vorig = i ? lijst[i - 1].waarde : null;
+      const tip = { l: w.label, w: w.waarde, v: vorig, d: w.deels, n: w.nieuw };
+      return '<div class="v-staaf-kolom" tabindex="0" data-v-tip="' + esc(JSON.stringify(tip)) + '"><span class="v-staaf-val">' + (w.waarde ? esc(nl(w.waarde)) : '') + '</span>' +
+        '<div class="v-staaf-vak"><i class="v-staaf' + (w.deels ? ' v-staaf-deels' : '') + '" style="--v-hoogte:' + (w.waarde ? Math.max(3, Math.round(w.waarde / max * 100)) : 0) + '%"></i></div>' +
+        '<span class="v-staaf-stip' + (w.nieuw ? ' v-staaf-stip-aan' : '') + '"></span><span class="v-staaf-lbl">' + (i % stap === 0 ? esc(w.label.replace(/^Week van /, '')) : '') + '</span></div>';
+    }).join('') + '</div><div class="v-tip" role="status"></div></div></div>';
+  }
+
+  // Inklapbare kaart voor lange lijsten. open: staat open bij het laden. aantal: klein getal naast de titel.
+  function inklap(o) {
+    const opt = o || {};
+    return '<details class="v-inklap v-in"' + (opt.open ? ' open' : '') + '><summary><span class="v-inklap-titel">' + esc(opt.titel) + '</span>' +
+      (opt.aantal != null ? '<span class="v-inklap-aantal">' + esc(opt.aantal) + '</span>' : '') + '<span class="v-inklap-teken" aria-hidden="true"></span></summary>' +
+      (opt.uitleg ? '<p class="v-inklap-uitleg">' + esc(opt.uitleg) + '</p>' : '') + '<div class="v-inklap-body">' + (opt.inhoud || '') + '</div></details>';
   }
 
   // Uitleg in drie stappen, bij het hoofdstuk over contact. Opent en sluit.
@@ -185,7 +205,7 @@
     window.addEventListener('resize', bijScroll);
     bijScroll();
 
-    // Kantelen: kaarten draaien licht mee met de muis en krijgen een glans.
+    // Kantelen: kaarten draaien licht mee met de muis. Geen glans over de tekst heen.
     const fijn = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
     const beweeg = (e) => {
       const k = e.target.closest && e.target.closest('[data-v-tilt]');
@@ -193,10 +213,8 @@
       const r = k.getBoundingClientRect();
       const x = (e.clientX - r.left) / r.width;
       const y = (e.clientY - r.top) / r.height;
-      k.style.setProperty('--v-ry', ((x - 0.5) * 7).toFixed(2) + 'deg');
-      k.style.setProperty('--v-rx', ((0.5 - y) * 7).toFixed(2) + 'deg');
-      k.style.setProperty('--v-mx', (x * 100).toFixed(0) + '%');
-      k.style.setProperty('--v-my', (y * 100).toFixed(0) + '%');
+      k.style.setProperty('--v-ry', ((x - 0.5) * 4).toFixed(2) + 'deg');
+      k.style.setProperty('--v-rx', ((0.5 - y) * 4).toFixed(2) + 'deg');
       k.classList.add('v-kantel');
     };
     const weg = (e) => {
@@ -210,6 +228,65 @@
       w.addEventListener('pointermove', beweeg);
       w.addEventListener('pointerout', weg);
     }
+
+    // Grafieken: muis of vinger toont de exacte waarde per week.
+    const tipTekst = (p, eenheid, vorig) => {
+      let t = '<b>' + nl(p.w) + '</b>' + (eenheid ? ' ' + esc(eenheid) : '') + '<span>' + esc(p.l) + (p.d ? ' (week loopt nog)' : '') + '</span>';
+      if (vorig !== null && vorig !== undefined) {
+        const delta = p.w - vorig;
+        t += '<span>' + (delta === 0 ? 'Gelijk aan de week ervoor' : (delta > 0 ? '+' : '−') + nl(Math.abs(delta)) + ' t.o.v. de week ervoor') + '</span>';
+      }
+      if (p.n) t += '<span class="v-tip-blog">Nieuwe blog: ' + esc(p.n) + '</span>';
+      return t;
+    };
+    const zetTip = (tip, html, linksPx, breedte) => {
+      tip.innerHTML = html;
+      tip.classList.add('v-tip-aan');
+      const tb = tip.offsetWidth;
+      tip.style.left = Math.max(tb / 2 + 4, Math.min(breedte - tb / 2 - 4, linksPx)) + 'px';
+    };
+    const grafiekHover = (e) => {
+      const vlak = e.target.closest && e.target.closest('.v-vlak[data-v-punten]');
+      if (vlak) {
+        const doek = vlak.querySelector('.v-vlak-doek');
+        const r = doek.getBoundingClientRect();
+        if (!vlak._punten) { try { vlak._punten = JSON.parse(vlak.getAttribute('data-v-punten')); } catch (err) { vlak._punten = []; } }
+        const pts = vlak._punten;
+        if (!pts.length || e.clientY < r.top - 40 || e.clientY > r.bottom + 40) return;
+        const rel = klem((e.clientX - r.left) / r.width, 0, 1) * 100;
+        let best = 0;
+        pts.forEach((p, i) => { if (Math.abs(p.x - rel) < Math.abs(pts[best].x - rel)) best = i; });
+        const p = pts[best];
+        const cur = doek.querySelector('.v-vlak-cursor');
+        const dot = doek.querySelector('.v-vlak-punt');
+        cur.style.left = p.x + '%'; cur.classList.add('v-aan');
+        dot.style.left = p.x + '%'; dot.style.top = p.y + '%'; dot.classList.add('v-aan');
+        zetTip(doek.querySelector('.v-tip'), tipTekst(p, vlak.getAttribute('data-v-eenheid'), best ? pts[best - 1].w : null), (p.x / 100) * r.width, r.width);
+        return;
+      }
+      const kol = e.target.closest && e.target.closest('[data-v-tip]');
+      if (kol) {
+        const doek = kol.closest('.v-staven-doek');
+        let p; try { p = JSON.parse(kol.getAttribute('data-v-tip')); } catch (err) { return; }
+        const dr = doek.getBoundingClientRect();
+        const kr = kol.getBoundingClientRect();
+        doek.querySelectorAll('.v-staaf-kolom.v-aan').forEach((x) => x.classList.remove('v-aan'));
+        kol.classList.add('v-aan');
+        zetTip(doek.querySelector('.v-tip'), tipTekst(p, kol.closest('.v-staven').getAttribute('data-v-eenheid'), p.v), kr.left - dr.left + kr.width / 2, dr.width);
+      }
+    };
+    const grafiekWeg = (e) => {
+      const c = e.target.closest && e.target.closest('.v-vlak[data-v-punten], .v-staven');
+      if (!c || (e.relatedTarget && c.contains(e.relatedTarget))) return;
+      c.querySelectorAll('.v-aan').forEach((x) => x.classList.remove('v-aan'));
+      const t = c.querySelector('.v-tip');
+      if (t) t.classList.remove('v-tip-aan');
+    };
+    w.addEventListener('pointermove', grafiekHover);
+    w.addEventListener('pointerdown', grafiekHover);
+    w.addEventListener('focusin', grafiekHover);
+    w.addEventListener('pointerout', grafiekWeg);
+    w.addEventListener('focusout', grafiekWeg);
     const eerder = opruimers.get(w);
     opruimers.set(w, () => {
       if (eerder) eerder();
@@ -217,10 +294,15 @@
       window.removeEventListener('resize', bijScroll);
       w.removeEventListener('pointermove', beweeg);
       w.removeEventListener('pointerout', weg);
+      w.removeEventListener('pointermove', grafiekHover);
+      w.removeEventListener('pointerdown', grafiekHover);
+      w.removeEventListener('focusin', grafiekHover);
+      w.removeEventListener('pointerout', grafiekWeg);
+      w.removeEventListener('focusout', grafiekWeg);
     });
   }
 
-  const api = { wereld, kop, hoofdstuk, raster, stat, balk, positieMeter, ring, vlak, staven, uitleg, activeer };
+  const api = { wereld, kop, hoofdstuk, raster, stat, balk, positieMeter, ring, vlak, staven, inklap, uitleg, activeer };
   if (typeof window !== 'undefined') window.PortaalVerhaal = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
