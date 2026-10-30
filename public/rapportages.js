@@ -124,8 +124,8 @@
     if (punten.length < 2) return '';
     const v = punten.map((r) => ({ label: hoofdletter(r.label), waarde: r.totalen.vertoningen || 0 }));
     const k = punten.map((r) => ({ label: hoofdletter(r.label), waarde: r.totalen.clicks || 0 }));
-    const kaartV = `<section class="v-vlak-kaart">${V().vlak(v, { titel: 'Keer getoond in Google per maand', aria: 'Keer getoond in Google per maand', id: 'rp', eenheid: 'keer getoond', periode: 'maand' })}</section>`;
-    const kaartK = k.some((x) => x.waarde > 0) ? `<section class="v-vlak-kaart">${V().staven(k, { titel: 'Bezoekers vanuit Google per maand', eenheid: 'bezoekers', periode: 'maand' })}</section>` : '';
+    const kaartV = `<section class="v-vlak-kaart v-in">${V().vlak(v, { titel: 'Keer getoond in Google per maand', aria: 'Keer getoond in Google per maand', id: 'rp', eenheid: 'keer getoond', periode: 'maand' })}</section>`;
+    const kaartK = k.some((x) => x.waarde > 0) ? `<section class="v-vlak-kaart v-in">${V().staven(k, { titel: 'Bezoekers vanuit Google per maand', eenheid: 'bezoekers', periode: 'maand' })}</section>` : '';
     return V().raster(kaartV + kaartK, kaartK ? '2' : 'auto');
   }
 
@@ -144,15 +144,16 @@
     const eerste = nieuwste
       ? V().raster(uitgelicht(rp.lijst[0], nieuwste, g) + cijferKaarten(nieuwste), 'groot')
       : uitgelicht(rp.lijst[0], nieuwste, g);
-    const hoofdstukken = [
-      { titel: 'Het nieuwste rapport', lead: 'Wat er vorige maand is vastgelegd. Open het rapport voor alle details.', inhoud: eerste }
-    ];
+    const sectie = (titel, lead, html) => `<section class="v-sectie-blok"><h2 class="v-sectie">${rpEsc(titel)}</h2>${lead ? `<p class="v-sectie-lead">${rpEsc(lead)}</p>` : ''}<div style="height:16px"></div>${html}</section>`;
     const reeks = verloop();
-    if (reeks) hoofdstukken.push({ titel: 'Maand na maand', lead: 'Zo ontwikkelden de cijfers zich, rapport voor rapport. Beweeg over de grafiek voor de exacte waarde per maand.', inhoud: reeks });
-    hoofdstukken.push({ titel: 'Alle rapporten', lead: 'Elk rapport blijft zoals het vastgelegd is. Download het als PDF om te delen.', inhoud: blokken + `<p class="rp-slot">${ICOON.slot}<span>Een vastgelegd rapport verandert niet meer. De actuele cijfers zie je altijd onder Google.</span></p>` });
+    const delen = [
+      sectie('Het nieuwste rapport', 'Wat er vorige maand is vastgelegd. Open het rapport voor alle details.', eerste)
+    ];
+    if (reeks) delen.push(sectie('Maand na maand', 'Beweeg over de grafiek voor de exacte waarde per maand.', reeks));
+    delen.push(sectie('Alle rapporten', 'Elk rapport blijft zoals het vastgelegd is. Download het als PDF om te delen.', blokken + `<p class="rp-slot">${ICOON.slot}<span>Een vastgelegd rapport verandert niet meer. De actuele cijfers zie je altijd onder Google.</span></p>`));
     const tab = el('rapportagesTab');
     if (tab) tab.classList.add('v-tab');
-    inhoud.innerHTML = V().wereld({ kop: kopHtml(), hoofdstukken: hoofdstukken.map((h, i) => V().hoofdstuk({ nr: i + 1, titel: h.titel, lead: h.lead, inhoud: h.inhoud })).join('') });
+    inhoud.innerHTML = V().wereld({ kop: kopHtml(), hoofdstukken: '<div class="v-ov-blokken">' + delen.join('') + '</div>' }).replace('class="v-wereld"', 'class="v-wereld v-overzicht"');
     const w = inhoud.querySelector('[data-v-wereld]');
     if (w) V().activeer(w);
   }
