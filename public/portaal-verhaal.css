@@ -141,10 +141,9 @@
 .v-js .v-zichtbaar .v-balk i { transform: scaleX(1); }
 .v-js .v-staaf { transform: scaleY(0); transition: transform 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s; }
 .v-js .v-zichtbaar .v-staaf { transform: scaleY(1); }
-.v-js .v-vlak-lijn { stroke-dashoffset: 1; transition: stroke-dashoffset 1.6s cubic-bezier(0.4, 0, 0.2, 1) 0.2s; }
-.v-js .v-zichtbaar .v-vlak-lijn { stroke-dashoffset: 0; }
-.v-js .v-vlak-vul { opacity: 0; transition: opacity 1.2s ease 0.9s; }
-.v-js .v-zichtbaar .v-vlak-vul { opacity: 1; }
+.v-vlak-lijn { stroke-dasharray: none; }
+.v-js .v-vlak-lijn, .v-js .v-vlak-vul { clip-path: inset(-24px 100% -24px -24px); transition: clip-path 1.6s cubic-bezier(0.4, 0, 0.2, 1) 0.2s; }
+.v-js .v-zichtbaar .v-vlak-lijn, .v-js .v-zichtbaar .v-vlak-vul { clip-path: inset(-24px -24px -24px -24px); }
 .v-js .v-ring-boog { stroke-dashoffset: var(--v-omtrek); transition: stroke-dashoffset 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s; }
 .v-js .v-zichtbaar .v-ring-boog { stroke-dashoffset: var(--v-rest); }
 .v-js .v-meter-punt { left: 2%; }
@@ -236,3 +235,12 @@
 /* De rode lijn loopt zacht uit in plaats van met een harde rand te stoppen */
 .v-spoor-vul { -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 90px), transparent 100%); mask-image: linear-gradient(180deg, #000 calc(100% - 90px), transparent 100%); box-shadow: none; filter: drop-shadow(0 0 6px rgba(255, 57, 81, 0.4)); }
 .v-spoor { background: linear-gradient(180deg, rgba(20, 20, 43, 0.14), rgba(20, 20, 43, 0.06)); }
+
+/* Geen smalle binnenkolom in een verhaalpagina: de gradient loopt dan tot de rand, zonder naad */
+.v-tab .p-pagina { max-width: none; margin: 0; padding: 0; display: block; }
+.v-sectie { margin: 12px 0 0; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; color: var(--v-marine); }
+.v-sectie-lead { margin: 6px 0 0; color: var(--v-zacht); font-size: 15px; line-height: 1.5; }
+
+/* De rode lijn loopt altijd door tot het einde van het verhaal en loopt daar zacht uit. Hij stopt niet meer halverwege. */
+.v-spoor-vul { height: 100% !important; -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 140px), transparent 100%); mask-image: linear-gradient(180deg, #000 calc(100% - 140px), transparent 100%); }
+.v-spoor { background: transparent; }
