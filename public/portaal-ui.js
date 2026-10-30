@@ -64,6 +64,13 @@
     return '<section class="p-kaart' + (opt.klasse ? ' ' + esc(opt.klasse) : '') + '">' + kop + '<div class="p-kaart-inhoud">' + (opt.inhoud || '') + '</div></section>';
   }
 
+  // i icoon met uitleg. Opent bij hover, focus en klik. tekst is gewone tekst (wordt ge-escaped).
+  function infoKnop(tekst, label) {
+    if (!tekst) return '';
+    return '<span class="p-info"><button type="button" class="p-info-knop" data-p-info aria-expanded="false" aria-label="Uitleg: ' + esc(label) + '">i</button>' +
+      '<span class="p-info-pop" role="tooltip">' + esc(tekst) + '</span></span>';
+  }
+
   // Eén kerncijfer. waarde en vergelijking zijn al opgemaakte tekst (zie portaal-format.js).
   // verschil: { tekst, toon } uit PortaalFormat.verschil, toon 'goed', 'slecht' of 'gelijk'.
   function kerncijfer(o) {
@@ -72,7 +79,7 @@
     const vTekst = v ? '<span class="p-verschil p-verschil-' + (['goed', 'slecht', 'gelijk'].includes(v.toon) ? v.toon : 'gelijk') + '">' + esc(v.tekst) + '</span>' : '';
     const eenheid = opt.eenheid ? '<small>' + esc(opt.eenheid) + '</small>' : '';
     return '<div class="p-kerncijfer">' +
-      '<div class="p-kerncijfer-kop"><span class="p-kerncijfer-icoon' + (opt.toon === 'ai' ? ' p-kerncijfer-icoon-ai' : '') + '">' + icoon(opt.icoon) + '</span>' + esc(opt.label) + vTekst + '</div>' +
+      '<div class="p-kerncijfer-kop"><span class="p-kerncijfer-icoon' + (opt.toon === 'ai' ? ' p-kerncijfer-icoon-ai' : '') + '">' + icoon(opt.icoon) + '</span>' + esc(opt.label) + infoKnop(opt.info, opt.label) + vTekst + '</div>' +
       '<div class="p-kerncijfer-rij"><div class="p-kerncijfer-waarde">' + esc(opt.waarde) + eenheid + '</div>' + staafjes(opt.staafjes) + '</div>' +
       (opt.vergelijking ? '<div class="p-kerncijfer-sub">' + esc(opt.vergelijking) + '</div>' : '') +
       (opt.extra ? '<div class="p-kerncijfer-sub">' + esc(opt.extra) + '</div>' : '') +
@@ -114,7 +121,22 @@
     }).join('') + '</div>';
   }
 
-  const api = { esc, icoon, pil, voortgang, staafjes, kaart, kerncijfer, kerncijfers, legeStand, foutStand, oudeStand, laden };
+  // Klik op een i opent of sluit de uitleg. Klik ergens anders sluit alles. Eén keer per pagina gekoppeld.
+  if (typeof document !== 'undefined' && !window.__pInfoGekoppeld) {
+    window.__pInfoGekoppeld = true;
+    document.addEventListener('click', (e) => {
+      const knop = e.target.closest && e.target.closest('[data-p-info]');
+      document.querySelectorAll('.p-info.p-info-open').forEach((x) => {
+        if (!knop || x !== knop.parentNode) { x.classList.remove('p-info-open'); x.firstChild.setAttribute('aria-expanded', 'false'); }
+      });
+      if (knop) {
+        const open = knop.parentNode.classList.toggle('p-info-open');
+        knop.setAttribute('aria-expanded', String(open));
+      }
+    });
+  }
+
+  const api = { esc, icoon, pil, voortgang, staafjes, kaart, kerncijfer, kerncijfers, infoKnop, legeStand, foutStand, oudeStand, laden };
   if (typeof window !== 'undefined') window.PortaalUI = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

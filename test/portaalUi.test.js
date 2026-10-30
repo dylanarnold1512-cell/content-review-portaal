@@ -117,3 +117,11 @@ test('icoon kent alleen bekende namen', () => {
   assert.ok(ui.icoon('oog').includes('<svg'));
   assert.strictEqual(ui.icoon('bestaat-niet'), '');
 });
+
+test('kerncijfer toont een i icoon met uitleg en escapet de tekst', () => {
+  const U = require('../public/portaal-ui.js');
+  const html = U.kerncijfer({ label: 'Test', waarde: '5', info: 'Uitleg <b>x</b>' });
+  assert.ok(html.includes('data-p-info'));
+  assert.ok(html.includes('Uitleg &lt;b&gt;x&lt;/b&gt;'));
+  assert.ok(!U.kerncijfer({ label: 'Test', waarde: '5' }).includes('data-p-info'));
+});
