@@ -94,3 +94,14 @@ test('PDF bevat ook wat we deden en de periode', async () => {
   assert.strictEqual(buf.slice(0, 4).toString(), '%PDF');
   assert.ok(buf.length > 2000);
 });
+
+test('opbrengst toont nooit een kale nul en legt uit waarom', () => {
+  const D = require('../public/rapport-document.js');
+  const geen = D.opbrengstBlokken({ label: 'oktober 2026', meting: null });
+  assert.ok(geen.alinea[0].includes('niet vastgelegd'));
+  const nul = D.opbrengstBlokken({ label: 'oktober 2026', meting: { eerderActief: true, eerderLeads: 0, eerderBoekingen: 0, sessiesAi: 0 } });
+  assert.strictEqual(nul.punten.length, 0);
+  assert.ok(nul.alinea[0].includes('De meting liep wel'));
+  const wel = D.opbrengstBlokken({ label: 'oktober 2026', meting: { eerderActief: true, eerderLeads: 2, eerderBoekingen: null, sessiesAi: 0 } });
+  assert.deepStrictEqual(wel.punten, ['2 aanvragen van mensen die eerder een blog lazen']);
+});

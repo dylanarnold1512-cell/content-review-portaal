@@ -120,6 +120,42 @@
     return delen.length ? delen.join(' en ') + '.' : '';
   }
 
+  // "Wat leverde het deze maand op": nooit een kale nul. Is er niets gemeten of staat de meting nog niet aan, dan staat er waarom.
+  // Geeft gewone tekst terug: { punten: [...], alinea: [...], noot }. Het document en de PDF maken er elk hun opmaak van.
+  function opbrengstBlokken(r) {
+    const m = r.meting;
+    const noot = 'Een blog levert vaak niet direct een aanvraag op. Mensen lezen eerst, vergelijken en nemen later contact op. We tellen daarom ook aanvragen en boekingen van mensen die eerder een blog lazen. Het zijn gemeten cijfers uit Google Analytics. Ze laten niet zien wat de oorzaak was.';
+    if (!m) {
+      return { punten: [], alinea: [`Voor ${r.label} is de meting van aanvragen en boekingen niet vastgelegd. Dat zegt niets over wat de blogs deze maand hebben bijgedragen. We meten dit pas zodra de meting aan staat en leggen het dan elke maand vast.`], noot };
+    }
+    const w = m.woorden || { lead: ['aanvraag', 'aanvragen'], boeking: ['boeking', 'boekingen'] };
+    const regel = (n, enk, mv) => `${F.getal(n)} ${n === 1 ? enk : mv}`;
+    const punten = [];
+    const nul = [];
+    const voeg = (n, tekst, nulTekst) => {
+      if (!heeft(n)) return;
+      if (n > 0) punten.push(hoofdletter(tekst)); else nul.push(nulTekst);
+    };
+    if (m.eerderActief) {
+      voeg(m.eerderLeads, `${regel(m.eerderLeads || 0, w.lead[0], w.lead[1])} van mensen die eerder een blog lazen`, `geen ${w.lead[1]} na het lezen van een blog`);
+      voeg(m.eerderBoekingen, `${regel(m.eerderBoekingen || 0, w.boeking[0], w.boeking[1])} van mensen die eerder een blog lazen`, `geen ${w.boeking[1]} na het lezen van een blog`);
+    }
+    voeg(m.sessiesAi, `${regel(m.sessiesAi || 0, 'bezoek', 'bezoeken')} via een AI assistent`, 'geen bezoeken via een AI assistent');
+    const alinea = [];
+    if (nul.length) {
+      const opsomming = nul.length > 1 ? nul.slice(0, -1).join(', ') + ' en ' + nul[nul.length - 1] : nul[0];
+      alinea.push(`${punten.length ? 'Verder waren er' : 'Er waren'} ${opsomming} in ${r.label}. De meting liep wel, er is in deze maand alleen niets gebeurd wat we kunnen tellen.`);
+    }
+    if (!punten.length && !nul.length) alinea.push(`De meting liep in ${r.label}, maar er zijn nog geen cijfers om te tonen. Zodra er aanvragen of boekingen na het lezen van een blog komen, staan ze hier.`);
+    return { punten, alinea, noot };
+  }
+
+  function opbrengstHtml(r) {
+    const o = opbrengstBlokken(r);
+    return (o.punten.length ? `<ul class="rd-lijst">${o.punten.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : '') +
+      o.alinea.map((a) => `<p>${esc(a)}</p>`).join('') + `<p class="rd-noot">${esc(o.noot)}</p>`;
+  }
+
   function periodeTekst(r) {
     if (r.periodeStart && r.periodeEind) return `Periode ${F.datumLang(r.periodeStart)} tot en met ${F.datumLang(r.periodeEind)}`;
     return `Periode ${r.label}`;
@@ -140,6 +176,7 @@
       ? r.terugblik.map((a) => `<p>${esc(a)}</p>`).join('')
       : '<p class="rd-zacht">Voor deze maand is geen toelichting beschikbaar.</p>';
     p1.push(sectie(`Terugblik op ${r.label}`, terug));
+    p1.push(sectie(`Wat leverde het in ${r.label} op`, opbrengstHtml(r)));
 
     const zin = gedaanZin(r.gedaan);
     const nieuwe = r.nieuweBlogs || [];
@@ -242,7 +279,7 @@
     return `<div class="rp-mini" aria-hidden="true"><div class="rp-mini-kop"><span class="rp-mini-logo">Blogr<i>.</i></span><span class="rp-mini-maand">${esc(String(r.label || '').toUpperCase())}</span></div><div class="rp-mini-streep"></div><div class="rp-mini-titel">Maandrapport ${esc(r.label)}</div><div class="rp-mini-vakken">${vakjes}</div><i class="rp-mini-regel"></i><i class="rp-mini-regel" style="width:88%"></i><i class="rp-mini-regel" style="width:74%"></i><i class="rp-mini-regel" style="width:92%;margin-top:6px"></i><i class="rp-mini-regel" style="width:66%"></i><span class="rp-mini-voet"></span></div>`;
   }
 
-  const api = { documentHtml, miniatuur, kerncijfers, kernzin, gedaanZin, volgendRapport, aiMaand, aiGegevens, aiVragenHtml, platformTelling, vorigeMaand, volgendeMaandVan, ZOEKWOORDEN_IN_DOCUMENT, AI_VRAGEN_IN_DOCUMENT };
+  const api = { opbrengstBlokken, opbrengstHtml, documentHtml, miniatuur, kerncijfers, kernzin, gedaanZin, volgendRapport, aiMaand, aiGegevens, aiVragenHtml, platformTelling, vorigeMaand, volgendeMaandVan, ZOEKWOORDEN_IN_DOCUMENT, AI_VRAGEN_IN_DOCUMENT };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.RapportDocument = api;
 })();
