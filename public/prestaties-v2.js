@@ -19,7 +19,7 @@ const PV_STAP = 10;
 const PV_INZICHT_ZICHTBAAR = 3;
 const PV_KANSEN_ZICHTBAAR = 4;
 
-const pvState = { zwSort: 'vertoningen', zwAlle: false, insTab: '', periode: '28d', laden: false, sort: 'vertoningen', cluster: '', status: '', q: '', taal: '', toon: PV_STAP, open: {}, insOpen: {}, kaartOpen: {}, data: null };
+const pvState = { zwSort: 'vertoningen', zwAlle: false, insTab: '', periode: '28d', laden: false, sort: 'vertoningen', cluster: '', status: '', q: '', taal: '', toon: PV_STAP, open: {}, insOpen: {}, kaartOpen: { inzichten: true }, data: null };
 
 function pvDelta(nu, vorig) {
   if (vorig === null || vorig === undefined) return '';
@@ -68,44 +68,64 @@ const PV_INFO = {
 // Nooit een kale nul bij aanvragen en boekingen: bij nul staat er 'Nog geen' met uitleg eronder.
 function pvTotaal(n, F) { return n ? F.getal(n) : 'Nog geen'; }
 
-function pvTiles(t) {
+// De hoofdstukken van het verhaal. Elk cijfer staat maar op één plek.
+function pvHoofdstukken(d) {
   const F = window.PortaalFormat;
-  const U = window.PortaalUI;
-  const vorigTekst = (v) => (v === null || v === undefined ? '' : F.getal(v) + ' in de periode ervoor');
+  const V = window.PortaalVerhaal;
+  const t = d.totalen;
+  const getoond = t.blogsGetoond || 0;
+  const gemeten = t.blogsGemeten || 0;
+  const paginaEen = d.blogs.filter((b) => b.hkPositie !== null && b.hkPositie !== undefined && b.hkPositie <= 10).length;
+  const vorigTekst = (v) => (v === null || v === undefined ? '' : `${F.getal(v)} in de periode ervoor`);
+  const euro = (n) => Number(n).toLocaleString('nl-NL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+  const weken = d.weken || [];
+  const lijst = [];
+
+  // 1. Gevonden
   const hkVerschil = t.hkPositieVerbetering === null || t.hkPositieVerbetering === undefined
     ? null
     : Math.abs(t.hkPositieVerbetering) < 0.5
       ? { tekst: 'Vrijwel gelijk', toon: 'gelijk' }
       : { tekst: F.decimaal(Math.abs(t.hkPositieVerbetering), 1) + (t.hkPositieVerbetering > 0 ? ' plaatsen omhoog' : ' plaatsen omlaag'), toon: t.hkPositieVerbetering > 0 ? 'goed' : 'slecht' };
-  const lijst = [
-    { label: 'Keer getoond in Google', icoon: 'oog', info: PV_INFO.getoond, waarde: F.getal(t.vertoningen), verschil: F.verschil(t.vertoningen, t.vertoningenVorig), vergelijking: vorigTekst(t.vertoningenVorig) || 'Hoe vaak een blog in de zoekresultaten stond' },
-    { label: 'Bezoekers vanuit Google', icoon: 'mensen', info: PV_INFO.bezoekers, waarde: F.getal(t.clicks), verschil: F.verschil(t.clicks, t.clicksVorig), vergelijking: vorigTekst(t.clicksVorig) || 'Hoe vaak iemand doorklikte naar een blog' },
-    { label: 'Positie hoofdzoekwoorden', icoon: 'grafiek', info: PV_INFO.positie, waarde: t.hkPositieLabel || 'Nog geen meting', verschil: hkVerschil, vergelijking: 'Pagina 1 zijn de eerste tien resultaten' }
+  const grafiek1 = V.vlak(weken.map((w) => ({ label: 'Week van ' + pvDatum(w.start), waarde: w.vertoningen })), { titel: 'Keer getoond per week', aria: 'Keer getoond per week', id: 'g' });
+  const stapel1 = [
+    V.stat({ label: 'Blogs in Google', info: 'Hoeveel van jullie blogs Google al ergens in de zoekresultaten liet zien. Een nieuwe blog heeft meestal een paar weken nodig.', waarde: `${getoond} van ${gemeten}`, tekst: 'Worden al getoond', inhoud: V.balk(gemeten ? (getoond / gemeten) * 100 : 0, `${getoond} van ${gemeten} blogs worden getoond`) }),
+    V.stat({ label: 'Op pagina 1', info: 'Blogs waarvan het hoofdzoekwoord bij de eerste tien resultaten staat. Daar komen de meeste bezoekers vandaan.', waarde: `${paginaEen} ${paginaEen === 1 ? 'blog' : 'blogs'}`, tekst: 'Voor het hoofdzoekwoord', inhoud: V.balk(gemeten ? (paginaEen / gemeten) * 100 : 0, `${paginaEen} van ${gemeten} blogs op pagina 1`) })
   ];
-  if (t.verbergHk) lijst.pop();
+  if (!t.verbergHk) {
+    stapel1.push(V.stat({ label: 'Positie hoofdzoekwoorden', info: PV_INFO.positie, waarde: t.hkPositieLabel || 'Nog geen meting', delta: hkVerschil, inhoud: V.positieMeter(t.hkPositie) }));
+  }
+  lijst.push({
+    titel: 'Jullie worden gevonden',
+    lead: t.vertoningen > 0 ? `Google liet jullie blogs ${F.getal(t.vertoningen)} keer zien. Dat is waar alles begint.` : 'Een nieuwe blog heeft meestal een paar weken nodig voordat Google hem laat zien. Zodra het zover is, zie je het hier.',
+    inhoud: V.raster(
+      V.stat({ label: 'Keer getoond in Google', info: PV_INFO.getoond, groot: true, waarde: F.getal(t.vertoningen), tel: t.vertoningen, delta: F.verschil(t.vertoningen, t.vertoningenVorig), tekst: vorigTekst(t.vertoningenVorig) || 'Hoe vaak een blog in de zoekresultaten stond', inhoud: grafiek1 }) +
+      '<div class="v-kolom-stapel">' + stapel1.join('') + '</div>', 'groot')
+  });
+
+  // 2. Doorklikken
+  const klikGrafiek = V.staven(weken.map((w) => ({ label: pvDatum(w.start), waarde: w.clicks, deels: !w.volledig, nieuw: w.nieuw && w.nieuw.length ? w.nieuw.map((n) => n.t).join(', ') : '' })), { titel: 'Bezoekers vanuit Google per week. Een stip onder een week betekent dat er die week een nieuwe blog live ging.' });
+  const stapel2 = [];
+  if (t.merk) {
+    const m = t.merk;
+    stapel2.push(V.stat({ label: 'Zoekopdrachten op jullie naam', info: PV_INFO.merk, waarde: F.getal(m.vertoningen), tel: m.vertoningen, delta: F.verschil(m.vertoningen, m.vertoningenVorig), tekst: `${F.getal(m.klikken)} ${m.klikken === 1 ? 'klik' : 'klikken'}${m.vertoningenVorig !== null && m.vertoningenVorig !== undefined ? `. ${F.getal(m.vertoningenVorig)} keer in de periode ervoor` : ''}`, extra: 'Meer zoekopdrachten op de naam betekent dat meer mensen jullie kennen' }));
+  }
+  if (t.waarde) {
+    const v = t.waarde;
+    stapel2.push(V.stat({ label: 'Waarde van de klikken uit Google', info: PV_INFO.waarde, waarde: euro(v.bedrag), tekst: 'Wat dezelfde klikken via Google Ads ongeveer hadden gekost', extra: v.dekking !== null && v.dekking < 100 ? `Berekend over ${F.getal(v.klikkenMetPrijs)} van de ${F.getal(v.klikken)} klikken, waarvan de klikprijs bekend is` : '' }));
+  }
+  const klik = V.stat({ label: 'Bezoekers vanuit Google', info: PV_INFO.bezoekers, groot: true, leeg: !t.clicks, waarde: F.getal(t.clicks), tel: t.clicks, delta: F.verschil(t.clicks, t.clicksVorig), tekst: t.clicks ? vorigTekst(t.clicksVorig) || 'Hoe vaak iemand doorklikte naar een blog' : 'Zodra iemand in Google op een blog klikt, zie je het hier.', inhoud: klikGrafiek });
+  lijst.push({
+    titel: 'Mensen klikken door',
+    lead: t.clicks > 0 ? `${F.getal(t.clicks)} ${t.clicks === 1 ? 'mens klikte' : 'mensen klikten'} in Google door naar een blog.${t.clicksVorig !== null && t.clicksVorig !== undefined && t.clicks > t.clicksVorig ? ` Dat zijn er ${F.getal(t.clicks - t.clicksVorig)} meer dan in de periode ervoor.` : ''}` : 'Eerst laat Google een blog zien, daarna klikken mensen door.',
+    inhoud: stapel2.length ? V.raster(klik + '<div class="v-kolom-stapel">' + stapel2.join('') + '</div>', 'groot') : klik
+  });
+
+  // 3. Lezen en AI
+  const lezen = [];
   if (t.paginaweergaven !== null && t.paginaweergaven !== undefined) {
-    lijst.push({ label: 'Paginaweergaven', icoon: 'blad', info: PV_INFO.paginaweergaven, waarde: F.getal(t.paginaweergaven), vergelijking: 'Hoe vaak de blogpagina\u2019s zijn bekeken' });
+    lezen.push(V.stat({ label: 'Paginaweergaven', info: PV_INFO.paginaweergaven, leeg: !t.paginaweergaven, waarde: F.getal(t.paginaweergaven), tel: t.paginaweergaven, tekst: 'Hoe vaak de blogpagina’s zijn bekeken' }));
   }
-  if (t.conversies) {
-    const c = t.conversies;
-    const w = c.woorden || { lead: ['aanvraag', 'aanvragen'], boeking: ['boeking', 'boekingen'], boekLabel: 'boeken' };
-    const delen = [];
-    if (c.leads) delen.push(`${F.getal(c.leads)} ${c.leads === 1 ? w.lead[0] : w.lead[1]}`);
-    if (c.boekingen) delen.push(`${F.getal(c.boekingen)} ${c.boekingen === 1 ? w.boeking[0] : w.boeking[1]}${c.omzet ? ` (${Number(c.omzet).toLocaleString('nl-NL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })})` : ''}`);
-    const doelen = [];
-    if (c.heeftLeads || c.heeftDoorklik) doelen.push('contact');
-    if (c.heeftBoekingen || c.heeftDoorklik) doelen.push(w.boekLabel);
-    const kort = doelen.length ? doelen : ['contact'];
-    const nogGeen = [c.heeftLeads || !c.heeftBoekingen ? w.lead[0] : null, c.heeftBoekingen ? w.boeking[0] : null].filter(Boolean).join(' of ');
-    lijst.push({
-      label: `Van blog naar ${kort.join(' of ')}`, icoon: 'pijl', info: PV_INFO.doorklik,
-      waarde: pvTotaal(c.heeftDoorklik ? c.doorkliks : (c.leads || 0) + (c.boekingen || 0), F),
-      vergelijking: delen.length ? `${delen.join(', ')} in bezoeken die op een blog begonnen` : `Nog geen ${nogGeen} vanuit een blog begonnen bezoek`,
-      extra: (c.heeftDoorklik ? c.doorkliks : (c.leads || 0) + (c.boekingen || 0)) ? '' : 'De meting loopt. Zodra het gebeurt, zie je het hier.'
-    });
-  }
-  // Meting 30-10-2026: AI assistenten, eerder gelezen, waarde en zoekopdrachten op de naam.
-  const euro = (n) => Number(n).toLocaleString('nl-NL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
   if (t.ai) {
     const a = t.ai;
     const w = a.woorden || { lead: ['aanvraag', 'aanvragen'], boeking: ['boeking', 'boekingen'] };
@@ -113,11 +133,27 @@ function pvTiles(t) {
     if (a.leads) conv.push(`${F.getal(a.leads)} ${a.leads === 1 ? w.lead[0] : w.lead[1]}`);
     if (a.boekingen) conv.push(`${F.getal(a.boekingen)} ${a.boekingen === 1 ? w.boeking[0] : w.boeking[1]}`);
     const bron = a.bronnen && a.bronnen.length ? `Vooral via ${a.bronnen.slice(0, 2).map((b) => b.bron).join(' en ')}` : '';
-    lijst.push({
-      label: 'Bezoekers via AI assistenten', icoon: 'ai', toon: 'ai', info: PV_INFO.ai, waarde: F.getal(a.sessies),
-      vergelijking: `Op de hele site, waarvan ${F.getal(a.sessiesBlogs || 0)} op een blog${conv.length ? '. ' + conv.join(' en ') + ' in die bezoeken' : ''}`,
-      extra: bron
-    });
+    lezen.push(V.stat({ label: 'Bezoekers via AI assistenten', info: PV_INFO.ai, leeg: !a.sessies, waarde: F.getal(a.sessies), tel: a.sessies, tekst: `Op de hele site, waarvan ${F.getal(a.sessiesBlogs || 0)} op een blog${conv.length ? '. ' + conv.join(' en ') + ' in die bezoeken' : ''}`, extra: bron }));
+  }
+  if (lezen.length) {
+    lijst.push({ titel: 'Ze lezen en komen ook via AI', lead: 'Wat bezoekers op de blogs doen, en hoeveel mensen via ChatGPT of Gemini op de site kwamen.', inhoud: V.raster(lezen.join(''), lezen.length > 1 ? '2' : 'auto') });
+  }
+
+  // 4. Contact. Nooit een kale nul: bij nul staat er Nog geen en dat de meting loopt.
+  const contact = [];
+  if (t.conversies) {
+    const c = t.conversies;
+    const w = c.woorden || { lead: ['aanvraag', 'aanvragen'], boeking: ['boeking', 'boekingen'], boekLabel: 'boeken' };
+    const delen = [];
+    if (c.leads) delen.push(`${F.getal(c.leads)} ${c.leads === 1 ? w.lead[0] : w.lead[1]}`);
+    if (c.boekingen) delen.push(`${F.getal(c.boekingen)} ${c.boekingen === 1 ? w.boeking[0] : w.boeking[1]}${c.omzet ? ` (${euro(c.omzet)})` : ''}`);
+    const doelen = [];
+    if (c.heeftLeads || c.heeftDoorklik) doelen.push('contact');
+    if (c.heeftBoekingen || c.heeftDoorklik) doelen.push(w.boekLabel);
+    const kort = doelen.length ? doelen : ['contact'];
+    const aantal = c.heeftDoorklik ? c.doorkliks : (c.leads || 0) + (c.boekingen || 0);
+    const nogGeen = [c.heeftLeads || !c.heeftBoekingen ? w.lead[0] : null, c.heeftBoekingen ? w.boeking[0] : null].filter(Boolean).join(' of ');
+    contact.push(V.stat({ label: `Direct van blog naar ${kort.join(' of ')}`, info: PV_INFO.doorklik, leeg: !aantal, waarde: F.getal(aantal || 0), tel: aantal, tekst: delen.length ? `${delen.join(', ')} in bezoeken die op een blog begonnen` : `Nog geen ${nogGeen} vanuit een blog begonnen bezoek. Zodra het gebeurt, zie je het hier.` }));
   }
   if (t.eerderGelezen) {
     const e = t.eerderGelezen;
@@ -126,54 +162,33 @@ function pvTiles(t) {
     const totaal = (e.leadsTotaal || 0) + (e.boekingenTotaal || 0);
     const beide = e.leads !== null && e.boekingen !== null;
     const woord = beide ? [`${w.lead[0]} of ${w.boeking[0]}`, `${w.lead[1]} en ${w.boeking[1]}`] : (e.boekingen !== null && e.leads === null ? w.boeking : w.lead);
+    contact.push(V.stat({
+      label: `${woord[1].charAt(0).toUpperCase() + woord[1].slice(1)} na het lezen van een blog`, info: PV_INFO.eerder, leeg: !aantal, waarde: F.getal(aantal), tel: aantal,
+      tekst: totaal ? `Van de ${F.getal(totaal)} ${totaal === 1 ? woord[0] : woord[1]} op de site in deze periode` : `Nog geen ${woord[0]} na het lezen van een blog`,
+      extra: aantal ? 'Ook als iemand later terugkwam en toen pas contact zocht' : 'De meting staat aan. Zodra iemand na een blog contact opneemt, zie je het hier, ook als dat later gebeurt.'
+    }));
+  }
+  if (contact.length) {
     lijst.push({
-      label: `${woord[1].charAt(0).toUpperCase() + woord[1].slice(1)} na het lezen van een blog`, icoon: 'blad', info: PV_INFO.eerder, waarde: pvTotaal(aantal, F),
-      vergelijking: totaal ? `Van de ${F.getal(totaal)} ${totaal === 1 ? woord[0] : woord[1]} op de site in deze periode` : `Nog geen ${woord[0]} na het lezen van een blog`,
-      extra: aantal ? 'Ook als iemand later terugkwam en toen pas contact zocht' : 'De meting staat aan. Zodra iemand na een blog contact opneemt, zie je het hier.'
+      titel: 'Ze nemen contact op',
+      lead: 'Een blog levert zelden direct een aanvraag op. Mensen lezen eerst, vergelijken en nemen later contact op. Daarom meten we twee dingen.',
+      inhoud: V.raster(contact.join(''), contact.length > 1 ? '2' : 'auto') + V.uitleg({ titel: 'Zo meten we wat het oplevert', inhoud: '<dl><dt>Direct van blog naar contact</dt><dd>Bezoeken die op een blog begonnen en in dezelfde sessie een aanvraag of boeking deden.</dd><dt>Na het lezen van een blog</dt><dd>Iemand las een blog en nam later contact op, ook via een andere weg. Wij onthouden welke blogs iemand las en tellen die mee zodra die persoon contact opneemt.</dd></dl><p>Staat er Nog geen, dan loopt de meting wel. Er is dan in deze periode nog niets gebeurd. Dat is geen fout. Cijfers uit Google lopen 2 tot 3 dagen achter. Wat per maand vastligt, staat bij Maandrapporten.</p>' })
     });
   }
-  if (t.waarde) {
-    const v = t.waarde;
-    lijst.push({
-      label: 'Waarde van de klikken uit Google', icoon: 'euro', info: PV_INFO.waarde, waarde: euro(v.bedrag),
-      vergelijking: 'Wat dezelfde klikken via Google Ads ongeveer hadden gekost',
-      extra: v.dekking !== null && v.dekking < 100 ? `Berekend over ${F.getal(v.klikkenMetPrijs)} van de ${F.getal(v.klikken)} klikken, waarvan de klikprijs bekend is` : ''
-    });
-  }
-  if (t.merk) {
-    const m = t.merk;
-    lijst.push({
-      label: 'Zoekopdrachten op jullie naam', icoon: 'zoek', info: PV_INFO.merk, waarde: F.getal(m.vertoningen),
-      verschil: F.verschil(m.vertoningen, m.vertoningenVorig),
-      vergelijking: `${F.getal(m.klikken)} ${m.klikken === 1 ? 'klik' : 'klikken'}${m.vertoningenVorig !== null && m.vertoningenVorig !== undefined ? `. ${F.getal(m.vertoningenVorig)} keer in de periode ervoor` : ''}`,
-      extra: 'Meer zoekopdrachten op de naam betekent dat meer mensen jullie kennen'
-    });
-  }
-  return lijst.map((x) => U.kerncijfer(x)).join('');
-}
 
-function pvBars(weken, veld, kleurKlasse, titel) {
-  if (!weken.length) return '';
-  const max = Math.max(1, ...weken.map((w) => w[veld]));
-  const bars = weken.map((w) => {
-    const h = Math.max(w[veld] > 0 ? 3 : 0, Math.round((w[veld] / max) * 100));
-    const nieuw = w.nieuw && w.nieuw.length
-      ? `<span class="pv-mark" title="${pvEsc('Nieuwe blog: ' + w.nieuw.map((n) => n.t).join(', '))}"></span>`
-      : '<span class="pv-mark pv-mark-leeg"></span>';
-    const tip = `Week van ${pvDatum(w.start)}: ${pvNl(w[veld])}${w.volledig ? '' : ' (week is nog bezig)'}`;
-    return `
-      <div class="pv-bar-col" title="${pvEsc(tip)}">
-        <div class="pv-bar-val">${w[veld] > 0 ? pvNl(w[veld]) : ''}</div>
-        <div class="pv-bar-area"><div class="pv-bar ${kleurKlasse}${w.volledig ? '' : ' pv-bar-partial'}" style="height:${h}%"></div></div>
-        ${nieuw}
-        <div class="pv-bar-lbl">${pvEsc(pvDatum(w.start))}</div>
-      </div>`;
-  }).join('');
-  return `
-    <div class="pv-chart">
-      <div class="pv-chart-title">${pvEsc(titel)}</div>
-      <div class="pv-bars">${bars}</div>
-    </div>`;
+  // 5. Wat wij doen, 6. Per blog
+  lijst.push({ titel: 'Wat wij ermee doen', lead: 'Wat wij in de cijfers zien en wat we daarna aanpassen. Alles wat we deden, staat er met het effect bij.', inhoud: '<div id="pvInzichten"></div><div id="pvEffecten"></div>' });
+  lijst.push({
+    titel: 'Elke blog apart',
+    lead: 'Hoe elke blog het doet en bij welke zoekwoorden hij meeloopt.',
+    inhoud: `<div id="pvTaalRij"></div><section class="p-kaart" id="pvZwKaart"></section>
+      <section class="p-kaart"><div class="p-kaart-kop"><div class="p-kaart-titel-blok"><h2 class="p-kaart-titel">Per blog</h2></div></div><div class="p-kaart-inhoud"><div id="pvBlogControls"></div><div id="pvBlogList"></div></div></section>
+      <details class="p-kaart pv-uitleg"><summary>Hoe lees ik dit?</summary><div class="p-kaart-inhoud">
+        <p><b>Getoond</b> betekent dat een blog in de zoekresultaten van Google stond. Dat gebeurt vaak eerder dan dat iemand doorklikt.</p>
+        <p><b>Positie</b> laten we in pagina’s zien. Pagina 1 zijn de eerste tien resultaten, en daar komen de meeste bezoekers vandaan. Een lagere positie is beter.</p>
+        <p>Een nieuwe blog heeft meestal een paar weken nodig voordat Google hem oppakt. Cijfers uit Google lopen bovendien 2 tot 3 dagen achter.</p></div></details>`
+  });
+  return lijst.map((h, i) => V.hoofdstuk({ nr: i + 1, titel: h.titel, lead: h.lead, inhoud: h.inhoud })).join('');
 }
 
 const PV_PRIO = { hoog: 'Hoge prioriteit', middel: 'Middel prioriteit', laag: 'Lage prioriteit' };
@@ -371,73 +386,15 @@ function renderPrestatiesV2(d) {
   el.classList.remove('pv-laden');
   const t = d.totalen;
   const F = window.PortaalFormat;
-  const U = window.PortaalUI;
-  const getoond = t.blogsGetoond || 0;
-  const gemeten = t.blogsGemeten || 0;
-  const paginaEen = d.blogs.filter((b) => b.hkPositie !== null && b.hkPositie !== undefined && b.hkPositie <= 10).length;
-  const uitleg = t.vertoningen > 0 ? d.samenvatting.slice(1).join(' ') : 'Een nieuwe blog heeft meestal een paar weken nodig voordat Google hem oppakt. Zodra het zover is, zie je het hier.';
-  const heroBadge = t.vertoningen > 0 ? F.verschil(t.vertoningen, t.vertoningenVorig) : null;
-  const hero = U.hero({
-    toon: 'merk',
-    eyebrow: 'Jullie blogs stonden in Google',
-    getal: t.vertoningen > 0 ? F.getal(t.vertoningen) : 'Nog niet',
-    badge: heroBadge ? { tekst: heroBadge.tekst + (t.vertoningenVorig !== null && t.vertoningenVorig !== undefined ? ` t.o.v. ${F.getal(t.vertoningenVorig)} ervoor` : ''), toon: heroBadge.toon } : null,
-    tekst: t.vertoningen > 0
-      ? `keer in de zoekresultaten. ${F.getal(t.clicks)} ${t.clicks === 1 ? 'mens klikte' : 'mensen klikten'} door naar een blog.${t.clicksVorig !== null && t.clicksVorig !== undefined && t.clicks > t.clicksVorig ? ` Dat zijn er ${F.getal(t.clicks - t.clicksVorig)} meer dan in de periode ervoor.` : ''}`
-      : uitleg,
-    rechts: U.lijn((d.weken || []).map((w) => ({ label: w.start, waarde: w.vertoningen })), { titel: 'Keer getoond per week', aria: 'Keer getoond per week' })
+  const V = window.PortaalVerhaal;
+  const acties = `${d.laatstBijgewerkt ? `<span class="p-ov-chip"><i class="p-ov-punt"></i>Bijgewerkt ${pvEsc(F.datumKort(d.laatstBijgewerkt))}</span>` : ''}${pvPeriodeKeuze(d)}<div class="pv-muted" id="pvPeriodeMelding"></div>`;
+  const toelichting = d.toelichting ? `<section class="p-kaart pv-toelichting v-toelichting"><div class="p-kaart-inhoud"><b>Toelichting van Advertisr</b><p>${pvEsc(d.toelichting)}</p></div></section>` : '';
+  const tab = document.getElementById('prestatiesTab');
+  if (tab) tab.classList.add('v-tab');
+  el.innerHTML = V.wereld({
+    kop: V.kop({ titel: 'Google', tekst: `Hoe jullie blogs het doen in de zoekresultaten van Google, van gezien worden tot contact opnemen. Dit is altijd de laatste stand. Cijfers tot en met ${F.datumKort(d.periode && d.periode.eind)}. Wat vastligt per maand staat bij Maandrapporten.`, acties }) + toelichting,
+    hoofdstukken: pvHoofdstukken(d)
   });
-  // Route van zoekresultaat tot aanvraag. Een lege stap is geen fout: de meting loopt.
-  const directAantal = t.conversies ? (t.conversies.heeftDoorklik ? t.conversies.doorkliks : (t.conversies.leads || 0) + (t.conversies.boekingen || 0)) || 0 : 0;
-  const eerderAantal = t.eerderGelezen ? (t.eerderGelezen.leads || 0) + (t.eerderGelezen.boekingen || 0) : 0;
-  const aanvragen = Math.max(directAantal, eerderAantal);
-  const deel = (n) => (t.vertoningen > 0 ? Math.min(100, (n / t.vertoningen) * 100) : 0);
-  const routeStappen = [
-    { label: 'Getoond in Google', waarde: F.getal(t.vertoningen), aandeel: t.vertoningen > 0 ? 100 : 0, info: PV_INFO.getoond, leeg: !t.vertoningen, tekst: t.vertoningen ? 'Hoe vaak een blog in de zoekresultaten stond' : 'Zodra Google een blog toont, zie je het hier' },
-    { label: 'Doorgeklikt', waarde: F.getal(t.clicks), aandeel: deel(t.clicks), info: PV_INFO.bezoekers, leeg: !t.clicks, tekst: t.clicks ? `Bezoekers vanuit Google${t.clicksVorig !== null && t.clicksVorig !== undefined ? `, ${F.getal(t.clicksVorig)} in de periode ervoor` : ''}` : 'Zodra iemand doorklikt, zie je het hier' }
-  ];
-  if (t.paginaweergaven !== null && t.paginaweergaven !== undefined) {
-    routeStappen.push({ label: 'Blog gelezen', waarde: F.getal(t.paginaweergaven), aandeel: deel(t.paginaweergaven), info: PV_INFO.paginaweergaven, leeg: !t.paginaweergaven, tekst: 'Paginaweergaven van de blogs' });
-  }
-  if (t.conversies || t.eerderGelezen) {
-    routeStappen.push({
-      label: 'Contact of boeking', waarde: F.getal(aanvragen), aandeel: deel(aanvragen), info: PV_INFO.eerder, leeg: !aanvragen,
-      tekst: aanvragen ? 'Minstens zoveel, direct vanuit een blog of na het lezen van een blog' : 'De meting loopt. Zodra iemand na een blog contact opneemt, zie je het hier, ook als dat later gebeurt.'
-    });
-  }
-  const route = routeStappen.length >= 3 ? U.route({ titel: 'Van zoekresultaat tot aanvraag', uitleg: 'Zo ver komen mensen. Een lege stap betekent dat de meting loopt, niet dat er iets mis is.', stappen: routeStappen }) : '';
-  const status = hero + route + `<section class="p-kaart p-hero-voet"><div class="p-ov-status-volgend">
-      <div class="p-ov-volgend"><span class="p-ov-lbl">Blogs in Google</span><span class="p-ov-val">${getoond} van ${gemeten}</span>${U.voortgang([{ aandeel: gemeten ? (getoond / gemeten) * 100 : 0, toon: 'goed' }], `${getoond} van ${gemeten} blogs worden al getoond`)}<span class="p-ov-txt">worden al getoond. De rest heeft meestal een paar weken nodig.</span></div>
-      <div class="p-ov-volgend"><span class="p-ov-lbl">Op pagina 1</span><span class="p-ov-val">${paginaEen} ${paginaEen === 1 ? 'blog' : 'blogs'}</span>${U.voortgang([{ aandeel: gemeten ? (paginaEen / gemeten) * 100 : 0, toon: 'goed' }], `${paginaEen} van ${gemeten} blogs op pagina 1`)}<span class="p-ov-txt">voor het hoofdzoekwoord</span></div>
-      <div class="p-ov-volgend"><span class="p-ov-lbl">Cijfers tot en met</span><span class="p-ov-val">${pvEsc(F.datumKort(d.periode && d.periode.eind))}</span><span class="p-ov-txt">Google loopt 2 tot 3 dagen achter</span></div>
-    </div></section>`;
-  el.innerHTML = `<div class="p-pagina">
-    <div class="p-ov-kop"><div><h1>Google</h1><p>Hoe jullie blogs het doen in de zoekresultaten van Google. Dit is altijd de laatste stand. Wat vastligt per maand staat bij Maandrapporten.</p></div>
-      <div class="p-ov-kop-acties">${d.laatstBijgewerkt ? `<span class="p-ov-chip"><i class="p-ov-punt"></i>Bijgewerkt ${pvEsc(F.datumKort(d.laatstBijgewerkt))}</span>` : ''}</div></div>
-    <div class="pv-periode-wrap">${pvPeriodeKeuze(d)}<div class="pv-muted" id="pvPeriodeMelding"></div></div>
-    ${d.toelichting ? `<section class="p-kaart pv-toelichting"><div class="p-kaart-inhoud"><b>Toelichting van Advertisr</b><p>${pvEsc(d.toelichting)}</p></div></section>` : ''}
-    ${status}
-    <div id="pvTaalRij"></div>
-    <section class="p-kerncijfers" id="pvTiles">${pvTiles(t)}</section>
-    ${pvMetingBlok()}
-    <div class="p-ov-raster2">
-      <div class="p-ov-stapel">
-        ${d.weken.length ? `<section class="p-kaart" id="pvWekenKaart"><div class="p-kaart-kop"><div class="p-kaart-titel-blok"><h2 class="p-kaart-titel">De laatste weken</h2><div class="p-kaart-uitleg">Een stip onder een week betekent dat er die week een nieuwe blog live ging. De lichte staaf is de week die nog loopt.</div></div></div>
-          <div class="p-kaart-inhoud"><div class="pv-charts">${pvBars(d.weken, 'vertoningen', 'pv-bar-a', 'Keer getoond per week')}${pvBars(d.weken, 'clicks', 'pv-bar-b', 'Bezoekers vanuit Google per week')}</div></div></section>` : ''}
-        <section class="p-kaart" id="pvZwKaart"></section>
-        <section class="p-kaart"><div class="p-kaart-kop"><div class="p-kaart-titel-blok"><h2 class="p-kaart-titel">Per blog</h2></div></div><div class="p-kaart-inhoud"><div id="pvBlogControls"></div><div id="pvBlogList"></div></div></section>
-      </div>
-      <div class="p-ov-stapel">
-        <div id="pvInzichten"></div>
-        <div id="pvEffecten"></div>
-        <details class="p-kaart pv-uitleg"><summary>Hoe lees ik dit?</summary><div class="p-kaart-inhoud">
-          <p><b>Getoond</b> betekent dat een blog in de zoekresultaten van Google stond. Dat gebeurt vaak eerder dan dat iemand doorklikt.</p>
-          <p><b>Positie</b> laten we in pagina\u2019s zien. Pagina 1 zijn de eerste tien resultaten, en daar komen de meeste bezoekers vandaan. Een lagere positie is beter.</p>
-          <p>Een nieuwe blog heeft meestal een paar weken nodig voordat Google hem oppakt. Cijfers uit Google lopen bovendien 2 tot 3 dagen achter.</p>
-          <p>Blogs zijn vaak het begin van een ori\u00ebntatie. Iemand die eerst een blog leest en later via een andere weg terugkomt om te boeken, zien we niet terug. De cijfers over aanvragen en boekingen laten dus zien wat een blog aantoonbaar bijdraagt, niet alles wat een blog oplevert.</p></div></details>
-      </div>
-    </div>
-  </div>`;
   pvTekenInzichten();
   pvTekenZoekwoorden();
   pvTekenEffecten();
@@ -445,6 +402,7 @@ function renderPrestatiesV2(d) {
   document.getElementById('pvBlogList').innerHTML = pvLijstHtml();
   pvTekenTaalRij();
   el.classList.remove('hidden');
+  V.activeer(el.querySelector('[data-v-wereld]'));
 
   const herteken = () => {
     document.getElementById('pvBlogControls').innerHTML = pvControlsHtml();
@@ -515,19 +473,6 @@ function renderPrestatiesV2(d) {
     pvState.toon = PV_STAP;
     document.getElementById('pvBlogList').innerHTML = pvLijstHtml();
   };
-}
-
-// Vast uitlegblok: legt in gewone taal uit hoe we meten wat het oplevert.
-function pvMetingBlok() {
-  return `<details class="p-kaart pv-meting"><summary class="p-kaart-titel" style="cursor:pointer;padding:14px 18px">Zo meten we wat het oplevert</summary><div class="p-kaart-inhoud">
-    <p>Een blog levert zelden direct een aanvraag op. Mensen lezen eerst, vergelijken en nemen later contact op. Daarom kijken we naar drie dingen.</p>
-    <dl>
-      <div><dt>Zichtbaar in Google</dt><dd>Hoeveel mensen jullie blogs zagen en erop klikten. Dit meet Google zelf.</dd></div>
-      <div><dt>Direct van blog naar contact</dt><dd>Bezoeken die op een blog begonnen en in dezelfde sessie een aanvraag of boeking deden.</dd></div>
-      <div><dt>Na het lezen van een blog</dt><dd>Iemand las een blog en nam later contact op, ook via een andere weg. Wij onthouden welke blogs iemand las en tellen die mee zodra die persoon contact opneemt.</dd></div>
-    </dl>
-    <p style="margin-top:10px">Staat er bij een tegel Nog geen, dan loopt de meting wel. Er is dan in deze periode nog niets gebeurd. Dat is geen fout. Cijfers uit Google lopen 2 tot 3 dagen achter. Wat per maand vastligt, staat bij Maandrapporten.</p>
-  </div></details>`;
 }
 
 function pvTekenTaalRij() {

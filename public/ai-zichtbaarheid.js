@@ -30,49 +30,39 @@
   const U = () => window.PortaalUI;
   let toonAlleVragen = false;
 
-  function platformKerncijfer(p) {
-    const vt = verschilTekst(p.verschil);
-    return U().kerncijfer({
-      label: p.label, icoon: 'ai', toon: 'ai', info: 'Wij stellen elke week dezelfde vragen over jullie vakgebied aan ' + p.label + '. Dit is het percentage antwoorden waarin jullie merk genoemd wordt. Een meting is een momentopname, het antwoord van een AI assistent kan per dag verschillen.', waarde: F().procent(p.percentage),
-      verschil: p.verschil && p.verschil.soort === 'meer' ? { tekst: 'Vaker genoemd', toon: 'goed' } : p.verschil && p.verschil.soort === 'minder' ? { tekst: 'Minder genoemd', toon: 'slecht' } : p.verschil && p.verschil.soort === 'schommeling' ? { tekst: 'Gelijk', toon: 'gelijk' } : null,
-      vergelijking: p.genoemd + ' van de ' + p.antwoorden + ' antwoorden noemt jullie merk',
-      extra: p.geciteerd + ' keer is jullie website als bron gebruikt' + (vt && p.verschil.soort !== 'schommeling' ? '. ' + vt : '')
-    });
+  const V = () => window.PortaalVerhaal;
+
+  // Onderwerpen als kaarten met twee balkjes: ChatGPT en Gemini naast elkaar, geen herhaling van tegels.
+  function onderwerpStats(clusters) {
+    const duo = (naam, c) => {
+      if (!c || !c.antwoorden) return '<div class="v-duo-rij"><span>' + naam + '</span><span class="v-duo-leeg">Geen data</span></div>';
+      const pct = (c.genoemd / c.antwoorden) * 100;
+      return '<div class="v-duo-rij"><span>' + naam + '</span>' + V().balk(pct, naam + ' ' + F().procent(pct)) + '<b>' + esc(F().procent(pct)) + '</b><small>' + c.genoemd + ' van ' + c.antwoorden + '</small></div>';
+    };
+    return clusters.map((c) => {
+      const antwoorden = ['chatgpt', 'gemini'].reduce((t, k) => t + ((c.platformen[k] && c.platformen[k].antwoorden) || 0), 0);
+      const genoemd = ['chatgpt', 'gemini'].reduce((t, k) => t + ((c.platformen[k] && c.platformen[k].genoemd) || 0), 0);
+      const pct = antwoorden ? (genoemd / antwoorden) * 100 : 0;
+      return V().stat({ label: c.naam, waarde: F().procent(pct), tel: Math.round(pct), eenheid: 'genoemd', inhoud: '<div class="v-duo">' + duo('ChatGPT', c.platformen.chatgpt) + duo('Gemini', c.platformen.gemini) + '</div>' });
+    }).join('');
   }
 
   // Wat leverde AI op: bezoeken via AI assistenten en de aanvragen of boekingen daarin. Nooit een kale nul.
-  function conversieBlok(c, ctx) {
-    if (!c) return '';
-    const woorden = c.woorden || { lead: ['aanvraag', 'aanvragen'], boeking: ['boeking', 'boekingen'] };
-    const a = c.ai;
+  function opbrengstHtml(c) {
+    const woorden = (c && c.woorden) || { lead: ['aanvraag', 'aanvragen'], boeking: ['boeking', 'boekingen'] };
+    const a = c && c.ai;
     if (!a) {
-      return U().kaart({ titel: 'Wat leverde AI op', uitleg: 'Bezoekers die via ChatGPT, Gemini en andere AI assistenten op de site kwamen.',
-        inhoud: U().legeStand({ soort: 'wacht', titel: 'De meting van AI bezoekers loopt nog niet', tekst: 'Zodra die aan staat, zie je hier hoeveel mensen via een AI assistent op de site kwamen en wat zij deden.' }) });
+      return U().legeStand({ soort: 'wacht', titel: 'De meting van AI bezoekers loopt nog niet', tekst: 'Zodra die aan staat, zie je hier hoeveel mensen via een AI assistent op de site kwamen en wat zij deden.' });
     }
     const delen = [];
     if (a.leads) delen.push(F().getal(a.leads) + ' ' + (a.leads === 1 ? woorden.lead[0] : woorden.lead[1]));
     if (a.boekingen) delen.push(F().getal(a.boekingen) + ' ' + (a.boekingen === 1 ? woorden.boeking[0] : woorden.boeking[1]));
-    const bron = a.bronnen && a.bronnen.length ? 'Vooral via ' + a.bronnen.slice(0, 3).map((b) => b.bron).join(', ') : '';
     const aanvragen = (a.leads || 0) + (a.boekingen || 0);
-        const stappen = [];
-    if (ctx) {
-      stappen.push({ label: 'AI noemt jullie merk', waarde: F().getal(ctx.genoemd), aandeel: ctx.antwoorden ? Math.min(100, (ctx.genoemd / ctx.antwoorden) * 100) : 0, leeg: !ctx.genoemd, info: 'In hoeveel van de antwoorden die wij ophalen jullie merk genoemd wordt. Een meting is een momentopname.', tekst: `${F().getal(ctx.genoemd)} van de ${F().getal(ctx.antwoorden)} antwoorden` });
-      stappen.push({ label: 'Website als bron', waarde: F().getal(ctx.geciteerd), aandeel: ctx.antwoorden ? Math.min(100, (ctx.geciteerd / ctx.antwoorden) * 100) : 0, leeg: !ctx.geciteerd, info: 'Hoe vaak een AI assistent jullie website als bron onder het antwoord zette. Mensen kunnen dan doorklikken.', tekst: 'Keer dat jullie website werd aangehaald' });
-    }
-    stappen.push({ label: 'Bezoeken via AI', waarde: F().getal(a.sessies), aandeel: a.sessies ? 100 : 0, leeg: !a.sessies, info: 'Bezoeken aan de hele website van mensen die via een AI assistent zoals ChatGPT of Gemini kwamen. Gemeten in Google Analytics, laatste 28 dagen.', tekst: a.sessies ? `In de laatste 28 dagen${a.sessiesBlogs != null ? `, waarvan ${F().getal(a.sessiesBlogs)} op een blog` : ''}${bron ? '. ' + bron : ''}` : 'Zodra iemand via een AI assistent op de site komt, zie je het hier' });
-    stappen.push({ label: 'Aanvraag of boeking', waarde: delen.length ? delen.join(' en ') : F().getal(aanvragen), aandeel: a.sessies ? Math.min(100, (aanvragen / a.sessies) * 100) : 0, leeg: !aanvragen, info: 'Hoeveel van die bezoeken eindigden in een aanvraag of boeking. Het zijn gemeten cijfers, geen schatting.', tekst: aanvragen ? 'In bezoeken die via een AI assistent begonnen' : 'De meting loopt. Zodra een bezoeker via AI een aanvraag of boeking doet, zie je het hier.' });
-    return U().route({ titel: 'Wat leverde AI op', uitleg: 'Zo ver komen mensen. Een lege stap betekent dat de meting loopt, niet dat er iets mis is.', stappen }) +
-      '<p class="ai-uitleg">Een AI assistent noemt jullie merk of website, een lezer klikt door en komt op de site. Dat zie je hierboven. Mensen die jullie naam alleen onthouden en later zelf zoeken, tellen hier niet mee.</p>';
-  }
-
-  function onderwerpKaarten(clusters, markt) {
-    if (!clusters.length) return '';
-    const cel = (naam, c) => {
-      if (!c || !c.antwoorden) return '<div><dt>' + naam + '</dt><dd class="ai-nvt">Geen data</dd></div>';
-      return '<div><dt>' + naam + '</dt><dd>' + esc(F().procent((c.genoemd / c.antwoorden) * 100)) + '<span class="ai-klein"> ' + c.genoemd + ' van ' + c.antwoorden + '</span></dd></div>';
-    };
-    const kaarten = clusters.map((c) => '<article class="p-ov-onderwerp"><h3>' + esc(c.naam) + '</h3><dl>' + cel('ChatGPT', c.platformen.chatgpt) + cel('Gemini', c.platformen.gemini) + '</dl></article>').join('');
-    return U().kaart({ titel: markt ? 'Per markt' : 'Per onderwerp', uitleg: markt ? 'In welke markten (talen) de AI jullie merk het vaakst noemt' : 'Bij welke onderwerpen de AI jullie merk het vaakst noemt', inhoud: '<div class="p-ov-onderwerpen">' + kaarten + '</div>' });
+    const bron = a.bronnen && a.bronnen.length ? 'Vooral via ' + a.bronnen.slice(0, 3).map((b) => b.bron).join(', ') : '';
+    return V().raster(
+      V().stat({ label: 'Bezoeken via AI assistenten', info: 'Bezoeken aan de hele website van mensen die via een AI assistent zoals ChatGPT of Gemini kwamen. Gemeten in Google Analytics, laatste 28 dagen.', leeg: !a.sessies, waarde: F().getal(a.sessies), tel: a.sessies, tekst: a.sessies ? 'In de laatste 28 dagen' + (a.sessiesBlogs != null ? ', waarvan ' + F().getal(a.sessiesBlogs) + ' op een blog' : '') : 'Zodra iemand via een AI assistent op de site komt, zie je het hier.', extra: bron }) +
+      V().stat({ label: 'Aanvraag of boeking in die bezoeken', info: 'Hoeveel van die bezoeken eindigden in een aanvraag of boeking. Het zijn gemeten cijfers, geen schatting.', leeg: !aanvragen, waarde: delen.join(' en '), tel: aanvragen && delen.length === 1 ? aanvragen : null, tekst: aanvragen ? 'In bezoeken die via een AI assistent begonnen' : 'Zodra een bezoeker via AI een aanvraag of boeking doet, zie je het hier.' }), '2') +
+      V().uitleg({ titel: 'Hoe zien we dat', inhoud: '<p>Een AI assistent noemt jullie merk of website, een lezer klikt door en komt op de site. Dat zie je hierboven. Mensen die jullie naam alleen onthouden en later zelf zoeken, tellen hier niet mee.</p>' });
   }
 
   function trendBlok(trend, reeks, laatsteControle) {
@@ -239,10 +229,13 @@
   function teken(data) {
     const inhoud = el('aiZichtbaarheidInhoud');
     if (!inhoud) return;
-    const kop = '<div class="p-ov-kop"><div><h1>AI zichtbaarheid</h1><p>Steeds meer mensen stellen hun vraag aan ChatGPT of Gemini in plaats van aan Google. Wij stellen elke week dezelfde vragen aan beide en tellen hoe vaak jullie merk in het antwoord voorkomt.</p></div>' +
-      (data.status === 'ok' ? `<div class="p-ov-kop-acties"><span class="p-ov-chip"><i class="p-ov-punt"></i>Laatste meting: ${esc(data.laatsteWeek.label)}</span></div>` : '') + '</div>';
+    const tab = el('aiZichtbaarheidTab');
+    if (tab) tab.classList.add('v-tab');
+    const kop = V().kop({ titel: 'AI zichtbaarheid', tekst: 'Steeds meer mensen stellen hun vraag aan ChatGPT of Gemini in plaats van aan Google. Wij stellen elke week dezelfde vragen aan beide en tellen hoe vaak jullie merk in het antwoord voorkomt.',
+      acties: data.status === 'ok' ? `<span class="p-ov-chip"><i class="p-ov-punt"></i>Laatste meting: ${esc(data.laatsteWeek.label)}</span>` : '' });
     if (data.status !== 'ok') {
-      inhoud.innerHTML = '<div class="p-pagina">' + kop + U().kaart({ inhoud: U().legeStand({ soort: 'wacht', titel: 'De eerste meting volgt', tekst: data.melding || 'Zodra de eerste volledige week is gemeten, zie je hier de resultaten.' }) }) + '</div>';
+      inhoud.innerHTML = V().wereld({ kop, hoofdstukken: V().hoofdstuk({ nr: 1, titel: 'De eerste meting volgt', inhoud: U().legeStand({ soort: 'wacht', titel: 'De eerste meting volgt', tekst: data.melding || 'Zodra de eerste volledige week is gemeten, zie je hier de resultaten.' }) }) });
+      V().activeer(inhoud.querySelector('[data-v-wereld]'));
       return;
     }
     const antw = data.platformen.reduce((t, p) => t + p.antwoorden, 0);
@@ -251,29 +244,34 @@
     const gec = data.platformen.reduce((t, p) => t + p.geciteerd, 0);
     const d = new Date(Date.UTC(+data.laatsteWeek.start.slice(0, 4), +data.laatsteWeek.start.slice(5, 7) - 1, +data.laatsteWeek.start.slice(8, 10) + 7)).toISOString().slice(0, 10);
     const volgende = d >= new Date().toISOString().slice(0, 10) ? F().datumLang(d) : 'Deze week';
-    const ringen = data.platformen.map((p) => U().ring(p.percentage, p.label, `${p.genoemd} van ${p.antwoorden} antwoorden`)).join('');
-    const status = U().hero({
-      toon: 'ai',
-      eyebrow: totaal === 0 ? 'AI noemt jullie merk nog niet' : 'AI noemt jullie merk in',
-      getal: totaal === 0 ? '0%' : totaal + '%',
-      tekst: (totaal === 0 ? 'van de antwoorden. Dat is een normaal beginpunt. Wij meten elke week en laten hier zien wat er verandert.' : 'van de antwoorden, totaal over ChatGPT en Gemini in de laatste volledige week.') + (data.melding ? ' ' + data.melding : ''),
-      rechts: ringen
-    }) + `<section class="p-kaart p-hero-voet"><div class="p-ov-status-volgend">
-        <div class="p-ov-volgend"><span class="p-ov-lbl">Laatste meting</span><span class="p-ov-val">${esc(data.laatsteWeek.label)}</span><span class="p-ov-txt">${antw} antwoorden</span></div>
-        <div class="p-ov-volgend"><span class="p-ov-lbl">Volgende meting</span><span class="p-ov-val">${esc(volgende)}</span><span class="p-ov-txt">Elke week</span></div>
-        <div class="p-ov-volgend"><span class="p-ov-lbl">Weken gemeten</span><span class="p-ov-val">${data.aantalWeken}</span><span class="p-ov-txt">${data.aantalWeken < 3 ? 'Verloop volgt na 3 weken' : 'Zie het verloop'}</span></div>
-      </div></section>`;
+    const platInfo = (p) => 'Wij stellen elke week dezelfde vragen over jullie vakgebied aan ' + p.label + '. Dit is het percentage antwoorden waarin jullie merk genoemd wordt. Een meting is een momentopname, het antwoord van een AI assistent kan per dag verschillen.';
+    const ringen = data.platformen.map((p) => {
+      const vt = verschilTekst(p.verschil);
+      return V().ring(p.percentage, p.label, p.genoemd + ' van de ' + p.antwoorden + ' antwoorden' + (vt && p.verschil.soort !== 'schommeling' ? '. ' + vt : p.verschil && p.verschil.soort === 'schommeling' ? '. Ongeveer gelijk aan de vorige meting' : ''), platInfo(p));
+    }).join('');
     const verloop = data.aantalWeken < 3
       ? U().kaart({ titel: 'Verloop per week', inhoud: U().legeStand({ soort: 'wacht', titel: 'Het verloop volgt na drie weken', tekst: 'Zo voorkomen we dat toeval als winst of verlies wordt gezien.' }) })
       : trendBlok(data.trend, data.reeks, data.laatsteKernControle);
-    inhoud.innerHTML = `<div class="p-pagina">${kop}${status}
-      <section class="p-kerncijfers">${data.platformen.map(platformKerncijfer).join('')}${U().kerncijfer({ label: 'Website als bron', icoon: 'blad', info: 'Hoe vaak een AI assistent jullie website als bron noemde onder het antwoord. Dat is waardevol, want mensen kunnen dan doorklikken.', waarde: F().getal(gec), vergelijking: 'Keer dat jullie website in een antwoord werd aangehaald' })}</section>
-      ${conversieBlok(data.conversie, { genoemd: gen, antwoorden: antw, geciteerd: gec })}
-      ${data.clusterSoort === 'markt' ? '<p class="ai-uitleg">De cijfers hierboven zijn het totaal over alle markten.</p>' : ''}
-      <div class="p-ov-raster2">
-        <div class="p-ov-stapel">${verloop}${onderwerpKaarten(data.clusters, data.clusterSoort === 'markt')}<div id="aiVragenBlok"></div></div>
-        <div class="p-ov-stapel">${kansenBlok(data.kansen)}${vraagKansenBlok(data.vraagKansen)}${urlBlok(data.eigenUrls)}<p class="ai-voet">Het gaat om vragen die wij zelf hebben opgesteld. AI antwoorden verschillen van keer tot keer, dus het gaat om het grote beeld.</p></div>
-      </div></div>`;
+    const markt = data.clusterSoort === 'markt';
+    const lijst = [];
+    lijst.push({
+      titel: 'Wat AI over jullie zegt',
+      lead: (totaal === 0 ? 'AI noemt jullie merk nog niet. Dat is een normaal beginpunt. Wij meten elke week en laten hier zien wat er verandert.' : 'In ' + totaal + '% van de antwoorden noemt AI jullie merk. Dit is het totaal over ChatGPT en Gemini in de laatste volledige week.') + (data.melding ? ' ' + data.melding : ''),
+      inhoud: V().raster(
+        V().stat({ label: 'Merk genoemd door AI', info: 'In hoeveel van de antwoorden die wij ophalen jullie merk genoemd wordt, over ChatGPT en Gemini samen. Een meting is een momentopname.', groot: true, waarde: totaal + '%', tel: totaal, tekst: gen + ' van de ' + antw + ' antwoorden noemt jullie merk', extra: 'Laatste meting: ' + data.laatsteWeek.label + '. Volgende meting: ' + volgende + '. ' + data.aantalWeken + (data.aantalWeken === 1 ? ' week' : ' weken') + ' gemeten.' }) +
+        '<div class="v-kolom-stapel v-ringen">' + ringen + '</div>', 'groot') + verloop
+    });
+    if (data.clusters && data.clusters.length) {
+      lijst.push({ titel: markt ? 'In welke markten' : 'Waar het over gaat', lead: markt ? 'In welke markten (talen) de AI jullie merk het vaakst noemt. De cijfers hierboven zijn het totaal over alle markten.' : 'Bij welke onderwerpen de AI jullie merk het vaakst noemt.', inhoud: V().raster(onderwerpStats(data.clusters), 'auto') });
+    }
+    const bronBlok = [V().stat({ label: 'Website als bron', info: 'Hoe vaak een AI assistent jullie website als bron noemde onder het antwoord. Dat is waardevol, want mensen kunnen dan doorklikken.', leeg: !gec, waarde: F().getal(gec), tel: gec, tekst: gec ? 'Keer dat jullie website in een antwoord werd aangehaald' : 'Zodra een AI assistent jullie website als bron noemt, zie je het hier.' })];
+    const urls = urlBlok(data.eigenUrls || []);
+    lijst.push({ titel: 'Noemen ze jullie website', lead: 'Een AI assistent kan jullie website als bron onder het antwoord zetten. Dan kunnen mensen doorklikken.', inhoud: urls ? V().raster(bronBlok[0] + urls, '2') : bronBlok[0] });
+    lijst.push({ titel: 'Wat het oplevert', lead: 'Komen er mensen via een AI assistent op de site, en nemen die contact op?', inhoud: opbrengstHtml(data.conversie) });
+    const kansen = kansenBlok(data.kansen) + vraagKansenBlok(data.vraagKansen);
+    lijst.push({ titel: 'Wat wij ermee doen', lead: 'Signalen uit de meting en wat wij daarna doen.', inhoud: (kansen || U().legeStand({ soort: 'klaar', titel: 'Geen aandachtspunten', tekst: 'Zodra de meting iets laat zien om op te volgen, staat het hier.' })) });
+    lijst.push({ titel: 'Elke vraag apart', lead: 'Alle vragen die wij stelden en wat de AI antwoordde.', inhoud: '<div id="aiVragenBlok"></div><p class="ai-voet">Het gaat om vragen die wij zelf hebben opgesteld. AI antwoorden verschillen van keer tot keer, dus het gaat om het grote beeld.</p>' });
+    inhoud.innerHTML = V().wereld({ kop, hoofdstukken: lijst.map((h, i) => V().hoofdstuk({ nr: i + 1, titel: h.titel, lead: h.lead, inhoud: h.inhoud })).join('') });
     const kansenVraag = el('aiVraagKansen');
     if (kansenVraag) {
       kansenVraag.addEventListener('click', (e) => {
@@ -281,6 +279,7 @@
         if (v) openAntwoord(v.getAttribute('data-ai-vraag'), v);
       });
     }
+    V().activeer(inhoud.querySelector('[data-v-wereld]'));
     laadVragen();
   }
 
