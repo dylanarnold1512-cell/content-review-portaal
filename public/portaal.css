@@ -137,7 +137,7 @@ button, input, textarea, select { font-family: inherit; }
 .p-kerncijfers { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--panel); border: 1px solid var(--border); border-radius: var(--p-hoek); box-shadow: var(--p-schaduw); }
 .p-kerncijfer { display: flex; flex-direction: column; gap: 6px; padding: 16px 18px 18px; border-left: 1px solid var(--border); min-width: 0; }
 .p-kerncijfer:first-child { border-left: 0; }
-.p-kerncijfer-kop { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: var(--p-tekst-zacht); }
+.p-kerncijfer-kop { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 13px; font-weight: 500; color: var(--p-tekst-zacht); }
 .p-kerncijfer-icoon { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; background: var(--p-vlak-2); border: 1px solid var(--border); color: var(--p-tekst-zacht); flex: none; }
 .p-kerncijfer-icoon:empty { display: none; }
 .p-kerncijfer-icoon-ai { background: var(--p-ai-zacht); border-color: transparent; color: var(--p-ai); }
@@ -1002,3 +1002,8 @@ button.pa-item:focus-visible, .pa-filter:focus-visible, .pa-volgende:focus-visib
 .pv-meting dl { margin: 8px 0 0; display: grid; gap: 8px; }
 .pv-meting dt { font-weight: 600; }
 .pv-meting dd { margin: 0 0 0 0; color: var(--p-tekst-zacht); }
+
+.p-kerncijfer-label { flex: 1 1 90px; min-width: 0; line-height: 1.3; }
+.p-kerncijfer-label .p-info { vertical-align: middle; margin-left: 6px; }
+.p-kerncijfer-kop .p-verschil { flex: none; }
+.p-info-pop { text-transform: none; }

@@ -79,7 +79,7 @@
     const vTekst = v ? '<span class="p-verschil p-verschil-' + (['goed', 'slecht', 'gelijk'].includes(v.toon) ? v.toon : 'gelijk') + '">' + esc(v.tekst) + '</span>' : '';
     const eenheid = opt.eenheid ? '<small>' + esc(opt.eenheid) + '</small>' : '';
     return '<div class="p-kerncijfer">' +
-      '<div class="p-kerncijfer-kop"><span class="p-kerncijfer-icoon' + (opt.toon === 'ai' ? ' p-kerncijfer-icoon-ai' : '') + '">' + icoon(opt.icoon) + '</span>' + esc(opt.label) + infoKnop(opt.info, opt.label) + vTekst + '</div>' +
+      '<div class="p-kerncijfer-kop"><span class="p-kerncijfer-icoon' + (opt.toon === 'ai' ? ' p-kerncijfer-icoon-ai' : '') + '">' + icoon(opt.icoon) + '</span><span class="p-kerncijfer-label">' + esc(opt.label) + infoKnop(opt.info, opt.label) + '</span>' + vTekst + '</div>' +
       '<div class="p-kerncijfer-rij"><div class="p-kerncijfer-waarde">' + esc(opt.waarde) + eenheid + '</div>' + staafjes(opt.staafjes) + '</div>' +
       (opt.vergelijking ? '<div class="p-kerncijfer-sub">' + esc(opt.vergelijking) + '</div>' : '') +
       (opt.extra ? '<div class="p-kerncijfer-sub">' + esc(opt.extra) + '</div>' : '') +

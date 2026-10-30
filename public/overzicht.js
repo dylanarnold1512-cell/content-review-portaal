@@ -179,17 +179,17 @@
     if (s.google.status === 'ok') {
       const gk = s.google;
       const kleur = gk.weken.slice(-8);
-      lijst.push('<div class="p-kerncijfer-blok">' + U_.kerncijfer({ label: 'Keer getoond in Google', icoon: 'oog', waarde: Fm.getal(gk.vertoningen), verschil: Fm.verschil(gk.vertoningen, gk.vertoningenVorig), vergelijking: gk.vertoningenVorig != null ? Fm.getal(gk.vertoningenVorig) + ' in de 28 dagen ervoor' : '', staafjes: kleur.map((w) => w.vertoningen) }) + oud + '</div>');
-      lijst.push('<div class="p-kerncijfer-blok">' + U_.kerncijfer({ label: 'Bezoekers vanuit Google', icoon: 'mensen', waarde: Fm.getal(gk.clicks), verschil: Fm.verschil(gk.clicks, gk.clicksVorig), vergelijking: gk.clicksVorig != null ? Fm.getal(gk.clicksVorig) + ' in de 28 dagen ervoor' : '', staafjes: kleur.map((w) => w.clicks) }) + oud + '</div>');
+      lijst.push('<div class="p-kerncijfer-blok">' + U_.kerncijfer({ label: 'Keer getoond in Google', icoon: 'oog', info: 'Hoe vaak een van jullie blogs in de zoekresultaten van Google stond. Dat gebeurt vaak eerder dan dat iemand doorklikt.', waarde: Fm.getal(gk.vertoningen), verschil: Fm.verschil(gk.vertoningen, gk.vertoningenVorig), vergelijking: gk.vertoningenVorig != null ? Fm.getal(gk.vertoningenVorig) + ' in de 28 dagen ervoor' : '', staafjes: kleur.map((w) => w.vertoningen) }) + oud + '</div>');
+      lijst.push('<div class="p-kerncijfer-blok">' + U_.kerncijfer({ label: 'Bezoekers vanuit Google', icoon: 'mensen', info: 'Hoe vaak iemand in Google op een van jullie blogs klikte. Gemeten door Google zelf.', waarde: Fm.getal(gk.clicks), verschil: Fm.verschil(gk.clicks, gk.clicksVorig), vergelijking: gk.clicksVorig != null ? Fm.getal(gk.clicksVorig) + ' in de 28 dagen ervoor' : '', staafjes: kleur.map((w) => w.clicks) }) + oud + '</div>');
     }
     const getoond = s.google.status === 'ok' && s.google.blogsGemeten ? s.google.blogsGetoond + ' daarvan worden getoond in Google' : '';
-    lijst.push('<div class="p-kerncijfer-blok">' + U_.kerncijfer({ label: 'Blogs live', icoon: 'blad', waarde: String(s.aantalLive), vergelijking: getoond || (s.aantalGepland ? s.aantalGepland + ' nog gepland' : '') }) +
+    lijst.push('<div class="p-kerncijfer-blok">' + U_.kerncijfer({ label: 'Blogs live', icoon: 'blad', info: 'Het aantal blogs dat gepubliceerd is op jullie website. Nieuwe blogs hebben meestal een paar weken nodig voordat Google ze oppakt.', waarde: String(s.aantalLive), vergelijking: getoond || (s.aantalGepland ? s.aantalGepland + ' nog gepland' : '') }) +
       (s.google.status === 'ok' && s.google.blogsGemeten ? U_.voortgang([{ aandeel: (s.google.blogsGetoond / s.google.blogsGemeten) * 100, toon: 'plan' }], 'Blogs die getoond worden in Google') : '') + '</div>');
     if (s.ai.status === 'ok') {
       const a = s.ai;
       const platf = a.heeftMeting && a.platformen ? a.platformen.filter((p) => p.label).map((p) => p.label + ' ' + p.genoemd + ' van ' + p.antwoorden).join(' · ') + ' antwoorden' : '';
       lijst.push('<div class="p-kerncijfer-blok">' + U_.kerncijfer({
-        label: 'AI noemt jullie', icoon: 'ai', toon: 'ai',
+        label: 'AI noemt jullie', icoon: 'ai', toon: 'ai', info: 'Wij stellen elke week dezelfde vragen over jullie vakgebied aan ChatGPT en Gemini. Dit is het percentage antwoorden waarin jullie merk genoemd wordt.',
         waarde: a.heeftMeting && a.percentage != null ? Fm.procent(a.percentage) : 'Nog geen meting',
         verschil: a.heeftMeting && a.vorigPercentage != null ? puntenVerschil(a.percentage, a.vorigPercentage) : null,
         vergelijking: a.heeftMeting ? platf : (a.melding || 'De eerste meting volgt'),
