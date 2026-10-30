@@ -2,13 +2,18 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { beeldbankAan, stuurAfbeelding } = require('../src/services/beeldbank');
 
-test('beeldbank staat uit tenzij de klant hem aan heeft', () => {
+test('beeldbank staat aan voor elke klant met een Drive beeldmap', async () => {
   delete process.env.BEELDBANK_KLANTEN;
-  assert.equal(beeldbankAan({ id: 'ppe' }), false);
-  assert.equal(beeldbankAan({ id: 'nieuw', beeldbank: true }), true);
+  const metMap = async () => [{ beeld_map_id: '1VgNFyrMLE8kix_fCr8CidWDEvXBELe1m' }];
+  const zonderMap = async () => [{ beeld_map_id: '  ' }];
+  const kapot = async () => { throw new Error('n8n down'); };
+  assert.equal(await beeldbankAan({ id: 'a', naam: 'Klant Met Map' }, metMap), true);
+  assert.equal(await beeldbankAan({ id: 'b', naam: 'Klant Zonder Map' }, zonderMap), false);
+  assert.equal(await beeldbankAan({ id: 'c', naam: 'Klant Kapot' }, kapot), false);
+  assert.equal(await beeldbankAan({ id: 'd', naam: 'Uit', beeldbank: false }, metMap), false);
+  assert.equal(await beeldbankAan({ id: 'e', naam: 'Aan', beeldbank: true }, zonderMap), true);
   process.env.BEELDBANK_KLANTEN = 'hirs-installaties, andere';
-  assert.equal(beeldbankAan({ id: 'Hirs-Installaties' }), true);
-  assert.equal(beeldbankAan({ id: 'ppe' }), false);
+  assert.equal(await beeldbankAan({ id: 'Hirs-Installaties', naam: 'Hirs' }, zonderMap), true);
   delete process.env.BEELDBANK_KLANTEN;
 });
 

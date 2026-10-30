@@ -11,13 +11,36 @@ const VERWIJDER_URL = process.env.N8N_BEELDBANK_VERWIJDER_URL || `${N8N_BASE_URL
 const TOEGESTANE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_BASE64 = 6000000;
 
-// Aan voor klanten met beeldbank: true in clients.js of in de omgevingsvariabele BEELDBANK_KLANTEN (ids, met komma).
-// Bestaande klanten met een eigen fotomap blijven buiten beeld tot Dylan ze hier bewust aanzet.
-function beeldbankAan(config) {
+// Elke klant met een Drive beeldmap (beeld_map_id in de Clients tabel) krijgt de beeldbank.
+// Uit te zetten per klant met beeldbank: false in clients.js. Aanzetten zonder beeldmap kan met beeldbank: true
+// of via de omgevingsvariabele BEELDBANK_KLANTEN (ids, met komma).
+const CLIENTS_TABLE_ID = process.env.N8N_CLIENTS_TABLE_ID || '42vYfT6ktan72bpa';
+const heeftMapCache = new Map();
+
+async function heeftBeeldmap(klantNaam, tabelFn) {
+  const sleutel = String(klantNaam || '');
+  const nu = Date.now();
+  const bewaard = heeftMapCache.get(sleutel);
+  if (bewaard && nu - bewaard.tijd < 60000) return bewaard.waarde;
+  let waarde = false;
+  try {
+    const rijen = await (tabelFn || n8nTabel)(CLIENTS_TABLE_ID, [{ columnName: 'client_name', condition: 'eq', value: sleutel }]);
+    waarde = String((rijen[0] || {}).beeld_map_id || '').trim() !== '';
+  } catch (err) {
+    console.error('Beeldmap controleren mislukt:', err.message);
+    return false;
+  }
+  heeftMapCache.set(sleutel, { tijd: nu, waarde });
+  return waarde;
+}
+
+async function beeldbankAan(config, tabelFn) {
   if (!config) return false;
+  if (config.beeldbank === false) return false;
   if (config.beeldbank === true) return true;
   const lijst = String(process.env.BEELDBANK_KLANTEN || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
-  return lijst.includes(String(config.id || '').toLowerCase());
+  if (lijst.includes(String(config.id || '').toLowerCase())) return true;
+  return heeftBeeldmap(config.naam, tabelFn);
 }
 
 async function lijstAfbeeldingen(klantNaam) {
