@@ -149,7 +149,11 @@
     const klikken = metGoogle.reduce((t, p) => t + (p.google.klikken || 0), 0);
     const vertoningen = metGoogle.reduce((t, p) => t + (p.google.vertoningen || 0), 0);
     const genoemd = live.filter((p) => p.ai && p.ai.geciteerd > 0).length;
-    return { live: live.length, metGoogle: metGoogle.length, klikken, vertoningen, genoemd };
+    // 30-10-2026: aanvragen uit bezoeken die op een pagina begonnen, en de waarde van de klikken (klikprijs uit Google Ads).
+    const aanvragen = live.reduce((t, p) => t + (p.website ? (p.website.leads || 0) + (p.website.boekingen || 0) : 0), 0);
+    const metWaarde = live.filter((p) => p.google && p.google.waarde !== null && p.google.waarde !== undefined);
+    const waarde = metWaarde.length ? metWaarde.reduce((t, p) => t + p.google.waarde, 0) : null;
+    return { live: live.length, metGoogle: metGoogle.length, klikken, vertoningen, genoemd, aanvragen, waarde };
   }
   function volgende(paginas, aantal = 3) {
     return (paginas || []).filter((p) => p.stand === 'Gepland').sort((a, b) => (a.schrijfOp || '9999').localeCompare(b.schrijfOp || '9999')).slice(0, aantal);
@@ -221,7 +225,9 @@
       const uitleg = !data.meting.google
         ? 'De meting van Google staat nog niet aan. Zodra hij aan staat zie je hier hoeveel mensen de pagina\'s vinden en aanklikken.'
         : (som.metGoogle ? '' : 'Er zijn nog geen vertoningen gemeten. Een nieuwe pagina heeft meestal enkele weken nodig voordat Google hem toont.');
-      const rijen = live.map((p) => `<tr><td><strong>${paginaLink(p)}</strong></td><td class="pg-gemeten">${googleTekst(p, data.meting)}</td><td class="pg-gemeten">${aiTekst(p, data.meting)}</td></tr>`).join('');
+      const A = window.PaginasAgenda;
+      const metWebsite = Boolean(data.meting.website && A);
+      const rijen = live.map((p) => `<tr><td><strong>${paginaLink(p)}</strong></td><td class="pg-gemeten">${googleTekst(p, data.meting)}</td>${metWebsite ? `<td class="pg-gemeten">${esc(A.websiteTekst(p, data.meting))}</td>` : ''}<td class="pg-gemeten">${aiTekst(p, data.meting)}</td></tr>`).join('');
       root.innerHTML = `
         <div class="p-ov-kop"><div><h1>Resultaten</h1><p>Hoe de pagina's die live staan presteren in Google en in AI antwoorden.</p></div></div>
         <div class="p-kerncijfers">
@@ -229,11 +235,13 @@
           <div class="p-kerncijfer"><div class="p-kerncijfer-kop">Klikken uit Google</div><div class="p-kerncijfer-waarde">${nl(som.klikken)}</div><div class="p-kerncijfer-sub">van alle live pagina's</div></div>
           <div class="p-kerncijfer"><div class="p-kerncijfer-kop">Vertoningen</div><div class="p-kerncijfer-waarde">${nl(som.vertoningen)}</div><div class="p-kerncijfer-sub">keer getoond in Google</div></div>
           <div class="p-kerncijfer"><div class="p-kerncijfer-kop">Genoemd door AI</div><div class="p-kerncijfer-waarde">${som.genoemd}</div><div class="p-kerncijfer-sub">pagina's als bron genoemd</div></div>
+          ${data.meting.website ? `<div class="p-kerncijfer"><div class="p-kerncijfer-kop">Aanvragen</div><div class="p-kerncijfer-waarde">${nl(som.aanvragen)}</div><div class="p-kerncijfer-sub">in bezoeken die op een pagina begonnen</div></div>` : ''}
+          ${data.meting.waarde && som.waarde !== null ? `<div class="p-kerncijfer"><div class="p-kerncijfer-kop">Waarde van de klikken</div><div class="p-kerncijfer-waarde">${esc(Number(som.waarde).toLocaleString('nl-NL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }))}</div><div class="p-kerncijfer-sub">wat dezelfde klikken via Google Ads ongeveer kosten</div></div>` : ''}
         </div>
         ${uitleg ? `<p class="pg-gemeten" style="margin-top:14px;">${esc(uitleg)}</p>` : ''}
         <section class="p-kaart pg-kaart"><div class="pg-tabel-wrap"><table class="pg-tabel">
-          <thead><tr><th>Pagina</th><th>Google</th><th>AI</th></tr></thead>
-          <tbody>${rijen || '<tr><td colspan="3" class="pg-gemeten">Zodra er een pagina live staat zie je hier hoe hij scoort.</td></tr>'}</tbody>
+          <thead><tr><th>Pagina</th><th>Google</th>${metWebsite ? '<th>Op de website</th>' : ''}<th>AI</th></tr></thead>
+          <tbody>${rijen || '<tr><td colspan="4" class="pg-gemeten">Zodra er een pagina live staat zie je hier hoe hij scoort.</td></tr>'}</tbody>
         </table></div></section>`;
     } catch (err) {
       root.innerHTML = `<p class="login-error">${esc(err.message)}</p>`;

@@ -19,7 +19,11 @@ const TABLES = {
   conversies: process.env.N8N_PRESTATIES_CONVERSIES_TABLE_ID || 'ZO8PIIwot7d0ODgX',
   kansen: process.env.N8N_PRESTATIES_KANSEN_TABLE_ID || 'C0ASGyrj8nT1zXOS',
   effecten: process.env.N8N_EFFECTEN_TABLE_ID || 'LvhL8FkJPDySGE7N',
-  verbeteringen: process.env.N8N_VERBETERINGEN_TABLE_ID || 'comDCmDwMvzTSamB'
+  verbeteringen: process.env.N8N_VERBETERINGEN_TABLE_ID || 'comDCmDwMvzTSamB',
+  // Meting 30-10-2026: AI bezoekers en eerder gelezen (conversie_totalen), klikprijs per pagina (pagina_cpc) en merkzoekopdrachten.
+  conversieTotalen: process.env.N8N_CONVERSIE_TOTALEN_TABLE_ID || 'XPI7gsMhDIEoBc8o',
+  paginaCpc: process.env.N8N_PAGINA_CPC_TABLE_ID || '0prVEroS2ZmyVH1r',
+  merk: process.env.N8N_MERK_TABLE_ID || 'RUc34DnK64PUCCQu'
 };
 
 // Periodes die de sync opslaat (kolom periode_type). Rijen van voor de
@@ -87,7 +91,7 @@ function perKlant(klantNaam) {
 // het portaal dan gewoon de oude weergave kan tonen.
 async function getPrestatiesData(klantNaam, periodeKeuze) {
   const periode = kiesPeriode(periodeKeuze);
-  const [overzichtAlle, blogsAlle, weken, indexatie, conversies, kansenRijen, effectRijen, verbeterRijen] = await Promise.all([
+  const [overzichtAlle, blogsAlle, weken, indexatie, conversiesAlle, kansenRijen, effectRijen, verbeterRijen, totalenAlle, cpcRijen, merkAlle] = await Promise.all([
     n8nRows(TABLES.overzicht, perKlant(klantNaam), 20),
     n8nRows(TABLES.blogs, perKlant(klantNaam), 250),
     n8nRows(TABLES.weken, perKlant(klantNaam), 60),
@@ -98,12 +102,20 @@ async function getPrestatiesData(klantNaam, periodeKeuze) {
     n8nRows(TABLES.kansen, perKlant(klantNaam), 100).catch(() => []),
     // Effecten zijn een extra. Ontbreekt de tabel of de data, dan verschijnt het blok niet.
     n8nRows(TABLES.effecten, perKlant(klantNaam), 250).catch(() => []),
-    n8nRows(TABLES.verbeteringen, perKlant(klantNaam), 250).catch(() => [])
+    n8nRows(TABLES.verbeteringen, perKlant(klantNaam), 250).catch(() => []),
+    // Extra metingen (30-10-2026). Ontbreken ze, dan verschijnen de tegels niet.
+    n8nRows(TABLES.conversieTotalen, perKlant(klantNaam), 20).catch(() => []),
+    n8nRows(TABLES.paginaCpc, perKlant(klantNaam), 250).catch(() => []),
+    n8nRows(TABLES.merk, perKlant(klantNaam), 20).catch(() => [])
   ]);
   const overzichtRijen = rijenVanPeriode(overzichtAlle, periode);
   if (!overzichtRijen.length) return null;
   const blogs = rijenVanPeriode(blogsAlle, periode);
-  return { overzicht: overzichtRijen[0], blogs, weken, indexatie, conversies, kansenRijen, effectRijen, verbeterRijen, periode };
+  // Conversies hebben sinds 30-10-2026 ook een periode. Oude rijen zonder periode tellen als 28 dagen.
+  const conversies = rijenVanPeriode(conversiesAlle, periode);
+  const conversieTotaal = (totalenAlle || []).find((r) => r.periode_type === periode) || null;
+  const merk = (merkAlle || []).find((r) => r.periode_type === periode) || null;
+  return { overzicht: overzichtRijen[0], blogs, weken, indexatie, conversies, kansenRijen, effectRijen, verbeterRijen, conversieTotaal, cpcRijen, merk, periode };
 }
 
 const num = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
@@ -182,7 +194,22 @@ function conversieWoorden(klantNaam) {
   return { lead: w.lead || ['aanvraag', 'aanvragen'], boeking: w.boeking || ['boeking', 'boekingen'], boekLabel: w.boekLabel || 'boeken' };
 }
 
-function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies, kansenRijen, effectRijen, verbeterRijen, periode: periodeKeuze, klantNaam }, vandaagIso) {
+// Pad zoals de n8n workflows het opslaan: klein, zonder domein, query of slash aan het eind.
+function schoonPad(u) {
+  let p = String(u || '').trim().replace(/^https?:\/\/[^/]+/i, '').split('?')[0].split('#')[0];
+  try { p = decodeURIComponent(p); } catch (err) { /* laat zoals het is */ }
+  p = p.toLowerCase();
+  while (p.length > 1 && p.endsWith('/')) p = p.slice(0, -1);
+  return p || '/';
+}
+
+function cpcKaart(rijen) {
+  const kaart = {};
+  (rijen || []).forEach((r) => { const c = num(r.cpc); if (r.pad && c !== null && c >= 0) kaart[schoonPad(r.pad)] = c; });
+  return kaart;
+}
+
+function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies, kansenRijen, effectRijen, verbeterRijen, conversieTotaal, cpcRijen, merk, periode: periodeKeuze, klantNaam }, vandaagIso) {
   const periodeType = kiesPeriode(periodeKeuze);
   const vandaag = vandaagIso || new Date().toISOString().slice(0, 10);
   const o = overzicht || {};
@@ -192,6 +219,7 @@ function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies, kansen
   (conversies || []).forEach((r) => { if (r.blog_pad) convPerPad[r.blog_pad] = r; });
   const indexPerPad = {};
   (indexatie || []).forEach((r) => { if (r.blog_pad) indexPerPad[r.blog_pad] = r; });
+  const cpcPerPad = cpcKaart(cpcRijen);
 
   // 1. Per blog
   const blogRijen = (blogs || []).map((b) => {
@@ -225,9 +253,16 @@ function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies, kansen
             boekingen: num(cv.boekingen),
             omzet: num(cv.omzet),
             doorkliksContact: num(cv.doorkliks_contact),
-            doorkliksBoeken: num(cv.doorkliks_boeken)
+            doorkliksBoeken: num(cv.doorkliks_boeken),
+            sessiesAi: num(cv.sessies_ai),
+            leadsAi: num(cv.leads_ai),
+            boekingenAi: num(cv.boekingen_ai),
+            ondersteundLeads: num(cv.ondersteund_leads),
+            ondersteundBoekingen: num(cv.ondersteund_boekingen)
           }
         : null,
+      // Klikprijs van de zoekwoorden van deze blog (DataForSEO). Waarde = klikken keer klikprijs.
+      cpc: Object.prototype.hasOwnProperty.call(cpcPerPad, schoonPad(b.blog_pad)) ? cpcPerPad[schoonPad(b.blog_pad)] : null,
       indexatie: ix ? { code: ix.status_code, tekst: ix.status_tekst, laatstGecrawld: ix.laatst_gecrawld || '' } : null,
       titel: b.titel || '(geen titel)',
       cluster: b.cluster || '',
@@ -305,6 +340,48 @@ function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies, kansen
         heeftBoekingen: blogRijen.some((b) => b.gedrag && b.gedrag.boekingen !== null),
         heeftDoorklik: blogRijen.some((b) => b.gedrag && (b.gedrag.doorkliksContact !== null || b.gedrag.doorkliksBoeken !== null)),
         woorden: conversieWoorden(klantNaam)
+      }
+    : null;
+
+  // AI assistenten (ChatGPT, Perplexity, Gemini en andere): bezoeken op de hele site en aanvragen of boekingen in die bezoeken.
+  const ct = conversieTotaal || null;
+  totalen.ai = ct && num(ct.sessies_ai) !== null
+    ? {
+        sessies: num(ct.sessies_ai),
+        sessiesBlogs: somG('sessiesAi'),
+        leads: num(ct.leads_ai),
+        boekingen: num(ct.boekingen_ai),
+        bronnen: (() => { try { const l = JSON.parse(ct.ai_bronnen || '[]'); return Array.isArray(l) ? l.slice(0, 5) : []; } catch (err) { return []; } })(),
+        woorden: conversieWoorden(klantNaam)
+      }
+    : null;
+
+  // Eerder gelezen: aanvragen of boekingen van mensen die eerder (ook in een ander bezoek) een blog lazen.
+  // Alleen als de meting met het GTM sjabloon aan staat. Elke conversie telt een keer, ook bij meerdere blogs.
+  totalen.eerderGelezen = ct && (ct.ondersteund_actief === true || String(ct.ondersteund_actief) === 'true')
+    ? { leads: num(ct.ondersteund_blog_leads), boekingen: num(ct.ondersteund_blog_boekingen), leadsTotaal: num(ct.leads_totaal), boekingenTotaal: num(ct.boekingen_totaal), woorden: conversieWoorden(klantNaam) }
+    : null;
+
+  // Waarde van de klikken uit Google: wat dezelfde klikken via Google Ads ongeveer hadden gekost.
+  const metPrijs = blogRijen.filter((b) => b.cpc !== null && b.clicks > 0);
+  const klikkenMetPrijs = metPrijs.reduce((t, b) => t + b.clicks, 0);
+  totalen.waarde = Object.keys(cpcPerPad).length
+    ? {
+        bedrag: Math.round(metPrijs.reduce((t, b) => t + b.clicks * b.cpc, 0)),
+        klikkenMetPrijs,
+        klikken: clicks,
+        dekking: clicks > 0 ? Math.round((klikkenMetPrijs / clicks) * 100) : null
+      }
+    : null;
+
+  // Zoekopdrachten op de naam van de klant in Google (hele site).
+  totalen.merk = merk && num(merk.vertoningen) !== null
+    ? {
+        klikken: num(merk.klikken) || 0,
+        vertoningen: num(merk.vertoningen) || 0,
+        klikkenVorig: num(merk.vorige_klikken),
+        vertoningenVorig: num(merk.vorige_vertoningen),
+        zoektermen: (() => { try { const l = JSON.parse(merk.zoektermen || '[]'); return Array.isArray(l) ? l : []; } catch (err) { return []; } })()
       }
     : null;
 
@@ -494,4 +571,4 @@ async function getPrestaties(klantNaam, periode) {
   return bouwPrestaties({ ...data, klantNaam });
 }
 
-module.exports = { getPrestaties, bouwPrestaties, positieLabel, REGELS, PERIODES, kiesPeriode, rijenVanPeriode };
+module.exports = { getPrestaties, bouwPrestaties, positieLabel, REGELS, PERIODES, kiesPeriode, rijenVanPeriode, schoonPad, cpcKaart };

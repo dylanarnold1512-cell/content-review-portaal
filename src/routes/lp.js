@@ -1064,8 +1064,8 @@ async function bouwMeting(klant) {
     const leeg = meting.leegMeting();
     return { verrijkt: meting.verrijkMetMeting(lijst, leeg.google, leeg.ai), google: leeg.google, aiMeting: leeg.ai };
   }
-  const [google, aiMeting] = await Promise.all([meting.haalGoogle(klant), meting.haalAi(profielNaam)]);
-  const verrijkt = meting.verrijkMetMeting(lijst, google, aiMeting);
+  const [google, aiMeting, website] = await Promise.all([meting.haalGoogle(klant), meting.haalAi(profielNaam), meting.haalWebsite(profielNaam)]);
+  const verrijkt = meting.verrijkMetMeting(lijst, google, aiMeting, website);
   return { verrijkt, google, aiMeting };
 }
 

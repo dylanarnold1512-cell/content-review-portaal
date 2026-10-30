@@ -12,7 +12,7 @@ const paginas = [
 ];
 
 test('somResultaten telt alleen live pagina\'s met metingen mee', () => {
-  assert.deepEqual(somResultaten(paginas), { live: 2, metGoogle: 1, klikken: 5, vertoningen: 100, genoemd: 1 });
+  assert.deepEqual(somResultaten(paginas), { live: 2, metGoogle: 1, klikken: 5, vertoningen: 100, genoemd: 1, aanvragen: 0, waarde: null });
   assert.equal(somResultaten([]).live, 0);
 });
 

@@ -92,11 +92,62 @@ async function haalAiVragen(klantNaam, opties) {
   return ai.vragen || [];
 }
 
+// Website per pagina (30-10-2026): bezoeken, AI bezoeken, aanvragen, doorkliks en eerder gelezen uit GA4 (tabel pagina_conversies,
+// gevuld door BA - Shared - Prestatie Conversies) en de klikprijs per pagina (tabel pagina_cpc, BA - Shared - Prestatie Waarde).
+// Sleutel is het pad, omdat GA4 paden geeft en geen volledige url's. Ontbreekt de data, dan is de meting "niet beschikbaar".
+const PAGINA_CONVERSIES_TABEL = 'NaN8CfgSzlgDIb90';
+const PAGINA_CPC_TABEL = '0prVEroS2ZmyVH1r';
+
+function padVan(url) {
+  let p = String(url || '').trim().replace(/^https?:[/][/][^/]+/i, '').split('?')[0].split('#')[0];
+  try { p = decodeURIComponent(p); } catch (err) { /* laat zoals het is */ }
+  p = p.toLowerCase();
+  while (p.length > 1 && p.endsWith('/')) p = p.slice(0, -1);
+  return p || '/';
+}
+
+const leegOfGetal = (v) => (v === null || v === undefined || v === '' ? null : getal(v));
+
+function bouwWebsite(convRijen, cpcRijen) {
+  const perPad = {};
+  (convRijen || []).forEach((r) => {
+    if (!r || !r.pad || (r.periode_type && r.periode_type !== '28d')) return;
+    perPad[padVan(r.pad)] = {
+      sessies: leegOfGetal(r.sessies_totaal),
+      sessiesGoogle: leegOfGetal(r.sessies_google),
+      sessiesAi: leegOfGetal(r.sessies_ai),
+      leads: leegOfGetal(r.leads),
+      boekingen: leegOfGetal(r.boekingen),
+      doorkliks: (leegOfGetal(r.doorkliks_contact) || 0) + (leegOfGetal(r.doorkliks_boeken) || 0),
+      eerderGelezen: r.ondersteund_leads == null && r.ondersteund_boekingen == null ? null : (getal(r.ondersteund_leads) + getal(r.ondersteund_boekingen))
+    };
+  });
+  const cpc = {};
+  (cpcRijen || []).forEach((r) => { if (r && r.pad && r.cpc != null && getal(r.cpc) >= 0) cpc[padVan(r.pad)] = getal(r.cpc); });
+  return { perPad, cpc };
+}
+
+async function haalWebsite(klantNaam, { tabelFn } = {}) {
+  if (!klantNaam) return { beschikbaar: false, perPad: {}, cpc: {} };
+  try {
+    const lees = tabelFn || aiService.n8nTabel;
+    const [conv, cpc] = await metCache(`w:${klantNaam}`, () => Promise.all([
+      lees(PAGINA_CONVERSIES_TABEL, [{ columnName: 'client_name', condition: 'eq', value: klantNaam }, { columnName: 'periode_type', condition: 'eq', value: '28d' }]),
+      lees(PAGINA_CPC_TABEL, [{ columnName: 'client_name', condition: 'eq', value: klantNaam }])
+    ]));
+    const b = bouwWebsite(conv, cpc);
+    return { beschikbaar: conv.length > 0 || cpc.length > 0, perPad: b.perPad, cpc: b.cpc, metConversies: conv.length > 0 };
+  } catch (err) {
+    return { beschikbaar: false, perPad: {}, cpc: {}, fout: err.message };
+  }
+}
+
 // Meting staat uit voor deze klant (schakelaar Paginameting): geen cijfers ophalen en tonen.
 function leegMeting() {
   return {
     google: { beschikbaar: false, perUrl: {}, uit: true },
-    ai: { beschikbaar: false, perUrl: {}, totaal: null, vragen: [], uit: true }
+    ai: { beschikbaar: false, perUrl: {}, totaal: null, vragen: [], uit: true },
+    website: { beschikbaar: false, perPad: {}, cpc: {}, uit: true }
   };
 }
 
@@ -109,14 +160,20 @@ function trend(nu, vorig) {
 }
 
 // Zet de metingen bij de pagina's van de klant.
-function verrijkMetMeting(lijst, google, ai) {
+function verrijkMetMeting(lijst, google, ai, website) {
   return (lijst || []).map((p) => {
-    if (p.stand !== 'Live' || !p.url) return { ...p, google: null, ai: null };
+    if (p.stand !== 'Live' || !p.url) return { ...p, google: null, ai: null, website: null };
     const sleutel = schoon(p.url);
+    const pad = padVan(p.url);
     const g = google && google.beschikbaar ? (google.perUrl[sleutel] || { vertoningen: 0, klikken: 0, positie: null, vorigeVertoningen: 0, vorigeKlikken: 0 }) : null;
     const a = ai && ai.beschikbaar ? (ai.perUrl[sleutel] || { geciteerd: 0, vragen: [] }) : null;
-    return { ...p, google: g ? { ...g, trend: trend(g.klikken, g.vorigeKlikken) } : null, ai: a };
+    const cpc = website && website.beschikbaar && Object.prototype.hasOwnProperty.call(website.cpc, pad) ? website.cpc[pad] : null;
+    const w = website && website.beschikbaar && website.metConversies
+      ? (website.perPad[pad] || { sessies: 0, sessiesGoogle: 0, sessiesAi: 0, leads: null, boekingen: null, doorkliks: 0, eerderGelezen: null })
+      : null;
+    const gUit = g ? { ...g, trend: trend(g.klikken, g.vorigeKlikken), waarde: cpc !== null ? Math.round(g.klikken * cpc) : null } : null;
+    return { ...p, google: gUit, ai: a, website: w };
   });
 }
 
-module.exports = { leegMeting, schoon, bouwGoogle, haalGoogle, bouwAiPerUrl, haalAi, haalAiVragen, verrijkMetMeting, trend };
+module.exports = { leegMeting, schoon, padVan, bouwGoogle, haalGoogle, bouwAiPerUrl, haalAi, haalAiVragen, bouwWebsite, haalWebsite, verrijkMetMeting, trend };
