@@ -37,3 +37,11 @@ test('inklap: details-element met titel, aantal en inhoud, open op verzoek', () 
   assert.ok(/<details[^>]*\sopen/.test(open));
   assert.ok(dicht.includes('Kansen') && dicht.includes('<p>x</p>'));
 });
+
+test('vlak en staven: periode maand komt in de markup voor de hover', () => {
+  const v = V.vlak(punten, { periode: 'maand' });
+  const s = V.staven(punten, { periode: 'maand' });
+  assert.ok(v.includes('data-v-periode="maand"'));
+  assert.ok(s.includes('data-v-periode="maand"'));
+  assert.ok(V.vlak(punten, {}).includes('data-v-periode="week"'));
+});
