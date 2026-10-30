@@ -121,6 +121,70 @@
     }).join('') + '</div>';
   }
 
+  // Ontwerp Advertisr: hero bovenaan een resultatentabblad. Eén grote stand, een korte zin en rechts een grafiek of ringen.
+  // o: { toon 'merk'|'ai', eyebrow, getal, badge: { tekst, toon }, tekst, rechts (al opgemaakte html) }
+  function hero(o) {
+    const opt = o || {};
+    const b = opt.badge;
+    const badge = b && b.tekst ? '<span class="p-hero-badge p-hero-badge-' + (['goed', 'slecht', 'gelijk'].includes(b.toon) ? b.toon : 'gelijk') + '">' + esc(b.tekst) + '</span>' : '';
+    return '<section class="p-hero p-hero-' + (opt.toon === 'ai' ? 'ai' : 'merk') + '">' +
+      '<div class="p-hero-links"><span class="p-hero-eyebrow">' + esc(opt.eyebrow) + '</span>' +
+      '<div class="p-hero-getalrij"><span class="p-hero-getal">' + esc(opt.getal) + '</span>' + badge + '</div>' +
+      (opt.tekst ? '<p class="p-hero-tekst">' + esc(opt.tekst) + '</p>' : '') + '</div>' +
+      (opt.rechts ? '<div class="p-hero-rechts">' + opt.rechts + '</div>' : '') + '</section>';
+  }
+
+  // Vlakgrafiek (SVG) voor de hero. punten: [{ label, waarde }]. Geeft een lege tekst bij minder dan twee punten.
+  function lijn(punten, o) {
+    const opt = o || {};
+    const lijst = (Array.isArray(punten) ? punten : []).map((p) => ({ label: String(p.label == null ? '' : p.label), waarde: Math.max(0, Number(p.waarde) || 0) }));
+    if (lijst.length < 2) return '';
+    const W = 640, H = 190, top = 34, bodem = 12;
+    const max = Math.max.apply(null, lijst.map((p) => p.waarde)) || 1;
+    const xy = lijst.map((p, i) => [Math.round(i / (lijst.length - 1) * W), Math.round(H - bodem - (p.waarde / max) * (H - top - bodem))]);
+    const pad = xy.map((c, i) => (i ? 'L' : 'M') + c[0] + ',' + c[1]).join(' ');
+    const l = xy[xy.length - 1];
+    const maxIdx = lijst.reduce((m, p, i) => (p.waarde > lijst[m].waarde ? i : m), 0);
+    const hoog = xy[maxIdx];
+    const ankerX = Math.min(Math.max(hoog[0], 24), W - 24);
+    const nl = (n) => Number(n).toLocaleString('nl-NL');
+    const aria = (opt.aria || 'Grafiek') + ': van ' + nl(lijst[0].waarde) + ' naar ' + nl(lijst[lijst.length - 1].waarde) + ', hoogste ' + nl(lijst[maxIdx].waarde);
+    return '<div class="p-hero-grafiek"><span class="p-hero-grafiek-titel">' + esc(opt.titel || '') + '</span>' +
+      '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="' + esc(aria) + '"><defs><linearGradient id="pHeroVlak" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8a98" stop-opacity=".55"/><stop offset="1" stop-color="#ff8a98" stop-opacity="0"/></linearGradient></defs>' +
+      '<g stroke="#ffffff" stroke-opacity=".12"><line x1="0" y1="' + top + '" x2="' + W + '" y2="' + top + '"/><line x1="0" y1="' + Math.round((top + H - bodem) / 2) + '" x2="' + W + '" y2="' + Math.round((top + H - bodem) / 2) + '"/><line x1="0" y1="' + (H - bodem) + '" x2="' + W + '" y2="' + (H - bodem) + '"/></g>' +
+      '<path d="' + pad + ' L' + W + ',' + H + ' L0,' + H + ' Z" fill="url(#pHeroVlak)"/>' +
+      '<path d="' + pad + '" fill="none" stroke="#ffd0d6" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>' +
+      '<circle cx="' + hoog[0] + '" cy="' + hoog[1] + '" r="12" fill="#fff" fill-opacity=".2"/><circle cx="' + hoog[0] + '" cy="' + hoog[1] + '" r="6" fill="#fff"/>' +
+      '<text x="' + ankerX + '" y="' + Math.max(14, hoog[1] - 16) + '" fill="#fff" font-size="13" font-weight="600" text-anchor="middle">' + esc(nl(lijst[maxIdx].waarde)) + '</text></svg></div>';
+  }
+
+  // Ring met percentage, voor de AI hero. pct 0 tot 100.
+  function ring(pct, naam, sub) {
+    const p = Math.max(0, Math.min(100, Number(pct) || 0));
+    const R = 42, C = Math.round(2 * Math.PI * R * 10) / 10;
+    return '<div class="p-ring"><svg viewBox="0 0 100 100" width="104" height="104" role="img" aria-label="' + esc(naam + ': ' + Math.round(p) + ' procent') + '"><circle cx="50" cy="50" r="' + R + '" fill="none" stroke="#ffffff" stroke-opacity=".16" stroke-width="9"/>' +
+      (p > 0 ? '<circle cx="50" cy="50" r="' + R + '" fill="none" stroke="#ffd0d6" stroke-width="9" stroke-linecap="round" stroke-dasharray="' + (Math.round(C * p) / 100) + ' ' + C + '" transform="rotate(-90 50 50)"/>' : '') +
+      '<text x="50" y="57" fill="#fff" font-size="22" font-weight="600" text-anchor="middle">' + Math.round(p) + '%</text></svg>' +
+      '<b>' + esc(naam) + '</b>' + (sub ? '<span>' + esc(sub) + '</span>' : '') + '</div>';
+  }
+
+  // De route van zoekresultaat of AI tot aanvraag. stappen: [{ label, waarde, tekst, info, aandeel 0 tot 100, leeg }].
+  // Een lege stap (leeg: true) krijgt een gestippelde rand en 'Nog geen', zodat nul nooit als fout leest.
+  function route(o) {
+    const opt = o || {};
+    const stappen = (opt.stappen || []).map((s, i) => {
+      const breedte = Math.max(0, Math.min(100, Number(s.aandeel) || 0));
+      return '<div class="p-route-stap' + (s.leeg ? ' p-route-leeg' : '') + '">' +
+        '<span class="p-route-label">' + (i + 1) + '. ' + esc(s.label) + infoKnop(s.info, s.label) + '</span>' +
+        '<span class="p-route-waarde">' + esc(s.leeg ? 'Nog geen' : s.waarde) + '</span>' +
+        '<div class="p-route-balk"><i style="width:' + (s.leeg ? 0 : Math.max(breedte, s.waarde ? 3 : 0)) + '%"></i></div>' +
+        (s.tekst ? '<span class="p-route-tekst">' + esc(s.tekst) + '</span>' : '') + '</div>';
+    }).join('');
+    return '<section class="p-kaart p-route"><div class="p-route-kop"><h2 class="p-kaart-titel">' + esc(opt.titel) + '</h2>' +
+      (opt.uitleg ? '<span class="p-route-uitleg">' + esc(opt.uitleg) + '</span>' : '') + '</div>' +
+      '<div class="p-route-stappen" style="--p-stappen:' + Math.max(1, (opt.stappen || []).length) + '">' + stappen + '</div></section>';
+  }
+
   // Klik op een i opent of sluit de uitleg. Klik ergens anders sluit alles. Eén keer per pagina gekoppeld.
   if (typeof document !== 'undefined' && !window.__pInfoGekoppeld) {
     window.__pInfoGekoppeld = true;
@@ -136,7 +200,7 @@
     });
   }
 
-  const api = { esc, icoon, pil, voortgang, staafjes, kaart, kerncijfer, kerncijfers, infoKnop, legeStand, foutStand, oudeStand, laden };
+  const api = { esc, icoon, pil, voortgang, staafjes, kaart, kerncijfer, kerncijfers, infoKnop, hero, lijn, ring, route, legeStand, foutStand, oudeStand, laden };
   if (typeof window !== 'undefined') window.PortaalUI = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

@@ -125,3 +125,44 @@ test('kerncijfer toont een i icoon met uitleg en escapet de tekst', () => {
   assert.ok(html.includes('Uitleg &lt;b&gt;x&lt;/b&gt;'));
   assert.ok(!U.kerncijfer({ label: 'Test', waarde: '5' }).includes('data-p-info'));
 });
+
+test('hero toont getal, badge en tekst veilig', () => {
+  const h = ui.hero({ toon: 'ai', eyebrow: 'Test <i>', getal: '6.994', badge: { tekst: '+271%', toon: 'goed' }, tekst: 'Zin', rechts: '<b>x</b>' });
+  assert.ok(h.includes('p-hero-ai'));
+  assert.ok(h.includes('Test &lt;i&gt;'));
+  assert.ok(h.includes('p-hero-badge-goed'));
+  assert.ok(h.includes('<b>x</b>'));
+  assert.ok(!ui.hero({ eyebrow: 'a', getal: '1' }).includes('p-hero-badge'));
+  assert.ok(ui.hero({ eyebrow: 'a', getal: '1', badge: { tekst: 'x', toon: 'raar' } }).includes('p-hero-badge-gelijk'));
+});
+
+test('lijn tekent pas vanaf twee punten en houdt nul en onzin veilig', () => {
+  assert.strictEqual(ui.lijn([]), '');
+  assert.strictEqual(ui.lijn([{ label: 'a', waarde: 5 }]), '');
+  const h = ui.lijn([{ label: 'a', waarde: 0 }, { label: 'b', waarde: 'x' }, { label: 'c', waarde: 1968 }], { titel: 'Titel', aria: 'Per week' });
+  assert.ok(h.includes('<svg'));
+  assert.ok(h.includes('1.968'));
+  assert.ok(h.includes('aria-label="Per week: van 0 naar 1.968, hoogste 1.968"'));
+  assert.ok(!h.includes('NaN'));
+  assert.ok(!ui.lijn([{ label: 'a', waarde: 0 }, { label: 'b', waarde: 0 }]).includes('NaN'));
+});
+
+test('ring begrenst het percentage', () => {
+  assert.ok(ui.ring(150, 'ChatGPT').includes('100%'));
+  assert.ok(ui.ring(-4, 'Gemini').includes('0%'));
+  assert.ok(ui.ring('x', 'Gemini', 'sub <b>').includes('sub &lt;b&gt;'));
+});
+
+test('route toont Nog geen bij een lege stap en nooit een kale nul', () => {
+  const h = ui.route({ titel: 'Route', uitleg: 'Uitleg', stappen: [
+    { label: 'Getoond', waarde: '6.994', aandeel: 100, info: 'i' },
+    { label: 'Contact', waarde: '0', aandeel: 0, leeg: true, tekst: 'De meting loopt' }
+  ] });
+  assert.ok(h.includes('p-route-leeg'));
+  assert.ok(h.includes('>Nog geen<'));
+  assert.ok(h.includes('1. Getoond'));
+  assert.ok(h.includes('data-p-info'));
+  assert.ok(h.includes('--p-stappen:2'));
+  assert.ok(h.includes('width:100%'));
+  assert.ok(!h.includes('>0<'));
+});
