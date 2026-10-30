@@ -93,14 +93,15 @@
       ${k.actie ? `<div class="pv-ins-actie">Wat wij doen: ${esc(k.actie)}</div>` : ''}
       ${k.onderbouwing ? `<details class="pv-onderbouwing"><summary>Onderbouwing</summary><div class="pv-ins-tekst">${esc(k.onderbouwing)}</div></details>` : ''}
     </div>`).join('');
-    return U().kaart({ titel: 'Kansen voor AI zichtbaarheid', inhoud: items + '<div class="pv-muted pv-kans-noot">Dit zijn signalen uit de meting, geen garanties. AI antwoorden verschillen van keer tot keer.</div>' });
+    return V().inklap({ titel: 'Kansen voor AI zichtbaarheid', aantal: kansen.length, open: kansen.length <= 2, uitleg: 'Signalen uit de meting waar wij mee aan de slag gaan.', inhoud: items + '<div class="pv-muted pv-kans-noot">Dit zijn signalen uit de meting, geen garanties. AI antwoorden verschillen van keer tot keer.</div>' });
   }
 
   // Kansen per vraag: per vraag zonder vermelding de pagina van de site die erbij past.
   function vraagKansenBlok(kansen) {
     if (!kansen || !kansen.length) return '';
-    return '<div id="aiVraagKansen">' + U().kaart({
+    return '<div id="aiVraagKansen">' + V().inklap({
       titel: 'Kansen per vraag',
+      aantal: kansen.length,
       uitleg: 'Vragen waarbij AI jullie merk niet noemt. Daarbij zie je welke pagina op jullie site bij het onderwerp past.',
       inhoud: A().vraagKansenHtml(kansen) + '<div class="pv-muted pv-kans-noot">Dit zijn signalen uit de meting, geen garanties. De pagina is gekozen op onderwerp. We hebben nog niet gecontroleerd of het antwoord al in de pagina staat.</div>'
     }) + '</div>';
