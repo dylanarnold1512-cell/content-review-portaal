@@ -40,6 +40,28 @@
     });
   }
 
+  // Wat leverde AI op: bezoeken via AI assistenten en de aanvragen of boekingen daarin. Nooit een kale nul.
+  function conversieBlok(c) {
+    if (!c) return '';
+    const woorden = c.woorden || { lead: ['aanvraag', 'aanvragen'], boeking: ['boeking', 'boekingen'] };
+    const a = c.ai;
+    if (!a) {
+      return U().kaart({ titel: 'Wat leverde AI op', uitleg: 'Bezoekers die via ChatGPT, Gemini en andere AI assistenten op de site kwamen.',
+        inhoud: U().legeStand({ soort: 'wacht', titel: 'De meting van AI bezoekers loopt nog niet', tekst: 'Zodra die aan staat, zie je hier hoeveel mensen via een AI assistent op de site kwamen en wat zij deden.' }) });
+    }
+    const delen = [];
+    if (a.leads) delen.push(F().getal(a.leads) + ' ' + (a.leads === 1 ? woorden.lead[0] : woorden.lead[1]));
+    if (a.boekingen) delen.push(F().getal(a.boekingen) + ' ' + (a.boekingen === 1 ? woorden.boeking[0] : woorden.boeking[1]));
+    const bron = a.bronnen && a.bronnen.length ? 'Vooral via ' + a.bronnen.slice(0, 3).map((b) => b.bron).join(', ') : '';
+    const tegels = [
+      { label: 'Bezoeken via AI assistenten', icoon: 'ai', toon: 'ai', info: 'Bezoeken aan de hele website van mensen die via een AI assistent zoals ChatGPT of Gemini kwamen. Gemeten in Google Analytics, laatste 28 dagen.', waarde: F().getal(a.sessies), vergelijking: 'In de laatste 28 dagen', extra: bron },
+      { label: 'Aanvragen of boekingen in die bezoeken', icoon: 'pijl', info: 'Hoeveel van die bezoeken eindigden in een aanvraag of boeking. Het zijn gemeten cijfers, geen schatting.', waarde: delen.length ? delen.join(' en ') : 'Nog geen', vergelijking: delen.length ? 'In bezoeken die via een AI assistent begonnen' : 'De meting loopt. Zodra een bezoeker via AI een aanvraag of boeking doet, zie je het hier.' }
+    ];
+    if (a.sessiesBlogs != null) tegels.push({ label: 'Waarvan op een blog', icoon: 'blad', info: 'Bezoeken via een AI assistent die op een van jullie blogs begonnen.', waarde: F().getal(a.sessiesBlogs), vergelijking: a.sessiesBlogs ? 'Een blog werd door AI aangehaald en bezocht' : 'Nog geen bezoek via AI op een blog' });
+    return '<section class="p-kerncijfers p-kerncijfers-ai">' + tegels.map((t) => U().kerncijfer(t)).join('') + '</section>' +
+      '<p class="ai-uitleg">Een AI assistent noemt jullie merk of website, een lezer klikt door en komt op de site. Dat zie je hierboven. Mensen die jullie naam alleen onthouden en later zelf zoeken, tellen hier niet mee.</p>';
+  }
+
   function onderwerpKaarten(clusters, markt) {
     if (!clusters.length) return '';
     const cel = (naam, c) => {
@@ -238,6 +260,7 @@
       : trendBlok(data.trend, data.reeks, data.laatsteKernControle);
     inhoud.innerHTML = `<div class="p-pagina">${kop}${status}
       <section class="p-kerncijfers">${data.platformen.map(platformKerncijfer).join('')}${U().kerncijfer({ label: 'Website als bron', icoon: 'blad', info: 'Hoe vaak een AI assistent jullie website als bron noemde onder het antwoord. Dat is waardevol, want mensen kunnen dan doorklikken.', waarde: F().getal(gec), vergelijking: 'Keer dat jullie website in een antwoord werd aangehaald' })}</section>
+      ${conversieBlok(data.conversie)}
       ${data.clusterSoort === 'markt' ? '<p class="ai-uitleg">De cijfers hierboven zijn het totaal over alle markten.</p>' : ''}
       <div class="p-ov-raster2">
         <div class="p-ov-stapel">${verloop}${onderwerpKaarten(data.clusters, data.clusterSoort === 'markt')}<div id="aiVragenBlok"></div></div>

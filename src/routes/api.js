@@ -417,7 +417,14 @@ router.get('/:clientId/ai-zichtbaarheid', requireLogin, async (req, res) => {
     const settings = await settingsService.getClientSettings(req.params.clientId, config);
     if (!settings.aiZichtbaarheid) return res.json({ beschikbaar: false });
     const result = await aiZichtbaarheidService.getAiZichtbaarheid(config.naam, { clusterSoort: config.aiClusterSoort });
-    res.json({ beschikbaar: true, klantNaam: config.naam, ...result });
+    // Conversies via AI assistenten (bezoeken, aanvragen, boekingen). Een extra: ontbreekt de meting, dan blijft de pagina werken.
+    let conversie = null;
+    try {
+      const pr = await prestatiesService.getPrestaties(config.naam, '28d');
+      const t = pr && pr.totalen;
+      conversie = t ? { ai: t.ai || null, eerderGelezen: t.eerderGelezen || null, woorden: prestatiesService.conversieWoorden(config.naam) } : null;
+    } catch (err) { conversie = null; }
+    res.json({ beschikbaar: true, klantNaam: config.naam, ...result, conversie });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

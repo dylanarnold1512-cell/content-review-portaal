@@ -183,7 +183,7 @@ button, input, textarea, select { font-family: inherit; }
 }
 
 /* Overzicht (Fase 7 stap 2) */
-.p-ov { display: flex; flex-direction: column; gap: 20px; max-width: 1180px; margin: 0 auto; }
+.p-ov { display: flex; flex-direction: column; gap: 20px; max-width: 1560px; margin: 0 auto; }
 .p-ov-kop { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between; }
 .p-ov-kop h1 { margin: 0; font-size: 26px; letter-spacing: -0.02em; line-height: 1.15; }
 .p-ov-kop p { margin: 4px 0 0; color: var(--p-tekst-zacht); max-width: 60ch; }
@@ -308,7 +308,7 @@ button, input, textarea, select { font-family: inherit; }
 }
 
 /* Gedeelde pagina-opbouw voor alle tabbladen (Fase 7 stap 3 en verder) */
-.p-pagina { display: flex; flex-direction: column; gap: 20px; max-width: 1180px; margin: 0 auto; }
+.p-pagina { display: flex; flex-direction: column; gap: 20px; max-width: 1560px; margin: 0 auto; }
 .p-pagina > * { min-width: 0; }
 
 /* Blogs */
@@ -341,7 +341,7 @@ button, input, textarea, select { font-family: inherit; }
 .p-main > #overzichtTab, .p-main > #blogsTab, .p-main > #prestatiesTab, .p-main > #rapportagesTab,
 .p-main > #aiZichtbaarheidTab, .p-main > #merkprofielTab, .p-main > #kennisdocumentTab, .p-main > #hulpTab, .p-main > #meldingTab,
 .p-main > #paginasTab, .p-main > #pagrOverzichtTab, .p-main > #pagrResultatenTab {
-  max-width: 1244px; margin: 0 auto; padding: 24px 32px 56px;
+  max-width: 1640px; margin: 0 auto; padding: 24px 40px 56px;
 }
 @media (max-width: 900px) {
   .p-main > #overzichtTab, .p-main > #blogsTab, .p-main > #prestatiesTab, .p-main > #rapportagesTab,
@@ -1007,3 +1007,4 @@ button.pa-item:focus-visible, .pa-filter:focus-visible, .pa-volgende:focus-visib
 .p-kerncijfer-label .p-info { vertical-align: middle; margin-left: 6px; }
 .p-kerncijfer-kop .p-verschil { flex: none; }
 .p-info-pop { text-transform: none; }
+.p-kerncijfers-ai { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
