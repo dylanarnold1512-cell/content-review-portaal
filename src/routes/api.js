@@ -320,7 +320,7 @@ router.post('/:clientId/ideas', requireLogin, async (req, res) => {
 router.get('/:clientId/beeldbank', requireLogin, async (req, res) => {
   try {
     const config = getClient(req.params.clientId);
-    if (!beeldbankService.beeldbankAan(config)) return res.json({ beschikbaar: false });
+    if (!(await beeldbankService.beeldbankAan(config))) return res.json({ beschikbaar: false });
     let afbeeldingen = [];
     try { afbeeldingen = await beeldbankService.lijstAfbeeldingen(config.naam); } catch (err) { console.error('Beeldbank lijst mislukt:', err.message); }
     res.json({ beschikbaar: true, afbeeldingen });
@@ -332,7 +332,7 @@ router.get('/:clientId/beeldbank', requireLogin, async (req, res) => {
 router.post('/:clientId/beeldbank/upload', requireLogin, async (req, res) => {
   try {
     const config = getClient(req.params.clientId);
-    if (!beeldbankService.beeldbankAan(config)) return res.status(404).json({ error: 'De beeldbank staat niet aan voor deze klant.' });
+    if (!(await beeldbankService.beeldbankAan(config))) return res.status(404).json({ error: 'De beeldbank staat niet aan voor deze klant.' });
     const antwoord = await beeldbankService.stuurAfbeelding(config.naam, req.body || {});
     res.json(antwoord);
   } catch (err) {
@@ -343,7 +343,7 @@ router.post('/:clientId/beeldbank/upload', requireLogin, async (req, res) => {
 router.post('/:clientId/beeldbank/verwijder', requireLogin, async (req, res) => {
   try {
     const config = getClient(req.params.clientId);
-    if (!beeldbankService.beeldbankAan(config)) return res.status(404).json({ error: 'De beeldbank staat niet aan voor deze klant.' });
+    if (!(await beeldbankService.beeldbankAan(config))) return res.status(404).json({ error: 'De beeldbank staat niet aan voor deze klant.' });
     const antwoord = await beeldbankService.verwijderAfbeelding(config.naam, (req.body || {}).driveFileId);
     res.json(antwoord);
   } catch (err) {
@@ -355,7 +355,7 @@ router.post('/:clientId/beeldbank/verwijder', requireLogin, async (req, res) => 
 router.post('/:clientId/beeldbank/opschonen', requireLogin, async (req, res) => {
   try {
     const config = getClient(req.params.clientId);
-    if (!beeldbankService.beeldbankAan(config)) return res.status(404).json({ error: 'De beeldbank staat niet aan voor deze klant.' });
+    if (!(await beeldbankService.beeldbankAan(config))) return res.status(404).json({ error: 'De beeldbank staat niet aan voor deze klant.' });
     res.json(await beeldbankService.ruimOp(config.naam));
   } catch (err) {
     res.status(500).json({ status: 'fout', melding: err.message });

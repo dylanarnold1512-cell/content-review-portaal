@@ -340,13 +340,13 @@ button, input, textarea, select { font-family: inherit; }
 /* Eén breedte en één marge voor elk tabblad. Staat hier zodat de oude regels per tabblad in styles.css niet meer winnen. */
 .p-main > #overzichtTab, .p-main > #blogsTab, .p-main > #prestatiesTab, .p-main > #rapportagesTab,
 .p-main > #aiZichtbaarheidTab, .p-main > #merkprofielTab, .p-main > #kennisdocumentTab, .p-main > #hulpTab, .p-main > #meldingTab,
-.p-main > #paginasTab, .p-main > #pagrOverzichtTab, .p-main > #pagrResultatenTab {
+.p-main > #paginasTab, .p-main > #pagrOverzichtTab, .p-main > #pagrResultatenTab, .p-main > #beeldbankTab {
   max-width: 1640px; margin: 0 auto; padding: 24px 40px 56px;
 }
 @media (max-width: 900px) {
   .p-main > #overzichtTab, .p-main > #blogsTab, .p-main > #prestatiesTab, .p-main > #rapportagesTab,
   .p-main > #aiZichtbaarheidTab, .p-main > #merkprofielTab, .p-main > #kennisdocumentTab, .p-main > #hulpTab, .p-main > #meldingTab,
-.p-main > #paginasTab, .p-main > #pagrOverzichtTab, .p-main > #pagrResultatenTab { padding: 16px 16px 40px; }
+.p-main > #paginasTab, .p-main > #pagrOverzichtTab, .p-main > #pagrResultatenTab, .p-main > #beeldbankTab { padding: 16px 16px 40px; }
 }
 .p-bl-lijst { max-height: none; overflow: visible; }
 .p-bl-layout { padding: 0; max-width: none; margin: 0; }
@@ -646,7 +646,14 @@ body.alleen-pagr #tabNav .p-nav-groep:not(#paginasGroep) { display: none; }
 #intakeTab .ik-keuze:nth-child(3) .ik-keuze-kaart::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236a35ff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 15.6 7.1 18.2 8 12.7 4 8.8l5.5-.8z'/%3E%3C/svg%3E"); }
 
 /* Beeldbank */
-.bb-hint { width: 100%; max-width: 520px; margin: 12px 0 0; }
+.bb-hint { width: 100%; max-width: 520px; margin: 0; box-sizing: border-box; height: 44px; padding: 0 16px; border: 1px solid var(--border); border-radius: 12px; background: rgba(255, 255, 255, 0.74); font: inherit; font-size: 14px; color: var(--p-tekst); }
+.bb-hint:focus { outline: 2px solid var(--p-plan); outline-offset: 1px; }
+.p-main #beeldbankTab .kd-table { table-layout: fixed; }
+.p-main #beeldbankTab .kd-table th:nth-child(1), .p-main #beeldbankTab .kd-table td:nth-child(1) { width: 16%; }
+.p-main #beeldbankTab .kd-table th:nth-child(2), .p-main #beeldbankTab .kd-table td:nth-child(2) { width: 30%; overflow-wrap: anywhere; }
+.p-main #beeldbankTab .kd-table th:nth-child(4), .p-main #beeldbankTab .kd-table td:nth-child(4) { width: 130px; text-align: right; }
+.p-main #beeldbankTab .kd-table th:first-child, .p-main #beeldbankTab .kd-table td:first-child { padding-left: 0; }
+.p-main #beeldbankTab .kd-table td, .p-main #beeldbankTab .kd-table th { vertical-align: top; }
 .bb-voortgang { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 8px; }
 .bb-rij { display: grid; grid-template-columns: minmax(120px, 220px) 1fr; gap: 12px; padding: 12px 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; align-items: start; }
 .bb-naam { font-weight: 600; word-break: break-word; }
