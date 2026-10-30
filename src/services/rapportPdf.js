@@ -168,6 +168,14 @@ function bouwPdf({ rapport: r, klantNaam, ai }) {
       r.terugblik.forEach((a) => { ruimte(hoogte(a, 10, W) + 8); tekst(a, { maat: 10.5, regel: 3 }); doc.moveDown(0.5); });
     } else tekst('Voor deze maand is geen toelichting beschikbaar.', { kleur: KLEUR.zacht });
 
+    // Wat het opleverde (nooit een kale nul, zie rapport-document.js)
+    const opbrengst = require('../../public/rapport-document').opbrengstBlokken(r);
+    kop(`Wat leverde het in ${r.label} op`);
+    opbrengst.punten.forEach((x) => { ruimte(hoogte(x, 10, W - 14) + 6); const y = doc.y; doc.circle(L + 3, y + 5, 1.8).fill(KLEUR.tekst); tekst(x, { x: L + 14, y, breed: W - 14 }); doc.moveDown(0.25); });
+    opbrengst.alinea.forEach((a) => { ruimte(hoogte(a, 10.5, W) + 8); tekst(a, { maat: 10.5, regel: 3 }); doc.moveDown(0.5); });
+    ruimte(hoogte(opbrengst.noot, 9, W) + 8);
+    tekst(opbrengst.noot, { maat: 9, kleur: KLEUR.zacht });
+
     // Nieuwe blogs
     kop(`Wat we deden in ${r.label}`);
     const gedaan = gedaanZin(r.gedaan);

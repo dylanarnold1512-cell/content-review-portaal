@@ -52,6 +52,22 @@ function pvTotalenVoorTaal(t) {
   };
 }
 
+// Uitleg per tegel (i icoon). Vaste teksten, zelfde taal als het uitlegblok onderaan.
+const PV_INFO = {
+  getoond: 'Hoe vaak een van jullie blogs in de zoekresultaten van Google stond. Dat gebeurt vaak eerder dan dat iemand doorklikt.',
+  bezoekers: 'Hoe vaak iemand in Google op een van jullie blogs klikte. Gemeten door Google zelf.',
+  positie: 'Het gemiddelde van de plek waarop de hoofdzoekwoorden van de blogs staan. Pagina 1 zijn de eerste tien resultaten. Lager is beter.',
+  paginaweergaven: 'Hoe vaak een blogpagina is geopend, uit Google Analytics. Dit kan ook door bezoekers komen die niet uit Google kwamen.',
+  doorklik: 'Bezoeken die op een blog begonnen en in dezelfde sessie bij contact of boeken uitkwamen. Daarmee meten we wat een blog direct oplevert.',
+  ai: 'Bezoekers die via een AI assistent zoals ChatGPT of Gemini op de site kwamen. Dit gaat over de hele site, niet alleen over blogs.',
+  eerder: 'Iemand leest een blog en neemt pas later contact op, vaak via een andere weg. Wij onthouden welke blogs iemand las en tellen die mee zodra die persoon contact opneemt. Zo zien we ook wat een blog indirect oplevert.',
+  waarde: 'Een schatting van wat dezelfde klikken via Google Ads hadden gekost, op basis van de klikprijs per zoekwoord. Het is geen omzet, maar laat zien wat het bereik waard is.',
+  merk: 'Hoe vaak mensen in Google zochten op jullie bedrijfsnaam. Meer zoekopdrachten op de naam betekent dat meer mensen jullie kennen.'
+};
+
+// Nooit een kale nul bij aanvragen en boekingen: bij nul staat er 'Nog geen' met uitleg eronder.
+function pvTotaal(n, F) { return n ? F.getal(n) : 'Nog geen'; }
+
 function pvTiles(t) {
   const F = window.PortaalFormat;
   const U = window.PortaalUI;
@@ -62,13 +78,13 @@ function pvTiles(t) {
       ? { tekst: 'Vrijwel gelijk', toon: 'gelijk' }
       : { tekst: F.decimaal(Math.abs(t.hkPositieVerbetering), 1) + (t.hkPositieVerbetering > 0 ? ' plaatsen omhoog' : ' plaatsen omlaag'), toon: t.hkPositieVerbetering > 0 ? 'goed' : 'slecht' };
   const lijst = [
-    { label: 'Keer getoond in Google', icoon: 'oog', waarde: F.getal(t.vertoningen), verschil: F.verschil(t.vertoningen, t.vertoningenVorig), vergelijking: vorigTekst(t.vertoningenVorig) || 'Hoe vaak een blog in de zoekresultaten stond' },
-    { label: 'Bezoekers vanuit Google', icoon: 'mensen', waarde: F.getal(t.clicks), verschil: F.verschil(t.clicks, t.clicksVorig), vergelijking: vorigTekst(t.clicksVorig) || 'Hoe vaak iemand doorklikte naar een blog' },
-    { label: 'Positie hoofdzoekwoorden', icoon: 'grafiek', waarde: t.hkPositieLabel || 'Nog geen meting', verschil: hkVerschil, vergelijking: 'Pagina 1 zijn de eerste tien resultaten' }
+    { label: 'Keer getoond in Google', icoon: 'oog', info: PV_INFO.getoond, waarde: F.getal(t.vertoningen), verschil: F.verschil(t.vertoningen, t.vertoningenVorig), vergelijking: vorigTekst(t.vertoningenVorig) || 'Hoe vaak een blog in de zoekresultaten stond' },
+    { label: 'Bezoekers vanuit Google', icoon: 'mensen', info: PV_INFO.bezoekers, waarde: F.getal(t.clicks), verschil: F.verschil(t.clicks, t.clicksVorig), vergelijking: vorigTekst(t.clicksVorig) || 'Hoe vaak iemand doorklikte naar een blog' },
+    { label: 'Positie hoofdzoekwoorden', icoon: 'grafiek', info: PV_INFO.positie, waarde: t.hkPositieLabel || 'Nog geen meting', verschil: hkVerschil, vergelijking: 'Pagina 1 zijn de eerste tien resultaten' }
   ];
   if (t.verbergHk) lijst.pop();
   if (t.paginaweergaven !== null && t.paginaweergaven !== undefined) {
-    lijst.push({ label: 'Paginaweergaven', icoon: 'blad', waarde: F.getal(t.paginaweergaven), vergelijking: 'Hoe vaak de blogpagina\u2019s zijn bekeken' });
+    lijst.push({ label: 'Paginaweergaven', icoon: 'blad', info: PV_INFO.paginaweergaven, waarde: F.getal(t.paginaweergaven), vergelijking: 'Hoe vaak de blogpagina\u2019s zijn bekeken' });
   }
   if (t.conversies) {
     const c = t.conversies;
@@ -82,9 +98,10 @@ function pvTiles(t) {
     const kort = doelen.length ? doelen : ['contact'];
     const nogGeen = [c.heeftLeads || !c.heeftBoekingen ? w.lead[0] : null, c.heeftBoekingen ? w.boeking[0] : null].filter(Boolean).join(' of ');
     lijst.push({
-      label: `Van blog naar ${kort.join(' of ')}`, icoon: 'pijl',
-      waarde: F.getal(c.heeftDoorklik ? c.doorkliks : (c.leads || 0) + (c.boekingen || 0)),
-      vergelijking: delen.length ? `${delen.join(', ')} in bezoeken die op een blog begonnen` : `Nog geen ${nogGeen} vanuit een blog begonnen bezoek`
+      label: `Van blog naar ${kort.join(' of ')}`, icoon: 'pijl', info: PV_INFO.doorklik,
+      waarde: pvTotaal(c.heeftDoorklik ? c.doorkliks : (c.leads || 0) + (c.boekingen || 0), F),
+      vergelijking: delen.length ? `${delen.join(', ')} in bezoeken die op een blog begonnen` : `Nog geen ${nogGeen} vanuit een blog begonnen bezoek`,
+      extra: (c.heeftDoorklik ? c.doorkliks : (c.leads || 0) + (c.boekingen || 0)) ? '' : 'De meting loopt. Zodra het gebeurt, zie je het hier.'
     });
   }
   // Meting 30-10-2026: AI assistenten, eerder gelezen, waarde en zoekopdrachten op de naam.
@@ -97,7 +114,7 @@ function pvTiles(t) {
     if (a.boekingen) conv.push(`${F.getal(a.boekingen)} ${a.boekingen === 1 ? w.boeking[0] : w.boeking[1]}`);
     const bron = a.bronnen && a.bronnen.length ? `Vooral via ${a.bronnen.slice(0, 2).map((b) => b.bron).join(' en ')}` : '';
     lijst.push({
-      label: 'Bezoekers via AI assistenten', icoon: 'ai', toon: 'ai', waarde: F.getal(a.sessies),
+      label: 'Bezoekers via AI assistenten', icoon: 'ai', toon: 'ai', info: PV_INFO.ai, waarde: F.getal(a.sessies),
       vergelijking: `Op de hele site, waarvan ${F.getal(a.sessiesBlogs || 0)} op een blog${conv.length ? '. ' + conv.join(' en ') + ' in die bezoeken' : ''}`,
       extra: bron
     });
@@ -110,15 +127,15 @@ function pvTiles(t) {
     const beide = e.leads !== null && e.boekingen !== null;
     const woord = beide ? [`${w.lead[0]} of ${w.boeking[0]}`, `${w.lead[1]} en ${w.boeking[1]}`] : (e.boekingen !== null && e.leads === null ? w.boeking : w.lead);
     lijst.push({
-      label: `${woord[1].charAt(0).toUpperCase() + woord[1].slice(1)} na het lezen van een blog`, icoon: 'blad', waarde: F.getal(aantal),
+      label: `${woord[1].charAt(0).toUpperCase() + woord[1].slice(1)} na het lezen van een blog`, icoon: 'blad', info: PV_INFO.eerder, waarde: pvTotaal(aantal, F),
       vergelijking: totaal ? `Van de ${F.getal(totaal)} ${totaal === 1 ? woord[0] : woord[1]} op de site in deze periode` : `Nog geen ${woord[0]} na het lezen van een blog`,
-      extra: 'Ook als iemand later terugkwam en toen pas contact zocht'
+      extra: aantal ? 'Ook als iemand later terugkwam en toen pas contact zocht' : 'De meting staat aan. Zodra iemand na een blog contact opneemt, zie je het hier.'
     });
   }
   if (t.waarde) {
     const v = t.waarde;
     lijst.push({
-      label: 'Waarde van de klikken uit Google', icoon: 'euro', waarde: euro(v.bedrag),
+      label: 'Waarde van de klikken uit Google', icoon: 'euro', info: PV_INFO.waarde, waarde: euro(v.bedrag),
       vergelijking: 'Wat dezelfde klikken via Google Ads ongeveer hadden gekost',
       extra: v.dekking !== null && v.dekking < 100 ? `Berekend over ${F.getal(v.klikkenMetPrijs)} van de ${F.getal(v.klikken)} klikken, waarvan de klikprijs bekend is` : ''
     });
@@ -126,7 +143,7 @@ function pvTiles(t) {
   if (t.merk) {
     const m = t.merk;
     lijst.push({
-      label: 'Zoekopdrachten op jullie naam', icoon: 'zoek', waarde: F.getal(m.vertoningen),
+      label: 'Zoekopdrachten op jullie naam', icoon: 'zoek', info: PV_INFO.merk, waarde: F.getal(m.vertoningen),
       verschil: F.verschil(m.vertoningen, m.vertoningenVorig),
       vergelijking: `${F.getal(m.klikken)} ${m.klikken === 1 ? 'klik' : 'klikken'}${m.vertoningenVorig !== null && m.vertoningenVorig !== undefined ? `. ${F.getal(m.vertoningenVorig)} keer in de periode ervoor` : ''}`,
       extra: 'Meer zoekopdrachten op de naam betekent dat meer mensen jullie kennen'
@@ -374,6 +391,7 @@ function renderPrestatiesV2(d) {
     ${status}
     <div id="pvTaalRij"></div>
     <section class="p-kerncijfers" id="pvTiles">${pvTiles(t)}</section>
+    ${pvMetingBlok()}
     <div class="p-ov-raster2">
       <div class="p-ov-stapel">
         ${d.weken.length ? `<section class="p-kaart" id="pvWekenKaart"><div class="p-kaart-kop"><div class="p-kaart-titel-blok"><h2 class="p-kaart-titel">De laatste weken</h2><div class="p-kaart-uitleg">Een stip onder een week betekent dat er die week een nieuwe blog live ging. De lichte staaf is de week die nog loopt.</div></div></div>
@@ -469,6 +487,19 @@ function renderPrestatiesV2(d) {
     pvState.toon = PV_STAP;
     document.getElementById('pvBlogList').innerHTML = pvLijstHtml();
   };
+}
+
+// Vast uitlegblok: legt in gewone taal uit hoe we meten wat het oplevert.
+function pvMetingBlok() {
+  return `<details class="p-kaart pv-meting"><summary class="p-kaart-titel" style="cursor:pointer;padding:14px 18px">Zo meten we wat het oplevert</summary><div class="p-kaart-inhoud">
+    <p>Een blog levert zelden direct een aanvraag op. Mensen lezen eerst, vergelijken en nemen later contact op. Daarom kijken we naar drie dingen.</p>
+    <dl>
+      <div><dt>Zichtbaar in Google</dt><dd>Hoeveel mensen jullie blogs zagen en erop klikten. Dit meet Google zelf.</dd></div>
+      <div><dt>Direct van blog naar contact</dt><dd>Bezoeken die op een blog begonnen en in dezelfde sessie een aanvraag of boeking deden.</dd></div>
+      <div><dt>Na het lezen van een blog</dt><dd>Iemand las een blog en nam later contact op, ook via een andere weg. Wij onthouden welke blogs iemand las en tellen die mee zodra die persoon contact opneemt.</dd></div>
+    </dl>
+    <p style="margin-top:10px">Staat er bij een tegel Nog geen, dan loopt de meting wel. Er is dan in deze periode nog niets gebeurd. Dat is geen fout. Cijfers uit Google lopen 2 tot 3 dagen achter. Wat per maand vastligt, staat bij Maandrapporten.</p>
+  </div></details>`;
 }
 
 function pvTekenTaalRij() {

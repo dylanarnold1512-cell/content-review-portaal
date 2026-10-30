@@ -571,4 +571,4 @@ async function getPrestaties(klantNaam, periode) {
   return bouwPrestaties({ ...data, klantNaam });
 }
 
-module.exports = { getPrestaties, bouwPrestaties, positieLabel, REGELS, PERIODES, kiesPeriode, rijenVanPeriode, schoonPad, cpcKaart };
+module.exports = { conversieWoorden, getPrestaties, bouwPrestaties, positieLabel, REGELS, PERIODES, kiesPeriode, rijenVanPeriode, schoonPad, cpcKaart };
