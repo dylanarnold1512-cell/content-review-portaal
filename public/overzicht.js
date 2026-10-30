@@ -59,6 +59,7 @@
   }
 
   const F = () => window.PortaalFormat;
+  const V = () => window.PortaalVerhaal;
   const U = () => window.PortaalUI;
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -87,38 +88,6 @@
     }
   }
 
-  function mooiMax(waarde) {
-    const w = Math.max(waarde, 1);
-    const macht = Math.pow(10, Math.floor(Math.log10(w)));
-    const kandidaat = [1, 2, 3, 4, 5, 6, 8, 10].map((x) => x * macht).find((x) => x >= w);
-    return kandidaat || w;
-  }
-
-  function grafiek(weken) {
-    const Fm = F();
-    const W = 640, H = 210, L = 44, R = 8, T = 18, B = 40;
-    const max = mooiMax(Math.max.apply(null, weken.map((w) => w.vertoningen)));
-    const cw = (W - L - R) / weken.length;
-    const bw = Math.min(30, cw * 0.55);
-    const y = (v) => T + (H - T - B) * (1 - v / max);
-    let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Keer getoond in Google per week">';
-    [0, 1, 2, 3, 4].forEach((n) => {
-      const v = (max / 4) * n;
-      svg += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(v) + '" y2="' + y(v) + '" class="p-ov-raster"/>' +
-        '<text x="' + (L - 8) + '" y="' + (y(v) + 4) + '" text-anchor="end">' + esc(Fm.getal(v)) + '</text>';
-    });
-    weken.forEach((w, i) => {
-      const cx = L + cw * i + cw / 2;
-      const h = Math.max(1.5, y(0) - y(w.vertoningen));
-      svg += '<rect x="' + (cx - bw / 2) + '" y="' + (y(0) - h) + '" width="' + bw + '" height="' + h + '" rx="4" class="' + (w.open ? 'p-ov-staaf-open' : 'p-ov-staaf') + '"><title>Week van ' + esc(Fm.datumKort(w.start)) + ': ' + esc(Fm.getal(w.vertoningen)) + ' keer getoond' + (w.open ? ' (week nog niet compleet)' : '') + '</title></rect>';
-      if (w.vertoningen > 0) svg += '<text class="p-ov-waarde" x="' + cx + '" y="' + (y(0) - h - 6) + '" text-anchor="middle">' + esc(Fm.getal(w.vertoningen)) + '</text>';
-      svg += '<text x="' + cx + '" y="' + (H - B + 18) + '" text-anchor="middle">' + esc(Fm.datumKort(w.start)) + '</text>';
-      if (w.nieuw) svg += '<circle cx="' + cx + '" cy="' + (H - B + 30) + '" r="3.5" class="p-ov-stip"><title>Nieuwe blog live in deze week</title></circle>';
-    });
-    svg += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(0) + '" y2="' + y(0) + '" class="p-ov-grondlijn"/></svg>';
-    return svg;
-  }
-
   function puntenVerschil(nu, voor) {
     const d = nu - voor;
     if (d === 0) return { tekst: 'Gelijk', toon: 'gelijk' };
@@ -137,9 +106,8 @@
       ? '<span class="p-ov-chip"><i class="p-ov-punt p-ov-punt-let-op"></i>Google: laatst gelukt ' + esc(Fm.datumKort(s.bijgewerkt)) + '</span>'
       : s.stand === 'nieuw' ? '<span class="p-ov-chip"><i class="p-ov-punt p-ov-punt-plan"></i>Opstart in gang</span>'
       : s.bijgewerkt ? '<span class="p-ov-chip"><i class="p-ov-punt"></i>Bijgewerkt ' + esc(Fm.datumKort(s.bijgewerkt)) + '</span>' : '';
-    const sub = 'Alles wat Advertisr voor ' + esc(state.clientNaam || 'jullie') + ' doet, op één plek.' + (s.stand === 'nieuw' ? '' : (s.google.status === 'ok' && s.google.heeftData ? ' Cijfers over de laatste 28 dagen.' : ''));
-    return '<div class="p-ov-kop"><div><h1>Overzicht</h1><p>' + sub + '</p></div><div class="p-ov-kop-acties">' + chip +
-      (state.ideaEnrichmentEnabled ? '<button type="button" class="p-knop p-knop-hoofd" data-actie="idee">' + ic('plus') + 'Idee aandragen</button>' : '') + '</div></div>';
+    const sub = 'Alles wat Advertisr voor ' + (state.clientNaam || 'jullie') + ' doet, op één plek.' + (s.stand === 'nieuw' ? '' : (s.google.status === 'ok' && s.google.heeftData ? ' Cijfers over de laatste 28 dagen.' : ''));
+    return V().kop({ titel: 'Overzicht', tekst: sub, acties: chip + (state.ideaEnrichmentEnabled ? '<button type="button" class="p-knop p-knop-hoofd" data-actie="idee">' + ic('plus') + 'Idee aandragen</button>' : '') });
   }
 
   function statusBalk(s, M, state) {
@@ -164,54 +132,47 @@
       '<div class="p-ov-status-volgend">' + volgende + '</div></section>';
   }
 
-  function kerncijfers(s) {
-    const U_ = U();
+  // De cijfers als glazen kaarten met tellende getallen, en de grafiek met hover per week.
+  function resultaten(s) {
     const Fm = F();
-    if (s.stand === 'nieuw') {
-      const leeg = (icoonNaam, label, kopje, tekst, ai) => '<div class="p-kerncijfer"><div class="p-kerncijfer-kop"><span class="p-kerncijfer-icoon' + (ai ? ' p-kerncijfer-icoon-ai' : '') + '">' + ic(icoonNaam) + '</span>' + esc(label) + '</div><div class="p-ov-leegcijfer"><b>' + esc(kopje) + '</b>' + esc(tekst) + '</div></div>';
-      return '<section class="p-kerncijfers">' +
-        (s.google.status === 'ok' ? leeg('oog', 'Keer getoond in Google', 'Nog geen cijfers', 'De eerste cijfers volgen zodra Google de blogs toont.') + leeg('mensen', 'Bezoekers vanuit Google', 'Nog geen cijfers', 'Komt na de eerste vertoningen.') : '') +
-        leeg('blad', 'Blogs live', '0', s.volgendeBlog ? 'De eerste blog staat gepland rond ' + Fm.datumKort(s.volgendeBlog.datum) + '.' : 'De eerste blog volgt.') +
-        (s.ai.status === 'ok' ? leeg('ai', 'AI noemt jullie', 'Nulmeting volgt', 'Daarna weet je waar jullie nu staan.', true) : '') + '</section>';
-    }
-    const oud = s.google.oud ? U_.oudeStand('Stand van ' + Fm.datumKort(s.bijgewerkt) + '. Wordt opnieuw opgehaald.') : '';
-    const lijst = [];
-    if (s.google.status === 'ok') {
-      const gk = s.google;
-      const kleur = gk.weken.slice(-8);
-      lijst.push('<div class="p-kerncijfer-blok">' + U_.kerncijfer({ label: 'Keer getoond in Google', icoon: 'oog', info: 'Hoe vaak een van jullie blogs in de zoekresultaten van Google stond. Dat gebeurt vaak eerder dan dat iemand doorklikt.', waarde: Fm.getal(gk.vertoningen), verschil: Fm.verschil(gk.vertoningen, gk.vertoningenVorig), vergelijking: gk.vertoningenVorig != null ? Fm.getal(gk.vertoningenVorig) + ' in de 28 dagen ervoor' : '', staafjes: kleur.map((w) => w.vertoningen) }) + oud + '</div>');
-      lijst.push('<div class="p-kerncijfer-blok">' + U_.kerncijfer({ label: 'Bezoekers vanuit Google', icoon: 'mensen', info: 'Hoe vaak iemand in Google op een van jullie blogs klikte. Gemeten door Google zelf.', waarde: Fm.getal(gk.clicks), verschil: Fm.verschil(gk.clicks, gk.clicksVorig), vergelijking: gk.clicksVorig != null ? Fm.getal(gk.clicksVorig) + ' in de 28 dagen ervoor' : '', staafjes: kleur.map((w) => w.clicks) }) + oud + '</div>');
-    }
-    const getoond = s.google.status === 'ok' && s.google.blogsGemeten ? s.google.blogsGetoond + ' daarvan worden getoond in Google' : '';
-    lijst.push('<div class="p-kerncijfer-blok">' + U_.kerncijfer({ label: 'Blogs live', icoon: 'blad', info: 'Het aantal blogs dat gepubliceerd is op jullie website. Nieuwe blogs hebben meestal een paar weken nodig voordat Google ze oppakt.', waarde: String(s.aantalLive), vergelijking: getoond || (s.aantalGepland ? s.aantalGepland + ' nog gepland' : '') }) +
-      (s.google.status === 'ok' && s.google.blogsGemeten ? U_.voortgang([{ aandeel: (s.google.blogsGetoond / s.google.blogsGemeten) * 100, toon: 'plan' }], 'Blogs die getoond worden in Google') : '') + '</div>');
-    if (s.ai.status === 'ok') {
-      const a = s.ai;
-      const platf = a.heeftMeting && a.platformen ? a.platformen.filter((p) => p.label).map((p) => p.label + ' ' + p.genoemd + ' van ' + p.antwoorden).join(' · ') + ' antwoorden' : '';
-      lijst.push('<div class="p-kerncijfer-blok">' + U_.kerncijfer({
-        label: 'AI noemt jullie', icoon: 'ai', toon: 'ai', info: 'Wij stellen elke week dezelfde vragen over jullie vakgebied aan ChatGPT en Gemini. Dit is het percentage antwoorden waarin jullie merk genoemd wordt.',
-        waarde: a.heeftMeting && a.percentage != null ? Fm.procent(a.percentage) : 'Nog geen meting',
-        verschil: a.heeftMeting && a.vorigPercentage != null ? puntenVerschil(a.percentage, a.vorigPercentage) : null,
-        vergelijking: a.heeftMeting ? platf : (a.melding || 'De eerste meting volgt'),
-        extra: a.heeftMeting ? a.weekLabel : ''
-      }) + (s.ai.oud ? U_.oudeStand('Stand van de laatst geladen meting.') : '') + '</div>');
-    }
-    return '<section class="p-kerncijfers">' + lijst.join('') + '</section>';
-  }
-
-  function grafiekKaart(s) {
+    const Vv = V();
     const U_ = U();
-    const Fm = F();
     if (s.stand === 'nieuw') {
       const stappen = s.stappen.map((x, i) => '<div class="p-ov-stap p-ov-stap-' + x.status + '"><span class="p-ov-stap-nr">' + (x.status === 'klaar' ? ic('vinkje') : (i + 1)) + '</span><b>' + esc(x.titel) + '</b><span>' + esc(x.tekst) + '</span></div>').join('');
-      return U_.kaart({ titel: 'De eerste weken', inhoud: '<div class="p-ov-stappen">' + stappen + '</div>' });
+      const leeg = [];
+      if (s.google.status === 'ok') {
+        leeg.push(Vv.stat({ label: 'Keer getoond in Google', leeg: true, tekst: 'De eerste cijfers volgen zodra Google de blogs toont.' }));
+        leeg.push(Vv.stat({ label: 'Bezoekers vanuit Google', leeg: true, tekst: 'Komt na de eerste vertoningen.' }));
+      }
+      leeg.push(Vv.stat({ label: 'Blogs live', waarde: '0', tekst: s.volgendeBlog ? 'De eerste blog staat gepland rond ' + Fm.datumKort(s.volgendeBlog.datum) + '.' : 'De eerste blog volgt.' }));
+      if (s.ai.status === 'ok') leeg.push(Vv.stat({ label: 'AI noemt jullie', leeg: true, tekst: 'Daarna weet je waar jullie nu staan.' }));
+      return { cijfers: Vv.raster(leeg.join(''), leeg.length >= 4 ? '4' : leeg.length === 3 ? '3' : '2'), grafiek: U_.kaart({ titel: 'De eerste weken', uitleg: 'Welke stap loopt er nu', inhoud: '<div class="p-ov-stappen">' + stappen + '</div>' }) };
     }
-    if (s.google.status !== 'ok' || !s.google.heeftData || s.google.weken.length < 2) return '';
-    const open = s.google.weken.some((w) => w.open);
-    const legenda = '<div class="p-ov-legenda"><span><i class="p-ov-sw p-ov-sw-hele"></i>Hele week</span>' + (open ? '<span><i class="p-ov-sw p-ov-sw-open"></i>Week nog niet compleet</span>' : '') + '<span><i class="p-ov-sw p-ov-sw-stip"></i>Nieuwe blog live</span></div>';
-    const waarsch = s.google.oud ? U_.oudeStand('Stand van ' + Fm.datumKort(s.bijgewerkt) + '. De laatste week kon niet worden bijgewerkt.') : '';
-    return U_.kaart({ titel: 'Keer getoond in Google per week', uitleg: 'Een rode stip betekent dat er die week een nieuwe blog live ging', actie: { tekst: 'Naar Google', tab: 'prestaties' },
-      inhoud: '<div class="p-ov-grafiek">' + grafiek(s.google.weken) + '</div>' + legenda + waarsch, klasse: 'p-ov-grafiekkaart' });
+    const oud = s.google.oud ? U_.oudeStand('Stand van ' + Fm.datumKort(s.bijgewerkt) + '. Wordt opnieuw opgehaald.') : '';
+    const vorigTekst = (v) => (v != null ? Fm.getal(v) + ' in de 28 dagen ervoor' : '');
+    const cijfers = [];
+    let grafiekHtml = '';
+    if (s.google.status === 'ok') {
+      const gk = s.google;
+      if (gk.weken.length >= 2 && gk.heeftData) {
+        grafiekHtml = '<section class="v-vlak-kaart v-ov-grafiek v-in">' + Vv.vlak(gk.weken.map((w) => ({ label: 'Week van ' + Fm.datumKort(w.start), waarde: w.vertoningen, deels: w.open, nieuw: w.nieuw ? (w.nieuw > 1 ? w.nieuw + ' blogs live' : 'een blog live') : '' })), { titel: 'Keer getoond in Google per week', aria: 'Keer getoond in Google per week', id: 'ov', eenheid: 'keer getoond' }) + oud + '</section>';
+      }
+      cijfers.push(Vv.stat({ label: 'Keer getoond in Google', info: 'Hoe vaak een van jullie blogs in de zoekresultaten van Google stond. Dat gebeurt vaak eerder dan dat iemand doorklikt.', waarde: Fm.getal(gk.vertoningen), tel: gk.vertoningen, delta: Fm.verschil(gk.vertoningen, gk.vertoningenVorig), tekst: vorigTekst(gk.vertoningenVorig) || 'Hoe vaak een blog in de zoekresultaten stond' }));
+      cijfers.push(Vv.stat({ label: 'Bezoekers vanuit Google', info: 'Hoe vaak iemand in Google op een van jullie blogs klikte. Gemeten door Google zelf.', leeg: !gk.clicks, waarde: Fm.getal(gk.clicks), tel: gk.clicks, delta: Fm.verschil(gk.clicks, gk.clicksVorig), tekst: gk.clicks ? vorigTekst(gk.clicksVorig) : 'Zodra iemand in Google op een blog klikt, zie je het hier.' }));
+    }
+    const getoond = s.google.status === 'ok' && s.google.blogsGemeten ? s.google.blogsGetoond + ' daarvan worden getoond in Google' : '';
+    cijfers.push(Vv.stat({ label: 'Blogs live', info: 'Het aantal blogs dat gepubliceerd is op jullie website. Nieuwe blogs hebben meestal een paar weken nodig voordat Google ze oppakt.', waarde: String(s.aantalLive), tel: s.aantalLive, tekst: getoond || (s.aantalGepland ? s.aantalGepland + ' nog gepland' : ''),
+      inhoud: s.google.status === 'ok' && s.google.blogsGemeten ? Vv.balk((s.google.blogsGetoond / s.google.blogsGemeten) * 100, 'Blogs die getoond worden in Google') : '' }));
+    if (s.ai.status === 'ok') {
+      const a = s.ai;
+      const platf = a.heeftMeting && a.platformen ? a.platformen.filter((p) => p.label).map((p) => p.label + ' ' + p.genoemd + ' van ' + p.antwoorden).join(', ') + ' antwoorden' : '';
+      cijfers.push(Vv.stat({ label: 'AI noemt jullie', info: 'Wij stellen elke week dezelfde vragen over jullie vakgebied aan ChatGPT en Gemini. Dit is het percentage antwoorden waarin jullie merk genoemd wordt.',
+        leeg: !(a.heeftMeting && a.percentage != null), waarde: a.heeftMeting && a.percentage != null ? Fm.procent(a.percentage) : '', tel: a.heeftMeting && a.percentage != null ? a.percentage : null,
+        delta: a.heeftMeting && a.vorigPercentage != null ? puntenVerschil(a.percentage, a.vorigPercentage) : null,
+        tekst: a.heeftMeting ? platf : (a.melding || 'De eerste meting volgt'), extra: a.heeftMeting ? a.weekLabel : '',
+        inhoud: s.ai.oud ? U_.oudeStand('Stand van de laatst geladen meting.') : '' }));
+    }
+    return { cijfers: Vv.raster(cijfers.join(''), cijfers.length >= 4 ? '4' : cijfers.length === 3 ? '3' : '2'), grafiek: grafiekHtml };
   }
 
   function planKaart(s) {
@@ -229,7 +190,8 @@
         '<div class="p-ov-rij-tekst"><div class="p-ov-rij-titel">' + esc(b.titel) + '</div>' + (b.cluster ? '<div class="p-ov-rij-meta"><span class="p-ov-tag">' + esc(b.cluster) + '</span></div>' : '') + '</div>' +
         U_.pil(review ? 'Ter review' : 'Gepland', review ? 'let-op' : 'plan') + '</button>';
     }).join('');
-    return U_.kaart({ titel: 'Komende blogs', aantal: s.aantalKomend > s.komend.length ? s.komend.length + ' van ' + s.aantalKomend : null, actie: { tekst: 'Hele planning', tab: 'blogs' }, inhoud: '<div class="p-ov-rijen">' + rijen + '</div>' });
+    return V().inklap({ titel: 'Komende blogs', aantal: s.aantalKomend > s.komend.length ? s.komend.length + ' van ' + s.aantalKomend : s.komend.length, open: s.komend.length <= 4,
+      uitleg: 'Dit zijn de blogs die eraan komen, op datum.', inhoud: '<div class="p-ov-rijen">' + rijen + '</div><div class="p-ov-meer"><button type="button" class="p-knop" data-tab="blogs">Hele planning ' + ic('pijl') + '</button></div>' });
   }
 
   function wachtKaart(s) {
@@ -269,7 +231,7 @@
     const inhoud = s.feed.length
       ? '<div class="p-ov-feed">' + s.feed.map((f) => '<div class="p-ov-ev"><span class="p-ov-ev-punt p-ov-ev-' + (toonKlasse[f.soort] || 'neutraal') + '">' + ic(icoonVan[f.soort] || 'vinkje') + '</span><div><div class="p-ov-ev-t">' + esc(f.tekst) + '</div><div class="p-ov-ev-s">' + esc(Fm.datumKort(f.datum)) + (f.sub ? ' · ' + esc(f.sub) : '') + '</div></div></div>').join('') + '</div>'
       : U().legeStand({ soort: 'wacht', titel: 'Nog niets gebeurd', tekst: 'Zodra de eerste blog live staat, zie je het hier.' });
-    return U().kaart({ titel: 'Wat er gebeurde', inhoud });
+    return s.feed.length ? V().inklap({ titel: 'Wat er gebeurde', aantal: s.feed.length, open: s.feed.length <= 4, inhoud }) : U().kaart({ titel: 'Wat er gebeurde', inhoud });
   }
 
   function onderwerpKaart(s) {
@@ -288,20 +250,24 @@
   function skelet() {
     const b = (w, h) => '<div class="p-sk" style="width:' + w + ';height:' + h + 'px"></div>';
     const k = '<div class="p-kerncijfer">' + b('60%', 14) + b('40%', 34) + b('70%', 12) + '</div>';
-    return '<div class="p-ov" aria-busy="true"><div class="p-ov-kop"><div><h1>Overzicht</h1><p>Even geduld, we halen jullie cijfers op.</p></div></div>' +
-      '<section class="p-kaart" style="padding:20px">' + b('45%', 22) + '<div style="height:10px"></div>' + b('80%', 14) + '</section>' +
-      '<section class="p-kerncijfers">' + k + k + k + k + '</section>' +
-      '<div class="p-ov-raster2"><section class="p-kaart" style="padding:18px">' + b('100%', 180) + '</section><section class="p-kaart" style="padding:18px">' + b('100%', 120) + '</section></div></div>';
+    const V_ = V();
+    return V_.wereld({ kop: V_.kop({ titel: 'Overzicht', tekst: 'Even geduld, we halen jullie cijfers op.' }),
+      hoofdstukken: '<div class="v-ov-blokken">' + ('<div aria-busy="true"><section class="p-kaart" style="padding:20px">' + b('45%', 22) + '<div style="height:10px"></div>' + b('80%', 14) + '</section><div style="height:16px"></div>' +
+        '<section class="p-kerncijfers">' + k + k + k + '</section></div>') + '</div>' }).replace('class="v-wereld"', 'class="v-wereld v-overzicht"');
   }
 
   function bouwHtml(state, inv) {
     const M = window.OverzichtModel;
+    const V_ = V();
     const s = M.bouwStartscherm(inv, new Date().toISOString().slice(0, 10));
     const fouten = [];
     if (inv.google && inv.google.status === 'fout' && !inv.google.stand) fouten.push(U().foutStand({ titel: 'De Google cijfers laden even niet', tekst: 'De rest van het portaal werkt gewoon. Probeer het straks opnieuw.' }));
-    return '<div class="p-ov">' + kop(s, state) + statusBalk(s, M, state) + fouten.join('') + kerncijfers(s) +
-      '<div class="p-ov-raster2"><div class="p-ov-stapel">' + grafiekKaart(s) + planKaart(s) + '</div><div class="p-ov-stapel">' + wachtKaart(s) + merkKaart(s) + feedKaart(s) + '</div></div>' +
-      onderwerpKaart(s) + '</div>';
+    const r = resultaten(s);
+    const onderwerpen = onderwerpKaart(s);
+    const links = '<div class="v-kolom-stapel">' + r.grafiek + planKaart(s) + '</div>';
+    const rechts = '<div class="v-kolom-stapel">' + wachtKaart(s) + merkKaart(s) + feedKaart(s) + '</div>';
+    const html = V_.wereld({ kop: kop(s, state), hoofdstukken: '<div class="v-ov-blokken">' + statusBalk(s, M, state) + fouten.join('') + r.cijfers + V_.raster(links + rechts, 'groot') + onderwerpen + '</div>' });
+    return html.replace('class="v-wereld"', 'class="v-wereld v-overzicht"');
   }
 
   function koppel(doel, openBlog) {
@@ -314,10 +280,16 @@
     }));
   }
 
+  function activeer(doel) {
+    const w = doel.querySelector('[data-v-wereld]');
+    if (w && window.PortaalVerhaal) window.PortaalVerhaal.activeer(w);
+  }
+
   async function renderOverzicht(state, badgeKlasse, openBlog) {
     const doel = document.getElementById('overzichtTab');
     if (!doel || !window.PortaalUI || !window.OverzichtModel) return;
     const mijn = ++teller;
+    doel.classList.add('v-tab');
     const id = state.clientId;
     const basis = { items: state.items, statusValues: state.statusValues, reviewEnabled: state.reviewEnabled };
     const naam = (document.getElementById('clientName') || {}).textContent || '';
@@ -331,6 +303,7 @@
       doel.innerHTML = skelet();
     }
     koppel(doel, openBlog);
+    activeer(doel);
     const [google, ai, merk, kennis] = await Promise.all([
       state.performanceEnabled ? haal('google', id, '/performance-v2') : Promise.resolve({ status: 'uit' }),
       haal('ai', id, '/ai-zichtbaarheid'),
@@ -342,6 +315,7 @@
     const uit = (b) => (b.status === 'fout' && !b.stand ? { status: 'uit' } : b);
     doel.innerHTML = bouwHtml(st, { ...basis, google, ai: uit(ai), merk: uit(merk), kennis: uit(kennis) });
     koppel(doel, openBlog);
+    activeer(doel);
   }
 
   if (typeof window !== 'undefined') window.renderOverzicht = renderOverzicht;

@@ -218,3 +218,16 @@
 /* Prioriteit in dezelfde ene kleur: hoog rood, de rest neutraal */
 .v-wereld .pv-tag { background: rgba(20, 20, 43, 0.07); color: var(--v-marine); }
 .v-wereld .pv-tag-hoog { background: rgba(255, 57, 81, 0.12); color: var(--v-rood-d); }
+
+/* Overzicht: dezelfde stijl, maar compact en zonder hoofdstukken, zodat het een overzicht blijft */
+.v-raster-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1100px) { .v-raster-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .v-raster-4 { grid-template-columns: minmax(0, 1fr); } }
+.v-overzicht .v-spoor { display: none; }
+.v-overzicht .v-verhaal { padding-left: 0; }
+.v-ov-blokken { display: grid; gap: 18px; min-width: 0; }
+.v-ov-blokken > .v-raster { margin: 0; }
+.v-overzicht .v-stat-waarde { font-size: clamp(30px, 2.8vw, 42px); }
+.v-ov-grafiek { padding: 22px 24px; }
+.v-overzicht .v-kolom-stapel { display: grid; gap: 18px; align-content: start; min-width: 0; }
+.v-ov-meer { padding: 4px 24px 18px; }
