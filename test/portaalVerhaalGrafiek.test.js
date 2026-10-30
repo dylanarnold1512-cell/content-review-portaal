@@ -45,3 +45,12 @@ test('vlak en staven: periode maand komt in de markup voor de hover', () => {
   assert.ok(s.includes('data-v-periode="maand"'));
   assert.ok(V.vlak(punten, {}).includes('data-v-periode="week"'));
 });
+
+test('vlak: stippen, cursor en tooltip staan in dezelfde laag als de lijn (plot), niet naast de y-as', () => {
+  const h = V.vlak(punten, { titel: 'x' });
+  const plot = h.slice(h.indexOf('v-vlak-plot'), h.indexOf('v-vlak-x'));
+  assert.ok(plot.includes('<svg'));
+  assert.ok(plot.includes('v-vlak-blog'));
+  assert.ok(plot.includes('v-vlak-cursor'));
+  assert.ok(plot.includes('v-tip'));
+});
