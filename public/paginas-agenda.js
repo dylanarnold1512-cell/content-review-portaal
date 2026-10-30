@@ -52,6 +52,23 @@
     if (!meting || !meting.ai || !p.ai) return 'nog niet gemeten';
     return p.ai.geciteerd > 0 ? `genoemd als bron (${p.ai.geciteerd}x)` : 'nog niet genoemd';
   }
+  // Op de website (30-10-2026): aanvragen, doorkliks naar contact, AI bezoeken en eerder gelezen, uit GA4.
+  function websiteTekst(p, meting) {
+    if (p.stand !== 'Live') return '';
+    if (!meting || !meting.website || !p.website) return 'nog niet gemeten';
+    const w = p.website;
+    const delen = [];
+    const conv = (w.leads || 0) + (w.boekingen || 0);
+    if (conv) delen.push(`${F.getal(conv)} ${conv === 1 ? 'aanvraag' : 'aanvragen'}`);
+    if (w.doorkliks) delen.push(`${F.getal(w.doorkliks)} naar contact`);
+    if (w.eerderGelezen) delen.push(`${F.getal(w.eerderGelezen)} na eerder lezen`);
+    if (w.sessiesAi) delen.push(`${F.getal(w.sessiesAi)} via AI`);
+    return delen.length ? delen.join(', ') : (w.sessies ? `${F.getal(w.sessies)} bezoeken, nog geen aanvraag` : 'nog geen bezoeken');
+  }
+  function waardeTekst(p, meting) {
+    if (p.stand !== 'Live' || !meting || !meting.waarde || !p.google || p.google.waarde === null || p.google.waarde === undefined) return '';
+    return Number(p.google.waarde).toLocaleString('nl-NL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+  }
 
   // Wat er bij een pagina in de agenda staat.
   function watTekst(p) {
@@ -215,11 +232,13 @@
     const live = (paginas || []).filter((p) => p.stand === 'Live')
       .sort((a, b) => ((b.google && b.google.vertoningen) || 0) - ((a.google && a.google.vertoningen) || 0));
     if (!live.length) return '';
+    const metWebsite = Boolean(meting && meting.website);
+    const metWaarde = Boolean(meting && meting.waarde);
     const rijen = live.map((p) => `<tr><td><button type="button" class="pa-link" data-pa-open="${esc(p.id)}">${esc(p.titel)}</button>${veilig(p.url) ? `<div class="pa-sub">${esc(kortUrl(p.url))}</div>` : ''}</td>
-      <td class="pa-nowrap">${esc(F.datumKort(agendaDatum(p)))}</td><td class="pa-num">${esc(googleTekst(p, meting))}</td><td class="pa-num">${esc(bezoekersTekst(p, meting))}</td><td class="pa-num">${esc(positieTekst(p, meting))}</td><td>${esc(aiTekst(p, meting))}</td></tr>`).join('');
+      <td class="pa-nowrap">${esc(F.datumKort(agendaDatum(p)))}</td><td class="pa-num">${esc(googleTekst(p, meting))}</td><td class="pa-num">${esc(bezoekersTekst(p, meting))}</td><td class="pa-num">${esc(positieTekst(p, meting))}</td>${metWaarde ? `<td class="pa-num">${esc(waardeTekst(p, meting))}</td>` : ''}${metWebsite ? `<td>${esc(websiteTekst(p, meting))}</td>` : ''}<td>${esc(aiTekst(p, meting))}</td></tr>`).join('');
     return `<section class="p-kaart pa-score" aria-labelledby="paScoreTitel"><div class="pa-score-kop"><h2 id="paScoreTitel">Hoe de live pagina's scoren</h2>
-      <p>Cijfers van de laatste 28 dagen. Google laat een nieuwe pagina meestal pas na een paar weken zien.</p></div>
-      <div class="pg-tabel-wrap"><table class="pg-tabel pa-tabel"><thead><tr><th>Pagina</th><th>Live sinds</th><th class="pa-num">Getoond</th><th class="pa-num">Bezoekers</th><th class="pa-num">Positie</th><th>AI</th></tr></thead><tbody>${rijen}</tbody></table></div></section>`;
+      <p>Cijfers van de laatste 28 dagen. Google laat een nieuwe pagina meestal pas na een paar weken zien.${metWaarde ? ' Waarde is wat dezelfde klikken via Google Ads ongeveer hadden gekost.' : ''}</p></div>
+      <div class="pg-tabel-wrap"><table class="pg-tabel pa-tabel"><thead><tr><th>Pagina</th><th>Live sinds</th><th class="pa-num">Getoond</th><th class="pa-num">Bezoekers</th><th class="pa-num">Positie</th>${metWaarde ? '<th class="pa-num" title="Wat dezelfde klikken via Google Ads ongeveer hadden gekost">Waarde</th>' : ''}${metWebsite ? '<th>Op de website</th>' : ''}<th>AI</th></tr></thead><tbody>${rijen}</tbody></table></div></section>`;
   }
 
   // De stappen van een pagina in het paneel. stand: klaar, bezig of komt.
@@ -267,7 +286,7 @@
   }
 
   const api = { agendaModel, volgendPlan, agendaDatum, volgendePagina, watTekst, googleTekst, bezoekersTekst, positieTekst, aiTekst, stappen,
-    agendaHtml, kerncijfersHtml, planHtml, scoreHtml, paneelHtml, hoofdletter, volgendeMaand };
+    agendaHtml, kerncijfersHtml, planHtml, scoreHtml, paneelHtml, hoofdletter, volgendeMaand, websiteTekst, waardeTekst };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.PaginasAgenda = api;
 })();

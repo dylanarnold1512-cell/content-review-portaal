@@ -87,6 +87,51 @@ function pvTiles(t) {
       vergelijking: delen.length ? `${delen.join(', ')} in bezoeken die op een blog begonnen` : `Nog geen ${nogGeen} vanuit een blog begonnen bezoek`
     });
   }
+  // Meting 30-10-2026: AI assistenten, eerder gelezen, waarde en zoekopdrachten op de naam.
+  const euro = (n) => Number(n).toLocaleString('nl-NL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+  if (t.ai) {
+    const a = t.ai;
+    const w = a.woorden || { lead: ['aanvraag', 'aanvragen'], boeking: ['boeking', 'boekingen'] };
+    const conv = [];
+    if (a.leads) conv.push(`${F.getal(a.leads)} ${a.leads === 1 ? w.lead[0] : w.lead[1]}`);
+    if (a.boekingen) conv.push(`${F.getal(a.boekingen)} ${a.boekingen === 1 ? w.boeking[0] : w.boeking[1]}`);
+    const bron = a.bronnen && a.bronnen.length ? `Vooral via ${a.bronnen.slice(0, 2).map((b) => b.bron).join(' en ')}` : '';
+    lijst.push({
+      label: 'Bezoekers via AI assistenten', icoon: 'ai', toon: 'ai', waarde: F.getal(a.sessies),
+      vergelijking: `Op de hele site, waarvan ${F.getal(a.sessiesBlogs || 0)} op een blog${conv.length ? '. ' + conv.join(' en ') + ' in die bezoeken' : ''}`,
+      extra: bron
+    });
+  }
+  if (t.eerderGelezen) {
+    const e = t.eerderGelezen;
+    const w = e.woorden || { lead: ['aanvraag', 'aanvragen'], boeking: ['boeking', 'boekingen'] };
+    const aantal = (e.leads || 0) + (e.boekingen || 0);
+    const totaal = (e.leadsTotaal || 0) + (e.boekingenTotaal || 0);
+    const beide = e.leads !== null && e.boekingen !== null;
+    const woord = beide ? [`${w.lead[0]} of ${w.boeking[0]}`, `${w.lead[1]} en ${w.boeking[1]}`] : (e.boekingen !== null && e.leads === null ? w.boeking : w.lead);
+    lijst.push({
+      label: `${woord[1].charAt(0).toUpperCase() + woord[1].slice(1)} na het lezen van een blog`, icoon: 'blad', waarde: F.getal(aantal),
+      vergelijking: totaal ? `Van de ${F.getal(totaal)} ${totaal === 1 ? woord[0] : woord[1]} op de site in deze periode` : `Nog geen ${woord[0]} na het lezen van een blog`,
+      extra: 'Ook als iemand later terugkwam en toen pas contact zocht'
+    });
+  }
+  if (t.waarde) {
+    const v = t.waarde;
+    lijst.push({
+      label: 'Waarde van de klikken uit Google', icoon: 'euro', waarde: euro(v.bedrag),
+      vergelijking: 'Wat dezelfde klikken via Google Ads ongeveer hadden gekost',
+      extra: v.dekking !== null && v.dekking < 100 ? `Berekend over ${F.getal(v.klikkenMetPrijs)} van de ${F.getal(v.klikken)} klikken, waarvan de klikprijs bekend is` : ''
+    });
+  }
+  if (t.merk) {
+    const m = t.merk;
+    lijst.push({
+      label: 'Zoekopdrachten op jullie naam', icoon: 'zoek', waarde: F.getal(m.vertoningen),
+      verschil: F.verschil(m.vertoningen, m.vertoningenVorig),
+      vergelijking: `${F.getal(m.klikken)} ${m.klikken === 1 ? 'klik' : 'klikken'}${m.vertoningenVorig !== null && m.vertoningenVorig !== undefined ? `. ${F.getal(m.vertoningenVorig)} keer in de periode ervoor` : ''}`,
+      extra: 'Meer zoekopdrachten op de naam betekent dat meer mensen jullie kennen'
+    });
+  }
   return lijst.map((x) => U.kerncijfer(x)).join('');
 }
 
@@ -197,6 +242,12 @@ function pvBlogRegel(b0, idx) {
     if (doorkliks) gedragRegels.push(`${pvNl(doorkliks)} ${doorkliks === 1 ? 'doorklik' : 'doorkliks'} naar contact of boeken`);
     if (g.leads) gedragRegels.push(`${pvNl(g.leads)} ${g.leads === 1 ? 'aanvraag' : 'aanvragen'} in bezoeken die hier begonnen`);
     if (g.boekingen) gedragRegels.push(`${pvNl(g.boekingen)} ${g.boekingen === 1 ? 'boeking' : 'boekingen'} in bezoeken die hier begonnen`);
+    if (g.sessiesAi) gedragRegels.push(`${pvNl(g.sessiesAi)} ${g.sessiesAi === 1 ? 'bezoek' : 'bezoeken'} via een AI assistent`);
+    const eerder = (g.ondersteundLeads || 0) + (g.ondersteundBoekingen || 0);
+    if (eerder) gedragRegels.push(`${pvNl(eerder)} ${eerder === 1 ? 'aanvraag of boeking' : 'aanvragen of boekingen'} van mensen die deze blog eerder lazen`);
+  }
+  if (b.cpc !== null && b.cpc !== undefined && b.clicks > 0) {
+    gedragRegels.push(`De klikken uit Google zijn ongeveer ${Math.round(b.clicks * b.cpc).toLocaleString('nl-NL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })} waard aan advertentiekosten`);
   }
   const kw = b.zoekwoorden.length
     ? `<table class="pv-kw"><thead><tr><th>Zoekwoord</th><th>Getoond</th><th>Clicks</th><th>Positie</th></tr></thead><tbody>${b.zoekwoorden.map((z) => `

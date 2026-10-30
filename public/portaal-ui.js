@@ -17,7 +17,9 @@
     vinkje: '<path d="M5 12.5 10 17 19 7"/>',
     klok: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     let_op: '<path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/>',
-    pijl: '<path d="M5 12h14M13 6l6 6-6 6"/>'
+    pijl: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+    euro: '<path d="M17 6.5a6.5 6.5 0 1 0 0 11"/><path d="M4 10.5h9M4 13.5h9"/>',
+    zoek: '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/>'
   };
 
   function icoon(naam) {

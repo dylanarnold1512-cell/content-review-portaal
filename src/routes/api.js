@@ -111,14 +111,14 @@ router.get('/:clientId/paginas', requireLogin, async (req, res) => {
     // Meting alleen tonen als de schakelaar Paginameting voor deze klant aan staat.
     const instellingen = await settingsService.getClientSettings(req.params.clientId, config);
     const leeg = lpMeting.leegMeting();
-    const [google, aiMeting] = instellingen.paginameting
-      ? await Promise.all([lpMeting.haalGoogle(req.params.clientId), lpMeting.haalAi(config.naam)])
-      : [leeg.google, leeg.ai];
-    const paginasLijst = lpMeting.verrijkMetMeting(basis, google, aiMeting);
+    const [google, aiMeting, website] = instellingen.paginameting
+      ? await Promise.all([lpMeting.haalGoogle(req.params.clientId), lpMeting.haalAi(config.naam), lpMeting.haalWebsite(config.naam)])
+      : [leeg.google, leeg.ai, leeg.website];
+    const paginasLijst = lpMeting.verrijkMetMeting(basis, google, aiMeting, website);
     res.json({
       paginas: paginasLijst,
       kerncijfers: { ...telKerncijfers(paginasLijst), aiGenoemd: aiMeting.totaal ? aiMeting.totaal.genoemd : null, aiVragen: aiMeting.totaal ? aiMeting.totaal.vragen : null },
-      meting: { google: google.beschikbaar, ai: aiMeting.beschikbaar },
+      meting: { google: google.beschikbaar, ai: aiMeting.beschikbaar, website: Boolean(website.beschikbaar && website.metConversies), waarde: Boolean(website.beschikbaar && Object.keys(website.cpc || {}).length) },
       perMaand: typeof instellingen.paginasPerMaand === 'number' ? instellingen.paginasPerMaand : null
     });
   } catch (err) {
