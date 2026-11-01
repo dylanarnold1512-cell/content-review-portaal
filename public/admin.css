@@ -303,3 +303,26 @@
 .ck-kpi-todo { border-color: #14142b; box-shadow: 0 0 0 1px #14142b, var(--p-schaduw); }
 .ck-kpi-todo .ck-kpi-v { font-size: 40px; }
 .ck-n-groot { display: inline-block; margin-left: 6px; padding: 1px 9px; border-radius: 999px; background: #14142b; color: #fff; font-size: 13px; font-weight: 600; vertical-align: middle; }
+
+/* Paid Ads > Rapportages */
+.rs-tabs{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap}
+.rs-tab{border:1px solid var(--line,#d9dde3);background:#fff;border-radius:999px;padding:8px 16px;cursor:pointer;font:inherit}
+.rs-tab.actief{background:#111;color:#fff;border-color:#111}
+.rs-kaart{background:#fff;border:1px solid var(--line,#e3e6eb);border-radius:12px;padding:20px;max-width:880px}
+.rs-rij{display:grid;grid-template-columns:2fr 1.2fr 1fr;gap:12px}
+.rs-veld{display:flex;flex-direction:column;gap:4px;font-size:14px}
+.rs-veld span{color:#555}
+.rs-veld select,.rs-veld input,.rs-veld textarea{font:inherit;padding:8px 10px;border:1px solid #cfd4db;border-radius:8px;background:#fff}
+.rs-hint{color:#666;font-size:13px;margin:12px 0}
+.rs-details{margin:12px 0;border-top:1px solid #eceff3;padding-top:12px}
+.rs-details summary{cursor:pointer;font-weight:600}
+.rs-groep h4{margin:16px 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#666}
+.rs-velden{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.rs-notities{margin-top:12px}
+.rs-acties{margin-top:16px}
+.rs-ok{color:#0a6b3b;margin-top:12px}
+.rs-fout{color:#b3261e;margin-top:12px}
+.rs-tabel{width:100%;max-width:880px;border-collapse:collapse;background:#fff}
+.rs-tabel th,.rs-tabel td{text-align:left;padding:10px 12px;border-bottom:1px solid #eceff3;font-size:14px}
+.rs-tabel td small{display:block;color:#888}
+@media(max-width:700px){.rs-rij{grid-template-columns:1fr}}

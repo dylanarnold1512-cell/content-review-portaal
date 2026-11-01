@@ -11,6 +11,7 @@ const onboardingService = require('../services/onboarding');
 const lpKlantgegevens = require('../lp/klantgegevens');
 const aiZichtbaarheidService = require('../services/aiZichtbaarheid');
 const cockpitService = require('../services/cockpit');
+const rapportStart = require('../services/rapportStart');
 const aiFaq = require('../services/aiFaq');
 const { checkAdminPassword, requireAdmin } = require('../middleware/auth');
 
@@ -239,6 +240,25 @@ router.post('/faq/pagr-paginas', async (req, res) => {
     res.json(await lpRoutes.pagrFaqs({ klant: (req.body || {}).klant, urls: (req.body || {}).urls }));
   } catch (err) {
     res.status(500).json({ error: err.message, pagr: [], faq: {} });
+  }
+});
+
+// Paid Ads: rapportages starten (de drie n8n datacollectie formulieren) en de laatste starts met hun status.
+router.get('/rapport-start/config', requireAdmin, (req, res) => {
+  res.json({ organisaties: rapportStart.configVoorScherm() });
+});
+router.get('/rapport-start/recent', requireAdmin, async (req, res) => {
+  try {
+    res.json({ starts: await rapportStart.recent(15) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+router.post('/rapport-start', requireAdmin, async (req, res) => {
+  try {
+    res.json(await rapportStart.start(req.body || {}));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 
