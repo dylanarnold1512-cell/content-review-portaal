@@ -51,7 +51,7 @@ const KLANT_TABS = [
   { id: 'ideeen', titel: 'Ideeën' },
   { id: 'merkprofiel', titel: 'Merkprofiel opbouwen' }
 ];
-const VIEW_TITELS = { cockpit: 'Cockpit', klanten: 'Alle klanten', nieuw: 'Nieuwe klant', ideeen: 'Ideeën', faq: 'FAQ\'s', pagr: 'Pagr.', klant: 'Klant' };
+const VIEW_TITELS = { cockpit: 'Cockpit', klanten: 'Alle klanten', nieuw: 'Nieuwe klant', ideeen: 'Ideeën', faq: 'FAQ\'s', rapportstart: 'Rapportages', pagr: 'Pagr.', klant: 'Klant' };
 const PAGR_TABS = ['overzicht', 'werkplaats', 'nieuw', 'sjablonen', 'paginas', 'kloon', 'vervang', 'klantgegevens'];
 let huidig = { view: 'cockpit', klantId: '', tab: 'instellingen' };
 
@@ -62,7 +62,7 @@ function leesHash() {
     return { view: 'klant', klantId: delen[1], tab };
   }
   if (delen[0] === 'pagr') return { view: 'pagr', klantId: '', tab: PAGR_TABS.includes(delen[1]) ? delen[1] : 'overzicht' };
-  if (['cockpit', 'klanten', 'nieuw', 'ideeen', 'faq'].includes(delen[0])) return { view: delen[0], klantId: '', tab: 'instellingen' };
+  if (['cockpit', 'klanten', 'nieuw', 'ideeen', 'faq', 'rapportstart'].includes(delen[0])) return { view: delen[0], klantId: '', tab: 'instellingen' };
   return { view: 'cockpit', klantId: '', tab: 'instellingen' };
 }
 
@@ -114,7 +114,7 @@ function toonScherm() {
   sluitMenu();
   const { view, klantId, tab } = huidig;
   const klant = zoekKlant(klantId);
-  ['Cockpit', 'Klanten', 'Klant', 'Ideeen', 'Faq', 'Nieuw', 'Pagr'].forEach((naam) => {
+  ['Cockpit', 'Klanten', 'Klant', 'Ideeen', 'Faq', 'Nieuw', 'Pagr', 'Rapportstart'].forEach((naam) => {
     document.getElementById('view' + naam).classList.toggle('hidden', naam.toLowerCase() !== (view === 'klant' ? 'klant' : view));
   });
   document.querySelectorAll('#adminNav [data-view]').forEach((btn) => {
@@ -130,6 +130,7 @@ function toonScherm() {
   if (view === 'klant') renderKlant(klant, tab);
   if (view === 'ideeen') renderIdeeenScherm();
   if (view === 'faq') renderFaqScherm();
+  if (view === 'rapportstart' && window.renderRapportStart) window.renderRapportStart();
   if (view === 'nieuw') loadIntakes();
   if (view === 'pagr') {
     // De LP omgeving laadt pas bij het eerste bezoek, daarna blijft hij staan met zijn eigen stand.
