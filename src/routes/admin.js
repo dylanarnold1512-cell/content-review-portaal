@@ -12,6 +12,7 @@ const lpKlantgegevens = require('../lp/klantgegevens');
 const aiZichtbaarheidService = require('../services/aiZichtbaarheid');
 const cockpitService = require('../services/cockpit');
 const rapportStart = require('../services/rapportStart');
+const pakket = require('../services/pakket');
 const aiFaq = require('../services/aiFaq');
 const { checkAdminPassword, requireAdmin } = require('../middleware/auth');
 
@@ -257,6 +258,16 @@ router.get('/rapport-start/recent', requireAdmin, async (req, res) => {
 router.post('/rapport-start', requireAdmin, async (req, res) => {
   try {
     res.json(await rapportStart.start(req.body || {}));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Paid Ads: learningspakket per klant en maand (data, context en actiepunten van vorige maand in een tekst voor ChatGPT).
+router.post('/rapport-pakket', requireAdmin, async (req, res) => {
+  try {
+    const b = req.body || {};
+    res.json(await pakket.maakPakket({ klant: b.klant, jaar: b.jaar, maand: b.maand, context: b.context, actiepunten: b.actiepunten }));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
