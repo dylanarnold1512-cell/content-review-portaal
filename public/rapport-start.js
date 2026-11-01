@@ -4,7 +4,7 @@
   const e = (t) => escapeHtmlAdmin(String(t === undefined || t === null ? '' : t));
   const MAANDEN = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
   const STATUS = { wacht: ['Wacht op n8n', 'p-pil-neutraal'], bezig: ['Bezig', 'p-pil-let-op'], klaar: ['Klaar', 'p-pil-goed'], fout: ['Fout', 'p-pil-fout'] };
-  const staat = { config: null, org: '', klant: '', maand: 0, jaar: 0, waarden: {}, notities: '', bezig: false, melding: null, starts: [], timer: null };
+  const staat = { config: null, org: '', klant: '', maand: 0, jaar: 0, waarden: {}, notities: '', bezig: false, melding: null, starts: [], timer: null, context: '', puntenTekst: '', punten: [], pakket: null, pakketBezig: false, pakketMelding: null };
 
   function vorigeMaand() {
     const d = new Date();
@@ -109,15 +109,102 @@
     teken();
   }
 
+
+  // Pakket maken: alle data van de klant en maand in een tekst voor ChatGPT.
+  function puntenHtml() {
+    if (!staat.punten.length) return '<p class="rs-hint">Plak hierboven de next steps van het vorige rapport, een per regel. Daarna kies je per punt of het is opgepakt.</p>';
+    return staat.punten.map((p, i) => `<div class="rs-punt">
+      <div class="rs-punt-tekst">${i + 1}. ${e(p.tekst)}</div>
+      <select data-punt="${i}" data-veld="status" aria-label="Status van punt ${i + 1}">
+        <option value=""${!p.status ? ' selected' : ''}>Kies status</option>
+        <option value="opgepakt"${p.status === 'opgepakt' ? ' selected' : ''}>Opgepakt</option>
+        <option value="deels"${p.status === 'deels' ? ' selected' : ''}>Deels opgepakt</option>
+        <option value="niet"${p.status === 'niet' ? ' selected' : ''}>Niet opgepakt</option>
+      </select>
+      <input type="text" data-punt="${i}" data-veld="toelichting" placeholder="Wat heb je gedaan, of waarom niet?" value="${e(p.toelichting || '')}">
+    </div>`).join('');
+  }
+
+  function pakketHtml() {
+    const r = staat.pakket;
+    return `<div class="admin-section-title">Pakket maken</div>
+    <div class="rs-kaart" id="rsPakket">
+      <p class="rs-hint">Voor ${e(staat.klant)}, ${e(MAANDEN[staat.maand - 1])} ${e(staat.jaar)}. Maak het pakket pas nadat het rapport klaar is in Drive en je het hebt nagekeken.</p>
+      <label class="rs-veld rs-notities"><span>Wat moet ik weten over deze maand?</span><textarea id="rsContext" rows="3" placeholder="Optioneel. Bijvoorbeeld wat je hebt aangepast, wat de klant zei of wat er speelde.">${e(staat.context)}</textarea></label>
+      <label class="rs-veld rs-notities"><span>Next steps van het vorige rapport (een per regel)</span><textarea id="rsPuntenTekst" rows="4">${e(staat.puntenTekst)}</textarea></label>
+      <div id="rsPunten">${puntenHtml()}</div>
+      <div class="rs-acties"><button type="button" id="rsMaakPakket" class="primary"${staat.pakketBezig ? ' disabled' : ''}>${staat.pakketBezig ? 'Pakket wordt gemaakt' : 'Maak pakket'}</button></div>
+      ${staat.pakketMelding ? `<p class="${staat.pakketMelding.fout ? 'rs-fout' : 'rs-ok'}" role="status">${e(staat.pakketMelding.tekst)}</p>` : ''}
+      ${r ? `<div class="rs-acties"><button type="button" id="rsKopieer">Kopieer voor ChatGPT</button><button type="button" id="rsDownload">Download als bestand</button></div>
+        <textarea id="rsPakketTekst" class="rs-pakket-tekst" rows="16" readonly>${e(r.tekst)}</textarea>` : ''}
+    </div>`;
+  }
+
+  function bouwPunten() {
+    const oud = staat.punten;
+    staat.punten = staat.puntenTekst.split('\n').map((t) => t.trim()).filter(Boolean).map((t) => {
+      const eerder = oud.find((p) => p.tekst === t);
+      return eerder || { tekst: t, status: '', toelichting: '' };
+    });
+  }
+
+  function bindPakket(root) {
+    const c = root.querySelector('#rsContext');
+    if (c) c.addEventListener('input', () => { staat.context = c.value; });
+    const pt = root.querySelector('#rsPuntenTekst');
+    if (pt) {
+      pt.addEventListener('input', () => { staat.puntenTekst = pt.value; });
+      pt.addEventListener('change', () => { bouwPunten(); const el = root.querySelector('#rsPunten'); el.innerHTML = puntenHtml(); bindPunten(root); });
+    }
+    bindPunten(root);
+    const m = root.querySelector('#rsMaakPakket');
+    if (m) m.addEventListener('click', () => maakPakket());
+    const k = root.querySelector('#rsKopieer');
+    if (k) k.addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(staat.pakket.tekst); k.textContent = 'Gekopieerd'; } catch (err) { const t = root.querySelector('#rsPakketTekst'); t.select(); document.execCommand('copy'); k.textContent = 'Gekopieerd'; }
+    });
+    const d = root.querySelector('#rsDownload');
+    if (d) d.addEventListener('click', () => {
+      const blob = new Blob([staat.pakket.tekst], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = staat.pakket.bestandsnaam; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    });
+  }
+
+  function bindPunten(root) {
+    root.querySelectorAll('[data-punt]').forEach((el) => {
+      const zet = () => { const p = staat.punten[Number(el.dataset.punt)]; if (p) p[el.dataset.veld] = el.value; };
+      el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', zet);
+    });
+  }
+
+  async function maakPakket() {
+    const open = staat.punten.filter((p) => !p.status).length;
+    if (open && !window.confirm(`${open} actiepunten hebben nog geen status. Toch doorgaan?`)) return;
+    staat.pakketBezig = true; staat.pakketMelding = null; staat.pakket = null; teken();
+    try {
+      const r = await adminApi('/rapport-pakket', { method: 'POST', body: JSON.stringify({ klant: staat.klant, jaar: staat.jaar, maand: staat.maand, context: staat.context, actiepunten: staat.punten }) });
+      staat.pakket = r;
+      staat.pakketMelding = r.rapportAanwezig ? { tekst: 'Pakket klaar. Kopieer het en plak het in ChatGPT.' } : { fout: true, tekst: 'Het pakket is gemaakt, maar de rapportcijfers van deze maand staan nog niet in n8n. Start eerst het rapport en wacht tot het klaar is.' };
+    } catch (err) {
+      staat.pakketMelding = { fout: true, tekst: err.message };
+    }
+    staat.pakketBezig = false;
+    teken();
+  }
+
   function teken() {
     const root = document.getElementById('viewRapportstart');
     root.innerHTML = `<div class="p-pagina">
       <div class="p-ov-kop"><div><h1>Rapportages</h1><p>Start de maandrapportage voor een klant. Dit is hetzelfde formulier als in n8n, met dezelfde handmatige velden.</p></div></div>
       <div id="rsFormulier">${formulierHtml()}</div>
+      ${pakketHtml()}
       <div class="admin-section-title">Laatste starts</div>
       <div id="rsLijst">${lijstHtml()}</div>
     </div>`;
     bind(root);
+    bindPakket(root);
   }
 
   async function ververs() {
