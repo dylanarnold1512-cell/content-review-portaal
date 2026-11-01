@@ -352,8 +352,15 @@ function sectieOpvallend(g, nota) {
       if (slecht.length) regels.push(`Zoektermen zonder conversie met meer kosten dan de gemiddelde kosten per conversie (${euro(gem)}): ${slecht.slice(0, 8).map((t) => `${t.zoekterm} (${euro(t.kosten)})`).join('; ')}. Dit zijn kandidaten om uit te sluiten of te bekijken.`);
       else regels.push(`Geen zoekterm zonder conversie heeft meer kosten dan de gemiddelde kosten per conversie (${euro(gem)}).`);
     }
+    const duurst = termen.slice().sort((x, y) => y.kosten - x.kosten).slice(0, 8);
+    regels.push(`Zoektermen met de meeste kosten: ${duurst.map((t) => `${t.zoekterm} (${euro(t.kosten)}, ${getal(t.klikken)} klikken, ${conv(t.conversies)} conversies)`).join('; ')}.`);
     const nul = termen.filter((t) => t.conversies === 0);
     regels.push(`${getal(nul.length)} van de ${getal(termen.length)} zoektermen hadden geen conversie, samen ${euro(som(nul, 'kosten'))}.`);
+    // Zoektermen over dezelfde zoekwoorden heen: welk deel van het geld ging naar zoektermen die bij een ander zoekwoord of type pasten.
+    const perWoord = {};
+    termen.forEach((t) => { const k = t.zoekwoord || 'onbekend'; perWoord[k] = perWoord[k] || { kosten: 0, klikken: 0, conversies: 0 }; perWoord[k].kosten += Number(t.kosten); perWoord[k].klikken += Number(t.klikken); perWoord[k].conversies += Number(t.conversies); });
+    const woorden = Object.entries(perWoord).sort((x, y) => y[1].kosten - x[1].kosten).slice(0, 5);
+    regels.push(`Zoekwoorden waar de zoektermen de meeste kosten op maakten: ${woorden.map(([k, v]) => `${k} (${euro(v.kosten)}, ${getal(v.klikken)} klikken, ${conv(v.conversies)} conversies)`).join('; ')}.`);
   }
   return regels;
 }
