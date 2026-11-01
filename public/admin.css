@@ -332,3 +332,5 @@
 .rs-punt-tekst { font-size: 0.92rem; }
 .rs-pakket-tekst { width: 100%; margin-top: 0.75rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; line-height: 1.4; }
 @media (max-width: 720px) { .rs-punt { grid-template-columns: 1fr; } }
+.rs-opties { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 0.4rem 1rem; padding: 0.5rem 0; }
+.rs-opties label { display: flex; gap: 0.4rem; align-items: center; font-size: 0.9rem; }

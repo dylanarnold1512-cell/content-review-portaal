@@ -267,7 +267,7 @@ router.post('/rapport-start', requireAdmin, async (req, res) => {
 router.post('/rapport-pakket', requireAdmin, async (req, res) => {
   try {
     const b = req.body || {};
-    res.json(await pakket.maakPakket({ klant: b.klant, jaar: b.jaar, maand: b.maand, context: b.context, actiepunten: b.actiepunten }));
+    res.json(await pakket.maakPakket({ klant: b.klant, jaar: b.jaar, maand: b.maand, context: b.context, actiepunten: b.actiepunten, opties: b.opties }));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

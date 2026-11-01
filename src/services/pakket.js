@@ -117,10 +117,10 @@ function sectieActiepunten(punten) {
   return regels;
 }
 
-function sectieCampagnes(g) {
-  const regels = ['GOOGLE ADS: CAMPAGNES (deze maand tegenover vorige maand)'];
+function sectieCampagnes(g, vergelijk) {
+  const regels = [vergelijk ? 'GOOGLE ADS: CAMPAGNES (deze maand tegenover vorige maand)' : 'GOOGLE ADS: CAMPAGNES DIE DEZE MAAND VERTOONDEN'];
   const nu = g.campagnes || [];
-  const voor = g.campagnes_vorige_maand || [];
+  const voor = vergelijk ? (g.campagnes_vorige_maand || []) : [];
   if (!nu.length && !voor.length) { regels.push('Geen campagnes met vertoningen in deze en vorige maand.'); return regels; }
   const namen = [...new Set([...nu.map((c) => c.campagne), ...voor.map((c) => c.campagne)])];
   namen.forEach((naam) => {
@@ -129,18 +129,20 @@ function sectieCampagnes(g) {
     const delen = [`${naam}${a && a.type ? ` (${TYPE[a.type] || a.type})` : ''}${a && a.status ? `, status nu: ${a.status}` : ''}`];
     if (a) delen.push(`   Deze maand: ${euro(a.kosten)} kosten, ${getal(a.klikken)} klikken, ${getal(a.vertoningen)} vertoningen, CTR ${ctr(a.klikken, a.vertoningen)}, CPC ${cpc(a.kosten, a.klikken)}, ${conv(a.conversies)} conversies volgens het platform, kosten per conversie: ${perConv(a.kosten, a.conversies)}`);
     else delen.push('   Deze maand: geen vertoningen');
-    if (b) delen.push(`   Vorige maand: ${euro(b.kosten)} kosten, ${getal(b.klikken)} klikken, ${conv(b.conversies)} conversies volgens het platform${a ? `. Kosten ${verschil(a.kosten, b.kosten)}, klikken ${verschil(a.klikken, b.klikken)}` : ''}`);
-    else delen.push('   Vorige maand: geen vertoningen');
+    if (vergelijk) {
+      if (b) delen.push(`   Vorige maand: ${euro(b.kosten)} kosten, ${getal(b.klikken)} klikken, ${conv(b.conversies)} conversies volgens het platform${a ? `. Kosten ${verschil(a.kosten, b.kosten)}, klikken ${verschil(a.klikken, b.klikken)}` : ''}`);
+      else delen.push('   Vorige maand: geen vertoningen');
+    }
     regels.push(...delen);
   });
-  regels.push('Let op: een campagne die alleen in de maandcijfers staat, kan inmiddels uit staan. Gebruik de status nu, niet de uitgaven, om te zeggen of iets nog loopt.');
+  regels.push('Let op: deze campagnes stonden deze maand live. Of ze nu nog aan staan, zie je alleen aan de status nu, niet aan de uitgaven.');
   return regels;
 }
 
-function sectieGroepen(g) {
-  const regels = ['GOOGLE ADS: ADVERTENTIEGROEPEN (deze maand tegenover vorige maand)'];
+function sectieGroepen(g, vergelijk) {
+  const regels = [vergelijk ? 'GOOGLE ADS: ADVERTENTIEGROEPEN (deze maand tegenover vorige maand)' : 'GOOGLE ADS: ADVERTENTIEGROEPEN DIE DEZE MAAND VERTOONDEN'];
   const nu = g.advertentiegroepen || [];
-  const voor = g.advertentiegroepen_vorige_maand || [];
+  const voor = vergelijk ? (g.advertentiegroepen_vorige_maand || []) : [];
   if (!nu.length && !voor.length) { regels.push('Geen advertentiegroepen met vertoningen (bijvoorbeeld bij Performance Max).'); return regels; }
   const sleutel = (r) => `${r.campagne}|||${r.advertentiegroep}`;
   const heeftStatus = nu.some((r) => r.advertentiegroepStatus || r.statusGroep);
@@ -154,7 +156,7 @@ function sectieGroepen(g) {
     const status = a && (a.advertentiegroepStatus || a.statusGroep) ? `, status nu: ${a.advertentiegroepStatus || a.statusGroep}` : '';
     regels.push(`${camp}, groep ${groep}${status}`);
     regels.push(`   Deze maand: ${a ? `${euro(a.kosten)}, ${getal(a.klikken)} klikken, ${conv(a.conversies)} conversies volgens het platform, kosten per conversie: ${perConv(a.kosten, a.conversies)}` : 'geen vertoningen'}`);
-    regels.push(`   Vorige maand: ${b ? `${euro(b.kosten)}, ${getal(b.klikken)} klikken, ${conv(b.conversies)} conversies volgens het platform` : 'geen vertoningen'}`);
+    if (vergelijk) regels.push(`   Vorige maand: ${b ? `${euro(b.kosten)}, ${getal(b.klikken)} klikken, ${conv(b.conversies)} conversies volgens het platform` : 'geen vertoningen'}`);
   });
   if (verborgen) regels.push(`${verborgen} groepen zonder kosten en klikken in beide maanden zijn weggelaten.`);
   if (!heeftStatus) regels.push('De status van de groepen zelf (actief of gepauzeerd) is niet opgehaald. Zeg dus niet dat een groep nu actief of uit staat. Een groep zonder vertoningen deze maand kan gepauzeerd zijn of gewoon niets hebben getoond.');
@@ -179,6 +181,32 @@ function sectieZoektermen(g, drempel) {
   const meeste = rijen.slice().sort((a, b) => b.klikken - a.klikken).slice(0, 15);
   regels.push('', 'Zoektermen met de meeste klikken');
   meeste.forEach((r) => regels.push(regel(r)));
+  return regels;
+}
+
+
+function sectieZoektermenAlles(g) {
+  const regels = ['GOOGLE ADS: ZOEKTERMEN DEZE MAAND PER CAMPAGNE EN ADVERTENTIEGROEP'];
+  const rijen = g.zoektermen || [];
+  if (!rijen.length) { regels.push('Geen zoektermen beschikbaar voor deze maand (bijvoorbeeld bij Performance Max of Shopping).'); return regels; }
+  const totaalKosten = som(g.campagnes, 'kosten');
+  const zoekKosten = som(rijen, 'kosten');
+  const dekking = totaalKosten > 0 ? Math.round((zoekKosten / totaalKosten) * 100) : null;
+  regels.push(`Aantal zoektermen: ${getal(rijen.length)}. Samen ${euro(zoekKosten)} van ${euro(totaalKosten)} campagnekosten${dekking !== null ? ` (${dekking}% gedekt)` : ''}. Google toont niet elke zoekterm, dus de rest is niet te zien. Per regel: zoekterm | zoekwoord waarop hij matchte | kosten, klikken, conversies volgens het platform.`);
+  const perCamp = {};
+  rijen.forEach((r) => {
+    const c = r.campagne || 'onbekend'; const a = r.advertentiegroep || 'onbekend';
+    perCamp[c] = perCamp[c] || {}; (perCamp[c][a] = perCamp[c][a] || []).push(r);
+  });
+  Object.keys(perCamp).sort((x, y) => som(Object.values(perCamp[y]).flat(), 'kosten') - som(Object.values(perCamp[x]).flat(), 'kosten')).forEach((c) => {
+    const alle = Object.values(perCamp[c]).flat();
+    regels.push('', `Campagne ${c}: ${getal(alle.length)} zoektermen, ${euro(som(alle, 'kosten'))}, ${getal(som(alle, 'klikken'))} klikken, ${conv(som(alle, 'conversies'))} conversies`);
+    Object.keys(perCamp[c]).sort((x, y) => som(perCamp[c][y], 'kosten') - som(perCamp[c][x], 'kosten')).forEach((a) => {
+      const lijst = perCamp[c][a].slice().sort((x, y) => y.kosten - x.kosten || y.klikken - x.klikken);
+      regels.push(`  Advertentiegroep ${a}: ${getal(lijst.length)} zoektermen, ${euro(som(lijst, 'kosten'))}, ${getal(som(lijst, 'klikken'))} klikken, ${conv(som(lijst, 'conversies'))} conversies`);
+      lijst.forEach((r) => regels.push(`    ${r.zoekterm} | ${r.zoekwoord || 'onbekend'}${r.zoekwoordType ? ` (${MATCH[r.zoekwoordType] || r.zoekwoordType})` : ''} | ${euro(r.kosten)}, ${getal(r.klikken)} klikken, ${conv(r.conversies)} conversies${r.zoektermStatus && r.zoektermStatus !== 'NONE' ? `, status: ${r.zoektermStatus}` : ''}`));
+    });
+  });
   return regels;
 }
 
@@ -264,54 +292,42 @@ function sectieAccount(g) {
   return ['GOOGLE ADS: DRIE MAANDEN SAMEN', `Kosten ${euro(a.kosten)}, ${getal(a.klikken)} klikken, ${conv(a.conversies)} conversies volgens het platform, gemiddelde kosten per conversie ${perConv(a.kosten, a.conversies)}.`];
 }
 
-function bouwTekst({ klant, jaar, maand, context, actiepunten, maanddata, start, verdieping }) {
+function bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, opties }) {
+  const o = opties || {};
   const g = (verdieping && verdieping.google) || null;
   const delen = [];
   delen.push([`LEARNINGSPAKKET ${klant.toUpperCase()}, ${MAANDEN[maand - 1].toUpperCase()} ${jaar}`,
-    'Alle cijfers zijn van deze klant en deze maand, tenzij erbij staat dat het vorige maand is. Het rapport is leidend: waar het platform een ander conversieaantal toont dan het rapport, geldt het rapport.']);
+    'Dit pakket hoort bij het rapport met de maanddata. Het rapport is leidend: waar het platform een ander conversieaantal toont dan het rapport (bijvoorbeeld door handmatig toegevoegde conversies), geldt het rapport. Alle cijfers hieronder gaan over deze maand, tenzij erbij staat dat het vorige maand is.']);
   delen.push(['CONTEXT VAN DYLAN', context && String(context).trim() ? String(context).trim() : 'Geen extra context aangegeven.']);
   delen.push(sectieActiepunten(actiepunten));
-  delen.push(sectieRapportcijfers(maanddata || {}, jaar, maand));
-  delen.push(sectieHandmatig(start));
   if (g) {
-    delen.push(sectieCampagnes(g), sectieGroepen(g), sectieZoekwoorden(g), sectieZoektermen(g, 15), sectieAdvertenties(g), sectieProducten(g), sectieUitsluitingen(g), sectieAccount(g).length ? sectieAccount(g) : null, sectieWijzigingen(g));
+    delen.push(sectieCampagnes(g, !!o.vorigeMaand), sectieGroepen(g, !!o.vorigeMaand), sectieZoektermenAlles(g));
+    if (o.zoekwoorden) delen.push(sectieZoekwoorden(g));
+    if (o.advertenties) delen.push(sectieAdvertenties(g));
+    if (o.producten) delen.push(sectieProducten(g));
+    if (o.uitsluitingen) delen.push(sectieUitsluitingen(g));
+    if (o.wijzigingen) delen.push(sectieWijzigingen(g));
+    if (o.drieMaanden && sectieAccount(g).length) delen.push(sectieAccount(g));
   } else {
     delen.push(['GOOGLE ADS', 'Geen Google Ads data opgehaald voor deze klant.']);
   }
-  delen.push(sectieLinkedIn(verdieping && verdieping.linkedin), sectieMeta(verdieping && verdieping.meta));
+  if (o.linkedin) delen.push(sectieLinkedIn(verdieping && verdieping.linkedin));
+  if (o.meta) delen.push(sectieMeta(verdieping && verdieping.meta));
   const waarschuwingen = [];
   if (g && (g.fouten || []).length) g.fouten.forEach((f) => waarschuwingen.push(`Google query "${f.query}" gaf een fout: ${f.fout}`));
   if (g && (g.afgekapt || []).length) waarschuwingen.push(`Deze Google onderdelen zijn afgekapt omdat er meer rijen waren: ${g.afgekapt.join(', ')}`);
-  if (verdieping && verdieping.linkedin && (verdieping.linkedin.fouten || []).length) waarschuwingen.push('LinkedIn gaf een fout bij het ophalen.');
   if (waarschuwingen.length) delen.push(['KANTTEKENINGEN BIJ DE DATA', ...waarschuwingen]);
   return delen.filter(Boolean).map((d) => d.join('\n')).join('\n\n');
 }
 
-async function maakPakket({ klant, jaar, maand, context, actiepunten }) {
+async function maakPakket({ klant, jaar, maand, context, actiepunten, opties }) {
   klant = String(klant || '').trim();
   jaar = Number(jaar); maand = Number(maand);
   if (!klant) throw new Error('Kies een klant.');
   if (!(maand >= 1 && maand <= 12) || !(jaar >= 2024 && jaar <= 2100)) throw new Error('Maand of jaar klopt niet.');
-  const p = vorigePeriode(jaar, maand);
-
-  const [maandRijen, startRijen, verdieping] = await Promise.all([
-    alleRijen(MAANDDATA_TABLE_ID),
-    alleRijen(STARTS_TABLE_ID).catch(() => []),
-    haalVerdieping({ klant, jaar, maand })
-  ]);
-  const parse = (r) => { try { return JSON.parse(r.data); } catch (err) { return null; } };
-  const vind = (j, m) => maandRijen.filter((r) => r.klant === klant && Number(r.jaar) === j && Number(r.maand) === m).sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))[0];
-  const nuRij = vind(jaar, maand);
-  const voorRij = vind(p.jaar, p.maand);
-  const maandSleutel = `${jaar}-${String(maand).padStart(2, '0')}`;
-  const start = startRijen.filter((r) => r.klant === klant && r.maand === maandSleutel).sort((a, b) => String(b.gestart).localeCompare(String(a.gestart)))[0];
-
-  const tekst = bouwTekst({
-    klant, jaar, maand, context, actiepunten,
-    maanddata: { nu: nuRij ? parse(nuRij) : null, voor: voorRij ? parse(voorRij) : null },
-    start, verdieping
-  });
-  return { tekst, bestandsnaam: `Learningspakket ${klant} ${maandSleutel}.txt`, rapportAanwezig: !!nuRij };
+  const verdieping = await haalVerdieping({ klant, jaar, maand });
+  const tekst = bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, opties });
+  return { tekst, bestandsnaam: `Learningspakket ${klant} ${jaar}-${String(maand).padStart(2, '0')}.txt` };
 }
 
 async function haalVerdieping({ klant, jaar, maand }) {
