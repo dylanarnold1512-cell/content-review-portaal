@@ -31,3 +31,12 @@ test('start valt terug op de velden uit de workflow als de pagina geen labels to
   assert.equal(posts[0].get('field-0'), 'SPAWW');
   assert.equal(posts[0].get('field-2'), '2026');
 });
+
+test('start vindt een veld waarvan de tekst op de pagina anders is geschreven, via de workflow', async () => {
+  process.env.N8N_API_KEY = 'x';
+  const wf = { nodes: [{ type: 'n8n-nodes-base.formTrigger', parameters: { formFields: { values: [{ fieldLabel: 'Klant' }, { fieldLabel: 'Maand overschrijven (1-12, leeglaten = vorige maand)' }, { fieldLabel: 'Jaar overschrijven (bijv. 2026, leeglaten = huidig jaar)' }, { fieldLabel: 'Google Ads - Conversies overschrijven (leeglaten = automatisch)' }] } } }] };
+  const html = "<label for='field-0'>Klant</label><label for='field-1'>Maand overschrijven (1-12, leeglaten = vorige maand)</label><label for='field-2'>Jaar overschrijven (bijv. 2026, leeglaten = huidig jaar)</label><label for='field-3'>Google Ads &#8211; Conversies overschrijven (leeglaten = automatisch)</label>";
+  const posts = nepFetch(html, wf);
+  await start({ organisatieId: 'digital-impact', klant: 'UNIT45', velden: { 'Google Ads - Conversies overschrijven (leeglaten = automatisch)': '9' } });
+  assert.equal(posts[0].get('field-3'), '9');
+});
