@@ -485,6 +485,79 @@ function sectieMetaExtra(x) {
   return regels.length > 1 ? regels : null;
 }
 
+// Cijfers uit de tabellen van het Word rapport. Het rapport is leidend, dus deze cijfers gaan voor op n8n.
+// Werkt met tabellen waar de maanden in de kolommen staan (kpi per rij) en met tabellen waar de maanden in de rijen staan.
+const VELD_NAMEN = [
+  ['conversies', /^(conversies|leads|reserveringen|aanvragen|offerte aanvragen|offertes|resultaten)\b/i],
+  ['kosten', /^kosten\b/i],
+  ['klikken', /^(klikken|clicks)\b/i],
+  ['vertoningen', /^(vertoningen|impressies|weergaven)\b/i]
+];
+
+function celGetal(t) {
+  const m = String(t || '').replace(/ /g, ' ').match(/-?\d[\d.\s]*(?:,\d+)?/);
+  if (!m) return null;
+  const n = Number(m[0].replace(/[.\s]/g, '').replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+}
+
+const platTekst = (h) => String(h || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&euro;/g, '€').replace(/&#(\d+);/g, (_, c) => String.fromCharCode(Number(c))).replace(/\s+/g, ' ').trim();
+
+function tabelNaarRijen(html) {
+  return (html.match(/<tr[\s\S]*?<\/tr>/g) || []).map((r) => (r.match(/<t[dh][\s\S]*?<\/t[dh]>/g) || []).map(platTekst));
+}
+
+function cijfersUitTabel(rijen, maandNaam) {
+  const uit = {};
+  const mn = maandNaam.toLowerCase();
+  const kort = mn.slice(0, 3);
+  const isMaand = (t) => { const x = String(t || '').toLowerCase().trim(); return x === mn || x.startsWith(`${mn} `) || x === kort || x.startsWith(`${kort} `) || x.startsWith(`${kort}.`); };
+  // Maanden in de kolommen: zoek de kopregel met de maand
+  for (const kop of rijen) {
+    const kol = kop.findIndex((c, i) => i > 0 && isMaand(c));
+    if (kol < 0) continue;
+    rijen.forEach((r) => {
+      const def = VELD_NAMEN.find(([, re]) => re.test(String(r[0] || '').trim()));
+      if (def && uit[def[0]] === undefined) { const g = celGetal(r[kol]); if (g !== null) uit[def[0]] = g; }
+    });
+    if (Object.keys(uit).length) return uit;
+  }
+  // Maanden in de rijen: de eerste cel van de rij is de maand, de kop heeft de kpi namen
+  const kopRij = rijen.find((r) => r.some((c) => VELD_NAMEN.some(([, re]) => re.test(String(c).trim()))));
+  const maandRij = rijen.find((r) => isMaand(r[0]));
+  if (kopRij && maandRij) {
+    kopRij.forEach((c, i) => {
+      const def = VELD_NAMEN.find(([, re]) => re.test(String(c).trim()));
+      if (def && uit[def[0]] === undefined) { const g = celGetal(maandRij[i]); if (g !== null) uit[def[0]] = g; }
+    });
+  }
+  return uit;
+}
+
+async function leesRapportCijfers(buffer, maand) {
+  const mammoth = require('mammoth');
+  const { value: html } = await mammoth.convertToHtml({ buffer });
+  const blokken = html.match(/<table[\s\S]*?<\/table>|<h[1-6][\s\S]*?<\/h[1-6]>|<p[\s\S]*?<\/p>/g) || [];
+  const KANALEN = [['googleAds', /google/i], ['metaAds', /meta|facebook/i], ['linkedIn', /linkedin/i], ['bingAds', /bing|microsoft/i], ['website', /website/i]];
+  let kanaal = '';
+  const res = {};
+  blokken.forEach((b) => {
+    if (b.startsWith('<table')) {
+      const rijen = tabelNaarRijen(b);
+      const eerste = (rijen[0] && rijen[0][0]) || '';
+      const k = KANALEN.find(([, re]) => re.test(eerste));
+      const naam = k ? k[0] : kanaal;
+      if (!naam || res[naam]) return;
+      const c = cijfersUitTabel(rijen, MAANDEN[maand - 1]);
+      if (Object.keys(c).length) res[naam] = c;
+    } else {
+      const t = platTekst(b);
+      if (t.length < 60) { const k = KANALEN.find(([, re]) => re.test(t)); if (k) kanaal = k[0]; }
+    }
+  });
+  return res;
+}
+
 // Rapport uit Word: tekst in het pakket en next steps van het vorige rapport.
 const MAX_RAPPORT = 40000;
 
@@ -625,7 +698,7 @@ async function schrijfConcept(pakketTekst) {
   }
 }
 
-async function maakPakket({ klant, jaar, maand, context, actiepunten, opties, rapportTekst }) {
+async function maakPakket({ klant, jaar, maand, context, actiepunten, opties, rapportTekst, rapportCijfers }) {
   klant = String(klant || '').trim();
   jaar = Number(jaar); maand = Number(maand);
   if (!klant) throw new Error('Kies een klant.');
@@ -635,6 +708,10 @@ async function maakPakket({ klant, jaar, maand, context, actiepunten, opties, ra
   const rij = rijen.filter((r) => r.klant === klant && Number(r.jaar) === jaar && Number(r.maand) === maand).sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))[0];
   let rapportData = null;
   try { rapportData = rij ? JSON.parse(rij.data) : null; } catch (err) { /* geen json */ }
+  if (rapportCijfers && typeof rapportCijfers === 'object' && Object.keys(rapportCijfers).length) {
+    rapportData = rapportData || {};
+    Object.entries(rapportCijfers).forEach(([k, v]) => { rapportData[k] = { ...(rapportData[k] || {}), ...v }; });
+  }
   let tekst = bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, opties, rapportData, rapportTekst });
   const concept = await schrijfConcept(tekst);
   tekst += `\n\n${CONCEPT_KOP.join('\n')}\n${concept.tekst || `Geen concept meegegeven. ${concept.reden}`}`;
@@ -670,4 +747,4 @@ async function haalVerdieping({ klant, jaar, maand }) {
   return data;
 }
 
-module.exports = { haalNextSteps, maakPakket, bouwTekst, CONCEPT_KOP, conceptSysteem };
+module.exports = { leesRapportCijfers, haalNextSteps, maakPakket, bouwTekst, CONCEPT_KOP, conceptSysteem };

@@ -4,7 +4,7 @@
   const e = (t) => escapeHtmlAdmin(String(t === undefined || t === null ? '' : t));
   const MAANDEN = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
   const STATUS = { wacht: ['Wacht op n8n', 'p-pil-neutraal'], bezig: ['Bezig', 'p-pil-let-op'], klaar: ['Klaar', 'p-pil-goed'], fout: ['Fout', 'p-pil-fout'] };
-  const staat = { config: null, org: '', klant: '', maand: 0, jaar: 0, waarden: {}, notities: '', bezig: false, melding: null, starts: [], timer: null, context: '', rapportTekst: '', rapportNaam: '', vorigNaam: '', leesMelding: null, puntenTekst: '', punten: [], pakket: null, opties: {}, pakketBezig: false, pakketMelding: null };
+  const staat = { config: null, org: '', klant: '', maand: 0, jaar: 0, waarden: {}, notities: '', bezig: false, melding: null, starts: [], timer: null, context: '', rapportTekst: '', rapportCijfers: {}, rapportNaam: '', vorigNaam: '', leesMelding: null, puntenTekst: '', punten: [], pakket: null, opties: {}, pakketBezig: false, pakketMelding: null };
 
   function vorigeMaand() {
     const d = new Date();
@@ -172,8 +172,12 @@
     teken();
     try {
       const dataBase64 = await leesBestand(bestand);
-      const r = await adminApi('/rapport-lees', { method: 'POST', body: JSON.stringify({ filename: bestand.name, contentType: bestand.type, dataBase64 }) });
-      if (soort === 'nu') { staat.rapportTekst = r.tekst; staat.rapportNaam = bestand.name; staat.leesMelding = { tekst: `${bestand.name} ingelezen.` }; }
+      const r = await adminApi('/rapport-lees', { method: 'POST', body: JSON.stringify({ filename: bestand.name, contentType: bestand.type, dataBase64, maand: soort === 'nu' ? staat.maand : staat.maand - 1 || 12 }) });
+      if (soort === 'nu') {
+        staat.rapportTekst = r.tekst; staat.rapportNaam = bestand.name; staat.rapportCijfers = r.cijfers || {};
+        const g = staat.rapportCijfers.googleAds;
+        staat.leesMelding = g && g.conversies !== undefined ? { tekst: `${bestand.name} ingelezen. Google Ads conversies in het rapport: ${g.conversies}.` } : { fout: true, tekst: `${bestand.name} ingelezen, maar ik vond geen Google Ads conversies in de tabellen. Het portaal gebruikt dan de cijfers uit n8n, als die er zijn.` };
+      }
       else {
         staat.vorigNaam = bestand.name;
         if ((r.nextSteps || []).length) { staat.puntenTekst = r.nextSteps.join('\n'); bouwPunten(); staat.leesMelding = { tekst: `${r.nextSteps.length} next steps gevonden in ${bestand.name}. Controleer ze en kies per punt de status.` }; }
@@ -226,7 +230,7 @@
     if (open && !window.confirm(`${open} actiepunten hebben nog geen status. Toch doorgaan?`)) return;
     staat.pakketBezig = true; staat.pakketMelding = null; staat.pakket = null; teken();
     try {
-      const r = await adminApi('/rapport-pakket', { method: 'POST', body: JSON.stringify({ klant: staat.klant, jaar: staat.jaar, maand: staat.maand, context: staat.context, rapportTekst: staat.rapportTekst, actiepunten: staat.punten, opties: Object.fromEntries(OPTIES.map((o) => [o[0], staat.opties[o[0]] !== false])) }) });
+      const r = await adminApi('/rapport-pakket', { method: 'POST', body: JSON.stringify({ klant: staat.klant, jaar: staat.jaar, maand: staat.maand, context: staat.context, rapportTekst: staat.rapportTekst, rapportCijfers: staat.rapportCijfers, actiepunten: staat.punten, opties: Object.fromEntries(OPTIES.map((o) => [o[0], staat.opties[o[0]] !== false])) }) });
       staat.pakket = r;
       staat.pakketMelding = !r.conceptGeschreven ? { fout: true, tekst: `Pakket klaar, maar zonder concept learnings. ${r.conceptReden || ''}` } : r.rapportAanwezig ? { tekst: 'Pakket klaar. Upload het rapport en het pakket in ChatGPT.' } : { fout: true, tekst: 'Pakket klaar, maar de rapportcijfers van deze maand staan nog niet in n8n. Daardoor is er niets afgestemd met het rapport. Start eerst het rapport en maak het pakket daarna opnieuw.' };
     } catch (err) {
