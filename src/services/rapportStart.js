@@ -39,9 +39,19 @@ async function leesFormulier(org) {
   if (!res.ok) throw new Error(`Het n8n formulier is niet bereikbaar (${res.status}). Staat de workflow aan?`);
   const html = await res.text();
   const kaart = {};
-  const re = /<label[^>]*for="(field-\d+)"[^>]*>([\s\S]*?)<\/label>/gi;
+  // n8n gebruikt in de pagina enkele of dubbele aanhalingstekens, en het for attribuut kan ook voor de class staan.
+  const re = /<label\b[^>]*\bfor\s*=\s*["']?(field-\d+)["']?[^>]*>([\s\S]*?)<\/label>/gi;
   let m;
   while ((m = re.exec(html)) !== null) kaart[schoon(m[2])] = m[1];
+  // Reserve: lees de velden uit de workflow zelf. n8n nummert de velden in de volgorde van het formulier.
+  if (!Object.keys(kaart).length) {
+    try {
+      const wf = await n8nTabel(`/workflows/${org.workflowId}`);
+      const trigger = (wf.nodes || []).find((n) => n.type === 'n8n-nodes-base.formTrigger');
+      const velden = (trigger && trigger.parameters && trigger.parameters.formFields && trigger.parameters.formFields.values) || [];
+      velden.forEach((v, i) => { if (v && v.fieldLabel) kaart[schoon(v.fieldLabel)] = `field-${i}`; });
+    } catch (err) { /* hieronder volgt de duidelijke fout */ }
+  }
   if (!Object.keys(kaart).length) throw new Error('Kon de velden van het n8n formulier niet lezen.');
   return { url, kaart };
 }
