@@ -352,8 +352,15 @@ function sectieOpvallend(g, nota) {
       if (slecht.length) regels.push(`Zoektermen zonder conversie met meer kosten dan de gemiddelde kosten per conversie (${euro(gem)}): ${slecht.slice(0, 8).map((t) => `${t.zoekterm} (${euro(t.kosten)})`).join('; ')}. Dit zijn kandidaten om uit te sluiten of te bekijken.`);
       else regels.push(`Geen zoekterm zonder conversie heeft meer kosten dan de gemiddelde kosten per conversie (${euro(gem)}).`);
     }
+    const duurst = termen.slice().sort((x, y) => y.kosten - x.kosten).slice(0, 8);
+    regels.push(`Zoektermen met de meeste kosten: ${duurst.map((t) => `${t.zoekterm} (${euro(t.kosten)}, ${getal(t.klikken)} klikken, ${conv(t.conversies)} conversies)`).join('; ')}.`);
     const nul = termen.filter((t) => t.conversies === 0);
     regels.push(`${getal(nul.length)} van de ${getal(termen.length)} zoektermen hadden geen conversie, samen ${euro(som(nul, 'kosten'))}.`);
+    // Zoektermen over dezelfde zoekwoorden heen: welk deel van het geld ging naar zoektermen die bij een ander zoekwoord of type pasten.
+    const perWoord = {};
+    termen.forEach((t) => { const k = t.zoekwoord || 'onbekend'; perWoord[k] = perWoord[k] || { kosten: 0, klikken: 0, conversies: 0 }; perWoord[k].kosten += Number(t.kosten); perWoord[k].klikken += Number(t.klikken); perWoord[k].conversies += Number(t.conversies); });
+    const woorden = Object.entries(perWoord).sort((x, y) => y[1].kosten - x[1].kosten).slice(0, 5);
+    regels.push(`Zoekwoorden waar de zoektermen de meeste kosten op maakten: ${woorden.map(([k, v]) => `${k} (${euro(v.kosten)}, ${getal(v.klikken)} klikken, ${conv(v.conversies)} conversies)`).join('; ')}.`);
   }
   return regels;
 }
@@ -393,6 +400,44 @@ function bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, optie
   return delen.filter(Boolean).map((d) => d.join('\n')).join('\n\n');
 }
 
+
+// Concept learnings en next steps, geschreven door Claude via de Anthropic API (ANTHROPIC_API_KEY op Render).
+// Het is nadrukkelijk een concept: ChatGPT verbetert het met alle context en Dylans schrijfstijl.
+const CONCEPT_KOP = [
+  'CONCEPT LEARNINGS EN NEXT STEPS (concept van Claude)',
+  'Dit is een concept en geen eindtekst. ChatGPT: verbeter dit op basis van alle context in dit pakket en in het bijgevoegde rapport. Let op zinsopbouw, woordkeuze en Dylans schrijfstijl. Controleer elk cijfer en elke bewering tegen de data hierboven en haal weg wat de data niet laat zien. Gebruik de onderdelen alleen als ruwe basis.'
+];
+const CONCEPT_SYSTEEM = [
+  'Je schrijft een concept voor de learnings en next steps van een maandrapportage voor online marketing, op basis van het pakket dat de gebruiker plakt.',
+  'Regels:',
+  '1. Gebruik alleen cijfers en feiten uit het pakket. Verzin niets. Als iets niet in het pakket staat, schrijf je het niet.',
+  '2. Het rapport is leidend. Conversies die als toegerekend zijn gemarkeerd, noem je als conversies volgens het rapport en zeg je niet dat het platform ze mat.',
+  '3. Zeg niet dat een campagne of advertentiegroep nu aan of uit staat, tenzij de status nu in het pakket staat. Zoektermen dekken vaak maar een deel van de kosten: noem dat als het relevant is.',
+  '4. Schrijf in gewoon, duidelijk Nederlands zoals een marketeer het tegen een klant zegt. Korte zinnen. Geen streepjes, geen emoticons en geen opsommingstekens met streepjes. Geen woorden als onderstreept, substantieel, significant, motor, strategisch momentum of optimalisatieslag.',
+  '5. Gebruik de campagnenamen zoals ze in het pakket staan. Verzin geen eigen omschrijvingen van doelgroepen of onderwerpen.',
+  '6. Maak per kanaal dat in het pakket staat twee delen: Learnings (twee tot vijf zinnen of korte alinea\'s met cijfers) en Next steps (twee tot vier genummerde punten, actief geformuleerd als wat wij gaan doen, met de aanleiding in cijfers).',
+  '7. Verwerk de context van de gebruiker en de status van de actiepunten van vorige maand als die in het pakket staan.',
+  '8. Sluit af met een korte regel Wat ik niet kon zien, waarin je opnoemt welke data ontbrak en waar je dus niets over zegt.'
+].join('\n');
+
+async function schrijfConcept(pakketTekst) {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) return { tekst: null, reden: 'ANTHROPIC_API_KEY staat niet in Render, dus er is geen concept geschreven.' };
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({ model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5', max_tokens: 2500, system: CONCEPT_SYSTEEM, messages: [{ role: 'user', content: pakketTekst }] })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { tekst: null, reden: `Het concept schrijven mislukte (${res.status}): ${(data.error && data.error.message) || 'onbekende fout'}` };
+    const tekst = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
+    return tekst ? { tekst, reden: null } : { tekst: null, reden: 'Het concept was leeg.' };
+  } catch (err) {
+    return { tekst: null, reden: `Het concept schrijven mislukte: ${err.message}` };
+  }
+}
+
 async function maakPakket({ klant, jaar, maand, context, actiepunten, opties }) {
   klant = String(klant || '').trim();
   jaar = Number(jaar); maand = Number(maand);
@@ -402,8 +447,10 @@ async function maakPakket({ klant, jaar, maand, context, actiepunten, opties }) 
   const rij = rijen.filter((r) => r.klant === klant && Number(r.jaar) === jaar && Number(r.maand) === maand).sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))[0];
   let rapportData = null;
   try { rapportData = rij ? JSON.parse(rij.data) : null; } catch (err) { /* geen json */ }
-  const tekst = bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, opties, rapportData });
-  return { tekst, bestandsnaam: `Learningspakket ${klant} ${jaar}-${String(maand).padStart(2, '0')}.txt`, rapportAanwezig: !!rapportData };
+  let tekst = bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, opties, rapportData });
+  const concept = await schrijfConcept(tekst);
+  tekst += `\n\n${CONCEPT_KOP.join('\n')}\n${concept.tekst || `Geen concept meegegeven. ${concept.reden}`}`;
+  return { tekst, bestandsnaam: `Learningspakket ${klant} ${jaar}-${String(maand).padStart(2, '0')}.txt`, rapportAanwezig: !!rapportData, conceptGeschreven: !!concept.tekst, conceptReden: concept.reden };
 }
 
 async function haalVerdieping({ klant, jaar, maand }) {
@@ -419,4 +466,4 @@ async function haalVerdieping({ klant, jaar, maand }) {
   return data;
 }
 
-module.exports = { maakPakket, bouwTekst };
+module.exports = { maakPakket, bouwTekst, CONCEPT_KOP, CONCEPT_SYSTEEM };

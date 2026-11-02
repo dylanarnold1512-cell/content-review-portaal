@@ -192,7 +192,7 @@
     try {
       const r = await adminApi('/rapport-pakket', { method: 'POST', body: JSON.stringify({ klant: staat.klant, jaar: staat.jaar, maand: staat.maand, context: staat.context, actiepunten: staat.punten, opties: staat.opties }) });
       staat.pakket = r;
-      staat.pakketMelding = r.rapportAanwezig ? { tekst: 'Pakket klaar. Upload het rapport en het pakket in ChatGPT.' } : { fout: true, tekst: 'Pakket klaar, maar de rapportcijfers van deze maand staan nog niet in n8n. Daardoor is er niets afgestemd met het rapport. Start eerst het rapport en maak het pakket daarna opnieuw.' };
+      staat.pakketMelding = !r.conceptGeschreven ? { fout: true, tekst: `Pakket klaar, maar zonder concept learnings. ${r.conceptReden || ''}` } : r.rapportAanwezig ? { tekst: 'Pakket klaar. Upload het rapport en het pakket in ChatGPT.' } : { fout: true, tekst: 'Pakket klaar, maar de rapportcijfers van deze maand staan nog niet in n8n. Daardoor is er niets afgestemd met het rapport. Start eerst het rapport en maak het pakket daarna opnieuw.' };
     } catch (err) {
       staat.pakketMelding = { fout: true, tekst: err.message };
     }
