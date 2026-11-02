@@ -485,7 +485,41 @@ function sectieMetaExtra(x) {
   return regels.length > 1 ? regels : null;
 }
 
-function bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, opties, rapportData }) {
+// Rapport uit Word: tekst in het pakket en next steps van het vorige rapport.
+const MAX_RAPPORT = 40000;
+
+function sectieRapport(tekst) {
+  const t = String(tekst || '').trim();
+  if (!t) return null;
+  const regels = ['RAPPORT VAN DEZE MAAND (tekst uit het geuploade Word bestand, het rapport is leidend voor de cijfers)'];
+  regels.push(t.length > MAX_RAPPORT ? `${t.slice(0, MAX_RAPPORT)}\n[Tekst afgekapt na ${getal(MAX_RAPPORT)} tekens]` : t);
+  return regels;
+}
+
+// Zoekt de next steps in de tekst van een rapport. Word nummering zit niet in de platte tekst, dus we zoeken op de kop Next steps
+// en nemen de zinnen eronder tot de volgende kop. Dylan controleert het resultaat in het portaal.
+function haalNextSteps(tekst) {
+  const alle = String(tekst || '').split(/\n+/).map((r) => r.trim()).filter(Boolean);
+  const uit = [];
+  let kanaal = '';
+  const isKop = (r) => r.length < 60 && !/[.!?:]$/.test(r);
+  for (let i = 0; i < alle.length; i++) {
+    const r = alle[i];
+    if (/^next steps?\b/i.test(r) && r.length < 40) {
+      for (let j = i + 1; j < alle.length; j++) {
+        const z = alle[j];
+        if (isKop(z) || /^learnings?\b/i.test(z)) break;
+        uit.push((kanaal ? `${kanaal}: ` : '') + z.replace(/^(\d+[.)]|[-\u2022*])\s*/, ''));
+        i = j;
+      }
+    } else if (isKop(r) && /(google|meta|linkedin|bing|seo|website|overkoepelend)/i.test(r)) {
+      kanaal = r.replace(/[:\u2013-].*$/, '').trim();
+    }
+  }
+  return uit;
+}
+
+function bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, opties, rapportData, rapportTekst }) {
   const opt = opties || {};
   const o = new Proxy({}, { get: (_, k) => opt[k] !== false });
   const ex = (verdieping && verdieping.extra) || {};
@@ -502,6 +536,7 @@ function bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, optie
     'Dit pakket hoort bij het rapport met de maanddata. Het rapport is leidend: waar het platform minder conversies toont dan het rapport (bijvoorbeeld door handmatig toegevoegde conversies), is het verschil toegerekend aan een campagne en duidelijk als toegerekend gemarkeerd. Alle cijfers hieronder gaan over deze maand, tenzij erbij staat dat het vorige maand is.']);
   delen.push(['CONTEXT VAN DYLAN', context && String(context).trim() ? String(context).trim() : 'Geen extra context aangegeven.']);
   delen.push(sectieActiepunten(actiepunten));
+  if (rapportTekst) { const rp = sectieRapport(rapportTekst); if (rp) delen.push(rp); }
   if (g) {
     delen.push(['AFSTEMMING MET HET RAPPORT (Google Ads conversies)', nota.uitleg]);
     delen.push(sectieOpvallend(g, nota));
@@ -590,7 +625,7 @@ async function schrijfConcept(pakketTekst) {
   }
 }
 
-async function maakPakket({ klant, jaar, maand, context, actiepunten, opties }) {
+async function maakPakket({ klant, jaar, maand, context, actiepunten, opties, rapportTekst }) {
   klant = String(klant || '').trim();
   jaar = Number(jaar); maand = Number(maand);
   if (!klant) throw new Error('Kies een klant.');
@@ -600,10 +635,10 @@ async function maakPakket({ klant, jaar, maand, context, actiepunten, opties }) 
   const rij = rijen.filter((r) => r.klant === klant && Number(r.jaar) === jaar && Number(r.maand) === maand).sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))[0];
   let rapportData = null;
   try { rapportData = rij ? JSON.parse(rij.data) : null; } catch (err) { /* geen json */ }
-  let tekst = bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, opties, rapportData });
+  let tekst = bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, opties, rapportData, rapportTekst });
   const concept = await schrijfConcept(tekst);
   tekst += `\n\n${CONCEPT_KOP.join('\n')}\n${concept.tekst || `Geen concept meegegeven. ${concept.reden}`}`;
-  return { tekst, bestandsnaam: `Learningspakket ${klant} ${jaar}-${String(maand).padStart(2, '0')}.txt`, rapportAanwezig: !!rapportData, conceptGeschreven: !!concept.tekst, conceptReden: concept.reden };
+  return { tekst, bestandsnaam: `Learningspakket ${klant} ${jaar}-${String(maand).padStart(2, '0')}.txt`, rapportAanwezig: !!rapportData || !!(rapportTekst && String(rapportTekst).trim()), conceptGeschreven: !!concept.tekst, conceptReden: concept.reden };
 }
 
 async function haalExtra({ klant, jaar, maand }) {
@@ -635,4 +670,4 @@ async function haalVerdieping({ klant, jaar, maand }) {
   return data;
 }
 
-module.exports = { maakPakket, bouwTekst, CONCEPT_KOP, conceptSysteem };
+module.exports = { haalNextSteps, maakPakket, bouwTekst, CONCEPT_KOP, conceptSysteem };

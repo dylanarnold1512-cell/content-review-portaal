@@ -4,7 +4,7 @@
   const e = (t) => escapeHtmlAdmin(String(t === undefined || t === null ? '' : t));
   const MAANDEN = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
   const STATUS = { wacht: ['Wacht op n8n', 'p-pil-neutraal'], bezig: ['Bezig', 'p-pil-let-op'], klaar: ['Klaar', 'p-pil-goed'], fout: ['Fout', 'p-pil-fout'] };
-  const staat = { config: null, org: '', klant: '', maand: 0, jaar: 0, waarden: {}, notities: '', bezig: false, melding: null, starts: [], timer: null, context: '', puntenTekst: '', punten: [], pakket: null, opties: {}, pakketBezig: false, pakketMelding: null };
+  const staat = { config: null, org: '', klant: '', maand: 0, jaar: 0, waarden: {}, notities: '', bezig: false, melding: null, starts: [], timer: null, context: '', rapportTekst: '', rapportNaam: '', vorigNaam: '', leesMelding: null, puntenTekst: '', punten: [], pakket: null, opties: {}, pakketBezig: false, pakketMelding: null };
 
   function vorigeMaand() {
     const d = new Date();
@@ -131,11 +131,16 @@
     const r = staat.pakket;
     return `<div class="admin-section-title">Pakket maken</div>
     <div class="rs-kaart" id="rsPakket">
-      <p class="rs-hint">Voor ${e(staat.klant)}, ${e(MAANDEN[staat.maand - 1])} ${e(staat.jaar)}. Upload in ChatGPT het rapport met de maanddata en daarnaast dit pakket.</p>
+      <p class="rs-hint">Voor ${e(staat.klant)}, ${e(MAANDEN[staat.maand - 1])} ${e(staat.jaar)}. Upload hier de rapporten. Het pakket bevat dan de tekst van het rapport, dus je hebt in ChatGPT maar een bestand nodig.</p>
+      <div class="rs-rij">
+        <label class="rs-veld"><span>Rapport van deze maand (Word)</span><input type="file" id="rsRapportNu" accept=".docx,.pdf,.txt"><small>${staat.rapportNaam ? `Ingelezen: ${e(staat.rapportNaam)}` : 'De tekst gaat mee in het pakket.'}</small></label>
+        <label class="rs-veld"><span>Rapport van vorige maand (Word)</span><input type="file" id="rsRapportVoor" accept=".docx,.pdf,.txt"><small>${staat.vorigNaam ? `Ingelezen: ${e(staat.vorigNaam)}` : 'Hier haal ik de next steps uit.'}</small></label>
+      </div>
+      ${staat.leesMelding ? `<p class="${staat.leesMelding.fout ? 'rs-fout' : 'rs-ok'}" role="status">${e(staat.leesMelding.tekst)}</p>` : ''}
       <label class="rs-veld rs-notities"><span>Wat moet ik weten over deze maand?</span><textarea id="rsContext" rows="3" placeholder="Optioneel. Bijvoorbeeld wat je hebt aangepast, wat de klant zei of wat er speelde.">${e(staat.context)}</textarea></label>
       <label class="rs-veld rs-notities"><span>Next steps van het vorige rapport (een per regel)</span><textarea id="rsPuntenTekst" rows="4">${e(staat.puntenTekst)}</textarea></label>
       <div id="rsPunten">${puntenHtml()}</div>
-      <details class="rs-details"><summary>Extra onderdelen (standaard uit)</summary>
+      <details class="rs-details"><summary>Onderdelen (standaard alles aan)</summary>
         <div class="rs-opties">${OPTIES.map((o) => `<label><input type="checkbox" data-optie="${o[0]}"${staat.opties[o[0]] !== false ? ' checked' : ''}> ${e(o[1])}</label>`).join('')}</div>
       </details>
       <div class="rs-acties"><button type="button" id="rsMaakPakket" class="primary"${staat.pakketBezig ? ' disabled' : ''}>${staat.pakketBezig ? 'Pakket wordt gemaakt' : 'Maak pakket'}</button></div>
@@ -153,7 +158,38 @@
     });
   }
 
+  function leesBestand(bestand) {
+    return new Promise((ok, fout) => {
+      const lezer = new FileReader();
+      lezer.onload = () => ok(String(lezer.result).split(',')[1] || '');
+      lezer.onerror = () => fout(new Error('Het bestand lezen mislukte.'));
+      lezer.readAsDataURL(bestand);
+    });
+  }
+
+  async function leesRapport(bestand, soort) {
+    staat.leesMelding = { tekst: `${bestand.name} wordt ingelezen` };
+    teken();
+    try {
+      const dataBase64 = await leesBestand(bestand);
+      const r = await adminApi('/rapport-lees', { method: 'POST', body: JSON.stringify({ filename: bestand.name, contentType: bestand.type, dataBase64 }) });
+      if (soort === 'nu') { staat.rapportTekst = r.tekst; staat.rapportNaam = bestand.name; staat.leesMelding = { tekst: `${bestand.name} ingelezen.` }; }
+      else {
+        staat.vorigNaam = bestand.name;
+        if ((r.nextSteps || []).length) { staat.puntenTekst = r.nextSteps.join('\n'); bouwPunten(); staat.leesMelding = { tekst: `${r.nextSteps.length} next steps gevonden in ${bestand.name}. Controleer ze en kies per punt de status.` }; }
+        else staat.leesMelding = { fout: true, tekst: `Geen next steps gevonden in ${bestand.name}. Plak ze zelf in het veld hieronder.` };
+      }
+    } catch (err) {
+      staat.leesMelding = { fout: true, tekst: err.message };
+    }
+    teken();
+  }
+
   function bindPakket(root) {
+    const rn = root.querySelector('#rsRapportNu');
+    if (rn) rn.addEventListener('change', () => { if (rn.files[0]) leesRapport(rn.files[0], 'nu'); });
+    const rv = root.querySelector('#rsRapportVoor');
+    if (rv) rv.addEventListener('change', () => { if (rv.files[0]) leesRapport(rv.files[0], 'voor'); });
     const c = root.querySelector('#rsContext');
     if (c) c.addEventListener('input', () => { staat.context = c.value; });
     const pt = root.querySelector('#rsPuntenTekst');
@@ -190,7 +226,7 @@
     if (open && !window.confirm(`${open} actiepunten hebben nog geen status. Toch doorgaan?`)) return;
     staat.pakketBezig = true; staat.pakketMelding = null; staat.pakket = null; teken();
     try {
-      const r = await adminApi('/rapport-pakket', { method: 'POST', body: JSON.stringify({ klant: staat.klant, jaar: staat.jaar, maand: staat.maand, context: staat.context, actiepunten: staat.punten, opties: Object.fromEntries(OPTIES.map((o) => [o[0], staat.opties[o[0]] !== false])) }) });
+      const r = await adminApi('/rapport-pakket', { method: 'POST', body: JSON.stringify({ klant: staat.klant, jaar: staat.jaar, maand: staat.maand, context: staat.context, rapportTekst: staat.rapportTekst, actiepunten: staat.punten, opties: Object.fromEntries(OPTIES.map((o) => [o[0], staat.opties[o[0]] !== false])) }) });
       staat.pakket = r;
       staat.pakketMelding = !r.conceptGeschreven ? { fout: true, tekst: `Pakket klaar, maar zonder concept learnings. ${r.conceptReden || ''}` } : r.rapportAanwezig ? { tekst: 'Pakket klaar. Upload het rapport en het pakket in ChatGPT.' } : { fout: true, tekst: 'Pakket klaar, maar de rapportcijfers van deze maand staan nog niet in n8n. Daardoor is er niets afgestemd met het rapport. Start eerst het rapport en maak het pakket daarna opnieuw.' };
     } catch (err) {
