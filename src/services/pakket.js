@@ -652,6 +652,20 @@ function haalNextSteps(tekst) {
   return uit;
 }
 
+// Vaste opdracht bovenaan elk pakket. Zo hoeft er in ChatGPT geen losse prompt bij en wordt de data diep gebruikt.
+const OPDRACHT = [
+  'OPDRACHT VOOR CHATGPT (lees dit eerst)',
+  'Schrijf de learnings en next steps van deze maand voor deze klant, in de schrijfstijl van Dylan en in de opbouw van het bijgevoegde rapport.',
+  'Werkwijze:',
+  '1. Loop eerst alle onderdelen van dit pakket langs, per kanaal, voordat je schrijft. Gebruik de data op campagne, groep, zoekterm, advertentie, doelgroep, apparaat, regio en landingspagina, niet alleen de totalen. Een learning die alleen de hoofdlijn herhaalt uit het rapport is niet genoeg: zoek per kanaal wat erachter zit.',
+  '2. Bepaal per kanaal wat de data laat zien en wat niet. Maak geen beweringen die de cijfers niet dragen. Noem kleine aantallen als klein.',
+  '3. Het rapport is leidend voor de totalen. Cijfers uit het pakket gebruik je om te verklaren waar een verschil vandaan komt.',
+  '4. Gebruik de context van Dylan en de status van de actiepunten van vorige maand. Een actiepunt dat niet is opgepakt, noem je eerlijk, en je beslist of het terugkomt.',
+  '5. Next steps: kies circa drie sterke punten voor de hele maand, niet voor elk kanaal een. Kies de punten met de meeste impact. Elk punt moet voortkomen uit de data, het cijfer als aanleiding noemen, concreet en actief zijn ("we sluiten uit", "we geven meer budget") en waar mogelijk een beslismoment hebben. Verzin geen punten die in geen enkel cijfer terug te vinden zijn.',
+  '6. Controleer voor je antwoord geeft elk cijfer en elke bewering tegen het pakket. Wat het pakket niet laat zien, laat je weg of zet je onder een korte regel "Wat ik niet kon zien".',
+  'Het ruwe concept onderaan is alleen een startpunt. Maak er een betere versie 2.0 van op basis van alle data.'
+];
+
 function bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, opties, rapportData, rapportTekst }) {
   const opt = opties || {};
   const o = new Proxy({}, { get: (_, k) => opt[k] !== false });
@@ -667,6 +681,7 @@ function bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, optie
   const delen = [];
   delen.push([`LEARNINGSPAKKET ${klant.toUpperCase()}, ${MAANDEN[maand - 1].toUpperCase()} ${jaar}`,
     'Dit pakket hoort bij het rapport met de maanddata. Het rapport is leidend: waar het platform minder conversies toont dan het rapport (bijvoorbeeld door handmatig toegevoegde conversies), is het verschil toegerekend aan een campagne en duidelijk als toegerekend gemarkeerd. Alle cijfers hieronder gaan over deze maand, tenzij erbij staat dat het vorige maand is.']);
+  delen.push(OPDRACHT);
   delen.push(['CONTEXT VAN DYLAN', context && String(context).trim() ? String(context).trim() : 'Geen extra context aangegeven.']);
   delen.push(sectieActiepunten(actiepunten));
   if (rapportTekst) { const rp = sectieRapport(rapportTekst); if (rp) delen.push(rp); }
@@ -724,7 +739,7 @@ function conceptSysteem() {
     '2. Het rapport is leidend. Conversies die in het pakket als toegerekend zijn gemarkeerd, noem je conversies volgens het rapport. Schrijf nooit dat het platform ze mat en nooit dat een zoekterm of groep hierdoor "geen conversie" had als er toegerekende conversies bij die campagne staan zonder dat bekend is waar ze bij horen. Schrijf dan over kosten en klikken.',
     '3. Zeg alleen dat een campagne of groep nu aan of uit staat als de status nu in het pakket staat. De status van advertentiegroepen ontbreekt vaak: zeg daar dan niets over.',
     '4. Zoektermen dekken vaak maar een deel van de kosten. Noem dat als je conclusies over zoektermen trekt.',
-    '5. Schrijf per kanaal dat in het pakket staat: Learnings en Next steps. Next steps zijn twee tot vier genummerde punten, actief geformuleerd ("we sluiten uit", "we geven meer budget"), met de aanleiding in cijfers en waar mogelijk een beslismoment.',
+    '5. Schrijf per kanaal dat in het pakket staat: Learnings en Next steps. Next steps voor de hele maand zijn circa drie sterke genummerde punten met de meeste impact, actief geformuleerd ("we sluiten uit", "we geven meer budget"), met de aanleiding in cijfers en waar mogelijk een beslismoment.',
     '6. Verwerk de context van de gebruiker en de status van de actiepunten van vorige maand als die in het pakket staan.',
     '7. Sluit af met een korte regel Wat ik niet kon zien, waarin je opnoemt welke data ontbrak en waar je dus niets over zegt.',
     '8. Schrijf in het Nederlands. Geen streepjes als leesteken, geen emoticons, geen vet.',
@@ -807,4 +822,4 @@ async function haalVerdieping({ klant, jaar, maand }) {
   return data;
 }
 
-module.exports = { haalNextStepsDocx, leesRapportCijfers, haalNextSteps, maakPakket, bouwTekst, CONCEPT_KOP, conceptSysteem };
+module.exports = { OPDRACHT, haalNextStepsDocx, leesRapportCijfers, haalNextSteps, maakPakket, bouwTekst, CONCEPT_KOP, conceptSysteem };
