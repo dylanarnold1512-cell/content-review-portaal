@@ -664,6 +664,7 @@ const OPDRACHT = [
   '5. Next steps: kies circa drie punten voor de hele maand, de punten met de meeste impact. Elk punt is een concrete actie die wij uitvoeren, geen onderzoek. Een goed punt bevat: (a) wat we precies doen, met een werkwoord als uitsluiten, verhogen, verlagen, pauzeren, toevoegen, verplaatsen of testen, (b) waarop dat slaat, met de naam van de campagne, groep, zoekterm, doelgroep of advertentie, (c) hoeveel, bijvoorbeeld een bedrag per dag of een aantal zoektermen, (d) het cijfer uit de data dat de aanleiding is, en (e) wanneer we het resultaat beoordelen en wat we dan beslissen. Gebruik de lijst KANDIDAAT ACTIES in dit pakket als startpunt.',
   '5b. Verboden in next steps: bekijken, beoordelen, uitzoeken, onderzoeken, bespreken, meenemen, verder aanscherpen, verder uitwerken, verder sturen, in kaart brengen, de rol van een kanaal meenemen. Zulke punten zijn vaag. Schrijf wat we na het bekijken gaan doen. Slecht: \"We beoordelen zoekopdrachten in de campagne.\" Goed: \"We sluiten in oktober de 8 zoekopdrachten zonder conversie uit die samen € 55 kostten, en we verlagen het dagbudget van € 6 naar € 4. Halen we in november nog geen conversie uit deze campagne, dan pauzeren we hem.\" Is er in de data geen concrete actie te onderbouwen, noem dan een kleine test met een duidelijke meting in plaats van een vaag onderzoek.',
   '6. Noem de bron niet in de tekst. Schrijf niet "volgens Google Ads", "volgens het platform", "volgens het pakket" of "volgens de data". Schrijf het cijfer als feit: "de campagne leverde 10 conversies op". Alleen als het rapport en het platform echt verschillen en dat verschil voor de klant van belang is, benoem je het verschil.',
+  '6b. Gebruik de vergelijkingen met vorige maand en het verloop over drie maanden om te laten zien wat er veranderd is en waarom. Noem een verschil pas als het genoeg klikken of conversies betreft. Gebruik de locatiecijfers voor regio en stad alleen bij voldoende klikken.',
   '7. Controleer voor je antwoord geeft elk cijfer en elke bewering tegen het pakket. Wat het pakket niet laat zien, laat je weg of zet je onder een korte regel "Wat ik niet kon zien".',
   'Het ruwe concept onderaan is alleen een startpunt. Maak er een betere versie 2.0 van op basis van alle data.'
 ];
@@ -707,6 +708,134 @@ function sectieKandidaten(g, exG) {
   return regels;
 }
 
+// Locaties en vergelijkingen over maanden (uit de extra data workflow).
+function geoNaamKaart(exG) {
+  const k = {};
+  ((exG && exG.geo_namen) || []).forEach((r) => { k[r.sleutel] = r.naam || r.sleutel; });
+  return k;
+}
+
+function perLocatie(rijen, veld, namen) {
+  const kaart = {};
+  (rijen || []).forEach((r) => {
+    const code = r[veld];
+    if (!code) return;
+    const x = kaart[code] || (kaart[code] = { naam: namen[code] || 'onbekende locatie', vertoningen: 0, klikken: 0, kosten: 0, conversies: 0 });
+    x.vertoningen += Number(r.vertoningen || 0); x.klikken += Number(r.klikken || 0); x.kosten += Number(r.kosten || 0); x.conversies += Number(r.conversies || 0);
+  });
+  return Object.values(kaart);
+}
+
+function sectieLocaties(exG) {
+  if (!exG) return null;
+  const namen = geoNaamKaart(exG);
+  const regio = perLocatie(exG.locaties_regio, 'regioCode', namen).sort((a, b) => b.kosten - a.kosten);
+  const stad = perLocatie(exG.locaties_stad, 'stadCode', namen).sort((a, b) => b.kosten - a.kosten);
+  if (!regio.length && !stad.length) return null;
+  const regels = ['GOOGLE ADS: LOCATIES DEZE MAAND (van de locaties waar mensen zich bevonden, over alle campagnes samen)'];
+  const regel = (r) => `${r.naam} | ${prestatie(r)} | kosten per conversie: ${perConv(r.kosten, r.conversies)}`;
+  if (regio.length) {
+    regels.push('Per regio (op kosten):');
+    lijstTot(regio, 15).forEach((r) => regels.push(typeof r === 'string' ? r : regel(r)));
+  }
+  if (stad.length) {
+    regels.push('Per stad (op kosten):');
+    lijstTot(stad, 20).forEach((r) => regels.push(typeof r === 'string' ? r : regel(r)));
+    const metConv = stad.filter((r) => r.conversies > 0).sort((a, b) => b.conversies - a.conversies).slice(0, 10);
+    if (metConv.length) { regels.push('Steden met de meeste conversies:'); metConv.forEach((r) => regels.push(regel(r))); }
+    const zonder = stad.filter((r) => r.conversies === 0 && r.kosten >= 15).slice(0, 8);
+    if (zonder.length) { regels.push('Steden met kosten maar zonder conversie:'); zonder.forEach((r) => regels.push(regel(r))); }
+  }
+  regels.push('Let op: locatie cijfers dekken niet altijd de volledige kosten, bijvoorbeeld door campagnes zonder locatiedata. Trek alleen conclusies over locaties met genoeg klikken.');
+  return regels;
+}
+
+const sleutelZw = (r) => [r.campagne, r.advertentiegroep, r.zoekwoord, r.zoekwoordType].join('|||');
+
+function sectieZoekwoordenVergelijking(g, exG) {
+  const nu = (g && g.zoekwoorden) || [];
+  const voor = (exG && exG.zoekwoorden_vorige_maand) || [];
+  if (!nu.length || !voor.length) return null;
+  const vm = {};
+  voor.forEach((r) => { vm[sleutelZw(r)] = r; });
+  const rijen = nu.slice().sort((a, b) => b.kosten - a.kosten).slice(0, 30);
+  const regels = ['GOOGLE ADS: ZOEKWOORDEN VERGELEKEN MET VORIGE MAAND (top 30 op kosten deze maand)'];
+  rijen.forEach((r) => {
+    const v = vm[sleutelZw(r)];
+    const kop = `${r.zoekwoord} (${MATCH[r.zoekwoordType] || r.zoekwoordType}) | ${r.campagne}, groep ${r.advertentiegroep}`;
+    if (!v) { regels.push(`${kop} | deze maand: ${prestatie(r)} | vorige maand: geen vertoningen of nieuw`); return; }
+    regels.push(`${kop} | deze maand: ${prestatie(r)} | vorige maand: ${prestatie(v)} | verschil kosten ${verschil(r.kosten, v.kosten)}, klikken ${verschil(r.klikken, v.klikken)}, conversies ${verschil(r.conversies, v.conversies)}`);
+  });
+  return regels;
+}
+
+function sectieLandingspaginasVergelijking(exG) {
+  const nu = (exG && exG.landingspaginas) || [];
+  const voor = (exG && exG.landingspaginas_vorige_maand) || [];
+  if (!nu.length || !voor.length) return null;
+  const vm = {};
+  voor.forEach((r) => { vm[r.url] = r; });
+  const regels = ['GOOGLE ADS: LANDINGSPAGINAS VERGELEKEN MET VORIGE MAAND (top 30 op kosten deze maand)'];
+  nu.slice().sort((a, b) => b.kosten - a.kosten).slice(0, 30).forEach((r) => {
+    const v = vm[r.url];
+    if (!v) { regels.push(`${r.url} | deze maand: ${prestatie(r)} | vorige maand: niet in de top of nieuw`); return; }
+    regels.push(`${r.url} | deze maand: ${prestatie(r)} | vorige maand: ${prestatie(v)} | verschil klikken ${verschil(r.klikken, v.klikken)}, conversies ${verschil(r.conversies, v.conversies)}`);
+  });
+  return regels;
+}
+
+function maandNaam(datum) {
+  const m = Number(String(datum || '').slice(5, 7));
+  return m >= 1 && m <= 12 ? MAANDEN[m - 1] : String(datum || '');
+}
+
+function perMaandRegels(rijen, sleutelFn, kopFn) {
+  const groepen = {};
+  (rijen || []).forEach((r) => { const k = sleutelFn(r); (groepen[k] = groepen[k] || { kop: kopFn(r), maanden: [] }).maanden.push(r); });
+  return Object.values(groepen)
+    .sort((a, b) => som(b.maanden, 'kosten') - som(a.maanden, 'kosten'))
+    .map((x) => `${x.kop} | ${x.maanden.sort((a, b) => String(a.maand).localeCompare(String(b.maand))).map((m) => `${maandNaam(m.maand)}: ${prestatie(m)}`).join(' | ')}`);
+}
+
+function sectieMaandverloop(exG) {
+  if (!exG) return null;
+  const camp = perMaandRegels(exG.campagnes_per_maand, (r) => r.campagne, (r) => r.campagne);
+  const groep = perMaandRegels(exG.groepen_per_maand, (r) => `${r.campagne}|||${r.advertentiegroep}`, (r) => `${r.campagne}, groep ${r.advertentiegroep}`);
+  if (!camp.length && !groep.length) return null;
+  const regels = ['GOOGLE ADS: VERLOOP OVER DE LAATSTE DRIE MAANDEN (maanden naast elkaar, op totale kosten)'];
+  if (camp.length) { regels.push('Per campagne:'); lijstTot(camp, 15).forEach((x) => regels.push(x)); }
+  if (groep.length) { regels.push('Per advertentiegroep:'); lijstTot(groep, 25).forEach((x) => regels.push(x)); }
+  return regels;
+}
+
+// Namen van locaties ophalen in een tweede aanroep (de eerste geeft alleen codes).
+async function haalGeoNamen({ klant, jaar, maand }, extra) {
+  const exG = extra && extra.google;
+  if (!exG) return extra;
+  const codes = (rijen, veld, n) => {
+    const kaart = {};
+    (rijen || []).forEach((r) => { if (r[veld]) kaart[r[veld]] = (kaart[r[veld]] || 0) + Number(r.kosten || 0) + Number(r.klikken || 0) / 1000; });
+    return Object.entries(kaart).sort((a, b) => b[1] - a[1]).slice(0, n).map((e) => e[0]);
+  };
+  const ids = [...codes(exG.locaties_regio, 'regioCode', 40), ...codes(exG.locaties_stad, 'stadCode', 150)];
+  if (!ids.length) return extra;
+  try {
+    const res = await fetch(`${N8N_BASE_URL}/webhook/learningspakket-extra`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ klant, jaar, maand, geoIds: ids }), signal: AbortSignal.timeout(60000)
+    });
+    const raw = await res.text();
+    let data = null;
+    try { data = raw ? JSON.parse(raw) : null; } catch (err) { /* geen json */ }
+    if (Array.isArray(data)) data = data[0];
+    const namen = data && data.google && data.google.geo_namen;
+    if (res.ok && Array.isArray(namen)) exG.geo_namen = namen;
+    else (exG.fouten = exG.fouten || []).push({ query: 'geo_namen', fout: `status ${res.status}` });
+  } catch (err) {
+    (exG.fouten = exG.fouten || []).push({ query: 'geo_namen', fout: err.message });
+  }
+  return extra;
+}
+
 function bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, opties, rapportData, rapportTekst }) {
   const opt = opties || {};
   const o = new Proxy({}, { get: (_, k) => opt[k] !== false });
@@ -738,7 +867,7 @@ function bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, optie
     if (o.wijzigingen) delen.push(sectieWijzigingen(g));
     if (o.drieMaanden && sectieAccount(g).length) delen.push(sectieAccount(g));
     if (o.extra && exG) {
-      [sectiePmax(exG, g), sectieAssetgroepen(exG), sectieInstellingen(exG), sectieApparaten(exG), sectieWeekdagen(exG), sectieLandingspaginas(exG), sectieConversieacties(exG)].forEach((x) => { if (x) delen.push(x); });
+      [sectiePmax(exG, g), sectieAssetgroepen(exG), sectieInstellingen(exG), sectieApparaten(exG), sectieWeekdagen(exG), sectieLandingspaginas(exG), sectieConversieacties(exG), sectieLocaties(exG), sectieZoekwoordenVergelijking(g, exG), sectieLandingspaginasVergelijking(exG), sectieMaandverloop(exG)].forEach((x) => { if (x) delen.push(x); });
     }
   } else {
     delen.push(['GOOGLE ADS', 'Geen Google Ads data opgehaald voor deze klant.']);
@@ -821,7 +950,7 @@ async function maakPakket({ klant, jaar, maand, context, actiepunten, opties, ra
   if (!klant) throw new Error('Kies een klant.');
   if (!(maand >= 1 && maand <= 12) || !(jaar >= 2024 && jaar <= 2100)) throw new Error('Maand of jaar klopt niet.');
   const [verdieping, extra, rijen] = await Promise.all([haalVerdieping({ klant, jaar, maand }), haalExtra({ klant, jaar, maand }), alleRijen(MAANDDATA_TABLE_ID).catch(() => [])]);
-  verdieping.extra = extra;
+  verdieping.extra = await haalGeoNamen({ klant, jaar, maand }, extra);
   const rij = rijen.filter((r) => r.klant === klant && Number(r.jaar) === jaar && Number(r.maand) === maand).sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))[0];
   let rapportData = null;
   try { rapportData = rij ? JSON.parse(rij.data) : null; } catch (err) { /* geen json */ }
@@ -864,4 +993,4 @@ async function haalVerdieping({ klant, jaar, maand }) {
   return data;
 }
 
-module.exports = { OPDRACHT, haalNextStepsDocx, leesRapportCijfers, haalNextSteps, maakPakket, bouwTekst, CONCEPT_KOP, conceptSysteem };
+module.exports = { sectieLocaties, sectieZoekwoordenVergelijking, sectieLandingspaginasVergelijking, sectieMaandverloop, OPDRACHT, haalNextStepsDocx, leesRapportCijfers, haalNextSteps, maakPakket, bouwTekst, CONCEPT_KOP, conceptSysteem };
