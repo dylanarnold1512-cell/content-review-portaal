@@ -28,7 +28,7 @@ function configVoorScherm() {
 }
 
 function schoon(tekst) {
-  return String(tekst || '').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/\*/g, '').replace(/\s+/g, ' ').trim();
+  return String(tekst || '').replace(/<[^>]+>/g, '').replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16))).replace(/&#(\d+);/g, (_, d) => String.fromCharCode(Number(d))).replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/\*/g, '').replace(/\s+/g, ' ').trim();
 }
 
 // n8n zet elk veld als input met name="field-0", "field-1" en zo verder, met een label erbij. We lezen de pagina,
@@ -43,18 +43,19 @@ async function leesFormulier(org) {
   const re = /<label\b[^>]*\bfor\s*=\s*["']?(field-\d+)["']?[^>]*>([\s\S]*?)<\/label>/gi;
   let m;
   while ((m = re.exec(html)) !== null) kaart[schoon(m[2])] = m[1];
-  // Reserve: lees de velden uit de workflow zelf. n8n nummert de velden in de volgorde van het formulier.
-  if (!Object.keys(kaart).length) {
-    try {
-      const wf = await n8nTabel(`/workflows/${org.workflowId}`);
-      const trigger = (wf.nodes || []).find((n) => n.type === 'n8n-nodes-base.formTrigger');
-      const velden = (trigger && trigger.parameters && trigger.parameters.formFields && trigger.parameters.formFields.values) || [];
-      velden.forEach((v, i) => { if (v && v.fieldLabel) kaart[schoon(v.fieldLabel)] = `field-${i}`; });
-    } catch (err) { /* hieronder volgt de duidelijke fout */ }
-  }
+  // Vul aan met de velden uit de workflow zelf. n8n nummert de velden in de volgorde van het formulier. Zo vinden we ook
+  // velden terug waarvan de tekst op de pagina er net anders uitziet (bijvoorbeeld door tekens die n8n omzet).
+  try {
+    const wf = await n8nTabel(`/workflows/${org.workflowId}`);
+    const trigger = (wf.nodes || []).find((n) => n.type === 'n8n-nodes-base.formTrigger');
+    const velden = (trigger && trigger.parameters && trigger.parameters.formFields && trigger.parameters.formFields.values) || [];
+    velden.forEach((v, i) => { if (v && v.fieldLabel) kaart[schoon(v.fieldLabel)] = `field-${i}`; });
+  } catch (err) { /* de pagina alleen is soms genoeg */ }
   if (!Object.keys(kaart).length) throw new Error('Kon de velden van het n8n formulier niet lezen.');
   return { url, kaart };
 }
+
+const normaal = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
 function vorigeMaand(nu) {
   const d = new Date(nu.getFullYear(), nu.getMonth() - 1, 1);
@@ -104,7 +105,7 @@ async function start({ organisatieId, klant, maand, jaar, velden, notities }) {
 
   const body = new FormData();
   for (const [label, waarde] of Object.entries(waarden)) {
-    const veld = kaart[label];
+    const veld = kaart[label] || kaart[Object.keys(kaart).find((k) => normaal(k) === normaal(label))];
     if (!veld) throw new Error(`Het veld "${label}" staat niet meer in het n8n formulier. Het formulier is aangepast.`);
     body.append(veld, waarde);
   }
