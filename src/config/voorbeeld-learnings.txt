@@ -1,0 +1,21 @@
+Google Ads
+
+In september haalden we met vrijwel hetzelfde budget veel meer verkeer uit Google Ads, maar dat leidde tot minder aanvragen. De kosten bleven met €1.055,42 op het niveau van augustus (€1.086,85). Het aantal klikken steeg van 1.074 naar 1.600. De kosten per klik daalden van €1,01 naar €0,66. Er kwam dus meer verkeer binnen voor hetzelfde geld. Toch zakte het aantal conversies van 13 naar 8. De kosten per conversie liepen daardoor op van €83,60 naar €131,93.
+
+Het extra verkeer kwam uit de Performance Max campagne: €909,04 voor 1.421 klikken, tegenover 849 klikken in augustus. Daar zit de belangrijkste les van deze maand. Meer klikken zegt niets over het resultaat, want dat hangt af van welke containers de klikken krijgen. Het geld ging vooral naar de 20ft containers: €515,90 voor 641 klikken, samen minder dan 1 conversie. De 40ft High Cube containers kostten €180,47 voor 431 klikken en haalden 2 conversies. Dat is ongeveer €90,24 per conversie, lager dan onze gemiddelde kosten per conversie van de afgelopen drie maanden (€111,26).
+
+Binnen de 20ft containers zijn twee soorten het duurst, allebei zonder conversie. De 20ft High Cube kostte €184,65 voor 223 klikken. De 20ft Standaard Nieuw kostte €135,76 voor 111 klikken. Waarom de 20ft containers wel veel klikken maar geen conversies opleveren zien we niet in de cijfers. Het kan aan de pagina of de productgegevens liggen, daar gaan we naar kijken.
+
+In de Maten campagne had alleen de groep voor 20ft containers nog vertoningen. Die kostte €143,99 voor 178 klikken. Hieruit leren we dat mensen die op maten, gewicht of binnenmaat zoeken vooral informatie willen. Het zoekwoord 20ft container trok 85 van zulke zoekopdrachten, samen €21,18 en 25 klikken. Dat geld gaat dus naar mensen die waarschijnlijk geen container komen kopen.
+
+Voor oktober betekent dit meer budget naar de containers die converteren en minder naar de containers die alleen klikken opleveren.
+
+Next steps
+
+1. We zetten de 20ft High Cube en de 20ft Standaard Nieuw in een eigen groep binnen de Performance Max campagne, met minder budget dan nu. Allebei kostten ze meer dan €111,26 zonder conversie. Blijven ze in oktober zonder conversie, dan sluiten we ze uit.
+
+2. We zetten de 40ft High Cube containers in een eigen groep en geven die meer budget. Ze kosten nu ongeveer €90,24 per conversie, onder de €111,26. Eind oktober beoordelen we of dat zo blijft, anders zetten we het budget terug.
+
+3. We sluiten in de Maten campagne de 85 zoekopdrachten over maten, gewicht en binnenmaat uit. Die kostten in september €21,18. Levert de campagne in oktober niets op bij meer dan €111,26 aan kosten, dan verschuiven we het budget naar de 40ft High Cube containers.
+
+4. We controleren de pagina's en productgegevens (titel, prijs, voorraad) van de 20ft High Cube en de 20ft Standaard Nieuw en passen aan wat niet klopt of ontbreekt, voordat ze weer vol budget krijgen. In oktober beoordelen we of ze een conversie halen.

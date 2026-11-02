@@ -401,37 +401,54 @@ function bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, optie
 }
 
 
-// Concept learnings en next steps, geschreven door Claude via de Anthropic API (ANTHROPIC_API_KEY op Render).
-// Het is nadrukkelijk een concept: ChatGPT verbetert het met alle context en Dylans schrijfstijl.
+// Concept learnings en next steps. Een ruw concept in Dylans schrijfstijl, geschreven met OpenAI (OPENAI_API_KEY staat al in Render).
+// ChatGPT maakt er daarna een versie 2.0 van op basis van alle data en het rapport.
+const fs = require('fs');
+const path = require('path');
+const lees = (naam) => { try { return fs.readFileSync(path.join(__dirname, '..', 'config', naam), 'utf8'); } catch (err) { return ''; } };
+
 const CONCEPT_KOP = [
-  'CONCEPT LEARNINGS EN NEXT STEPS (concept van Claude)',
-  'Dit is een concept en geen eindtekst. ChatGPT: verbeter dit op basis van alle context in dit pakket en in het bijgevoegde rapport. Let op zinsopbouw, woordkeuze en Dylans schrijfstijl. Controleer elk cijfer en elke bewering tegen de data hierboven en haal weg wat de data niet laat zien. Gebruik de onderdelen alleen als ruwe basis.'
+  'RUW CONCEPT LEARNINGS EN NEXT STEPS (versie 1)',
+  'Dit is een ruw concept en geen eindtekst. ChatGPT: maak hier een versie 2.0 van op basis van alle data in dit pakket en het bijgevoegde rapport. Verbeter de zinsopbouw en woordkeuze en schrijf het in Dylans schrijfstijl. Controleer elk cijfer en elke bewering tegen de data, haal weg wat de data niet laat zien en vul aan waar de data meer vertelt. Gebruik dit concept alleen als ruwe basis.'
 ];
-const CONCEPT_SYSTEEM = [
-  'Je schrijft een concept voor de learnings en next steps van een maandrapportage voor online marketing, op basis van het pakket dat de gebruiker plakt.',
-  'Regels:',
-  '1. Gebruik alleen cijfers en feiten uit het pakket. Verzin niets. Als iets niet in het pakket staat, schrijf je het niet.',
-  '2. Het rapport is leidend. Conversies die als toegerekend zijn gemarkeerd, noem je als conversies volgens het rapport en zeg je niet dat het platform ze mat.',
-  '3. Zeg niet dat een campagne of advertentiegroep nu aan of uit staat, tenzij de status nu in het pakket staat. Zoektermen dekken vaak maar een deel van de kosten: noem dat als het relevant is.',
-  '4. Schrijf in gewoon, duidelijk Nederlands zoals een marketeer het tegen een klant zegt. Korte zinnen. Geen streepjes, geen emoticons en geen opsommingstekens met streepjes. Geen woorden als onderstreept, substantieel, significant, motor, strategisch momentum of optimalisatieslag.',
-  '5. Gebruik de campagnenamen zoals ze in het pakket staan. Verzin geen eigen omschrijvingen van doelgroepen of onderwerpen.',
-  '6. Maak per kanaal dat in het pakket staat twee delen: Learnings (twee tot vijf zinnen of korte alinea\'s met cijfers) en Next steps (twee tot vier genummerde punten, actief geformuleerd als wat wij gaan doen, met de aanleiding in cijfers).',
-  '7. Verwerk de context van de gebruiker en de status van de actiepunten van vorige maand als die in het pakket staan.',
-  '8. Sluit af met een korte regel Wat ik niet kon zien, waarin je opnoemt welke data ontbrak en waar je dus niets over zegt.'
-].join('\n');
+
+function conceptSysteem() {
+  return [
+    'Je schrijft een ruw concept voor de learnings en next steps van een maandrapportage voor online marketing, op basis van het pakket dat de gebruiker plakt. Een ander model maakt er daarna een betere versie van, dus werk netjes maar hoef niet te polijsten.',
+    '',
+    'Eisen voor dit pakket (deze gaan voor op de schrijfwijzer hieronder):',
+    '1. Gebruik alleen cijfers en feiten uit het pakket. Verzin niets. Als iets niet in het pakket staat, schrijf je er niet over.',
+    '2. Het rapport is leidend. Conversies die in het pakket als toegerekend zijn gemarkeerd, noem je conversies volgens het rapport. Schrijf nooit dat het platform ze mat en nooit dat een zoekterm of groep hierdoor "geen conversie" had als er toegerekende conversies bij die campagne staan zonder dat bekend is waar ze bij horen. Schrijf dan over kosten en klikken.',
+    '3. Zeg alleen dat een campagne of groep nu aan of uit staat als de status nu in het pakket staat. De status van advertentiegroepen ontbreekt vaak: zeg daar dan niets over.',
+    '4. Zoektermen dekken vaak maar een deel van de kosten. Noem dat als je conclusies over zoektermen trekt.',
+    '5. Schrijf per kanaal dat in het pakket staat: Learnings en Next steps. Next steps zijn twee tot vier genummerde punten, actief geformuleerd ("we sluiten uit", "we geven meer budget"), met de aanleiding in cijfers en waar mogelijk een beslismoment.',
+    '6. Verwerk de context van de gebruiker en de status van de actiepunten van vorige maand als die in het pakket staan.',
+    '7. Sluit af met een korte regel Wat ik niet kon zien, waarin je opnoemt welke data ontbrak en waar je dus niets over zegt.',
+    '8. Schrijf in het Nederlands. Geen streepjes als leesteken, geen emoticons, geen vet.',
+    '',
+    'SCHRIJFWIJZER',
+    lees('schrijfwijzer-learnings.md'),
+    '',
+    'VOORBEELD VAN DE STIJL (andere klant en andere maand, gebruik de cijfers en feiten hieruit nooit)',
+    lees('voorbeeld-learnings.txt')
+  ].join('\n');
+}
 
 async function schrijfConcept(pakketTekst) {
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) return { tekst: null, reden: 'ANTHROPIC_API_KEY staat niet in Render, dus er is geen concept geschreven.' };
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return { tekst: null, reden: 'OPENAI_API_KEY staat niet in Render, dus er is geen concept geschreven.' };
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
-      headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5', max_tokens: 2500, system: CONCEPT_SYSTEEM, messages: [{ role: 'user', content: pakketTekst }] })
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: process.env.OPENAI_MODEL || 'gpt-5.5', instructions: conceptSysteem(), input: pakketTekst, reasoning: { effort: 'low' } }),
+      signal: AbortSignal.timeout(150000)
     });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) return { tekst: null, reden: `Het concept schrijven mislukte (${res.status}): ${(data.error && data.error.message) || 'onbekende fout'}` };
-    const tekst = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
+    if (!res.ok) return { tekst: null, reden: `Het concept schrijven mislukte (status ${res.status}): ${(await res.text().catch(() => '')).slice(0, 200)}` };
+    const data = await res.json();
+    let tekst = typeof data.output_text === 'string' ? data.output_text : '';
+    if (!tekst) for (const o of data.output || []) for (const c of o.content || []) if (c.type === 'output_text') tekst += c.text || '';
+    tekst = tekst.trim();
     return tekst ? { tekst, reden: null } : { tekst: null, reden: 'Het concept was leeg.' };
   } catch (err) {
     return { tekst: null, reden: `Het concept schrijven mislukte: ${err.message}` };
@@ -466,4 +483,4 @@ async function haalVerdieping({ klant, jaar, maand }) {
   return data;
 }
 
-module.exports = { maakPakket, bouwTekst, CONCEPT_KOP, CONCEPT_SYSTEEM };
+module.exports = { maakPakket, bouwTekst, CONCEPT_KOP, conceptSysteem };
