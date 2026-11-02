@@ -55,3 +55,9 @@ test('bouwTekst neemt de nieuwe secties mee', () => {
   assert.match(t, /GOOGLE ADS: LOCATIES DEZE MAAND/);
   assert.match(t, /VERLOOP OVER DE LAATSTE DRIE MAANDEN/);
 });
+
+test('opdracht en concept vragen om de wijzigingsgeschiedenis', () => {
+  const { OPDRACHT, conceptSysteem } = require('../src/services/pakket');
+  assert.match(OPDRACHT.join('\n'), /WIJZIGINGEN IN HET ACCOUNT/);
+  assert.match(conceptSysteem(), /wijzigingen in het account/);
+});
