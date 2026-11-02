@@ -661,10 +661,51 @@ const OPDRACHT = [
   '2. Bepaal per kanaal wat de data laat zien en wat niet. Maak geen beweringen die de cijfers niet dragen. Noem kleine aantallen als klein.',
   '3. Het rapport is leidend voor de totalen. Cijfers uit het pakket gebruik je om te verklaren waar een verschil vandaan komt.',
   '4. Gebruik de context van Dylan en de status van de actiepunten van vorige maand. Een actiepunt dat niet is opgepakt, noem je eerlijk, en je beslist of het terugkomt.',
-  '5. Next steps: kies circa drie sterke punten voor de hele maand, niet voor elk kanaal een. Kies de punten met de meeste impact. Elk punt moet voortkomen uit de data, het cijfer als aanleiding noemen, concreet en actief zijn ("we sluiten uit", "we geven meer budget") en waar mogelijk een beslismoment hebben. Verzin geen punten die in geen enkel cijfer terug te vinden zijn.',
-  '6. Controleer voor je antwoord geeft elk cijfer en elke bewering tegen het pakket. Wat het pakket niet laat zien, laat je weg of zet je onder een korte regel "Wat ik niet kon zien".',
+  '5. Next steps: kies circa drie punten voor de hele maand, de punten met de meeste impact. Elk punt is een concrete actie die wij uitvoeren, geen onderzoek. Een goed punt bevat: (a) wat we precies doen, met een werkwoord als uitsluiten, verhogen, verlagen, pauzeren, toevoegen, verplaatsen of testen, (b) waarop dat slaat, met de naam van de campagne, groep, zoekterm, doelgroep of advertentie, (c) hoeveel, bijvoorbeeld een bedrag per dag of een aantal zoektermen, (d) het cijfer uit de data dat de aanleiding is, en (e) wanneer we het resultaat beoordelen en wat we dan beslissen. Gebruik de lijst KANDIDAAT ACTIES in dit pakket als startpunt.',
+  '5b. Verboden in next steps: bekijken, beoordelen, uitzoeken, onderzoeken, bespreken, meenemen, verder aanscherpen, verder uitwerken, verder sturen, in kaart brengen, de rol van een kanaal meenemen. Zulke punten zijn vaag. Schrijf wat we na het bekijken gaan doen. Slecht: \"We beoordelen zoekopdrachten in de campagne.\" Goed: \"We sluiten in oktober de 8 zoekopdrachten zonder conversie uit die samen € 55 kostten, en we verlagen het dagbudget van € 6 naar € 4. Halen we in november nog geen conversie uit deze campagne, dan pauzeren we hem.\" Is er in de data geen concrete actie te onderbouwen, noem dan een kleine test met een duidelijke meting in plaats van een vaag onderzoek.',
+  '6. Noem de bron niet in de tekst. Schrijf niet "volgens Google Ads", "volgens het platform", "volgens het pakket" of "volgens de data". Schrijf het cijfer als feit: "de campagne leverde 10 conversies op". Alleen als het rapport en het platform echt verschillen en dat verschil voor de klant van belang is, benoem je het verschil.',
+  '7. Controleer voor je antwoord geeft elk cijfer en elke bewering tegen het pakket. Wat het pakket niet laat zien, laat je weg of zet je onder een korte regel "Wat ik niet kon zien".',
   'Het ruwe concept onderaan is alleen een startpunt. Maak er een betere versie 2.0 van op basis van alle data.'
 ];
+
+// Concrete kandidaat acties, direct uit de data. ChatGPT kiest hieruit de sterkste en maakt ze af.
+function sectieKandidaten(g, exG) {
+  const regels = ['KANDIDAAT ACTIES (uit de data, ter keuze voor de next steps)'];
+  const totKosten = som(g.campagnes, 'kosten');
+  const totConv = som(g.campagnes, 'conversies');
+  const gem = totConv > 0 ? totKosten / totConv : null;
+  const termen = g.zoektermen || [];
+  const drempel = Math.max(5, gem ? gem * 5 : 5);
+  const weg = termen.filter((r) => Number(r.conversies) === 0 && Number(r.kosten) >= drempel).sort((a, b) => b.kosten - a.kosten);
+  if (weg.length) {
+    regels.push(`Zoektermen uitsluiten: ${getal(weg.length)} zoektermen zonder conversie met minimaal ${euro(drempel)} kosten, samen ${euro(som(weg, 'kosten'))}. Grootste: ${weg.slice(0, 8).map((r) => `${r.zoekterm} (${euro(r.kosten)}, ${getal(r.klikken)} klikken, campagne ${r.campagne})`).join('; ')}.`);
+  }
+  // Alleen campagnen die nu nog aan staan: een gepauzeerde campagne kun je niet meer verlagen of pauzeren.
+  const camp = (g.campagnes || []).filter((c) => Number(c.kosten) >= 25 && (!c.status || c.status === 'ENABLED'));
+  const metConv = camp.filter((c) => Number(c.conversies) > 0).sort((a, b) => a.kosten / a.conversies - b.kosten / b.conversies);
+  if (metConv.length >= 2) {
+    const goed = metConv[0]; const slecht = metConv[metConv.length - 1];
+    if (slecht.kosten / slecht.conversies > 2 * (goed.kosten / goed.conversies)) {
+      regels.push(`Budget verschuiven: ${goed.campagne} kost ${perConv(goed.kosten, goed.conversies)} per conversie (${euro(goed.kosten)} kosten), ${slecht.campagne} kost ${perConv(slecht.kosten, slecht.conversies)} per conversie (${euro(slecht.kosten)} kosten).`);
+    }
+  }
+  camp.filter((c) => Number(c.conversies) === 0).forEach((c) => regels.push(`Campagne zonder conversie: ${c.campagne} kostte ${euro(c.kosten)} met ${getal(c.klikken)} klikken en 0 conversies. Kandidaat om budget te verlagen of te pauzeren.`));
+  const inst = ((exG && exG.campagne_instellingen) || []).filter((r) => r.campagneStatus === 'ENABLED' && Number(r.verlorenDoorBudget) >= 0.1);
+  inst.forEach((r) => regels.push(`Budget verhogen: ${r.campagne} liep ${nf(Number(r.verlorenDoorBudget) * 100, 0)}% van de vertoningen mis door budget (dagbudget ${r.budgetPerDag !== undefined ? euro(r.budgetPerDag) : 'onbekend'}, biedstrategie ${r.biedstrategie || 'onbekend'}).`));
+  const apparaat = (exG && exG.apparaten) || [];
+  if (apparaat.length) {
+    const perApp = samenTelPer(apparaat, 'apparaat').filter(([, v]) => v.kosten >= 25 && v.conversies > 0).sort((a, b) => a[1].kosten / a[1].conversies - b[1].kosten / b[1].conversies);
+    if (perApp.length >= 2) {
+      const [k1, v1] = perApp[0]; const [k2, v2] = perApp[perApp.length - 1];
+      if (v2.kosten / v2.conversies > 2 * (v1.kosten / v1.conversies)) regels.push(`Biedingen per apparaat: ${APPARAAT[k1] || k1} kost ${perConv(v1.kosten, v1.conversies)} per conversie, ${APPARAAT[k2] || k2} ${perConv(v2.kosten, v2.conversies)}. Kandidaat om het bod op ${APPARAAT[k2] || k2} te verlagen.`);
+    }
+  }
+  const paginas = ((exG && exG.landingspaginas) || []).filter((r) => Number(r.klikken) >= 30 && Number(r.conversies) === 0).sort((a, b) => b.kosten - a.kosten).slice(0, 3);
+  paginas.forEach((r) => regels.push(`Landingspagina: ${r.url} kreeg ${getal(r.klikken)} klikken voor ${euro(r.kosten)} zonder conversie. Kandidaat om de pagina of de advertentie die ernaar verwijst aan te passen.`));
+  if (regels.length === 1) regels.push('Uit de Google data volgt geen duidelijke kandidaat. Kies een kleine test met een duidelijke meting.');
+  regels.push('Dit zijn voorstellen op basis van de cijfers, geen besluiten. Kies de sterkste, controleer ze tegen de rest van het pakket en werk ze uit tot concrete next steps. Voor Meta, LinkedIn en Bing zoek je zelf kandidaten in hun blokken.');
+  return regels;
+}
 
 function bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, opties, rapportData, rapportTekst }) {
   const opt = opties || {};
@@ -688,6 +729,7 @@ function bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, optie
   if (g) {
     delen.push(['AFSTEMMING MET HET RAPPORT (Google Ads conversies)', nota.uitleg]);
     delen.push(sectieOpvallend(g, nota));
+    delen.push(sectieKandidaten(g, exG));
     delen.push(sectieCampagnes(g, !!o.vorigeMaand), sectieGroepen(g, !!o.vorigeMaand), sectieZoektermenAlles(g));
     if (o.zoekwoorden) delen.push(sectieZoekwoorden(g));
     if (o.advertenties) delen.push(sectieAdvertenties(g));
@@ -742,7 +784,7 @@ function conceptSysteem() {
     '5. Schrijf per kanaal dat in het pakket staat: Learnings en Next steps. Next steps voor de hele maand zijn circa drie sterke genummerde punten met de meeste impact, actief geformuleerd ("we sluiten uit", "we geven meer budget"), met de aanleiding in cijfers en waar mogelijk een beslismoment.',
     '6. Verwerk de context van de gebruiker en de status van de actiepunten van vorige maand als die in het pakket staan.',
     '7. Sluit af met een korte regel Wat ik niet kon zien, waarin je opnoemt welke data ontbrak en waar je dus niets over zegt.',
-    '8. Schrijf in het Nederlands. Geen streepjes als leesteken, geen emoticons, geen vet.',
+    '8. Schrijf in het Nederlands. Geen streepjes als leesteken, geen emoticons, geen vet. Schrijf cijfers als feit en noem de bron niet in de tekst (dus niet "volgens Google Ads" of "volgens het platform").',
     '',
     'SCHRIJFWIJZER',
     lees('schrijfwijzer-learnings.md'),
