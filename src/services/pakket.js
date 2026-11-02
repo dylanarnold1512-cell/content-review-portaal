@@ -512,8 +512,8 @@ function sectieMetaExtra(x) {
 // Cijfers uit de tabellen van het Word rapport. Het rapport is leidend, dus deze cijfers gaan voor op n8n.
 // Werkt met tabellen waar de maanden in de kolommen staan (kpi per rij) en met tabellen waar de maanden in de rijen staan.
 const VELD_NAMEN = [
-  ['conversies', /^(conversies|leads|reserveringen|aanvragen|offerte aanvragen|offertes|resultaten)\b/i],
-  ['kosten', /^kosten\b/i],
+  ['conversies', /^(conversies|leads|reserveringen|aanvragen|offerte aanvragen|offertes)\b/i],
+  ['kosten', /^kosten(\s*\(.*\))?$/i],
   ['klikken', /^(klikken|clicks)\b/i],
   ['vertoningen', /^(vertoningen|impressies|weergaven)\b/i]
 ];
@@ -598,24 +598,33 @@ function sectieRapport(tekst) {
 async function haalNextStepsDocx(buffer) {
   const mammoth = require('mammoth');
   const { value: html } = await mammoth.convertToHtml({ buffer });
-  const kop = /<(h[1-6]|p)>\s*(?:<strong>)?\s*Next steps?\s*(?:<\/strong>)?\s*<\/\1>/gi;
+  const kop = /<(h[1-6]|p)\b[^>]*>(?:\s*<a\b[^>]*>\s*<\/a>)*\s*(?:<strong>)?\s*Next steps?\s*(?:<\/strong>)?\s*<\/\1>/gi;
   const uit = [];
-  const punten = [];
+  const starts = [];
   let m;
-  while ((m = kop.exec(html)) !== null) punten.push(m.index + m[0].length);
-  punten.forEach((start) => {
+  while ((m = kop.exec(html)) !== null) starts.push(m.index + m[0].length);
+  starts.forEach((start) => {
     let rest = html.slice(start);
     const volgende = rest.search(/<h[1-6][ >]/);
     if (volgende >= 0) rest = rest.slice(0, volgende);
-    const items = rest.match(/<li[\s\S]*?<\/li>/g) || rest.match(/<p[\s\S]*?<\/p>/g) || [];
-    items.forEach((it) => {
-      const sterk = it.match(/<strong>([\s\S]*?)<\/strong>/);
-      const titel = sterk ? platTekst(sterk[1]) : '';
-      const alles = platTekst(it);
-      if (!alles) return;
-      const uitleg = titel && alles.startsWith(titel) ? alles.slice(titel.length).trim() : alles;
-      uit.push(titel && titel !== alles ? `${titel.replace(/[.:]+$/, '')}: ${uitleg}` : alles);
+    // Een punt is een lijstitem met een vette titel. De uitleg staat in het item zelf of in de alinea's erna.
+    const blokken = rest.match(/<li[\s\S]*?<\/li>|<p\b[\s\S]*?<\/p>/g) || [];
+    let huidig = null;
+    const klaar = () => { if (huidig) uit.push(huidig.uitleg ? `${huidig.titel.replace(/[.:]+$/, '')}: ${huidig.uitleg}` : huidig.titel); huidig = null; };
+    blokken.forEach((bl) => {
+      const tekst = platTekst(bl);
+      if (!tekst) return;
+      if (bl.startsWith('<li')) {
+        klaar();
+        const sterk = bl.match(/<strong>([\s\S]*?)<\/strong>/);
+        const titel = sterk ? platTekst(sterk[1]) : '';
+        if (titel && titel !== tekst && tekst.startsWith(titel)) huidig = { titel, uitleg: tekst.slice(titel.length).trim() };
+        else huidig = { titel: tekst, uitleg: '' };
+      } else if (huidig) {
+        huidig.uitleg = `${huidig.uitleg} ${tekst}`.trim();
+      }
     });
+    klaar();
   });
   return uit;
 }
