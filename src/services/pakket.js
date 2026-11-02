@@ -381,10 +381,13 @@ function metGroepStatus(g, exG) {
 const lijstTot = (rijen, n) => { const l = rijen.slice(0, n); return rijen.length > n ? [...l, `Nog ${rijen.length - n} regels met lagere kosten niet getoond.`] : l; };
 const prestatie = (r) => `${euro(r.kosten)}, ${getal(r.klikken)} klikken, ${conv(r.conversies)} conversies`;
 
-function sectiePmax(x) {
-  const rijen = (x.pmax_zoektermen || []).slice().sort((a, b) => (b.kosten || 0) - (a.kosten || 0) || (b.klikken || 0) - (a.klikken || 0));
-  if (!rijen.length) return ['GOOGLE ADS: PERFORMANCE MAX ZOEKTERMEN', 'Geen zoektermen van Performance Max beschikbaar voor deze maand.'];
-  const regels = ['GOOGLE ADS: PERFORMANCE MAX ZOEKTERMEN DEZE MAAND', `Aantal zoektermen: ${getal(rijen.length)}. Per regel: zoekterm | campagne | ${rijen.some((r) => r.kosten !== undefined) ? 'kosten, klikken, conversies volgens het platform' : 'klikken, conversies volgens het platform (Google gaf geen kosten per zoekterm)'}.`];
+function sectiePmax(x, g) {
+  // De view geeft ook zoekcampagnes terug. Die staan al bij de gewone zoektermen, dus laten we ze hier weg.
+  const zoekCamp = new Set(((g && g.zoektermen) || []).map((r) => r.campagne));
+  const alle = (x.pmax_zoektermen || []).filter((r) => !zoekCamp.has(r.campagne));
+  const rijen = alle.filter((r) => Number(r.klikken) > 0 || Number(r.kosten) > 0 || Number(r.conversies) > 0).sort((a, b) => (b.kosten || 0) - (a.kosten || 0) || (b.klikken || 0) - (a.klikken || 0) || (b.conversies || 0) - (a.conversies || 0));
+  if (!alle.length) return ['GOOGLE ADS: PERFORMANCE MAX ZOEKTERMEN', 'Geen zoektermen van Performance Max beschikbaar voor deze maand.'];
+  const regels = ['GOOGLE ADS: PERFORMANCE MAX ZOEKTERMEN DEZE MAAND', `Google toonde ${getal(alle.length)} zoektermen voor Performance Max. ${getal(rijen.length)} daarvan kregen klikken, kosten of conversies. Samen ${euro(som(rijen, 'kosten'))} en ${getal(som(rijen, 'klikken'))} klikken. Per regel: zoekterm | campagne | kosten, klikken, conversies volgens het platform. Sortering: meeste kosten eerst.`];
   lijstTot(rijen, 60).forEach((r) => regels.push(typeof r === 'string' ? r : `${r.zoekterm} | ${r.campagne} | ${r.kosten !== undefined ? prestatie(r) : `${getal(r.klikken)} klikken, ${conv(r.conversies)} conversies`}`));
   return regels;
 }
@@ -449,16 +452,36 @@ function sectieConversieacties(x) {
   return regels;
 }
 
+const LI_FUNCTIE = { 1: 'Boekhouding', 2: 'Administratie', 3: 'Kunst en design', 4: 'Business development', 5: 'Maatschappelijke dienstverlening', 6: 'Consulting', 7: 'Onderwijs', 8: 'Engineering', 9: 'Ondernemerschap', 10: 'Finance', 11: 'Gezondheidszorg', 12: 'HR', 13: 'IT', 14: 'Juridisch', 15: 'Marketing', 16: 'Media en communicatie', 17: 'Defensie en beveiliging', 18: 'Operations', 19: 'Productmanagement', 20: 'Programma en projectmanagement', 21: 'Inkoop', 22: 'Kwaliteitsborging', 23: 'Vastgoed', 24: 'Onderzoek', 25: 'Sales', 26: 'Ondersteuning' };
+const LI_SENIORITEIT = { 1: 'Stagiair onbetaald', 2: 'Trainee', 3: 'Starter', 4: 'Senior', 5: 'Manager', 6: 'Directeur', 7: 'VP', 8: 'CXO', 9: 'Partner', 10: 'Eigenaar' };
+function liNaam(soort, sleutel) {
+  const s = String(sleutel || '');
+  const id = s.split(':').pop();
+  if (soort === 'functie' && LI_FUNCTIE[id]) return LI_FUNCTIE[id];
+  if (soort === 'senioriteit' && LI_SENIORITEIT[id]) return LI_SENIORITEIT[id];
+  if (soort === 'bedrijfsgrootte') return s.replace('SIZE_', '').replace(/_TO_/, ' tot ').replace('_OR_MORE', ' of meer').replace(/_/g, ' ') + ' medewerkers';
+  if (soort === 'branche') return `branche met code ${id}`;
+  if (soort === 'functietitel') return `functietitel met code ${id}`;
+  return s || 'onbekend';
+}
+
+function liCampagne(nu, sleutel) {
+  const id = String(sleutel || '').split(':').pop();
+  const c = ((nu && nu.campagnes) || []).find((k) => String(k.id) === id);
+  return c && c.naam ? c.naam : `campagne ${id} (naam niet bekend, niet actief deze maand)`;
+}
+
 function sectieLinkedInExtra(x, nu) {
   const regels = ['LINKEDIN ADS: EXTRA DATA'];
-  const rij = (r) => `${r.sleutel || 'onbekend'} | ${getal(r.vertoningen)} vertoningen, ${getal(r.klikken)} klikken, CTR ${ctr(r.klikken, r.vertoningen)}`;
+  let soort = '';
+  const rij = (r) => `${liNaam(soort, r.sleutel)} | ${getal(r.vertoningen)} vertoningen, ${getal(r.klikken)} klikken, CTR ${ctr(r.klikken, r.vertoningen)}`;
   if ((x.campagnes_vorige_maand || []).length) {
-    regels.push('Vorige maand per campagne (id van LinkedIn)');
-    x.campagnes_vorige_maand.forEach((r) => regels.push(`${r.sleutel || 'onbekend'} | ${euro(r.kosten)}, ${getal(r.vertoningen)} vertoningen, ${getal(r.klikken)} klikken, ${conv(r.conversies)} conversies, ${getal(r.leads)} leads`));
+    regels.push('Vorige maand per campagne');
+    x.campagnes_vorige_maand.forEach((r) => regels.push(`${liCampagne(nu, r.sleutel)} | ${euro(r.kosten)}, ${getal(r.vertoningen)} vertoningen, ${getal(r.klikken)} klikken, ${conv(r.conversies)} conversies, ${getal(r.leads)} leads`));
   }
   const demo = [['functie', 'Functie'], ['branche', 'Branche'], ['senioriteit', 'Senioriteit'], ['bedrijfsgrootte', 'Bedrijfsgrootte'], ['functietitel', 'Functietitel']];
-  demo.forEach(([k, kop]) => { if ((x[k] || []).length) { regels.push('', `${kop} van wie de advertenties zag of aanklikte, deze maand (LinkedIn geeft codes, geen namen)`); x[k].slice(0, 15).forEach((r) => regels.push(rij(r))); } });
-  if ((x.advertentie_details || []).length) { regels.push('', `Advertenties in het account: ${x.advertentie_details.length}.`); x.advertentie_details.slice(0, 20).forEach((a) => regels.push(`${a.naam || a.id} | status ${a.status || 'onbekend'}${a.inhoud ? ` | ${a.inhoud}` : ''}`)); }
+  demo.forEach(([k, kop]) => { soort = k; if ((x[k] || []).length) { regels.push('', `${kop} van wie de advertenties zag of aanklikte, deze maand (sortering: meeste vertoningen eerst; bij branche en functietitel geeft LinkedIn alleen een code)`); x[k].slice(0, 15).forEach((r) => regels.push(rij(r))); } });
+  if ((x.advertentie_details || []).length) { regels.push('', `Advertenties in het account: ${x.advertentie_details.length}, waarvan ${x.advertentie_details.filter((a) => a.status === 'ACTIVE').length} actief (namen van de actieve hieronder).`); x.advertentie_details.filter((a) => a.status === 'ACTIVE').slice(0, 25).forEach((a) => regels.push(`${a.naam || 'zonder naam'} | status ${a.status || 'onbekend'}`)); }
   return regels.length > 1 ? regels : null;
 }
 
@@ -621,7 +644,7 @@ function bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, optie
     if (o.wijzigingen) delen.push(sectieWijzigingen(g));
     if (o.drieMaanden && sectieAccount(g).length) delen.push(sectieAccount(g));
     if (o.extra && exG) {
-      [sectiePmax(exG), sectieAssetgroepen(exG), sectieInstellingen(exG), sectieApparaten(exG), sectieWeekdagen(exG), sectieLandingspaginas(exG), sectieConversieacties(exG)].forEach((x) => { if (x) delen.push(x); });
+      [sectiePmax(exG, g), sectieAssetgroepen(exG), sectieInstellingen(exG), sectieApparaten(exG), sectieWeekdagen(exG), sectieLandingspaginas(exG), sectieConversieacties(exG)].forEach((x) => { if (x) delen.push(x); });
     }
   } else {
     delen.push(['GOOGLE ADS', 'Geen Google Ads data opgehaald voor deze klant.']);
