@@ -486,7 +486,7 @@ function sectieLinkedInExtra(x, nu) {
 }
 
 function sectieMetaExtra(x) {
-  const regels = ['META ADS: EXTRA DATA'];
+  const regels = ['META ADS: EXTRA DATA', 'Let op: conversies bij Meta in dit blok zijn de som van de pixel en leadacties en kunnen dubbel tellen. Gebruik ze alleen om onderdelen met elkaar te vergelijken. Het rapport is leidend voor het totaal.'];
   const kop = (r) => [r.campagne, r.advertentieset, r.advertentie].filter(Boolean).join(' > ');
   if ((x.advertenties_vorige_maand || []).length) {
     regels.push('Vorige maand per advertentie');
@@ -502,8 +502,9 @@ function sectieMetaExtra(x) {
     Object.entries(m).sort((a, b) => b[1].kosten - a[1].kosten).slice(0, 15).forEach(([s, v]) => regels.push(`${s} | ${prestatie(v)}, CTR ${ctr(v.klikken, v.vertoningen)}`));
   });
   if ((x.advertentie_details || []).length) {
-    regels.push('', 'Advertenties met tekst');
-    x.advertentie_details.slice(0, 25).forEach((a) => regels.push(`${a.campagne || ''} > ${a.advertentieset || ''} > ${a.advertentie} | status ${a.status || 'onbekend'}${a.titel ? ` | titel: ${a.titel}` : ''}${a.tekst ? ` | tekst: ${a.tekst}` : ''}${a.knop ? ` | knop ${a.knop}` : ''}`));
+    const actief = x.advertentie_details.filter((a) => a.status === 'ACTIVE');
+    regels.push('', `Advertenties met tekst (${getal(actief.length)} actief van ${getal(x.advertentie_details.length)} in het account, alleen actieve getoond)`);
+    actief.slice(0, 25).forEach((a) => regels.push(`${a.campagne || ''} > ${a.advertentieset || ''} > ${a.advertentie} | status ${a.status || 'onbekend'}${a.titel ? ` | titel: ${a.titel}` : ''}${a.tekst ? ` | tekst: ${a.tekst}` : ''}${a.knop ? ` | knop ${a.knop}` : ''}`));
   }
   return regels.length > 1 ? regels : null;
 }
