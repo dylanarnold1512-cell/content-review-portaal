@@ -110,7 +110,7 @@
   }
 
 
-  const OPTIES = [['vorigeMaand', 'Vergelijk met vorige maand'], ['zoekwoorden', 'Zoekwoorden'], ['advertenties', 'Advertenties (koppen en status)'], ['producten', 'Producten (Shopping en Performance Max)'], ['uitsluitingen', 'Uitgesloten zoekwoorden (aantallen)'], ['wijzigingen', 'Wijzigingen in het account'], ['drieMaanden', 'Drie maanden samen'], ['linkedin', 'LinkedIn Ads'], ['meta', 'Meta Ads']];
+  const OPTIES = [['vorigeMaand', 'Vergelijk met vorige maand'], ['zoekwoorden', 'Zoekwoorden'], ['advertenties', 'Advertenties (koppen en status)'], ['producten', 'Producten (Shopping en Performance Max)'], ['uitsluitingen', 'Uitgesloten zoekwoorden (aantallen)'], ['wijzigingen', 'Wijzigingen in het account'], ['drieMaanden', 'Drie maanden samen'], ['linkedin', 'LinkedIn Ads'], ['meta', 'Meta Ads'], ['extra', 'Extra data (Performance Max zoektermen, apparaten, weekdagen, instellingen, landingspaginas)']];
 
   // Pakket maken: alle data van de klant en maand in een tekst voor ChatGPT.
   function puntenHtml() {
@@ -136,7 +136,7 @@
       <label class="rs-veld rs-notities"><span>Next steps van het vorige rapport (een per regel)</span><textarea id="rsPuntenTekst" rows="4">${e(staat.puntenTekst)}</textarea></label>
       <div id="rsPunten">${puntenHtml()}</div>
       <details class="rs-details"><summary>Extra onderdelen (standaard uit)</summary>
-        <div class="rs-opties">${OPTIES.map((o) => `<label><input type="checkbox" data-optie="${o[0]}"${staat.opties[o[0]] ? ' checked' : ''}> ${e(o[1])}</label>`).join('')}</div>
+        <div class="rs-opties">${OPTIES.map((o) => `<label><input type="checkbox" data-optie="${o[0]}"${staat.opties[o[0]] !== false ? ' checked' : ''}> ${e(o[1])}</label>`).join('')}</div>
       </details>
       <div class="rs-acties"><button type="button" id="rsMaakPakket" class="primary"${staat.pakketBezig ? ' disabled' : ''}>${staat.pakketBezig ? 'Pakket wordt gemaakt' : 'Maak pakket'}</button></div>
       ${staat.pakketMelding ? `<p class="${staat.pakketMelding.fout ? 'rs-fout' : 'rs-ok'}" role="status">${e(staat.pakketMelding.tekst)}</p>` : ''}
@@ -190,7 +190,7 @@
     if (open && !window.confirm(`${open} actiepunten hebben nog geen status. Toch doorgaan?`)) return;
     staat.pakketBezig = true; staat.pakketMelding = null; staat.pakket = null; teken();
     try {
-      const r = await adminApi('/rapport-pakket', { method: 'POST', body: JSON.stringify({ klant: staat.klant, jaar: staat.jaar, maand: staat.maand, context: staat.context, actiepunten: staat.punten, opties: staat.opties }) });
+      const r = await adminApi('/rapport-pakket', { method: 'POST', body: JSON.stringify({ klant: staat.klant, jaar: staat.jaar, maand: staat.maand, context: staat.context, actiepunten: staat.punten, opties: Object.fromEntries(OPTIES.map((o) => [o[0], staat.opties[o[0]] !== false])) }) });
       staat.pakket = r;
       staat.pakketMelding = !r.conceptGeschreven ? { fout: true, tekst: `Pakket klaar, maar zonder concept learnings. ${r.conceptReden || ''}` } : r.rapportAanwezig ? { tekst: 'Pakket klaar. Upload het rapport en het pakket in ChatGPT.' } : { fout: true, tekst: 'Pakket klaar, maar de rapportcijfers van deze maand staan nog niet in n8n. Daardoor is er niets afgestemd met het rapport. Start eerst het rapport en maak het pakket daarna opnieuw.' };
     } catch (err) {
