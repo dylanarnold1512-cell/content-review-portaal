@@ -283,7 +283,10 @@ router.post('/rapport-lees', requireAdmin, async (req, res) => {
     let cijfers = {};
     const maand = Number(req.body.maand);
     if (maand >= 1 && maand <= 12 && /\.docx$/i.test(filename)) { try { cijfers = await pakket.leesRapportCijfers(buffer, maand); } catch (err) { cijfers = {}; } }
-    res.json({ tekst, nextSteps: pakket.haalNextSteps(tekst), cijfers });
+    let nextSteps = [];
+    if (/\.docx$/i.test(filename)) { try { nextSteps = await pakket.haalNextStepsDocx(buffer); } catch (err) { nextSteps = []; } }
+    if (!nextSteps.length) nextSteps = pakket.haalNextSteps(tekst);
+    res.json({ tekst, nextSteps, cijfers });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

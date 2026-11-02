@@ -593,6 +593,33 @@ function sectieRapport(tekst) {
   return regels;
 }
 
+// Next steps uit een Word bestand via de opmaak (lijst met vette titel, regeleinde en uitleg). De platte tekst plakt titel en uitleg
+// aan elkaar, dus voor een .docx lezen we de HTML. Elk genummerd punt wordt een regel: "Titel: uitleg".
+async function haalNextStepsDocx(buffer) {
+  const mammoth = require('mammoth');
+  const { value: html } = await mammoth.convertToHtml({ buffer });
+  const kop = /<(h[1-6]|p)>\s*(?:<strong>)?\s*Next steps?\s*(?:<\/strong>)?\s*<\/\1>/gi;
+  const uit = [];
+  const punten = [];
+  let m;
+  while ((m = kop.exec(html)) !== null) punten.push(m.index + m[0].length);
+  punten.forEach((start) => {
+    let rest = html.slice(start);
+    const volgende = rest.search(/<h[1-6][ >]/);
+    if (volgende >= 0) rest = rest.slice(0, volgende);
+    const items = rest.match(/<li[\s\S]*?<\/li>/g) || rest.match(/<p[\s\S]*?<\/p>/g) || [];
+    items.forEach((it) => {
+      const sterk = it.match(/<strong>([\s\S]*?)<\/strong>/);
+      const titel = sterk ? platTekst(sterk[1]) : '';
+      const alles = platTekst(it);
+      if (!alles) return;
+      const uitleg = titel && alles.startsWith(titel) ? alles.slice(titel.length).trim() : alles;
+      uit.push(titel && titel !== alles ? `${titel.replace(/[.:]+$/, '')}: ${uitleg}` : alles);
+    });
+  });
+  return uit;
+}
+
 // Zoekt de next steps in de tekst van een rapport. Word nummering zit niet in de platte tekst, dus we zoeken op de kop Next steps
 // en nemen de zinnen eronder tot de volgende kop. Dylan controleert het resultaat in het portaal.
 function haalNextSteps(tekst) {
@@ -771,4 +798,4 @@ async function haalVerdieping({ klant, jaar, maand }) {
   return data;
 }
 
-module.exports = { leesRapportCijfers, haalNextSteps, maakPakket, bouwTekst, CONCEPT_KOP, conceptSysteem };
+module.exports = { haalNextStepsDocx, leesRapportCijfers, haalNextSteps, maakPakket, bouwTekst, CONCEPT_KOP, conceptSysteem };
