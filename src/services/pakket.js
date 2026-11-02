@@ -662,7 +662,8 @@ const OPDRACHT = [
   '3. Het rapport is leidend voor de totalen. Cijfers uit het pakket gebruik je om te verklaren waar een verschil vandaan komt.',
   '4. Gebruik de context van Dylan en de status van de actiepunten van vorige maand. Een actiepunt dat niet is opgepakt, noem je eerlijk, en je beslist of het terugkomt.',
   '5. Next steps: kies circa drie sterke punten voor de hele maand, niet voor elk kanaal een. Kies de punten met de meeste impact. Elk punt moet voortkomen uit de data, het cijfer als aanleiding noemen, concreet en actief zijn ("we sluiten uit", "we geven meer budget") en waar mogelijk een beslismoment hebben. Verzin geen punten die in geen enkel cijfer terug te vinden zijn.',
-  '6. Controleer voor je antwoord geeft elk cijfer en elke bewering tegen het pakket. Wat het pakket niet laat zien, laat je weg of zet je onder een korte regel "Wat ik niet kon zien".',
+  '6. Noem de bron niet in de tekst. Schrijf niet "volgens Google Ads", "volgens het platform", "volgens het pakket" of "volgens de data". Schrijf het cijfer als feit: "de campagne leverde 10 conversies op". Alleen als het rapport en het platform echt verschillen en dat verschil voor de klant van belang is, benoem je het verschil.',
+  '7. Controleer voor je antwoord geeft elk cijfer en elke bewering tegen het pakket. Wat het pakket niet laat zien, laat je weg of zet je onder een korte regel "Wat ik niet kon zien".',
   'Het ruwe concept onderaan is alleen een startpunt. Maak er een betere versie 2.0 van op basis van alle data.'
 ];
 
@@ -742,7 +743,7 @@ function conceptSysteem() {
     '5. Schrijf per kanaal dat in het pakket staat: Learnings en Next steps. Next steps voor de hele maand zijn circa drie sterke genummerde punten met de meeste impact, actief geformuleerd ("we sluiten uit", "we geven meer budget"), met de aanleiding in cijfers en waar mogelijk een beslismoment.',
     '6. Verwerk de context van de gebruiker en de status van de actiepunten van vorige maand als die in het pakket staan.',
     '7. Sluit af met een korte regel Wat ik niet kon zien, waarin je opnoemt welke data ontbrak en waar je dus niets over zegt.',
-    '8. Schrijf in het Nederlands. Geen streepjes als leesteken, geen emoticons, geen vet.',
+    '8. Schrijf in het Nederlands. Geen streepjes als leesteken, geen emoticons, geen vet. Schrijf cijfers als feit en noem de bron niet in de tekst (dus niet "volgens Google Ads" of "volgens het platform").',
     '',
     'SCHRIJFWIJZER',
     lees('schrijfwijzer-learnings.md'),
