@@ -16,7 +16,7 @@ function nepFetch(html, workflow) {
 
 test('start leest labels met enkele aanhalingstekens in het n8n formulier', async () => {
   process.env.N8N_API_KEY = 'x';
-  const posts = nepFetch("<form><label class='form-label' for='field-0'>Klant</label><label class='form-label' for='field-1'>Maand overschrijven (1-12, leeglaten = vorige maand)</label></form>");
+  const posts = nepFetch("<form><label class='form-label' for='field-0'>Klant</label><label class='form-label' for='field-1'>Maand overschrijven (1-12, leeglaten = vorige maand)</label><label class='form-label' for='field-2'>Jaar overschrijven (bijv. 2026, leeglaten = huidig jaar)</label></form>");
   const r = await start({ organisatieId: 'digital-impact', klant: 'SPAWW', maand: 5, jaar: 2026 });
   assert.equal(r.ok, true);
   assert.equal(posts[0].get('field-0'), 'SPAWW');
