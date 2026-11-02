@@ -268,7 +268,10 @@ function sectieLinkedIn(l) {
 function sectieMeta(m) {
   const regels = ['META ADS DEZE MAAND'];
   if (!m) { regels.push('Geen Meta account bij deze klant.'); return regels; }
-  platteLijst(m, '', []).slice(0, 60).forEach((r) => regels.push(r));
+  const lijst = (naam, rijen) => { if (Array.isArray(rijen) && rijen.length) { regels.push(naam); rijen.forEach((r) => regels.push(platteLijst(r, '', []).join(' | '))); } };
+  if (typeof m === 'object' && !Array.isArray(m) && Object.values(m).some((v) => Array.isArray(v) && v.length && typeof v[0] === 'object')) {
+    Object.entries(m).forEach(([k, v]) => { if (Array.isArray(v) && v.length && typeof v[0] === 'object') { lijst(k, v.slice(0, 40)); } else if (v !== null && v !== undefined && typeof v !== 'object') regels.push(`${k}: ${v}`); });
+  } else platteLijst(m, '', []).slice(0, 80).forEach((r) => regels.push(r));
   return regels;
 }
 
@@ -365,9 +368,237 @@ function sectieOpvallend(g, nota) {
   return regels;
 }
 
-function bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, opties, rapportData }) {
-  const o = opties || {};
+// Extra data uit de losse workflow "Learningspakket extra data".
+function metGroepStatus(g, exG) {
+  const status = exG.groepen_status || [];
+  if (!status.length) return g;
+  const kaart = {};
+  status.forEach((r) => { kaart[`${r.campagne}|||${r.advertentiegroep}`] = r.groepStatus; });
+  const zet = (rijen) => (rijen || []).map((r) => { const st = kaart[`${r.campagne}|||${r.advertentiegroep}`]; return st ? { ...r, advertentiegroepStatus: st } : r; });
+  return { ...g, advertentiegroepen: zet(g.advertentiegroepen), advertentiegroepen_vorige_maand: g.advertentiegroepen_vorige_maand, groepenStatusBekend: true };
+}
+
+const lijstTot = (rijen, n) => { const l = rijen.slice(0, n); return rijen.length > n ? [...l, `Nog ${rijen.length - n} regels met lagere kosten niet getoond.`] : l; };
+const prestatie = (r) => `${euro(r.kosten)}, ${getal(r.klikken)} klikken, ${conv(r.conversies)} conversies`;
+
+function sectiePmax(x) {
+  const rijen = (x.pmax_zoektermen || []).slice().sort((a, b) => (b.kosten || 0) - (a.kosten || 0) || (b.klikken || 0) - (a.klikken || 0));
+  if (!rijen.length) return ['GOOGLE ADS: PERFORMANCE MAX ZOEKTERMEN', 'Geen zoektermen van Performance Max beschikbaar voor deze maand.'];
+  const regels = ['GOOGLE ADS: PERFORMANCE MAX ZOEKTERMEN DEZE MAAND', `Aantal zoektermen: ${getal(rijen.length)}. Per regel: zoekterm | campagne | ${rijen.some((r) => r.kosten !== undefined) ? 'kosten, klikken, conversies volgens het platform' : 'klikken, conversies volgens het platform (Google gaf geen kosten per zoekterm)'}.`];
+  lijstTot(rijen, 60).forEach((r) => regels.push(typeof r === 'string' ? r : `${r.zoekterm} | ${r.campagne} | ${r.kosten !== undefined ? prestatie(r) : `${getal(r.klikken)} klikken, ${conv(r.conversies)} conversies`}`));
+  return regels;
+}
+
+function sectieAssetgroepen(x) {
+  const rijen = (x.assetgroepen || []).slice().sort((a, b) => b.kosten - a.kosten);
+  if (!rijen.length) return null;
+  const regels = ['GOOGLE ADS: PERFORMANCE MAX ONDERDELEN (eigen groepen binnen de campagne)'];
+  rijen.forEach((r) => regels.push(`${r.campagne} | groep ${r.assetgroep}${r.assetgroepStatus ? `, status nu: ${r.assetgroepStatus}` : ''} | ${prestatie(r)}`));
+  return regels;
+}
+
+function sectieInstellingen(x) {
+  const rijen = (x.campagne_instellingen || []).slice().sort((a, b) => b.kosten - a.kosten);
+  if (!rijen.length) return null;
+  const pct = (v) => (v === undefined || v === null || v === '' ? 'onbekend' : (Number(v) <= 1 ? `${nf(Number(v) * 100, 0)}%` : String(v)));
+  const regels = ['GOOGLE ADS: INSTELLINGEN PER CAMPAGNE (stand nu, cijfers van deze maand)'];
+  rijen.forEach((r) => regels.push(`${r.campagne} | status nu: ${r.campagneStatus || 'onbekend'} | biedstrategie ${r.biedstrategie || 'onbekend'} | budget ${r.budgetPerDag !== undefined ? `${euro(r.budgetPerDag)} per dag` : 'onbekend'} | vertoningsaandeel ${pct(r.vertoningsaandeel)}, verloren door budget ${pct(r.verlorenDoorBudget)}, verloren door rang ${pct(r.verlorenDoorRang)}`));
+  regels.push('Vertoningsaandeel bestaat alleen voor zoekcampagnes. Onbekend betekent dat Google geen waarde gaf.');
+  return regels;
+}
+
+function samenTelPer(rijen, sleutel) {
+  const m = {};
+  rijen.forEach((r) => { const k = r[sleutel] || 'onbekend'; m[k] = m[k] || { kosten: 0, klikken: 0, vertoningen: 0, conversies: 0 }; m[k].kosten += Number(r.kosten || 0); m[k].klikken += Number(r.klikken || 0); m[k].vertoningen += Number(r.vertoningen || 0); m[k].conversies += Number(r.conversies || 0); });
+  return Object.entries(m);
+}
+
+const APPARAAT = { MOBILE: 'mobiel', DESKTOP: 'desktop', TABLET: 'tablet', CONNECTED_TV: 'tv', OTHER: 'overig' };
+const DAG = { MONDAY: 'maandag', TUESDAY: 'dinsdag', WEDNESDAY: 'woensdag', THURSDAY: 'donderdag', FRIDAY: 'vrijdag', SATURDAY: 'zaterdag', SUNDAY: 'zondag' };
+
+function sectieApparaten(x) {
+  const rijen = x.apparaten || [];
+  if (!rijen.length) return null;
+  const regels = ['GOOGLE ADS: APPARATEN DEZE MAAND (hele account)'];
+  samenTelPer(rijen, 'apparaat').sort((a, b) => b[1].kosten - a[1].kosten).forEach(([k, v]) => regels.push(`${APPARAAT[k] || k}: ${prestatie(v)}, CTR ${ctr(v.klikken, v.vertoningen)}, kosten per conversie: ${perConv(v.kosten, v.conversies)}`));
+  return regels;
+}
+
+function sectieWeekdagen(x) {
+  const rijen = x.weekdagen || [];
+  if (!rijen.length) return null;
+  const volgorde = Object.keys(DAG);
+  const regels = ['GOOGLE ADS: WEEKDAGEN DEZE MAAND (hele account)'];
+  samenTelPer(rijen, 'dag').sort((a, b) => volgorde.indexOf(a[0]) - volgorde.indexOf(b[0])).forEach(([k, v]) => regels.push(`${DAG[k] || k}: ${prestatie(v)}, kosten per conversie: ${perConv(v.kosten, v.conversies)}`));
+  return regels;
+}
+
+function sectieLandingspaginas(x) {
+  const rijen = (x.landingspaginas || []).slice().sort((a, b) => b.klikken - a.klikken);
+  if (!rijen.length) return null;
+  const regels = ['GOOGLE ADS: LANDINGSPAGINAS DEZE MAAND (meeste klikken)'];
+  lijstTot(rijen, 25).forEach((r) => regels.push(typeof r === 'string' ? r : `${r.url} | ${prestatie(r)}`));
+  return regels;
+}
+
+function sectieConversieacties(x) {
+  const rijen = x.conversieacties || [];
+  if (!rijen.length) return null;
+  const regels = ['GOOGLE ADS: CONVERSIEACTIES DEZE MAAND (platform, voor de verdeling)'];
+  samenTelPer(rijen, 'conversieactie').sort((a, b) => b[1].conversies - a[1].conversies).forEach(([k, v]) => regels.push(`${k}: ${conv(v.conversies)} conversies`));
+  return regels;
+}
+
+function sectieLinkedInExtra(x, nu) {
+  const regels = ['LINKEDIN ADS: EXTRA DATA'];
+  const rij = (r) => `${r.sleutel || 'onbekend'} | ${getal(r.vertoningen)} vertoningen, ${getal(r.klikken)} klikken, CTR ${ctr(r.klikken, r.vertoningen)}`;
+  if ((x.campagnes_vorige_maand || []).length) {
+    regels.push('Vorige maand per campagne (id van LinkedIn)');
+    x.campagnes_vorige_maand.forEach((r) => regels.push(`${r.sleutel || 'onbekend'} | ${euro(r.kosten)}, ${getal(r.vertoningen)} vertoningen, ${getal(r.klikken)} klikken, ${conv(r.conversies)} conversies, ${getal(r.leads)} leads`));
+  }
+  const demo = [['functie', 'Functie'], ['branche', 'Branche'], ['senioriteit', 'Senioriteit'], ['bedrijfsgrootte', 'Bedrijfsgrootte'], ['functietitel', 'Functietitel']];
+  demo.forEach(([k, kop]) => { if ((x[k] || []).length) { regels.push('', `${kop} van wie de advertenties zag of aanklikte, deze maand (LinkedIn geeft codes, geen namen)`); x[k].slice(0, 15).forEach((r) => regels.push(rij(r))); } });
+  if ((x.advertentie_details || []).length) { regels.push('', `Advertenties in het account: ${x.advertentie_details.length}.`); x.advertentie_details.slice(0, 20).forEach((a) => regels.push(`${a.naam || a.id} | status ${a.status || 'onbekend'}${a.inhoud ? ` | ${a.inhoud}` : ''}`)); }
+  return regels.length > 1 ? regels : null;
+}
+
+function sectieMetaExtra(x) {
+  const regels = ['META ADS: EXTRA DATA'];
+  const kop = (r) => [r.campagne, r.advertentieset, r.advertentie].filter(Boolean).join(' > ');
+  if ((x.advertenties_vorige_maand || []).length) {
+    regels.push('Vorige maand per advertentie');
+    x.advertenties_vorige_maand.slice().sort((a, b) => b.kosten - a.kosten).slice(0, 25).forEach((r) => regels.push(`${kop(r)} | ${euro(r.kosten)}, ${getal(r.klikken)} klikken, ${getal(r.vertoningen)} vertoningen, ${conv(r.conversies)} conversies`));
+  }
+  const brek = [['leeftijd_geslacht', 'Leeftijd en geslacht', (r) => `${r.leeftijd || 'onbekend'}, ${r.geslacht || 'onbekend'}`], ['regio', 'Regio', (r) => r.regio || 'onbekend'], ['apparaat', 'Apparaat', (r) => r.apparaat || 'onbekend']];
+  brek.forEach(([k, titel, f]) => {
+    const rijen = x[k] || [];
+    if (!rijen.length) return;
+    const m = {};
+    rijen.forEach((r) => { const s = f(r); m[s] = m[s] || { kosten: 0, klikken: 0, vertoningen: 0, conversies: 0 }; m[s].kosten += r.kosten; m[s].klikken += r.klikken; m[s].vertoningen += r.vertoningen; m[s].conversies += r.conversies; });
+    regels.push('', `${titel} deze maand`);
+    Object.entries(m).sort((a, b) => b[1].kosten - a[1].kosten).slice(0, 15).forEach(([s, v]) => regels.push(`${s} | ${prestatie(v)}, CTR ${ctr(v.klikken, v.vertoningen)}`));
+  });
+  if ((x.advertentie_details || []).length) {
+    regels.push('', 'Advertenties met tekst');
+    x.advertentie_details.slice(0, 25).forEach((a) => regels.push(`${a.campagne || ''} > ${a.advertentieset || ''} > ${a.advertentie} | status ${a.status || 'onbekend'}${a.titel ? ` | titel: ${a.titel}` : ''}${a.tekst ? ` | tekst: ${a.tekst}` : ''}${a.knop ? ` | knop ${a.knop}` : ''}`));
+  }
+  return regels.length > 1 ? regels : null;
+}
+
+// Cijfers uit de tabellen van het Word rapport. Het rapport is leidend, dus deze cijfers gaan voor op n8n.
+// Werkt met tabellen waar de maanden in de kolommen staan (kpi per rij) en met tabellen waar de maanden in de rijen staan.
+const VELD_NAMEN = [
+  ['conversies', /^(conversies|leads|reserveringen|aanvragen|offerte aanvragen|offertes|resultaten)\b/i],
+  ['kosten', /^kosten\b/i],
+  ['klikken', /^(klikken|clicks)\b/i],
+  ['vertoningen', /^(vertoningen|impressies|weergaven)\b/i]
+];
+
+function celGetal(t) {
+  const m = String(t || '').replace(/ /g, ' ').match(/-?\d[\d.\s]*(?:,\d+)?/);
+  if (!m) return null;
+  const n = Number(m[0].replace(/[.\s]/g, '').replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+}
+
+const platTekst = (h) => String(h || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&euro;/g, '€').replace(/&#(\d+);/g, (_, c) => String.fromCharCode(Number(c))).replace(/\s+/g, ' ').trim();
+
+function tabelNaarRijen(html) {
+  return (html.match(/<tr[\s\S]*?<\/tr>/g) || []).map((r) => (r.match(/<t[dh][\s\S]*?<\/t[dh]>/g) || []).map(platTekst));
+}
+
+function cijfersUitTabel(rijen, maandNaam) {
+  const uit = {};
+  const mn = maandNaam.toLowerCase();
+  const kort = mn.slice(0, 3);
+  const isMaand = (t) => { const x = String(t || '').toLowerCase().trim(); return x === mn || x.startsWith(`${mn} `) || x === kort || x.startsWith(`${kort} `) || x.startsWith(`${kort}.`); };
+  // Maanden in de kolommen: zoek de kopregel met de maand
+  for (const kop of rijen) {
+    const kol = kop.findIndex((c, i) => i > 0 && isMaand(c));
+    if (kol < 0) continue;
+    rijen.forEach((r) => {
+      const def = VELD_NAMEN.find(([, re]) => re.test(String(r[0] || '').trim()));
+      if (def && uit[def[0]] === undefined) { const g = celGetal(r[kol]); if (g !== null) uit[def[0]] = g; }
+    });
+    if (Object.keys(uit).length) return uit;
+  }
+  // Maanden in de rijen: de eerste cel van de rij is de maand, de kop heeft de kpi namen
+  const kopRij = rijen.find((r) => r.some((c) => VELD_NAMEN.some(([, re]) => re.test(String(c).trim()))));
+  const maandRij = rijen.find((r) => isMaand(r[0]));
+  if (kopRij && maandRij) {
+    kopRij.forEach((c, i) => {
+      const def = VELD_NAMEN.find(([, re]) => re.test(String(c).trim()));
+      if (def && uit[def[0]] === undefined) { const g = celGetal(maandRij[i]); if (g !== null) uit[def[0]] = g; }
+    });
+  }
+  return uit;
+}
+
+async function leesRapportCijfers(buffer, maand) {
+  const mammoth = require('mammoth');
+  const { value: html } = await mammoth.convertToHtml({ buffer });
+  const blokken = html.match(/<table[\s\S]*?<\/table>|<h[1-6][\s\S]*?<\/h[1-6]>|<p[\s\S]*?<\/p>/g) || [];
+  const KANALEN = [['googleAds', /google/i], ['metaAds', /meta|facebook/i], ['linkedIn', /linkedin/i], ['bingAds', /bing|microsoft/i], ['website', /website/i]];
+  let kanaal = '';
+  const res = {};
+  blokken.forEach((b) => {
+    if (b.startsWith('<table')) {
+      const rijen = tabelNaarRijen(b);
+      const eerste = (rijen[0] && rijen[0][0]) || '';
+      const k = KANALEN.find(([, re]) => re.test(eerste));
+      const naam = k ? k[0] : kanaal;
+      if (!naam || res[naam]) return;
+      const c = cijfersUitTabel(rijen, MAANDEN[maand - 1]);
+      if (Object.keys(c).length) res[naam] = c;
+    } else {
+      const t = platTekst(b);
+      if (t.length < 60) { const k = KANALEN.find(([, re]) => re.test(t)); if (k) kanaal = k[0]; }
+    }
+  });
+  return res;
+}
+
+// Rapport uit Word: tekst in het pakket en next steps van het vorige rapport.
+const MAX_RAPPORT = 40000;
+
+function sectieRapport(tekst) {
+  const t = String(tekst || '').trim();
+  if (!t) return null;
+  const regels = ['RAPPORT VAN DEZE MAAND (tekst uit het geuploade Word bestand, het rapport is leidend voor de cijfers)'];
+  regels.push(t.length > MAX_RAPPORT ? `${t.slice(0, MAX_RAPPORT)}\n[Tekst afgekapt na ${getal(MAX_RAPPORT)} tekens]` : t);
+  return regels;
+}
+
+// Zoekt de next steps in de tekst van een rapport. Word nummering zit niet in de platte tekst, dus we zoeken op de kop Next steps
+// en nemen de zinnen eronder tot de volgende kop. Dylan controleert het resultaat in het portaal.
+function haalNextSteps(tekst) {
+  const alle = String(tekst || '').split(/\n+/).map((r) => r.trim()).filter(Boolean);
+  const uit = [];
+  let kanaal = '';
+  const isKop = (r) => r.length < 60 && !/[.!?:]$/.test(r);
+  for (let i = 0; i < alle.length; i++) {
+    const r = alle[i];
+    if (/^next steps?\b/i.test(r) && r.length < 40) {
+      for (let j = i + 1; j < alle.length; j++) {
+        const z = alle[j];
+        if (isKop(z) || /^learnings?\b/i.test(z)) break;
+        uit.push((kanaal ? `${kanaal}: ` : '') + z.replace(/^(\d+[.)]|[-\u2022*])\s*/, ''));
+        i = j;
+      }
+    } else if (isKop(r) && /(google|meta|linkedin|bing|seo|website|overkoepelend)/i.test(r)) {
+      kanaal = r.replace(/[:\u2013-].*$/, '').trim();
+    }
+  }
+  return uit;
+}
+
+function bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, opties, rapportData, rapportTekst }) {
+  const opt = opties || {};
+  const o = new Proxy({}, { get: (_, k) => opt[k] !== false });
+  const ex = (verdieping && verdieping.extra) || {};
+  const exG = ex.google || null;
   let g = (verdieping && verdieping.google) || null;
+  if (g && exG) g = metGroepStatus(g, exG);
   let nota = null;
   if (g) {
     const t = toerekenen(g, rapportData && rapportData.googleAds ? rapportData.googleAds.conversies : null);
@@ -378,6 +609,7 @@ function bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, optie
     'Dit pakket hoort bij het rapport met de maanddata. Het rapport is leidend: waar het platform minder conversies toont dan het rapport (bijvoorbeeld door handmatig toegevoegde conversies), is het verschil toegerekend aan een campagne en duidelijk als toegerekend gemarkeerd. Alle cijfers hieronder gaan over deze maand, tenzij erbij staat dat het vorige maand is.']);
   delen.push(['CONTEXT VAN DYLAN', context && String(context).trim() ? String(context).trim() : 'Geen extra context aangegeven.']);
   delen.push(sectieActiepunten(actiepunten));
+  if (rapportTekst) { const rp = sectieRapport(rapportTekst); if (rp) delen.push(rp); }
   if (g) {
     delen.push(['AFSTEMMING MET HET RAPPORT (Google Ads conversies)', nota.uitleg]);
     delen.push(sectieOpvallend(g, nota));
@@ -388,14 +620,25 @@ function bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, optie
     if (o.uitsluitingen) delen.push(sectieUitsluitingen(g));
     if (o.wijzigingen) delen.push(sectieWijzigingen(g));
     if (o.drieMaanden && sectieAccount(g).length) delen.push(sectieAccount(g));
+    if (o.extra && exG) {
+      [sectiePmax(exG), sectieAssetgroepen(exG), sectieInstellingen(exG), sectieApparaten(exG), sectieWeekdagen(exG), sectieLandingspaginas(exG), sectieConversieacties(exG)].forEach((x) => { if (x) delen.push(x); });
+    }
   } else {
     delen.push(['GOOGLE ADS', 'Geen Google Ads data opgehaald voor deze klant.']);
   }
-  if (o.linkedin) delen.push(sectieLinkedIn(verdieping && verdieping.linkedin));
-  if (o.meta) delen.push(sectieMeta(verdieping && verdieping.meta));
+  if (o.linkedin) {
+    delen.push(sectieLinkedIn(verdieping && verdieping.linkedin));
+    if (o.extra && ex.linkedin) { const x = sectieLinkedInExtra(ex.linkedin, verdieping && verdieping.linkedin); if (x) delen.push(x); }
+  }
+  if (o.meta) {
+    delen.push(sectieMeta(verdieping && verdieping.meta));
+    if (o.extra && ex.meta) { const x = sectieMetaExtra(ex.meta); if (x) delen.push(x); }
+  }
   const waarschuwingen = [];
   if (g && (g.fouten || []).length) g.fouten.forEach((f) => waarschuwingen.push(`Google query "${f.query}" gaf een fout: ${f.fout}`));
   if (g && (g.afgekapt || []).length) waarschuwingen.push(`Deze Google onderdelen zijn afgekapt omdat er meer rijen waren: ${g.afgekapt.join(', ')}`);
+  ['google', 'linkedin', 'meta'].forEach((k) => { if (ex[k] && (ex[k].fouten || []).length) ex[k].fouten.forEach((f) => waarschuwingen.push(`Extra ${k} data, onderdeel "${f.query}" gaf een fout: ${f.fout}`)); });
+  if (ex.fout) waarschuwingen.push(`De extra data kon niet worden opgehaald: ${ex.fout}`);
   if (waarschuwingen.length) delen.push(['KANTTEKENINGEN BIJ DE DATA', ...waarschuwingen]);
   return delen.filter(Boolean).map((d) => d.join('\n')).join('\n\n');
 }
@@ -455,19 +698,40 @@ async function schrijfConcept(pakketTekst) {
   }
 }
 
-async function maakPakket({ klant, jaar, maand, context, actiepunten, opties }) {
+async function maakPakket({ klant, jaar, maand, context, actiepunten, opties, rapportTekst, rapportCijfers }) {
   klant = String(klant || '').trim();
   jaar = Number(jaar); maand = Number(maand);
   if (!klant) throw new Error('Kies een klant.');
   if (!(maand >= 1 && maand <= 12) || !(jaar >= 2024 && jaar <= 2100)) throw new Error('Maand of jaar klopt niet.');
-  const [verdieping, rijen] = await Promise.all([haalVerdieping({ klant, jaar, maand }), alleRijen(MAANDDATA_TABLE_ID).catch(() => [])]);
+  const [verdieping, extra, rijen] = await Promise.all([haalVerdieping({ klant, jaar, maand }), haalExtra({ klant, jaar, maand }), alleRijen(MAANDDATA_TABLE_ID).catch(() => [])]);
+  verdieping.extra = extra;
   const rij = rijen.filter((r) => r.klant === klant && Number(r.jaar) === jaar && Number(r.maand) === maand).sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))[0];
   let rapportData = null;
   try { rapportData = rij ? JSON.parse(rij.data) : null; } catch (err) { /* geen json */ }
-  let tekst = bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, opties, rapportData });
+  if (rapportCijfers && typeof rapportCijfers === 'object' && Object.keys(rapportCijfers).length) {
+    rapportData = rapportData || {};
+    Object.entries(rapportCijfers).forEach(([k, v]) => { rapportData[k] = { ...(rapportData[k] || {}), ...v }; });
+  }
+  let tekst = bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, opties, rapportData, rapportTekst });
   const concept = await schrijfConcept(tekst);
   tekst += `\n\n${CONCEPT_KOP.join('\n')}\n${concept.tekst || `Geen concept meegegeven. ${concept.reden}`}`;
-  return { tekst, bestandsnaam: `Learningspakket ${klant} ${jaar}-${String(maand).padStart(2, '0')}.txt`, rapportAanwezig: !!rapportData, conceptGeschreven: !!concept.tekst, conceptReden: concept.reden };
+  return { tekst, bestandsnaam: `Learningspakket ${klant} ${jaar}-${String(maand).padStart(2, '0')}.txt`, rapportAanwezig: !!rapportData || !!(rapportTekst && String(rapportTekst).trim()), conceptGeschreven: !!concept.tekst, conceptReden: concept.reden };
+}
+
+async function haalExtra({ klant, jaar, maand }) {
+  try {
+    const res = await fetch(`${N8N_BASE_URL}/webhook/learningspakket-extra`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ klant, jaar, maand }), signal: AbortSignal.timeout(170000)
+    });
+    const raw = await res.text();
+    let data = null;
+    try { data = raw ? JSON.parse(raw) : null; } catch (err) { /* geen json */ }
+    if (Array.isArray(data)) data = data[0];
+    if (!res.ok || !data) return { fout: `status ${res.status}${raw ? `, ${raw.slice(0, 150)}` : ''}` };
+    return data;
+  } catch (err) {
+    return { fout: err.message };
+  }
 }
 
 async function haalVerdieping({ klant, jaar, maand }) {
@@ -483,4 +747,4 @@ async function haalVerdieping({ klant, jaar, maand }) {
   return data;
 }
 
-module.exports = { maakPakket, bouwTekst, CONCEPT_KOP, conceptSysteem };
+module.exports = { leesRapportCijfers, haalNextSteps, maakPakket, bouwTekst, CONCEPT_KOP, conceptSysteem };

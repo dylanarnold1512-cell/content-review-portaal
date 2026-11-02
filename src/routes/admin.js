@@ -267,7 +267,23 @@ router.post('/rapport-start', requireAdmin, async (req, res) => {
 router.post('/rapport-pakket', requireAdmin, async (req, res) => {
   try {
     const b = req.body || {};
-    res.json(await pakket.maakPakket({ klant: b.klant, jaar: b.jaar, maand: b.maand, context: b.context, actiepunten: b.actiepunten, opties: b.opties }));
+    res.json(await pakket.maakPakket({ klant: b.klant, jaar: b.jaar, maand: b.maand, context: b.context, actiepunten: b.actiepunten, opties: b.opties, rapportTekst: b.rapportTekst, rapportCijfers: b.rapportCijfers }));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Leest een geupload Word rapport (of pdf) en geeft de tekst en de gevonden next steps terug.
+router.post('/rapport-lees', requireAdmin, async (req, res) => {
+  try {
+    const { filename, contentType, dataBase64 } = req.body || {};
+    if (!filename || !dataBase64) return res.status(400).json({ error: 'Bestandsnaam en bestandsdata zijn verplicht.' });
+    const buffer = Buffer.from(dataBase64, 'base64');
+    const tekst = await require('../services/documentTekst').extraheerTekst({ filename, contentType, buffer });
+    let cijfers = {};
+    const maand = Number(req.body.maand);
+    if (maand >= 1 && maand <= 12 && /\.docx$/i.test(filename)) { try { cijfers = await pakket.leesRapportCijfers(buffer, maand); } catch (err) { cijfers = {}; } }
+    res.json({ tekst, nextSteps: pakket.haalNextSteps(tekst), cijfers });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
