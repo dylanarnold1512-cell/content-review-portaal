@@ -1,4 +1,4 @@
-// De drie rapportage datacollectie workflows in n8n starten met een n8n formulier.
+// De rapportage datacollectie workflows (Advertisr, Digital Impact, House of Talents en Excel) in n8n starten met een n8n formulier.
 // Dit bestand beschrijft die formulieren, zodat het portaal ze kan nabootsen. De labels moeten letterlijk
 // gelijk zijn aan de veldnamen in het n8n formulier, want het portaal koppelt daarop.
 // Alle velden behalve de klant zijn optioneel. Leeg betekent: automatisch uit de API.
@@ -72,6 +72,24 @@ const ORGANISATIES = [
       { label: 'Totale website conversies handmatig (leeglaten = automatisch)', type: 'number', groep: 'Website' },
       { label: 'Sollicitatie verzonden handmatig (leeglaten = automatisch)', type: 'number', groep: 'Website' },
       { label: 'Formulier verzonden handmatig (leeglaten = automatisch)', type: 'number', groep: 'Website' }
+    ],
+    notitiesLabel: 'Notities'
+  },
+  {
+    id: 'excel',
+    naam: 'Excel rapportages',
+    workflowId: 'cLsCz9xKsiANzhvq',
+    formPad: 'excel-rapportage',
+    klantLabel: 'Klant',
+    klanten: ['Ciao Italia', 'Haarlemse Fiets', 'PPExport', 'Staalconstructieonline', 'A.K. Dans & Sport', 'Mixt Creations', 'Durbuy Moments', 'Maxims', 'VariantZorg', 'Tattoo Heaven', 'Trockenblumen Grosshandel', 'JMB Bouw', 'Bubbelbroeders', 'Weddingmusthaves', 'Schuijt Klussenbedrijf'],
+    maandLabel: MAAND,
+    jaarLabel: JAAR,
+    velden: [
+      { label: 'Bestellingen/transacties handmatig (leeglaten = automatisch via GA4)', type: 'number', groep: 'Website' },
+      { label: 'Netto omzet handmatig in euro (leeglaten = automatisch via GA4)', type: 'number', groep: 'Website' },
+      { label: 'Google Ads conversies handmatig (leeglaten = automatisch)', type: 'number', groep: 'Google Ads' },
+      { label: 'Meta Ads aankopen handmatig (leeglaten = automatisch/gedeelde tabel)', type: 'number', groep: 'Meta Ads' },
+      { label: 'Meta Ads omzet handmatig in euro (leeglaten = automatisch/gedeelde tabel)', type: 'number', groep: 'Meta Ads' }
     ],
     notitiesLabel: 'Notities'
   }
