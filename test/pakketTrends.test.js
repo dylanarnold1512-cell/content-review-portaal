@@ -61,3 +61,9 @@ test('opdracht en concept vragen om de wijzigingsgeschiedenis', () => {
   assert.match(OPDRACHT.join('\n'), /WIJZIGINGEN IN HET ACCOUNT/);
   assert.match(conceptSysteem(), /wijzigingen in het account/);
 });
+
+test('aanvraagBody geeft het Google Ads ID mee voor AI Talents', () => {
+  const { aanvraagBody } = require('../src/services/pakket');
+  assert.deepEqual(aanvraagBody('AI Talents', 2026, 10), { klant: 'AI Talents', jaar: 2026, maand: 10, googleAdsId: '6041619446' });
+  assert.deepEqual(aanvraagBody('SPAWW', 2026, 10, { geoIds: ['a'] }), { klant: 'SPAWW', jaar: 2026, maand: 10, geoIds: ['a'] });
+});

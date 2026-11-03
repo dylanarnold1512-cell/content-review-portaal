@@ -18,6 +18,16 @@ function getApiKey() {
   return key;
 }
 
+// Klanten waarvan het Google Ads account nog niet in de n8n workflows staat. Het portaal geeft het ID dan zelf mee,
+// beide workflows gebruiken een meegegeven googleAdsId boven dat uit hun eigen lijst.
+const GOOGLE_ADS_ID_EXTRA = { 'AI Talents': '6041619446' };
+
+function aanvraagBody(klant, jaar, maand, extra) {
+  const body = { klant, jaar, maand, ...(extra || {}) };
+  if (GOOGLE_ADS_ID_EXTRA[klant]) body.googleAdsId = GOOGLE_ADS_ID_EXTRA[klant];
+  return body;
+}
+
 async function n8nApi(pad) {
   const res = await fetch(`${N8N_BASE_URL}/api/v1${pad}`, { headers: { 'X-N8N-API-KEY': getApiKey() } });
   const raw = await res.text();
@@ -822,7 +832,7 @@ async function haalGeoNamen({ klant, jaar, maand }, extra) {
   if (!ids.length) return extra;
   try {
     const res = await fetch(`${N8N_BASE_URL}/webhook/learningspakket-extra`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ klant, jaar, maand, geoIds: ids }), signal: AbortSignal.timeout(60000)
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(aanvraagBody(klant, jaar, maand, { geoIds: ids })), signal: AbortSignal.timeout(60000)
     });
     const raw = await res.text();
     let data = null;
@@ -969,7 +979,7 @@ async function maakPakket({ klant, jaar, maand, context, actiepunten, opties, ra
 async function haalExtra({ klant, jaar, maand }) {
   try {
     const res = await fetch(`${N8N_BASE_URL}/webhook/learningspakket-extra`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ klant, jaar, maand }), signal: AbortSignal.timeout(170000)
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(aanvraagBody(klant, jaar, maand)), signal: AbortSignal.timeout(170000)
     });
     const raw = await res.text();
     let data = null;
@@ -984,7 +994,7 @@ async function haalExtra({ klant, jaar, maand }) {
 
 async function haalVerdieping({ klant, jaar, maand }) {
   const res = await fetch(`${N8N_BASE_URL}/webhook/verdiepingsdata-volledig`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ klant, jaar, maand })
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(aanvraagBody(klant, jaar, maand))
   });
   const raw = await res.text();
   let data = null;
@@ -995,4 +1005,4 @@ async function haalVerdieping({ klant, jaar, maand }) {
   return data;
 }
 
-module.exports = { sectieLocaties, sectieZoekwoordenVergelijking, sectieLandingspaginasVergelijking, sectieMaandverloop, OPDRACHT, haalNextStepsDocx, leesRapportCijfers, haalNextSteps, maakPakket, bouwTekst, CONCEPT_KOP, conceptSysteem };
+module.exports = { aanvraagBody, sectieLocaties, sectieZoekwoordenVergelijking, sectieLandingspaginasVergelijking, sectieMaandverloop, OPDRACHT, haalNextStepsDocx, leesRapportCijfers, haalNextSteps, maakPakket, bouwTekst, CONCEPT_KOP, conceptSysteem };
