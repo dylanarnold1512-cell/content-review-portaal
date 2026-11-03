@@ -245,6 +245,22 @@ router.post('/faq/pagr-paginas', async (req, res) => {
   }
 });
 
+// Maandrapport: vaste snapshot van AI zichtbaarheid, opbrengst, waarde, merk, uitgevoerd werk en effecten voor een
+// kalendermaand. Aangeroepen door de n8n workflow "BA - Shared - Maandrapport" op de 4e. Geen admin sessie, wel de n8n sleutel.
+router.post('/rapporten/snapshot', async (req, res) => {
+  if (!(await n8nSleutelGeldig(String(req.get('x-n8n-api-key') || '')))) return res.status(401).json({ error: 'Geen toegang.' });
+  try {
+    const { klant, maand } = req.body || {};
+    const config = clients.find((c) => String(c.naam).trim().toLowerCase() === String(klant || '').trim().toLowerCase());
+    if (!config) return res.status(404).json({ error: `Onbekende klant: ${klant}` });
+    const settings = await settingsService.getClientSettings(config.id, config);
+    const snapshot = await require('../services/rapportSnapshot').bouwSnapshot(config.naam, maand, { aiAan: Boolean(settings.aiZichtbaarheid) });
+    res.json(snapshot);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Paid Ads: rapportages starten (de drie n8n datacollectie formulieren) en de laatste starts met hun status.
 router.get('/rapport-start/config', requireAdmin, (req, res) => {
   res.json({ organisaties: rapportStart.configVoorScherm() });

@@ -741,6 +741,7 @@ body.rp-viewer-open { overflow: hidden; }
 
 /* Het document: A4 pagina's */
 .rd-pagina { width: 100%; max-width: 794px; aspect-ratio: 210 / 297; flex: none; background: #fff; color: var(--p-tekst); border-radius: 3px; box-shadow: 0 1px 3px rgba(20, 20, 43, .1), 0 16px 40px rgba(20, 20, 43, .12); padding: 52px 60px 36px; box-sizing: border-box; display: flex; flex-direction: column; gap: 22px; font-size: 14px; }
+.rd-pagina:not(.rd-pagina-laden):not(.rd-pagina-fout) { aspect-ratio: auto; min-height: 1123px; } /* A4 hoogte bij volle breedte, een lange pagina groeit mee */
 .rd-pagina-laden, .rd-pagina-fout { aspect-ratio: auto; min-height: 420px; }
 .rd-kop { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
 .rd-logo { display: flex; flex-direction: column; }
@@ -761,6 +762,7 @@ body.rp-viewer-open { overflow: hidden; }
 .rd-kernzin span { display: block; margin-top: 4px; color: var(--p-tekst-zacht); line-height: 1.5; }
 .rd-stip { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--p-goed); margin-top: 8px; }
 .rd-cijfers { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: 10px; }
+.rd-cijfers-1 { grid-template-columns: minmax(0, 1fr); }
 .rd-cijfers-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .rd-cijfers-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .rd-cijfers-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
@@ -779,6 +781,8 @@ body.rp-viewer-open { overflow: hidden; }
 .rd-nr { color: var(--p-merk-donker); }
 .rd-uitleg { margin: -2px 0 2px; font-size: 12.5px; color: var(--p-tekst-zacht); line-height: 1.5; }
 .rd-tekst p { margin: 0 0 8px; line-height: 1.7; }
+.rd-tekst .rd-cijfers { margin: 4px 0 10px; }
+.rd-tekst .rd-cijfer-waarde { font-size: 22px; }
 .rd-tekst p:last-child { margin-bottom: 0; }
 .rd-subkop { margin: 6px 0 4px; font-size: 13px; font-weight: 600; }
 .rd-lijst { margin: 0; padding-left: 20px; line-height: 1.65; }
@@ -831,9 +835,10 @@ body.rp-viewer-open { overflow: hidden; }
   .rp-doc-papier { height: 160px; }
   .rp-doc-papier .rp-mini, .rp-mini-leegvel { width: 96px; height: 130px; }
   .rp-viewer-vel { padding: 14px 10px 32px; }
-  .rd-pagina { aspect-ratio: auto; padding: 28px 20px 22px; }
+  .rd-pagina, .rd-pagina:not(.rd-pagina-laden):not(.rd-pagina-fout) { aspect-ratio: auto; min-height: 0; padding: 28px 20px 22px; }
   .rd-titel { font-size: 26px; }
   .rd-cijfers, .rd-cijfers-3, .rd-cijfers-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rd-cijfers-1 { grid-template-columns: minmax(0, 1fr); }
   .rd-cijfer { border-left: 0; border-top: 1px solid var(--border); }
   .rd-cijfer:nth-child(-n+2) { border-top: 0; }
   .rd-cijfer:nth-child(even) { border-left: 1px solid var(--border); }

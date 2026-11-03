@@ -36,9 +36,9 @@ test('volgendRapport: de maand na het nieuwste rapport, klaar op de 4e van de ma
 test('documentHtml: alles uit het rapport staat in het document', () => {
   const html = D.documentHtml(rapport, null, 'Basecamp Utrecht');
   for (const stuk of ['Maandrapport september 2026', 'Basecamp Utrecht', '2.207', '+91%', '1.155 in de maand ervoor', '9,3', 'Periode 1 september 2026 tot en met 30 september 2026',
-    'Vastgelegd op 7 oktober 2026', 'Terugblik op september 2026', 'Wat we deden in september 2026', '2 nieuwe blogs en 1 bestaande blog aangevuld.',
-    'Teamdag met resultaat', 'Blogs met de meeste vertoningen', 'duurzame vergaderlocatie', 'Wat hebben we gedaan en wat was het effect', 'Vier',
-    '12 blogs staan live', '1 blog had deze maand geen vertoningen of bezoekers.', 'Pagina 1 van 3', 'Pagina 3 van 3']) {
+    'Vastgelegd op 7 oktober 2026', 'In het kort', 'Jullie worden gevonden', 'Mensen klikken door', 'Ze nemen contact op', 'Wat wij deden', 'Wat we gaan doen',
+    '2 nieuwe blogs en 1 bestaande blog aangevuld.', 'Teamdag met resultaat', 'Blogs met de meeste vertoningen', 'duurzame vergaderlocatie', 'Wat het effect was', 'Vier',
+    '12 blogs staan live', '1 blog had deze maand geen vertoningen of bezoekers.', 'Pagina 1 van 4', 'Pagina 4 van 4']) {
     assert.ok(html.includes(stuk), 'mist: ' + stuk);
   }
   // Alle vooruitblik punten, niet alleen de eerste drie zoals vroeger in het tabblad.
@@ -104,4 +104,56 @@ test('opbrengst toont nooit een kale nul en legt uit waarom', () => {
   assert.ok(nul.alinea[0].includes('De meting liep wel'));
   const wel = D.opbrengstBlokken({ label: 'oktober 2026', meting: { eerderActief: true, eerderLeads: 2, eerderBoekingen: null, sessiesAi: 0 } });
   assert.deepStrictEqual(wel.punten, ['2 aanvragen van mensen die eerder een blog lazen']);
+});
+
+// Rapport met een vaste snapshot (kolom extra), zoals de workflow die sinds november 2026 vastlegt.
+const metSnapshot = {
+  ...rapport,
+  maand: '2026-10', label: 'oktober 2026',
+  google: { waarde: { bedrag: 412.4, klikkenMetPrijs: 30, klikken: 40, dekking: 75 }, merk: { klikken: 20, vertoningen: 310, klikkenVorig: 15, vertoningenVorig: 250 }, blogsGemeten: 14, blogsGetoond: 11, blogsPaginaEen: 3, aiBezoekenBlogs: 4 },
+  meting: { sessiesAi: 9, leadsAi: 1, boekingenAi: 0, eerderActief: true, eerderLeads: 2, eerderBoekingen: 0, woorden: { lead: ['aanvraag', 'aanvragen'], boeking: ['boeking', 'boekingen'] } },
+  gedaan: { nieuweBlogs: 2, aangevuld: 0, internelinks: 1, faq: 2, faqVoorbeelden: [{ vraag: 'Waar vergader je duurzaam in Utrecht?', pagina: 'Duurzaam vergaderen' }] },
+  ai: {
+    status: 'gemeten', reeks: 'kern', aantalKernvragen: 20, platformen: [{ id: 'chatgpt', label: 'ChatGPT' }, { id: 'gemini', label: 'Gemini' }],
+    nu: { weken: 4, antwoorden: 480, genoemd: 96, geciteerd: 12, percentage: 20, per: { chatgpt: { antwoorden: 240, genoemd: 60 }, gemini: { antwoorden: 240, genoemd: 36 } } },
+    vorig: null, wekenOnvolledig: 0,
+    vragen: [{ id: 'p1', vraag: 'Beste vergaderlocatie in Utrecht?', chatgpt: 3, gemini: 1, geciteerd: 1, kern: true }]
+  }
+};
+
+test('documentHtml met snapshot: hoofdstukken in de volgorde van het Google tabblad, alleen cijfers van die maand', () => {
+  const g = D.aiGegevens({ beschikbaar: true, trend: [{ weekStart: '2026-10-05', platformen: { chatgpt: { antwoorden: 10, genoemd: 9 } } }] }, metSnapshot);
+  const html = D.documentHtml(metSnapshot, g, 'Basecamp Utrecht');
+  // De snapshot wint van de live AI data.
+  assert.ok(html.includes('AI noemde jullie merk in 20% van de antwoorden.'));
+  assert.ok(!html.includes('90%'));
+  assert.ok(html.includes('Er is nog geen vorige maand met dezelfde vragen om mee te vergelijken.'));
+  assert.ok(html.includes('Het percentage gaat over de 20 vaste vragen'));
+  assert.ok(html.includes('Jullie eigen website werd 12 keer als bron'));
+  // Google onderdelen uit de snapshot.
+  for (const stuk of ['11 van 14', 'Op pagina 1', 'Zoekopdrachten op jullie naam', '310', 'Waarde van de bezoekers uit Google', '€ 412', 'berekend over 30 van de 40 klikken', 'Bezoeken via AI assistenten', 'waarvan 4 op een blog']) {
+    assert.ok(html.includes(stuk), 'mist: ' + stuk);
+  }
+  // Contact en uitgevoerd werk.
+  assert.ok(html.includes('2 aanvragen van mensen die eerder een blog lazen'));
+  assert.ok(html.includes('1 aanvraag van bezoekers die via een AI assistent kwamen'));
+  assert.ok(html.includes('2 nieuwe blogs, 1 interne link toegevoegd en 2 vragen uit AI antwoorden als FAQ toegevoegd.'));
+  assert.ok(html.includes('Waar vergader je duurzaam in Utrecht? (op Duurzaam vergaderen)'));
+  // Volgorde: gevonden, doorklikken, contact, deden, gaan doen.
+  const volgorde = ['Jullie worden gevonden', 'Mensen klikken door', 'Ze nemen contact op', 'Wat wij deden', 'Wat we gaan doen'].map((t) => html.indexOf(t));
+  assert.deepStrictEqual(volgorde.slice().sort((a, b) => a - b), volgorde);
+  assert.ok(!html.includes('undefined'));
+  assert.ok(!html.includes('NaN'));
+});
+
+test('aiGegevens met snapshot: AI uit in die maand geeft geen AI blok, niet gemeten geeft uitleg', () => {
+  assert.strictEqual(D.aiGegevens({ beschikbaar: true, trend: [] }, { ...metSnapshot, ai: null }), null);
+  const g = D.aiGegevens(null, { ...metSnapshot, ai: { status: 'niet_gemeten', wekenOnvolledig: 2 } });
+  assert.ok(D.documentHtml({ ...metSnapshot, ai: { status: 'niet_gemeten', wekenOnvolledig: 2 } }, g, '').includes('niet compleet gelukt'));
+});
+
+test('PDF met snapshot werkt', async () => {
+  const buf = await bouwPdf({ rapport: metSnapshot, klantNaam: 'Basecamp Utrecht', ai: null });
+  assert.strictEqual(buf.slice(0, 4).toString(), '%PDF');
+  assert.ok(buf.length > 3000);
 });

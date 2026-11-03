@@ -91,8 +91,16 @@ function bouwRapport(rij, effectRijen, verbeterRijen, conversieRijen, klantNaam)
     const d = parseJson(r.details, {});
     return t + (Number(d && d.aantal) > 0 ? Number(d.aantal) : 1);
   }, 0);
+  // Sinds november 2026 legt de workflow een snapshot vast (kolom extra). Dan liggen opbrengst, AI, waarde, merk,
+  // uitgevoerd werk en effecten vast. Oudere rapporten zonder snapshot rekenen deze onderdelen nog live uit.
+  const extra = parseJson(rij.extra, null);
+  const vast = extra && typeof extra === 'object' && Number(extra.versie) >= 1 ? extra : null;
+  const gedaan = vast && vast.gedaan
+    ? { nieuweBlogs: lijst(rij.nieuwe_blogs).length, aangevuld: Number(vast.gedaan.aangevuld) || 0, internelinks: Number(vast.gedaan.internelinks) || 0, faq: Number(vast.gedaan.faq) || 0, faqVoorbeelden: Array.isArray(vast.gedaan.faqVoorbeelden) ? vast.gedaan.faqVoorbeelden : [] }
+    : { nieuweBlogs: lijst(rij.nieuwe_blogs).length, aangevuld, internelinks };
   return {
     maand: rij.maand,
+    vastgelegd: Boolean(vast),
     label: maandLabel(rij.maand),
     periodeStart: rij.periode_start || null,
     periodeEind: rij.periode_eind || null,
@@ -102,12 +110,15 @@ function bouwRapport(rij, effectRijen, verbeterRijen, conversieRijen, klantNaam)
     totalen: totalen && typeof totalen === 'object' ? totalen : {},
     blogs: lijst(rij.blogs),
     nieuweBlogs: lijst(rij.nieuwe_blogs),
-    gedaan: { nieuweBlogs: lijst(rij.nieuwe_blogs).length, aangevuld, internelinks },
+    gedaan,
     kansen: lijst(rij.kansen),
     terugblik: alinea,
     vooruitblik: lijst(rij.vooruitblik),
-    effecten: bouwEffecten(effectRijen, verbeterRijen, rij.maand),
-    meting: bouwMeting(conversieRijen, rij.maand, klantNaam)
+    effecten: vast && vast.effecten ? vast.effecten : bouwEffecten(effectRijen, verbeterRijen, rij.maand),
+    meting: vast ? (vast.opbrengst || null) : bouwMeting(conversieRijen, rij.maand, klantNaam),
+    google: vast ? (vast.google || null) : null,
+    // undefined: geen snapshot, het portaal gebruikt dan de live AI data. null: AI stond die maand niet aan.
+    ai: vast ? (vast.ai || null) : undefined
   };
 }
 
@@ -124,6 +135,8 @@ async function getRapport(klantNaam, maand) {
   const rijen = await n8nRows(klantNaam, 60);
   const rij = rijen.find((r) => r.maand === maand);
   if (!rij) return null;
+  const extra = parseJson(rij.extra, null);
+  if (extra && Number(extra.versie) >= 1) return bouwRapport(rij, [], [], [], klantNaam);
   // Effecten zijn een extra: ontbreekt de tabel, dan blijft het rapport gewoon werken.
   const [effectRijen, verbeterRijen, conversieRijen] = await Promise.all([
     n8nRows(klantNaam, 250, EFFECTEN_TABLE_ID).catch(() => []),
