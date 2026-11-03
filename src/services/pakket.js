@@ -847,7 +847,7 @@ async function haalGeoNamen({ klant, jaar, maand }, extra) {
   return extra;
 }
 
-function bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, opties, rapportData, rapportTekst }) {
+function bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, opties, rapportData, rapportTekst, opdracht, kop, voorSecties, naSecties, zonderActiepunten, kanttekeningen }) {
   const opt = opties || {};
   const o = new Proxy({}, { get: (_, k) => opt[k] !== false });
   const ex = (verdieping && verdieping.extra) || {};
@@ -860,11 +860,12 @@ function bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, optie
     g = t.g; nota = t.nota;
   }
   const delen = [];
-  delen.push([`LEARNINGSPAKKET ${klant.toUpperCase()}, ${MAANDEN[maand - 1].toUpperCase()} ${jaar}`,
+  delen.push(kop || [`LEARNINGSPAKKET ${klant.toUpperCase()}, ${MAANDEN[maand - 1].toUpperCase()} ${jaar}`,
     'Dit pakket hoort bij het rapport met de maanddata. Het rapport is leidend: waar het platform minder conversies toont dan het rapport (bijvoorbeeld door handmatig toegevoegde conversies), is het verschil toegerekend aan een campagne en duidelijk als toegerekend gemarkeerd. Alle cijfers hieronder gaan over deze maand, tenzij erbij staat dat het vorige maand is.']);
-  delen.push(OPDRACHT);
+  delen.push(opdracht || OPDRACHT);
   delen.push(['CONTEXT VAN DYLAN', context && String(context).trim() ? String(context).trim() : 'Geen extra context aangegeven.']);
-  delen.push(sectieActiepunten(actiepunten));
+  (voorSecties || []).forEach((x) => { if (x) delen.push(x); });
+  if (!zonderActiepunten) delen.push(sectieActiepunten(actiepunten));
   if (rapportTekst) { const rp = sectieRapport(rapportTekst); if (rp) delen.push(rp); }
   if (g) {
     delen.push(['AFSTEMMING MET HET RAPPORT (Google Ads conversies)', nota.uitleg]);
@@ -891,7 +892,8 @@ function bouwTekst({ klant, jaar, maand, context, actiepunten, verdieping, optie
     delen.push(sectieMeta(verdieping && verdieping.meta));
     if (o.extra && ex.meta) { const x = sectieMetaExtra(ex.meta); if (x) delen.push(x); }
   }
-  const waarschuwingen = [];
+  (naSecties || []).forEach((x) => { if (x) delen.push(x); });
+  const waarschuwingen = [...(kanttekeningen || [])];
   if (g && (g.fouten || []).length) g.fouten.forEach((f) => waarschuwingen.push(`Google query "${f.query}" gaf een fout: ${f.fout}`));
   if (g && (g.afgekapt || []).length) waarschuwingen.push(`Deze Google onderdelen zijn afgekapt omdat er meer rijen waren: ${g.afgekapt.join(', ')}`);
   ['google', 'linkedin', 'meta'].forEach((k) => { if (ex[k] && (ex[k].fouten || []).length) ex[k].fouten.forEach((f) => waarschuwingen.push(`Extra ${k} data, onderdeel "${f.query}" gaf een fout: ${f.fout}`)); });
@@ -1005,4 +1007,4 @@ async function haalVerdieping({ klant, jaar, maand }) {
   return data;
 }
 
-module.exports = { aanvraagBody, sectieLocaties, sectieZoekwoordenVergelijking, sectieLandingspaginasVergelijking, sectieMaandverloop, OPDRACHT, haalNextStepsDocx, leesRapportCijfers, haalNextSteps, maakPakket, bouwTekst, CONCEPT_KOP, conceptSysteem };
+module.exports = { haalVerdieping, haalExtra, haalGeoNamen, aanvraagBody, sectieLocaties, sectieZoekwoordenVergelijking, sectieLandingspaginasVergelijking, sectieMaandverloop, OPDRACHT, haalNextStepsDocx, leesRapportCijfers, haalNextSteps, maakPakket, bouwTekst, CONCEPT_KOP, conceptSysteem };

@@ -59,3 +59,15 @@ test('recent geeft de ingevulde velden en notities per start terug', async () =>
   assert.deepEqual(r[0].velden, { 'Google Ads - Conversies overschrijven (leeglaten = automatisch)': '0' });
   assert.deepEqual(r[1].velden, {});
 });
+
+test('start kan de Excel rapportage starten met handmatige velden', async () => {
+  process.env.N8N_API_KEY = 'x';
+  const labels = ['Klant', 'Maand overschrijven (1-12, leeglaten = vorige maand)', 'Jaar overschrijven (bijv. 2026, leeglaten = huidig jaar)', 'Bestellingen/transacties handmatig (leeglaten = automatisch via GA4)', 'Netto omzet handmatig in euro (leeglaten = automatisch via GA4)', 'Google Ads conversies handmatig (leeglaten = automatisch)', 'Meta Ads aankopen handmatig (leeglaten = automatisch/gedeelde tabel)', 'Meta Ads omzet handmatig in euro (leeglaten = automatisch/gedeelde tabel)', 'Notities'];
+  const html = labels.map((l, i) => `<label for='field-${i}'>${l}</label>`).join('');
+  const posts = nepFetch(html);
+  const r = await start({ organisatieId: 'excel', klant: 'JMB Bouw', maand: 3, jaar: 2026, velden: { 'Google Ads conversies handmatig (leeglaten = automatisch)': '8' }, notities: 'test' });
+  assert.equal(r.ok, true);
+  assert.equal(posts[0].get('field-0'), 'JMB Bouw');
+  assert.equal(posts[0].get('field-5'), '8');
+  assert.equal(posts[0].get('field-8'), 'test');
+});
