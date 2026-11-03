@@ -4,7 +4,7 @@
   const e = (t) => escapeHtmlAdmin(String(t === undefined || t === null ? '' : t));
   const MAANDEN = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
   const STATUS = { wacht: ['Wacht op n8n', 'p-pil-neutraal'], bezig: ['Bezig', 'p-pil-let-op'], klaar: ['Klaar', 'p-pil-goed'], fout: ['Fout', 'p-pil-fout'] };
-  const staat = { config: null, org: '', klant: '', maand: 0, jaar: 0, waarden: {}, notities: '', bezig: false, melding: null, starts: [], timer: null, context: '', rapportTekst: '', rapportCijfers: {}, rapportNaam: '', vorigNaam: '', leesMelding: null, puntenTekst: '', punten: [], pakket: null, opties: {}, pakketBezig: false, pakketMelding: null };
+  const staat = { config: null, org: '', klant: '', maand: 0, jaar: 0, waarden: {}, notities: '', bezig: false, melding: null, starts: [], timer: null, context: '', rapportTekst: '', rapportCijfers: {}, rapportNaam: '', vorigNaam: '', leesMelding: null, puntenTekst: '', punten: [], pakket: null, opties: {}, pakketBezig: false, pakketMelding: null, invoerOpen: false };
 
   function vorigeMaand() {
     const d = new Date();
@@ -46,7 +46,7 @@
           <select id="rsJaar">${jaren.map((j) => `<option value="${j}"${j === staat.jaar ? ' selected' : ''}>${j}</option>`).join('')}</select></label>
       </div>
       <p class="rs-hint">Standaard staat de vorige maand. Alle velden hieronder zijn optioneel. Leeg betekent automatisch uit de API, net als in het n8n formulier.</p>
-      ${groepen.length ? `<details class="rs-details"><summary>Handmatige invoer (${lijst.length} velden)</summary>
+      ${groepen.length ? `<details class="rs-details"${staat.invoerOpen ? ' open' : ''}><summary>Handmatige invoer (${lijst.length} velden)</summary>
         ${groepen.map((g) => `<div class="rs-groep"><h4>${e(g.naam)}</h4><div class="rs-velden">${g.velden.map((v) => `<label class="rs-veld"><span>${e(v.label)}</span><input type="text" inputmode="decimal" data-label="${e(v.label)}" value="${e(staat.waarden[v.label] || '')}"></label>`).join('')}</div></div>`).join('')}
       </details>` : ''}
       <label class="rs-veld rs-notities"><span>Notities (optioneel)</span><textarea id="rsNotities" rows="2">${e(staat.notities)}</textarea></label>
@@ -58,13 +58,35 @@
   function lijstHtml() {
     if (!staat.starts.length) return '<p class="rs-hint">Nog geen rapportages gestart vanuit het portaal.</p>';
     return `<table class="rs-tabel"><thead><tr><th>Klant</th><th>Maand</th><th>Gestart</th><th>Status</th></tr></thead><tbody>
-      ${staat.starts.map((s) => { const st = STATUS[s.status] || STATUS.wacht; return `<tr><td>${e(s.klant)}<small>${e(s.organisatie)}</small></td><td>${e(s.maand)}</td><td>${e(tijd(s.gestart))}</td><td><span class="p-pil ${st[1]}">${e(st[0])}</span></td></tr>`; }).join('')}
+      ${staat.starts.map((s, i) => { const st = STATUS[s.status] || STATUS.wacht; return `<tr class="rs-klik" data-start="${i}" tabindex="0" role="button" title="Klik om deze invoer over te nemen in het formulier"><td>${e(s.klant)}<small>${e(s.organisatie)}</small></td><td>${e(s.maand)}</td><td>${e(tijd(s.gestart))}</td><td><span class="p-pil ${st[1]}">${e(st[0])}</span></td></tr>`; }).join('')}
     </tbody></table>`;
+  }
+
+  function neemOver(s) {
+    const org = staat.config.find((o) => o.id === s.organisatieId);
+    if (!org) return;
+    staat.org = org.id;
+    staat.klant = org.klanten.includes(s.klant) ? s.klant : org.klanten[0];
+    if (s.maandNummer) staat.maand = s.maandNummer;
+    if (s.jaar) staat.jaar = s.jaar;
+    staat.waarden = { ...(s.velden || {}) };
+    staat.notities = s.notities || '';
+    staat.invoerOpen = Object.keys(staat.waarden).length > 0;
+    const aantal = Object.keys(staat.waarden).length;
+    staat.melding = { tekst: `Invoer van ${s.klant} ${s.maand} overgenomen (${aantal} ${aantal === 1 ? 'veld' : 'velden'}${staat.notities ? ' en notities' : ''}). Pas aan wat nodig is en start opnieuw.` };
+    teken();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   function tekenLijst() {
     const el = document.getElementById('rsLijst');
-    if (el) el.innerHTML = lijstHtml();
+    if (!el) return;
+    el.innerHTML = lijstHtml();
+    el.querySelectorAll('[data-start]').forEach((tr) => {
+      const doe = () => { const s = staat.starts[Number(tr.dataset.start)]; if (s) neemOver(s); };
+      tr.addEventListener('click', doe);
+      tr.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); doe(); } });
+    });
   }
 
   function bind(root) {
@@ -100,7 +122,7 @@
     try {
       await adminApi('/rapport-start', { method: 'POST', body: JSON.stringify({ organisatieId: org.id, klant: staat.klant, maand: staat.maand, jaar: staat.jaar, velden: staat.waarden, notities: staat.notities }) });
       staat.melding = { tekst: `Gestart voor ${staat.klant}. Het rapport komt in Drive zodra de workflow klaar is, meestal binnen een paar minuten.` };
-      staat.waarden = {}; staat.notities = '';
+      staat.waarden = {}; staat.notities = ''; staat.invoerOpen = false;
       ververs();
     } catch (err) {
       staat.melding = { fout: true, tekst: err.message };
@@ -247,10 +269,12 @@
       <div id="rsFormulier">${formulierHtml()}</div>
       ${pakketHtml()}
       <div class="admin-section-title">Laatste starts</div>
-      <div id="rsLijst">${lijstHtml()}</div>
+      <p class="rs-hint">Klik op een start om de invoer over te nemen in het formulier.</p>
+      <div id="rsLijst"></div>
     </div>`;
     bind(root);
     bindPakket(root);
+    tekenLijst();
   }
 
   async function ververs() {
