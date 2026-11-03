@@ -4,7 +4,7 @@
   const e = (t) => escapeHtmlAdmin(String(t === undefined || t === null ? '' : t));
   const MAANDEN = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
   const STATUS = { wacht: ['Wacht op n8n', 'p-pil-neutraal'], bezig: ['Bezig', 'p-pil-let-op'], klaar: ['Klaar', 'p-pil-goed'], fout: ['Fout', 'p-pil-fout'] };
-  const staat = { config: null, org: '', klant: '', maand: 0, jaar: 0, waarden: {}, notities: '', bezig: false, melding: null, starts: [], timer: null, context: '', rapportTekst: '', rapportCijfers: {}, rapportNaam: '', vorigNaam: '', leesMelding: null, puntenTekst: '', punten: [], pakket: null, opties: {}, pakketBezig: false, pakketMelding: null, invoerOpen: false };
+  const staat = { config: null, org: '', klant: '', maand: 0, jaar: 0, waarden: {}, notities: '', bezig: false, melding: null, starts: [], timer: null, context: '', rapportTekst: '', rapportCijfers: {}, rapportNaam: '', vorigNaam: '', leesMelding: null, puntenTekst: '', punten: [], pakket: null, opties: {}, pakketBezig: false, pakketMelding: null, invoerOpen: false, mailWens: '', voorbeelden: [], voorbeeldKlant: '', nieuweMail: '', voorbeeldMelding: null };
 
   function vorigeMaand() {
     const d = new Date();
@@ -149,7 +149,92 @@
     </div>`).join('');
   }
 
+  function voorbeeldenHtml() {
+    const lijst = staat.voorbeelden || [];
+    const hint = lijst.length >= 2 ? `${lijst.length} voorbeeldmails bewaard. De nieuwste twee gaan mee in het pakket.` : lijst.length === 1 ? 'Er is 1 voorbeeldmail bewaard. Twee geven een beter beeld van je stijl.' : 'Er zijn nog geen voorbeeldmails bewaard voor deze klant. Plak er hieronder twee.';
+    return `<div class="rs-groep"><h4>Voorbeeldmails van ${e(staat.klant)}</h4>
+      <p class="rs-hint">${e(hint)}</p>
+      ${lijst.slice(0, 4).map((v, i) => `<details class="rs-details"><summary>${e(v.periode)}${i < 2 ? ' (gaat mee)' : ''}</summary><pre class="rs-voorbeeld">${e(v.tekst)}</pre></details>`).join('')}
+      <label class="rs-veld rs-notities"><span>Plak hier een verstuurde mail om hem als voorbeeld te bewaren (voor de maand en het jaar hierboven)</span><textarea id="rsNieuweMail" rows="5">${e(staat.nieuweMail)}</textarea></label>
+      <div class="rs-acties"><button type="button" id="rsBewaarMail">Bewaar als voorbeeld</button></div>
+      ${staat.voorbeeldMelding ? `<p class="${staat.voorbeeldMelding.fout ? 'rs-fout' : 'rs-ok'}" role="status">${e(staat.voorbeeldMelding.tekst)}</p>` : ''}
+    </div>`;
+  }
+
+  function mailHtml() {
+    const r = staat.pakket;
+    return `<div class="admin-section-title">Mailpakket maken</div>
+    <div class="rs-kaart" id="rsPakket">
+      <p class="rs-hint">Voor ${e(staat.klant)}, ${e(MAANDEN[staat.maand - 1])} ${e(staat.jaar)}. Start eerst de Excel rapportage, zodat het Sheet is bijgewerkt. Het pakket bevat de cijfers uit het Sheet, de data per kanaal en twee eerdere mails als voorbeeld. ChatGPT schrijft er een kant en klare mail van.</p>
+      <label class="rs-veld rs-notities"><span>Wat moet ik weten over deze maand?</span><textarea id="rsContext" rows="3" placeholder="Optioneel. Bijvoorbeeld wat je hebt aangepast, wat de klant zei of wat er speelde.">${e(staat.context)}</textarea></label>
+      <label class="rs-veld rs-notities"><span>Wat wil ik in deze mail kwijt?</span><textarea id="rsMailWens" rows="3" placeholder="Optioneel. Bijvoorbeeld een voorstel, een vraag aan de klant of iets dat je wilt benadrukken.">${e(staat.mailWens)}</textarea></label>
+      ${voorbeeldenHtml()}
+      <details class="rs-details"><summary>Onderdelen (standaard alles aan)</summary>
+        <div class="rs-opties">${OPTIES.map((o) => `<label><input type="checkbox" data-optie="${o[0]}"${staat.opties[o[0]] !== false ? ' checked' : ''}> ${e(o[1])}</label>`).join('')}</div>
+      </details>
+      <div class="rs-acties"><button type="button" id="rsMaakMail" class="primary"${staat.pakketBezig ? ' disabled' : ''}>${staat.pakketBezig ? 'Pakket wordt gemaakt' : 'Maak mailpakket'}</button></div>
+      ${staat.pakketMelding ? `<p class="${staat.pakketMelding.fout ? 'rs-fout' : 'rs-ok'}" role="status">${e(staat.pakketMelding.tekst)}</p>` : ''}
+      ${r ? `<div class="rs-acties"><button type="button" id="rsKopieer">Kopieer voor ChatGPT</button><button type="button" id="rsDownload">Download als bestand</button></div>
+        <textarea id="rsPakketTekst" class="rs-pakket-tekst" rows="16" readonly>${e(r.tekst)}</textarea>` : ''}
+    </div>`;
+  }
+
+  async function laadVoorbeelden() {
+    staat.voorbeeldKlant = staat.klant;
+    try {
+      staat.voorbeelden = (await adminApi(`/rapport-mail-voorbeelden?klant=${encodeURIComponent(staat.klant)}`)).voorbeelden || [];
+    } catch (err) {
+      staat.voorbeelden = [];
+      staat.voorbeeldMelding = { fout: true, tekst: `De voorbeeldmails ophalen mislukte: ${err.message}` };
+    }
+    const el = document.getElementById('rsPakket');
+    if (el && huidigeOrg().id === 'excel') teken();
+  }
+
+  async function bewaarMail() {
+    staat.voorbeeldMelding = null;
+    try {
+      const r = await adminApi('/rapport-mail-voorbeeld', { method: 'POST', body: JSON.stringify({ klant: staat.klant, jaar: staat.jaar, maand: staat.maand, tekst: staat.nieuweMail }) });
+      staat.nieuweMail = '';
+      staat.voorbeeldMelding = { tekst: r.vervangen ? `De mail over ${r.periode} is vervangen.` : `De mail over ${r.periode} is bewaard.` };
+      await laadVoorbeelden();
+      return;
+    } catch (err) {
+      staat.voorbeeldMelding = { fout: true, tekst: err.message };
+    }
+    teken();
+  }
+
+  async function maakMailPakket() {
+    staat.pakketBezig = true; staat.pakketMelding = null; staat.pakket = null; teken();
+    try {
+      const r = await adminApi('/rapport-mailpakket', { method: 'POST', body: JSON.stringify({ klant: staat.klant, jaar: staat.jaar, maand: staat.maand, context: staat.context, mailWens: staat.mailWens, opties: Object.fromEntries(OPTIES.map((o) => [o[0], staat.opties[o[0]] !== false])) }) });
+      staat.pakket = r;
+      const gebreken = [];
+      if (!r.sheetGelezen) gebreken.push('het Sheet kon niet worden gelezen');
+      if (!r.googleData) gebreken.push('er is geen Google Ads data opgehaald');
+      if (r.aantalVoorbeelden < 2) gebreken.push(`er ${r.aantalVoorbeelden === 1 ? 'is maar 1 voorbeeldmail' : 'zijn geen voorbeeldmails'}`);
+      staat.pakketMelding = gebreken.length ? { fout: true, tekst: `Pakket klaar, maar ${gebreken.join(', ')}. Dit staat ook onder de kanttekeningen in het pakket.` } : { tekst: 'Pakket klaar. Upload het in ChatGPT, dan krijg je een kant en klare mail.' };
+    } catch (err) {
+      staat.pakketMelding = { fout: true, tekst: err.message };
+    }
+    staat.pakketBezig = false;
+    teken();
+  }
+
+  function bindMail(root) {
+    const w = root.querySelector('#rsMailWens');
+    if (w) w.addEventListener('input', () => { staat.mailWens = w.value; });
+    const n = root.querySelector('#rsNieuweMail');
+    if (n) n.addEventListener('input', () => { staat.nieuweMail = n.value; });
+    const b = root.querySelector('#rsBewaarMail');
+    if (b) b.addEventListener('click', () => bewaarMail());
+    const m = root.querySelector('#rsMaakMail');
+    if (m) m.addEventListener('click', () => maakMailPakket());
+  }
+
   function pakketHtml() {
+    if (huidigeOrg().id === 'excel') return mailHtml();
     const r = staat.pakket;
     return `<div class="admin-section-title">Pakket maken</div>
     <div class="rs-kaart" id="rsPakket">
@@ -274,7 +359,9 @@
     </div>`;
     bind(root);
     bindPakket(root);
+    bindMail(root);
     tekenLijst();
+    if (huidigeOrg().id === 'excel' && staat.voorbeeldKlant !== staat.klant) laadVoorbeelden();
   }
 
   async function ververs() {

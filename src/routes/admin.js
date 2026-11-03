@@ -13,6 +13,7 @@ const aiZichtbaarheidService = require('../services/aiZichtbaarheid');
 const cockpitService = require('../services/cockpit');
 const rapportStart = require('../services/rapportStart');
 const pakket = require('../services/pakket');
+const mailPakket = require('../services/mailPakket');
 const aiFaq = require('../services/aiFaq');
 const { checkAdminPassword, requireAdmin } = require('../middleware/auth');
 
@@ -268,6 +269,31 @@ router.post('/rapport-pakket', requireAdmin, async (req, res) => {
   try {
     const b = req.body || {};
     res.json(await pakket.maakPakket({ klant: b.klant, jaar: b.jaar, maand: b.maand, context: b.context, actiepunten: b.actiepunten, opties: b.opties, rapportTekst: b.rapportTekst, rapportCijfers: b.rapportCijfers }));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Paid Ads: mailpakket voor de Excel rapportage klanten (cijfers uit het Sheet, data per kanaal en voorbeeldmails).
+router.post('/rapport-mailpakket', requireAdmin, async (req, res) => {
+  try {
+    const b = req.body || {};
+    res.json(await mailPakket.maakMailPakket({ klant: b.klant, jaar: b.jaar, maand: b.maand, context: b.context, mailWens: b.mailWens, opties: b.opties }));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+router.get('/rapport-mail-voorbeelden', requireAdmin, async (req, res) => {
+  try {
+    res.json({ voorbeelden: await mailPakket.voorbeelden(String(req.query.klant || ''), 10) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+router.post('/rapport-mail-voorbeeld', requireAdmin, async (req, res) => {
+  try {
+    const b = req.body || {};
+    res.json(await mailPakket.bewaarVoorbeeld({ klant: b.klant, jaar: b.jaar, maand: b.maand, tekst: b.tekst }));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
