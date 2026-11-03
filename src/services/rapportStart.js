@@ -147,8 +147,13 @@ async function recent(limiet) {
     const t = new Date(r.gestart).getTime() - 10000;
     const kandidaten = (perWorkflow[r.workflow_id] || []).filter((x) => new Date(x.startedAt).getTime() >= t).sort((a, b) => String(a.startedAt).localeCompare(String(b.startedAt)));
     const org = ORGANISATIES.find((o) => o.id === r.organisatie);
+    let invoer = {};
+    try { invoer = r.velden ? JSON.parse(r.velden) : {}; } catch (err) { invoer = {}; }
+    const { notities, ...velden } = invoer && typeof invoer === 'object' ? invoer : {};
+    const [jaarTekst, maandTekst] = String(r.maand || '').split('-');
     return {
-      organisatie: org ? org.naam : r.organisatie, klant: r.klant, maand: r.maand, gestart: r.gestart,
+      organisatie: org ? org.naam : r.organisatie, organisatieId: r.organisatie, klant: r.klant, maand: r.maand, jaar: Number(jaarTekst) || null, maandNummer: Number(maandTekst) || null, gestart: r.gestart,
+      velden, notities: notities || '',
       status: statusVan(kandidaten[0]), executionId: kandidaten[0] ? kandidaten[0].id : null
     };
   });

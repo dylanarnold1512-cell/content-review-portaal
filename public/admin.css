@@ -325,6 +325,8 @@
 .rs-tabel{width:100%;max-width:880px;border-collapse:collapse;background:#fff}
 .rs-tabel th,.rs-tabel td{text-align:left;padding:10px 12px;border-bottom:1px solid #eceff3;font-size:14px}
 .rs-tabel td small{display:block;color:#888}
+.rs-tabel tr.rs-klik{cursor:pointer}
+.rs-tabel tr.rs-klik:hover td,.rs-tabel tr.rs-klik:focus td{background:#f4f6fb}
 @media(max-width:700px){.rs-rij{grid-template-columns:1fr}}
 
 /* Paid Ads > Rapportages: pakket maken */
