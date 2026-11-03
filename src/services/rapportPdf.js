@@ -1,5 +1,6 @@
-// Maakt van een vast maandrapport een nette PDF voor de klant. Alleen tekenen, er wordt niets herberekend
-// behalve de AI cijfers van die maand, die uit de wekelijkse metingen komen.
+// Maakt van een vast maandrapport een nette PDF voor de klant. Alleen tekenen: de hoofdstukken en cijfers komen uit
+// hetzelfde model als het document in het portaal (public/rapport-document.js). Oude rapporten zonder snapshot
+// rekenen de AI cijfers van die maand nog uit de wekelijkse metingen (aiMaand).
 const PDFDocument = require('pdfkit');
 
 const KLEUR = { tekst: '#14142b', zacht: '#6b6f85', lijn: '#e4e6ef', vlak: '#f5f6fa', merk: '#ff3951', goed: '#1d8a4e', ai: '#6d4bd8' };
@@ -10,7 +11,6 @@ function schoon(t) {
   return String(t === null || t === undefined ? '' : t).replace(/[^\x09\x0A\x20-\x7E -ÿ‘’“”–—…€•]/g, '');
 }
 const nl = (n) => Number(n).toLocaleString('nl-NL');
-const nl1 = (n) => Number(n).toLocaleString('nl-NL', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 function datumLang(iso) {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
@@ -46,35 +46,6 @@ function aiMaand(ai, maand) {
   return { weken: weken.length, antwoorden, genoemd, percentage: Math.round((genoemd / antwoorden) * 100), per };
 }
 
-// Zelfde aantal zoekwoorden als het document in het portaal (public/rapport-document.js).
-const ZOEKWOORDEN = 15;
-
-function gedaanZin(gd) {
-  return require('../../public/rapport-document').gedaanZin(gd);
-}
-
-function samenvoegZoekwoorden(blogs) {
-  return require('../../public/zoekwoorden').samenvoegen(blogs, 'vertoningen');
-}
-
-function verschilTekst(nu, vorig) {
-  if (vorig === null || vorig === undefined) return '';
-  if (!vorig) return nu > 0 ? `+${nl(nu)} t.o.v. vorige maand` : 'gelijk aan vorige maand';
-  const p = Math.round(((nu - vorig) / vorig) * 100);
-  return p === 0 ? 'gelijk aan vorige maand' : `${p > 0 ? '+' : ''}${p}% t.o.v. vorige maand`;
-}
-
-// Zelfde aantal en tekst als in het document in het portaal (public/rapport-document.js).
-const AI_VRAGEN_IN_PDF = 8;
-function aiPlatformTelling(v) {
-  const delen = [];
-  if (v.chatgpt) delen.push(`ChatGPT ${v.chatgpt} keer`);
-  if (v.gemini) delen.push(`Gemini ${v.gemini} keer`);
-  let t = delen.join(', ');
-  if (v.geciteerd) t += `. Jullie website ${v.geciteerd} keer als bron`;
-  return t;
-}
-
 function bouwPdf({ rapport: r, klantNaam, ai }) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margins: { top: 48, bottom: 56, left: 48, right: 48 }, bufferPages: true,
@@ -94,7 +65,8 @@ function bouwPdf({ rapport: r, klantNaam, ai }) {
     const hoogte = (t, maat, breed, vet) => { doc.font(vet ? 'Helvetica-Bold' : 'Helvetica').fontSize(maat); return doc.heightOfString(schoon(t), { width: breed, lineGap: 2 }); };
     let nummer = 0;
     const kop = (t, uitleg) => {
-      ruimte(60);
+      // Genoeg ruimte voor de kop en het begin van het hoofdstuk, zodat een kop niet alleen onderaan een pagina staat.
+      ruimte(120);
       doc.moveDown(0.9);
       nummer += 1;
       tekst(`${nummer}. ${t}`, { vet: true, maat: 13 });
@@ -133,190 +105,121 @@ function bouwPdf({ rapport: r, klantNaam, ai }) {
     tekst(zin, { maat: 10, kleur: KLEUR.zacht, x: L + 28, breed: W - 44 });
     doc.y = y0 + hStatus + 14;
 
-    // Kerncijfers
-    const g = ai ? { nu: aiMaand(ai, r.maand), vorig: aiMaand(ai, vorigeMaand(r.maand)) } : null;
-    const tegels = [
-      { l: 'Keer getoond in Google', w: nl(vNu), s: verschilTekst(vNu, t.vertoningen_vorig) },
-      { l: 'Bezoekers vanuit Google', w: nl(t.clicks || 0), s: verschilTekst(t.clicks || 0, t.clicks_vorig) }
-    ];
-    if (t.paginaweergaven !== null && t.paginaweergaven !== undefined) tegels.push({ l: 'Paginaweergaven', w: nl(t.paginaweergaven), s: 'Google Analytics' });
-    if (t.hk_positie_gemiddeld !== null && t.hk_positie_gemiddeld !== undefined) tegels.push({ l: 'Positie hoofdzoekwoorden', w: nl1(t.hk_positie_gemiddeld), s: 'Lager is beter' });
-    if (g && g.nu) tegels.push({ l: 'AI noemt jullie', w: `${g.nu.percentage}%`, s: g.vorig ? `${g.vorig.percentage}% vorige maand` : 'van de antwoorden' });
-    const perRij = tegels.length > 4 ? 3 : tegels.length;
-    const tb = (W - (perRij - 1) * 10) / perRij;
-    for (let i = 0; i < tegels.length; i += perRij) {
-      // Een label over twee regels schuift het getal omlaag, zodat niets over elkaar valt.
-      const rij = tegels.slice(i, i + perRij);
-      const labelH = Math.max(...rij.map((x) => hoogte(x.l, 8.5, tb - 20)));
-      const subH = Math.max(...rij.map((x) => hoogte(x.s, 8, tb - 20)));
-      const h = 9 + labelH + 4 + 24 + subH + 8;
-      ruimte(h + 10);
+    // Kerncijfers en hoofdstukken komen uit hetzelfde model als het document in het portaal (public/rapport-document.js).
+    const D = require('../../public/rapport-document');
+    const g = D.aiGegevens(ai, r, ai && ai.vragenMaand);
+
+    const tegelRij = (lijst) => {
+      const tegels = lijst.map((c) => ({ l: c.label, w: c.waarde, s: [c.verschil ? c.verschil.tekst : '', c.sub || ''].filter(Boolean).join(' ') }));
+      const perRij = tegels.length > 4 ? 3 : Math.max(1, tegels.length);
+      const tb = (W - (perRij - 1) * 10) / perRij;
+      for (let i = 0; i < tegels.length; i += perRij) {
+        // Een label over twee regels schuift het getal omlaag, zodat niets over elkaar valt.
+        const rij = tegels.slice(i, i + perRij);
+        const labelH = Math.max(...rij.map((x) => hoogte(x.l, 8.5, tb - 20)));
+        const subH = Math.max(...rij.map((x) => hoogte(x.s, 8, tb - 20)));
+        const h = 9 + labelH + 4 + 24 + subH + 8;
+        ruimte(h + 10);
+        const y = doc.y;
+        rij.forEach((x, k) => {
+          const tx = L + k * (tb + 10);
+          doc.roundedRect(tx, y, tb, h, 8).lineWidth(1).strokeColor(KLEUR.lijn).stroke();
+          tekst(x.l, { maat: 8.5, kleur: KLEUR.zacht, x: tx + 10, y: y + 9, breed: tb - 20 });
+          tekst(x.w, { vet: true, maat: 20, x: tx + 10, y: y + 9 + labelH + 4, breed: tb - 20 });
+          tekst(x.s, { maat: 8, kleur: KLEUR.zacht, x: tx + 10, y: y + 9 + labelH + 4 + 24, breed: tb - 20 });
+        });
+        doc.y = y + h + 10;
+      }
+    };
+    tegelRij(D.kerncijfers(r, g));
+
+    const bolletje = (x, nr) => {
+      ruimte(hoogte(x, 10, W - 18) + 6);
       const y = doc.y;
-      rij.forEach((x, k) => {
-        const tx = L + k * (tb + 10);
-        doc.roundedRect(tx, y, tb, h, 8).lineWidth(1).strokeColor(KLEUR.lijn).stroke();
-        tekst(x.l, { maat: 8.5, kleur: KLEUR.zacht, x: tx + 10, y: y + 9, breed: tb - 20 });
-        tekst(x.w, { vet: true, maat: 20, x: tx + 10, y: y + 9 + labelH + 4, breed: tb - 20 });
-        tekst(x.s, { maat: 8, kleur: KLEUR.zacht, x: tx + 10, y: y + 9 + labelH + 4 + 24, breed: tb - 20 });
-      });
-      doc.y = y + h + 10;
-    }
+      if (nr) tekst(`${nr}.`, { maat: 10, kleur: KLEUR.zacht, x: L, y, breed: 16 });
+      else doc.circle(L + 3, y + 5, 1.8).fill(KLEUR.tekst);
+      tekst(x, { x: L + (nr ? 18 : 14), y, breed: W - (nr ? 18 : 14) });
+      doc.moveDown(0.25);
+    };
 
-    // Terugblik
-    kop(`Terugblik op ${r.label}`);
-    if (r.terugblik && r.terugblik.length) {
-      r.terugblik.forEach((a) => { ruimte(hoogte(a, 10, W) + 8); tekst(a, { maat: 10.5, regel: 3 }); doc.moveDown(0.5); });
-    } else tekst('Voor deze maand is geen toelichting beschikbaar.', { kleur: KLEUR.zacht });
-
-    // Wat het opleverde (nooit een kale nul, zie rapport-document.js)
-    const opbrengst = require('../../public/rapport-document').opbrengstBlokken(r);
-    kop(`Wat leverde het in ${r.label} op`);
-    opbrengst.punten.forEach((x) => { ruimte(hoogte(x, 10, W - 14) + 6); const y = doc.y; doc.circle(L + 3, y + 5, 1.8).fill(KLEUR.tekst); tekst(x, { x: L + 14, y, breed: W - 14 }); doc.moveDown(0.25); });
-    opbrengst.alinea.forEach((a) => { ruimte(hoogte(a, 10.5, W) + 8); tekst(a, { maat: 10.5, regel: 3 }); doc.moveDown(0.5); });
-    ruimte(hoogte(opbrengst.noot, 9, W) + 8);
-    tekst(opbrengst.noot, { maat: 9, kleur: KLEUR.zacht });
-
-    // Nieuwe blogs
-    kop(`Wat we deden in ${r.label}`);
-    const gedaan = gedaanZin(r.gedaan);
-    if (gedaan) { tekst(gedaan.charAt(0).toUpperCase() + gedaan.slice(1), { maat: 10.5, regel: 3 }); doc.moveDown(0.5); }
-    ruimte(30);
-    tekst('Nieuwe blogs', { vet: true, maat: 10.5 });
-    doc.moveDown(0.3);
-    if (r.nieuweBlogs && r.nieuweBlogs.length) {
-      r.nieuweBlogs.forEach((b) => { const x = `${b.titel}${b.datum ? ` (${datumLang(b.datum)})` : ''}`; ruimte(hoogte(x, 10, W - 14) + 6); const y = doc.y; doc.circle(L + 3, y + 5, 1.8).fill(KLEUR.tekst); tekst(x, { x: L + 14, y, breed: W - 14 }); doc.moveDown(0.25); });
-    } else tekst('Er zijn deze maand geen nieuwe blogs live gegaan.', { kleur: KLEUR.zacht });
-
-    // Blogs met cijfers
-    const metCijfers = (r.blogs || []).filter((b) => (b.vertoningen || 0) > 0 || (b.clicks || 0) > 0)
-      .slice().sort((a, b) => (b.vertoningen || 0) - (a.vertoningen || 0) || (b.clicks || 0) - (a.clicks || 0));
-    kop('Blogs met de meeste vertoningen');
-    if (!metCijfers.length) tekst('Geen blogs met cijfers in deze maand.', { kleur: KLEUR.zacht });
-    else {
-      const cB = W - 150;
+    const tabel = (b) => {
+      const n = b.kolommen.length;
+      const numBreed = 70;
+      const eerste = W - (n - 1) * numBreed;
+      const xVan = (i) => (i === 0 ? L : L + eerste + (i - 1) * numBreed);
+      const breed = (i) => (i === 0 ? eerste - 10 : numBreed);
       ruimte(24);
       let y = doc.y;
-      tekst('BLOG', { vet: true, maat: 8, kleur: KLEUR.zacht, y, breed: cB });
-      tekst('GETOOND', { vet: true, maat: 8, kleur: KLEUR.zacht, x: L + cB, y, breed: 70, uitlijn: 'right' });
-      tekst('BEZOEKERS', { vet: true, maat: 8, kleur: KLEUR.zacht, x: L + cB + 70, y, breed: 80, uitlijn: 'right' });
+      b.kolommen.forEach((k, i) => tekst(k.label.toUpperCase(), { vet: true, maat: 8, kleur: KLEUR.zacht, x: xVan(i), y, breed: breed(i), uitlijn: k.num ? 'right' : 'left' }));
       doc.y = y + 14;
-      metCijfers.forEach((b) => {
-        const h = Math.max(hoogte(b.titel, 10, cB - 10), 12) + 10;
+      b.rijen.forEach((rij) => {
+        const h = Math.max(hoogte(rij[0].tekst, 10, eerste - 10), 12) + 10;
         ruimte(h);
         y = doc.y;
         doc.moveTo(L, y).lineTo(L + W, y).strokeColor(KLEUR.lijn).lineWidth(0.5).stroke();
-        tekst(b.titel, { x: L, y: y + 5, breed: cB - 10 });
-        tekst(nl(b.vertoningen || 0), { x: L + cB, y: y + 5, breed: 70, uitlijn: 'right' });
-        tekst(nl(b.clicks || 0), { x: L + cB + 70, y: y + 5, breed: 80, uitlijn: 'right' });
+        rij.forEach((c, i) => tekst(c.zacht ? '-' : c.tekst, { x: xVan(i), y: y + 5, breed: breed(i), uitlijn: b.kolommen[i] && b.kolommen[i].num ? 'right' : 'left', vet: Boolean(c.goed), kleur: c.goed ? KLEUR.goed : KLEUR.tekst }));
         doc.y = y + h;
       });
-      const zonder = (r.blogs || []).length - metCijfers.length;
-      if (zonder > 0) { doc.moveDown(0.5); tekst(`${zonder} ${zonder === 1 ? 'blog had' : 'blogs hadden'} deze maand geen vertoningen of bezoekers.`, { maat: 8.5, kleur: KLEUR.zacht }); }
-    }
+      doc.moveDown(0.4);
+    };
 
-    // Zoekwoorden
-    const zwAlle = samenvoegZoekwoorden(r.blogs);
-    const zw = zwAlle.slice(0, ZOEKWOORDEN);
-    if (zw.length) {
-      kop(`Zoekwoorden in ${r.label}`, 'Waar mensen op zochten toen ze jullie blogs in Google zagen.');
-      const cQ = W - 210;
-      ruimte(24);
-      let zy = doc.y;
-      tekst('ZOEKWOORD', { vet: true, maat: 8, kleur: KLEUR.zacht, y: zy, breed: cQ });
-      tekst('GETOOND', { vet: true, maat: 8, kleur: KLEUR.zacht, x: L + cQ, y: zy, breed: 70, uitlijn: 'right' });
-      tekst('BEZOEKERS', { vet: true, maat: 8, kleur: KLEUR.zacht, x: L + cQ + 70, y: zy, breed: 70, uitlijn: 'right' });
-      tekst('POSITIE', { vet: true, maat: 8, kleur: KLEUR.zacht, x: L + cQ + 140, y: zy, breed: 70, uitlijn: 'right' });
-      doc.y = zy + 14;
-      zw.forEach((x) => {
-        const h = Math.max(hoogte(x.q, 10, cQ - 10), 12) + 10;
-        ruimte(h);
-        zy = doc.y;
-        doc.moveTo(L, zy).lineTo(L + W, zy).strokeColor(KLEUR.lijn).lineWidth(0.5).stroke();
-        tekst(x.q, { x: L, y: zy + 5, breed: cQ - 10 });
-        tekst(nl(x.i), { x: L + cQ, y: zy + 5, breed: 70, uitlijn: 'right' });
-        tekst(nl(x.c), { x: L + cQ + 70, y: zy + 5, breed: 70, uitlijn: 'right' });
-        tekst(x.p === null ? '-' : nl1(x.p), { x: L + cQ + 140, y: zy + 5, breed: 70, uitlijn: 'right', vet: x.p !== null && x.p <= 10, kleur: x.p !== null && x.p <= 10 ? KLEUR.goed : KLEUR.tekst });
-        doc.y = zy + h;
-      });
-      if (zwAlle.length > zw.length) { doc.moveDown(0.5); tekst(`De ${zw.length} zoekwoorden die het vaakst getoond werden, van ${zwAlle.length} in totaal.`, { maat: 8.5, kleur: KLEUR.zacht }); }
-    }
-
-    // AI zichtbaarheid
-    if (ai && ai.beschikbaar !== false) {
-      kop(`AI zichtbaarheid in ${r.label}`, 'Hoe vaak ChatGPT en Gemini jullie merk noemen bij vragen die jullie klanten stellen.');
-      if (!g || !g.nu) {
-        tekst('In deze maand is nog niet gemeten. We stellen elke week dezelfde vragen aan ChatGPT en Gemini.', { kleur: KLEUR.zacht });
-      } else {
-        let vergelijking = 'Er is nog geen vorige maand om mee te vergelijken.';
-        if (g.vorig) {
-          const d = g.nu.percentage - g.vorig.percentage;
-          vergelijking = d === 0 ? `Even hoog als de maand ervoor (${g.vorig.percentage}%).` : `${Math.abs(d)} procentpunt ${d > 0 ? 'hoger' : 'lager'} dan de maand ervoor (${g.vorig.percentage}%).`;
-        }
-        const klein = g.nu.antwoorden < 100 ? ' Het gaat om een beperkt aantal antwoorden, dus kleine verschillen zeggen nog weinig.' : '';
-        tekst(`AI noemde jullie merk in ${g.nu.percentage}% van de antwoorden. ${vergelijking}${klein}`, { vet: true, maat: 10.5, regel: 3 });
-        doc.moveDown(0.6);
-        const namen = {};
-        (ai.platformen || []).forEach((p) => { if (p && p.id) namen[p.id] = p.label || p.id; });
-        Object.keys(g.nu.per).forEach((id) => {
-          ruimte(30);
-          const x = g.nu.per[id];
-          const pct = x.antwoorden ? Math.round((x.genoemd / x.antwoorden) * 100) : 0;
-          const y = doc.y;
-          tekst(namen[id] || id, { vet: true, maat: 10, breed: 90 });
-          doc.roundedRect(L + 100, y + 3, W - 170, 7, 3.5).fill(KLEUR.vlak);
-          if (pct > 0) doc.roundedRect(L + 100, y + 3, Math.max(7, (W - 170) * Math.min(100, pct) / 100), 7, 3.5).fill(KLEUR.ai);
-          tekst(`${pct}%`, { vet: true, maat: 10, x: L + W - 60, y, breed: 60, uitlijn: 'right' });
-          tekst(`${x.genoemd} van ${x.antwoorden} antwoorden`, { maat: 8.5, kleur: KLEUR.zacht, x: L + 100, y: y + 14, breed: W - 170 });
-          doc.y = y + 30;
-        });
-        tekst(`${g.nu.weken} ${g.nu.weken === 1 ? 'meting' : 'metingen'} in ${r.label}, ${g.nu.antwoorden} antwoorden in totaal.`, { maat: 8.5, kleur: KLEUR.zacht });
-        const vragen = Array.isArray(ai.vragenMaand) ? ai.vragenMaand : null;
-        if (vragen && !vragen.length) {
-          doc.moveDown(0.5);
-          tekst(`In ${r.label} noemde AI jullie merk bij geen van de vragen.`, { kleur: KLEUR.zacht });
-        } else if (vragen) {
-          doc.moveDown(0.6);
-          ruimte(40);
-          tekst('Bij deze vragen noemde AI jullie merk', { vet: true, maat: 10.5, regel: 3 });
-          doc.moveDown(0.3);
-          vragen.slice(0, AI_VRAGEN_IN_PDF).forEach((v, i) => {
-            const sub = aiPlatformTelling(v);
-            ruimte(hoogte(v.vraag, 10, W - 18) + hoogte(sub, 8.5, W - 18) + 8);
+    const blok = (b) => {
+      switch (b.type) {
+        case 'p':
+          ruimte(hoogte(b.tekst, 10.5, W, b.vet) + 8); tekst(b.tekst, { maat: 10.5, regel: 3, vet: b.vet });
+          if (b.vervolg) tekst(b.vervolg, { maat: 10.5, regel: 3 });
+          doc.moveDown(0.5); break;
+        case 'zacht': ruimte(hoogte(b.tekst, 10, W) + 6); tekst(b.tekst, { kleur: KLEUR.zacht }); doc.moveDown(0.4); break;
+        case 'noot': ruimte(hoogte(b.tekst, 8.5, W) + 6); tekst(b.tekst, { maat: 8.5, kleur: KLEUR.zacht }); doc.moveDown(0.4); break;
+        case 'subkop': ruimte(40); doc.moveDown(0.4); tekst(b.tekst, { vet: true, maat: 11 }); doc.moveDown(0.3); break;
+        case 'lijst': b.items.forEach((x, i) => bolletje(`${x}${b.datums && b.datums[i] ? ` (${b.datums[i]})` : ''}`, b.genummerd ? i + 1 : 0)); doc.moveDown(0.3); break;
+        case 'cijfers': tegelRij(b.items); break;
+        case 'tabel': tabel(b); break;
+        case 'ai':
+          b.rijen.forEach((x) => {
+            ruimte(30);
+            const y = doc.y;
+            tekst(x.naam, { vet: true, maat: 10, breed: 90 });
+            doc.roundedRect(L + 100, y + 3, W - 170, 7, 3.5).fill(KLEUR.vlak);
+            if (x.pct > 0) doc.roundedRect(L + 100, y + 3, Math.max(7, (W - 170) * Math.min(100, x.pct) / 100), 7, 3.5).fill(KLEUR.ai);
+            tekst(`${x.pct}%`, { vet: true, maat: 10, x: L + W - 60, y, breed: 60, uitlijn: 'right' });
+            tekst(x.sub, { maat: 8.5, kleur: KLEUR.zacht, x: L + 100, y: y + 14, breed: W - 170 });
+            doc.y = y + 30;
+          });
+          break;
+        case 'vragen':
+          b.items.forEach((v, i) => {
+            ruimte(hoogte(v.vraag, 10, W - 18) + hoogte(v.sub, 8.5, W - 18) + 8);
             const y = doc.y;
             tekst(`${i + 1}.`, { maat: 10, kleur: KLEUR.zacht, x: L, y, breed: 16 });
             doc.y = y;
             tekst(v.vraag, { maat: 10, x: L + 18, breed: W - 18 });
-            tekst(sub, { maat: 8.5, kleur: KLEUR.zacht, x: L + 18, breed: W - 18 });
+            tekst(v.sub, { maat: 8.5, kleur: KLEUR.zacht, x: L + 18, breed: W - 18 });
             doc.moveDown(0.35);
           });
-          const rest = vragen.length - Math.min(vragen.length, AI_VRAGEN_IN_PDF);
-          tekst(rest > 0 ? `En bij ${rest} ${rest === 1 ? 'andere vraag' : 'andere vragen'}. Alle antwoorden staan in het tabblad AI zichtbaarheid van het portaal.` : 'De antwoorden zelf staan in het tabblad AI zichtbaarheid van het portaal.', { maat: 8.5, kleur: KLEUR.zacht });
-        }
+          break;
+        case 'punten':
+          b.items.forEach((i) => {
+            const regels = (i.regels || []).join(' ');
+            ruimte(hoogte(i.titel, 10, W, true) + hoogte(regels, 9.5, W) + 30);
+            if (i.meta) tekst(i.meta.replace(' · ', '  |  '), { maat: 8.5, kleur: KLEUR.zacht });
+            tekst(i.titel, { vet: true });
+            if (regels) tekst(regels, { maat: 9.5, kleur: KLEUR.zacht });
+            doc.moveDown(0.6);
+          });
+          break;
+        default: break;
       }
-    }
+    };
 
-    // Effecten
-    const items = (r.effecten && r.effecten.items) || [];
-    if (items.length) {
-      kop('Wat hebben we gedaan en wat was het effect', `Metingen die in ${r.label} zijn gedaan. Het zijn gemeten cijfers uit Google. Ze laten niet zien wat de oorzaak was.`);
-      items.forEach((i) => {
-        const regels = (i.regels || []).join(' ');
-        ruimte(hoogte(i.titel, 10, W, true) + hoogte(regels, 9.5, W) + 30);
-        tekst(`${i.soortLabel || ''}${i.datum ? `  |  ${datumLang(i.datum)}` : ''}`, { maat: 8.5, kleur: KLEUR.zacht });
-        tekst(i.titel, { vet: true });
-        if (regels) tekst(regels, { maat: 9.5 });
-        doc.moveDown(0.6);
-      });
-    }
-
-    // Vooruitblik
-    kop('Vooruitblik');
-    if (!r.vooruitblik || !r.vooruitblik.length) tekst('Nog geen onderbouwde kansen. Zodra Search Console genoeg data heeft, staat hier wat we gaan oppakken.', { kleur: KLEUR.zacht });
-    else r.vooruitblik.forEach((p) => {
-      ruimte(hoogte(p.titel, 10, W, true) + hoogte(p.tekst, 9.5, W) + 16);
-      tekst(p.titel, { vet: true });
-      tekst(p.tekst, { maat: 9.5, kleur: KLEUR.zacht });
-      doc.moveDown(0.6);
+    D.hoofdstukken(r, g).forEach((h, i) => {
+      if (i === 0) {
+        ruimte(60); doc.moveDown(0.9);
+        tekst(h.titel, { vet: true, maat: 13 });
+        doc.moveTo(L, doc.y + 4).lineTo(L + W, doc.y + 4).strokeColor(KLEUR.lijn).lineWidth(1).stroke();
+        doc.y += 12;
+      } else kop(h.titel, h.lead);
+      h.blokken.forEach(blok);
     });
 
     doc.moveDown(0.8);

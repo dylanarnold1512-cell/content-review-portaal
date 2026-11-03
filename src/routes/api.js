@@ -234,7 +234,8 @@ router.get('/:clientId/rapporten/:maand/pdf', requireLogin, async (req, res) => 
     const rapport = await rapportenService.getRapport(config.naam, req.params.maand);
     if (!rapport) return res.status(404).json({ error: 'Dit rapport bestaat niet.' });
     let ai = null;
-    if (settings.aiZichtbaarheid) {
+    // Met een vaste snapshot staan de AI cijfers al in het rapport. Alleen oude rapporten lezen de live AI data.
+    if (settings.aiZichtbaarheid && rapport.ai === undefined) {
       try { ai = { beschikbaar: true, ...(await aiZichtbaarheidService.getAiZichtbaarheid(config.naam, { clusterSoort: config.aiClusterSoort })) }; } catch (err) { ai = null; }
       if (ai) {
         try { ai.vragenMaand = (await aiZichtbaarheidService.getAiVragenMaand(config.naam, rapport.maand)).vragen; } catch (err) { ai.vragenMaand = null; }
