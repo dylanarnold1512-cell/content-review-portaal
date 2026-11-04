@@ -548,6 +548,8 @@ const STANDAARD_REGELS = [
   'Noem de ligging alleen onder een kop of in een FAQ vraag die daar zelf over gaat, bijvoorbeeld Waar vind ik de klant.',
   'Zet de ligging nooit aan het eind van een alinea over een ander onderwerp en nooit onder een kop die over iets anders gaat.',
   'Past er geen locatievraag in de blog, laat de ligging dan helemaal weg.',
+  'Een gewone zin die het werkgebied van de klant bij een dienst noemt, bijvoorbeeld reparaties aan cv ketels in Haarlem, telt niet als ligging. Hoe vaak het werkgebied in een blog mag staan, hangt af van de instellingen van de klant. Noem het werkgebied nooit in elke kop of elke alinea.',
+  'Noem de bedrijfsnaam van de klant in de FAQ gerust, ook als de lopende tekst de naam maar een keer noemt.',
   'Noem in blogs geen andere bedrijven, winkels, merken, organisaties, vakbladen of websites bij naam, behalve de klant zelf en de merken of partners die in dit kennisdocument staan. Schrijf zulke voorbeelden algemeen, bijvoorbeeld een modeboutique of een brancheorganisatie.',
   'Noem nooit een organisatie, onderzoek of publicatie als bron. Schrijf adviezen en algemene kennis zonder bron, bijvoorbeeld Bekijk bij een bezichtiging ook hoe diep de ruimte is, in plaats van Volgens een norm geldt dat.',
   'Cijfers, percentages en onderzoeksresultaten alleen als ze in dit kennisdocument staan. Staan ze er niet in, laat ze dan weg en schrijf een praktisch advies.'
