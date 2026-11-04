@@ -494,7 +494,7 @@ function pvTekenTaalRij() {
   if (weken) weken.style.display = pvState.taal ? 'none' : '';
 }
 
-const PV_ZIN_KANSEN = 'Advertisr beoordeelt of een blog kan worden aangevuld. Bestaande blogs worden niet automatisch aangepast.';
+const PV_ZIN_KANSEN = 'Advertisr beoordeelt zelf of een blog kan worden aangevuld en voegt dan een kleine toevoeging toe. Daarna meten wij het effect.';
 
 function pvKansenPerBlog(lijst) {
   const open = Boolean(pvState.insOpen.kansen);
@@ -511,7 +511,7 @@ function pvKansenPerBlog(lijst) {
       <div class="pv-groep-naam">${pvEsc(g.naam)}</div>
       ${g.items.map((k) => k.signaal ? `
         <div class="pv-kans">
-          <div class="pv-kans-tags"><span class="pv-tag">${pvEsc(k.soortLabel)}</span><span class="pv-tag pv-tag-${pvEsc(k.prioriteit)}">${pvEsc(PV_PRIO[k.prioriteit] || '')}</span></div>
+          <div class="pv-kans-tags"><span class="pv-tag">${pvEsc(k.soortLabel)}</span><span class="pv-tag pv-tag-${pvEsc(k.prioriteit)}">${pvEsc(PV_PRIO[k.prioriteit] || '')}</span>${k.aangevuldOp ? `<span class="pv-tag">Aangevuld op ${pvEsc(k.aangevuldOp)}</span>` : ''}</div>
           <div class="pv-ins-titel">${pvEsc(k.signaal)}</div>
           ${k.waarom ? `<div class="pv-ins-tekst">${pvEsc(k.waarom)}</div>` : ''}
           ${k.actie ? `<div class="pv-ins-actie">Wat wij doen: ${pvEsc(k.actie)}</div>` : ''}
