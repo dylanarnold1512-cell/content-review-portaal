@@ -174,3 +174,13 @@ test('talen nemen de zoekwoorden per taal mee', () => {
   assert.strictEqual(de.zoekwoorden[0].q, 'trockenblumen');
   assert.strictEqual(de.zoekwoorden[0].label, 'Pagina 1');
 });
+
+test('waarom-tekst bij verbeterkansen klopt met de positie', () => {
+  const basis = { overzicht: { periode_start: '2026-10-01', periode_eind: '2026-10-28', periode_type: '28d' }, blogs: [], weken: [], indexatie: [], conversies: [], effectRijen: [], verbeterRijen: [], periode: '28d' };
+  const kans = (positie) => ({ soort: 'verbeteren', prioriteit: 'hoog', zoekwoord: 'x', blog_titel: 'B', blog_pad: '/b', signaal: 's', waarom: 'Positie is net buiten pagina 1.', actie: 'Bestaande blogs worden niet automatisch aangepast.', positie });
+  const uit = (positie) => bouwPrestaties({ ...basis, kansenRijen: [kans(positie)] }, '2026-11-04').inzichten.kansen[0];
+  assert.match(uit(9).waarom, /onderaan pagina 1/);
+  assert.match(uit(14.2).waarom, /pagina 2/);
+  assert.match(uit(25.5).waarom, /pagina 3/);
+  assert.doesNotMatch(uit(25.5).actie, /niet automatisch/);
+});

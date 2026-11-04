@@ -447,7 +447,21 @@ function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies, kansen
       const k = normPad(v.blog_pad);
       if (k && (!aangevuld[k] || v.geplaatst_op > aangevuld[k])) aangevuld[k] = v.geplaatst_op;
     });
+    // De tekst uit de sync zegt altijd net buiten pagina 1 en dat Advertisr blogs niet automatisch aanpast. Dat klopt niet
+    // voor positie 21 tot 30 en niet meer sinds Verbeteren zelf aanvult, dus bij verbeterkansen maken we de tekst hier.
+    const verbeterTekst = (r) => {
+      const p = num(r.positie);
+      if (r.soort !== 'verbeteren' || p === null || p <= 0) return { waarom: r.waarom || '', actie: r.actie || '' };
+      const ps = nl1(p);
+      const waarom = p <= 10
+        ? `Positie ${ps} is onderaan pagina 1. Hogere posities in Google krijgen veel meer clicks.`
+        : p <= 20
+          ? `Positie ${ps} is op pagina 2. Zoekwoorden op pagina 1 krijgen veel meer clicks dan op pagina 2.`
+          : `Positie ${ps} is op pagina 3. Zoekwoorden op pagina 1 krijgen veel meer clicks dan op latere pagina's.`;
+      return { waarom, actie: 'Advertisr beoordeelt zelf of deze blog kan worden aangevuld en voegt dan een kleine toevoeging toe. Daarna meten wij het effect.' };
+    };
     for (const r of gesorteerd) {
+      const tekstKans = verbeterTekst(r);
       const geplaatst = r.soort === 'verbeteren' ? aangevuld[normPad(r.blog_pad)] : '';
       kansen.push({
         aangevuldOp: geplaatst ? datumKort(String(geplaatst).slice(0, 10)) : '',
@@ -457,8 +471,8 @@ function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies, kansen
         zoekwoord: r.zoekwoord || '',
         blogTitel: r.blog_titel || '',
         signaal: r.signaal || '',
-        waarom: r.waarom || '',
-        actie: r.actie || '',
+        waarom: tekstKans.waarom,
+        actie: tekstKans.actie,
         onderbouwing: r.onderbouwing || '',
         titel: r.signaal || '',
         tekst: ''
