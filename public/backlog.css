@@ -19,3 +19,9 @@
 .bl-detail p { margin: 0 0 8px; overflow-wrap: anywhere; }
 .bl-bron, .bl-leeg { color: var(--muted, #6b7280); }
 .bl-link { font-size: 13px; }
+.bl-info { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--line, #dfe2ea); background: var(--surface, #fff); color: inherit; font: inherit; font-weight: 700; font-style: italic; cursor: pointer; }
+.bl-info[aria-expanded="true"] { background: var(--bg, #f4f5fa); }
+.bl-uitleg { background: var(--surface, #fff); border: 1px solid var(--line, #dfe2ea); border-radius: 10px; padding: 12px 16px; margin: 12px 0; font-size: 13px; line-height: 1.55; }
+.bl-uitleg p { margin: 0 0 8px; }
+.bl-uitleg p:last-child { margin-bottom: 0; }
+.bl-uitleg.hidden { display: none; }
