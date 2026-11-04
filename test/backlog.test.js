@@ -12,6 +12,7 @@ const page = (titel, status, prioriteit, extra = {}) => ({
     Type: { select: { name: 'Bouwen' } },
     Onderdeel: { select: { name: extra.onderdeel || 'Portaal' } },
     Klant: { select: { name: extra.klant || 'Alle klanten' } },
+    Uitleg: { rich_text: [{ plain_text: extra.uitleg || '' }] },
     Notitie: { rich_text: [{ plain_text: extra.notitie || '' }] },
     Bron: { rich_text: [] }
   }
@@ -53,4 +54,14 @@ test('een onbekende status of prioriteit wordt geweigerd', async () => {
   await assert.rejects(() => s.zet('x', { status: 'Verzonnen' }), /Onbekende status/);
   await assert.rejects(() => s.zet('x', { prioriteit: 'Gisteren' }), /Onbekende prioriteit/);
   await assert.rejects(() => s.zet('x', {}), /Niets om aan te passen/);
+});
+
+test('de uitleg komt mee en de tegels tellen alleen punten die nog niet klaar zijn', () => {
+  const rijen = [
+    page('a', 'Wacht op Dylan', 'Nu', { uitleg: 'Uitleg in gewone taal' }),
+    page('b', 'Open', 'Nu'), page('c', 'Open', 'Binnenkort'), page('d', 'Open', null), page('e', 'Klaar', 'Nu')
+  ].map(s.normaliseerRij);
+  assert.equal(rijen[0].uitleg, 'Uitleg in gewone taal');
+  assert.deepEqual(m.telTegels(rijen), { wacht: 1, nu: 2, binnenkort: 1, later: 1, totaal: 4 });
+  assert.deepEqual(m.filterPunten(rijen, { zoek: 'gewone taal' }).map((r) => r.titel), ['a']);
 });
