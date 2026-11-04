@@ -35,6 +35,7 @@ function normaliseerRij(page) {
     type: sel('Type'),
     onderdeel: sel('Onderdeel'),
     klant: sel('Klant'),
+    uitleg: tekst(p.Uitleg && p.Uitleg.rich_text),
     notitie: tekst(p.Notitie && p.Notitie.rich_text),
     bron: tekst(p.Bron && p.Bron.rich_text),
     aangemaakt: page.created_time || '',
