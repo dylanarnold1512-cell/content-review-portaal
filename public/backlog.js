@@ -42,7 +42,15 @@
 
   const e = (t) => escapeHtmlAdmin(String(t === undefined || t === null ? '' : t));
   const PILL = { Open: 'p-pil-neutraal', Bezig: 'p-pil-let-op', 'Wacht op Dylan': 'p-pil-fout', Klaar: 'p-pil-goed' };
-  const staat = { punten: null, statussen: [], prioriteiten: [], filter: { zoek: '', toonKlaar: false }, melding: '', open: {} };
+  const staat = { punten: null, statussen: [], prioriteiten: [], filter: { zoek: '', toonKlaar: false }, melding: '', open: {}, uitleg: false };
+
+  const UITLEG = `
+    <p><b>Wat staat hier?</b> Alles wat nog gedaan, gebouwd, opgelost of besloten moet worden voor Blogr. en Pagr. Dus de ontwikkeling van het portaal, de admin, Pagr. en n8n, fouten en besluiten. Het werk om een nieuwe klant te onboarden staat hier niet. Dat staat per klant onder Onboarding.</p>
+    <p><b>Status.</b> Open: nog niet begonnen. Bezig: er wordt aan gewerkt. Wacht op Dylan: er is een actie of besluit van jou nodig, zoals credentials koppelen, publiceren, mergen of kiezen. Klaar: afgerond.</p>
+    <p><b>Prioriteit.</b> Nu: eerst doen, blokkeert iets of is urgent. Binnenkort: staat gepland voor de komende tijd. Later: goed idee, maar nog geen haast.</p>
+    <p><b>Type.</b> Bouwen: iets nieuws. Bug: iets werkt niet goed. Opruimen: iets netjes maken of weghalen. Besluit nodig: er moet eerst een keuze worden gemaakt. Klantwerk: een klantspecifieke actie die geen onboardingstap is.</p>
+    <p><b>Onderdeel en klant.</b> Waar het over gaat (portaal, admin, Pagr., n8n, CMS, meting) en voor welke klant. Alle klanten betekent dat het voor het hele systeem geldt.</p>
+    <p><b>Afronden.</b> Zet je een punt op Klaar, dan vraag ik eerst of het echt af is. Daarna verdwijnt het uit de lijst. Met Toon afgeronde zie je het weer. In Notion blijft het bewaard.</p>`;
 
   function opties(lijst, gekozen, leeg) {
     return `<option value="">${e(leeg)}</option>` + lijst.map((w) => `<option value="${e(w)}" ${w === gekozen ? 'selected' : ''}>${e(w)}</option>`).join('');
@@ -89,7 +97,8 @@
     const teller = document.getElementById('backlogTeller');
     if (teller) { teller.textContent = wacht; teller.classList.toggle('hidden', !wacht); }
     root.innerHTML = `<div class="p-pagina">
-      <div class="p-ov-kop"><div><h1>Backlog</h1><p>Alles wat open staat voor Blogr. en Pagr.: klantwerk, ontwikkeling van het portaal en besluiten. Dezelfde lijst als in Notion.</p></div></div>
+      <div class="p-ov-kop"><div><h1>Backlog</h1><p>Alles wat open staat voor Blogr. en Pagr.: ontwikkeling, fouten en besluiten. Dezelfde lijst als in Notion.</p></div><div class="p-ov-kop-acties"><button type="button" class="bl-info" id="blInfo" aria-expanded="${staat.uitleg ? 'true' : 'false'}" aria-controls="blUitleg" title="Uitleg over het backlog">i</button></div></div>
+      <div class="bl-uitleg ${staat.uitleg ? '' : 'hidden'}" id="blUitleg">${UITLEG}</div>
       ${staat.melding ? `<div class="admin-error">${e(staat.melding)}</div>` : ''}
       ${filterHtml()}
       <p class="bl-aantal">${gefilterd.length} van ${staat.punten.length} punten${wacht ? `, ${wacht} wachten op jou` : ''}</p>
@@ -108,12 +117,17 @@
       nieuw.focus();
       nieuw.setSelectionRange(nieuw.value.length, nieuw.value.length);
     });
+    root.querySelector('#blInfo').addEventListener('click', () => { staat.uitleg = !staat.uitleg; teken(); });
     root.querySelector('#blKlaar').addEventListener('change', (ev) => { staat.filter.toonKlaar = ev.target.checked; teken(); });
     root.querySelectorAll('[data-open]').forEach((b) => b.addEventListener('click', () => { staat.open[b.dataset.open] = !staat.open[b.dataset.open]; teken(); }));
     root.querySelectorAll('[data-zet]').forEach((s) => s.addEventListener('change', async () => {
       const punt = staat.punten.find((p) => p.id === s.dataset.id);
       const veld = s.dataset.zet;
       const oud = punt[veld];
+      if (veld === 'status' && s.value === 'Klaar' && !window.confirm(`Echt afgerond?\n\n"${punt.titel}"\n\nIs het gebouwd, getest en werkt het? Zo ja, dan verdwijnt het uit de lijst.`)) {
+        s.value = oud;
+        return;
+      }
       s.disabled = true;
       try {
         await adminApi('/backlog/' + encodeURIComponent(punt.id), { method: 'POST', body: JSON.stringify({ [veld]: s.value }) });
