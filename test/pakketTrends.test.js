@@ -67,3 +67,13 @@ test('aanvraagBody geeft het Google Ads ID mee voor AI Talents', () => {
   assert.deepEqual(aanvraagBody('AI Talents', 2026, 10), { klant: 'AI Talents', jaar: 2026, maand: 10, googleAdsId: '6041619446' });
   assert.deepEqual(aanvraagBody('SPAWW', 2026, 10, { geoIds: ['a'] }), { klant: 'SPAWW', jaar: 2026, maand: 10, geoIds: ['a'] });
 });
+
+test('rapportcijfers: website en Google Ads in een tabel worden apart gelezen', async () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const buffer = fs.readFileSync(path.join(__dirname, 'fixtures', 'rapport-een-tabel.docx'));
+  const c = await require('../src/services/pakket').leesRapportCijfers(buffer, 10);
+  assert.equal(c.googleAds.conversies, 10);
+  assert.equal(c.googleAds.klikken, 163);
+  assert.equal(c.website.conversies, 13);
+});
