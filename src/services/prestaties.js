@@ -9,6 +9,7 @@
 // dus niets verzonnen: elke zin is terug te voeren op een getal in de tabel.
 
 const { bouwEffecten } = require('./effecten');
+const { laadFaqItems } = require('./faqEffecten');
 
 const N8N_BASE_URL = (process.env.N8N_BASE_URL || 'https://n8n.advertisr.nl').replace(/\/+$/, '');
 const TABLES = {
@@ -91,7 +92,7 @@ function perKlant(klantNaam) {
 // het portaal dan gewoon de oude weergave kan tonen.
 async function getPrestatiesData(klantNaam, periodeKeuze) {
   const periode = kiesPeriode(periodeKeuze);
-  const [overzichtAlle, blogsAlle, weken, indexatie, conversiesAlle, kansenRijen, effectRijen, verbeterRijen, totalenAlle, cpcRijen, merkAlle] = await Promise.all([
+  const [overzichtAlle, blogsAlle, weken, indexatie, conversiesAlle, kansenRijen, effectRijen, verbeterRijen, totalenAlle, cpcRijen, merkAlle, faqItems] = await Promise.all([
     n8nRows(TABLES.overzicht, perKlant(klantNaam), 20),
     n8nRows(TABLES.blogs, perKlant(klantNaam), 250),
     n8nRows(TABLES.weken, perKlant(klantNaam), 60),
@@ -106,7 +107,8 @@ async function getPrestatiesData(klantNaam, periodeKeuze) {
     // Extra metingen (30-10-2026). Ontbreken ze, dan verschijnen de tegels niet.
     n8nRows(TABLES.conversieTotalen, perKlant(klantNaam), 20).catch(() => []),
     n8nRows(TABLES.paginaCpc, perKlant(klantNaam), 250).catch(() => []),
-    n8nRows(TABLES.merk, perKlant(klantNaam), 20).catch(() => [])
+    n8nRows(TABLES.merk, perKlant(klantNaam), 20).catch(() => []),
+    laadFaqItems(klantNaam)
   ]);
   const overzichtRijen = rijenVanPeriode(overzichtAlle, periode);
   if (!overzichtRijen.length) return null;
@@ -115,7 +117,7 @@ async function getPrestatiesData(klantNaam, periodeKeuze) {
   const conversies = rijenVanPeriode(conversiesAlle, periode);
   const conversieTotaal = (totalenAlle || []).find((r) => r.periode_type === periode) || null;
   const merk = (merkAlle || []).find((r) => r.periode_type === periode) || null;
-  return { overzicht: overzichtRijen[0], blogs, weken, indexatie, conversies, kansenRijen, effectRijen, verbeterRijen, conversieTotaal, cpcRijen, merk, periode };
+  return { overzicht: overzichtRijen[0], blogs, weken, indexatie, conversies, kansenRijen, effectRijen, verbeterRijen, conversieTotaal, cpcRijen, merk, periode, faqItems };
 }
 
 const num = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
@@ -209,7 +211,7 @@ function cpcKaart(rijen) {
   return kaart;
 }
 
-function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies, kansenRijen, effectRijen, verbeterRijen, conversieTotaal, cpcRijen, merk, periode: periodeKeuze, klantNaam }, vandaagIso) {
+function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies, kansenRijen, effectRijen, verbeterRijen, conversieTotaal, cpcRijen, merk, periode: periodeKeuze, klantNaam, faqItems }, vandaagIso) {
   const periodeType = kiesPeriode(periodeKeuze);
   const vandaag = vandaagIso || new Date().toISOString().slice(0, 10);
   const o = overzicht || {};
@@ -569,7 +571,7 @@ function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies, kansen
     totalen,
     inzichten: { goed: cap(goed), kansen, aandacht: aandachtBlok.concat(aandacht) },
     weken: wekenUit,
-    effecten: bouwEffecten(effectRijen, verbeterRijen),
+    effecten: bouwEffecten(effectRijen, verbeterRijen, undefined, faqItems),
     blogs: blogRijen
   };
 }
