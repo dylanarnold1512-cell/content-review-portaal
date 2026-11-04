@@ -1,0 +1,21 @@
+/* Ontwikkeling > Backlog */
+.bl-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin: 16px 0 8px; }
+.bl-filter { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted, #6b7280); min-width: 0; }
+.bl-filter select, .bl-filter input[type="search"] { font: inherit; font-size: 13px; padding: 7px 10px; border: 1px solid var(--line, #dfe2ea); border-radius: 8px; background: var(--surface, #fff); color: inherit; max-width: 100%; }
+.bl-zoek { flex: 1 1 220px; }
+.bl-zoek input { width: 100%; }
+.bl-klaar { flex-direction: row; align-items: center; gap: 6px; padding-bottom: 8px; }
+.bl-aantal { font-size: 13px; color: var(--muted, #6b7280); margin: 4px 0 8px; }
+.bl-n { font-weight: 400; color: var(--muted, #6b7280); margin-left: 6px; }
+.bl-punt { background: var(--surface, #fff); border: 1px solid var(--line, #dfe2ea); border-radius: 10px; padding: 12px 14px; margin: 8px 0; }
+.bl-klaar-punt { opacity: .65; }
+.bl-kop { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: flex-start; }
+.bl-titel { flex: 1 1 320px; min-width: 0; text-align: left; background: none; border: 0; padding: 0; font: inherit; font-weight: 600; color: inherit; cursor: pointer; overflow-wrap: anywhere; }
+.bl-acties { display: flex; gap: 8px; flex-wrap: wrap; }
+.bl-acties select { font: inherit; font-size: 12px; padding: 5px 8px; border-radius: 999px; border: 1px solid var(--line, #dfe2ea); background: var(--surface, #fff); color: inherit; }
+.bl-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.bl-tag { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--bg, #f4f5fa); color: var(--muted, #6b7280); }
+.bl-detail { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line, #dfe2ea); font-size: 13px; line-height: 1.5; }
+.bl-detail p { margin: 0 0 8px; overflow-wrap: anywhere; }
+.bl-bron, .bl-leeg { color: var(--muted, #6b7280); }
+.bl-link { font-size: 13px; }

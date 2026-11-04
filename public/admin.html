@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="/styles.css">
 <link rel="stylesheet" href="/portaal.css">
 <link rel="stylesheet" href="/admin.css">
+<link rel="stylesheet" href="/backlog.css">
 <style>.ad-pagr-frame{display:block;width:100%;height:calc(100vh - 8px);border:0;background:transparent;color-scheme:light}</style>
 </head>
 <body>
@@ -58,6 +59,10 @@
         <button type="button" class="p-nav-item" data-view="rapportstart"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>Rapportages</button>
       </div>
       <div class="p-nav-groep">
+        <div class="p-nav-label">Ontwikkeling</div>
+        <button type="button" class="p-nav-item" data-view="backlog"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>Backlog<span class="p-teller hidden" id="backlogTeller" aria-label="Wacht op jou"></span></button>
+      </div>
+      <div class="p-nav-groep">
         <div class="p-nav-label">Beoordelen</div>
         <button type="button" class="p-nav-item" data-view="ideeen"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>Ideeën<span class="p-teller hidden" id="ideeenTeller" aria-label="Ideeën ter beoordeling"></span></button>
         <button type="button" class="p-nav-item" data-view="faq"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/></svg>FAQ's<span class="p-teller hidden" id="faqTeller" aria-label="FAQ aanpassingen die niet gelukt zijn"></span></button>
@@ -87,6 +92,7 @@
     </div>
 
     <div id="viewRapportstart" class="tab-panel hidden"></div>
+    <div id="viewBacklog" class="tab-panel hidden"></div>
 
     <div id="viewIdeeen" class="tab-panel hidden">
       <div class="p-pagina">
@@ -273,5 +279,6 @@
 <script src="/admin.js"></script>
 <script src="/cockpit.js"></script>
 <script src="/rapport-start.js"></script>
+<script src="/backlog.js"></script>
 </body>
 </html>

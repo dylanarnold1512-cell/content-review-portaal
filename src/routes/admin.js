@@ -8,6 +8,7 @@ const workflowGegevens = require('../services/workflowGegevens');
 const notionService = require('../services/notion');
 const intakeService = require('../services/intake');
 const onboardingService = require('../services/onboarding');
+const backlogService = require('../services/backlog');
 const lpKlantgegevens = require('../lp/klantgegevens');
 const aiZichtbaarheidService = require('../services/aiZichtbaarheid');
 const cockpitService = require('../services/cockpit');
@@ -517,6 +518,25 @@ router.post('/onboarding/stap/:pageId', requireAdmin, async (req, res) => {
   try {
     const { status, uitkomst } = req.body || {};
     await onboardingService.zetStap(req.params.pageId, { status, uitkomst });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Backlog van Blogr. en Pagr. (Notion database "Backlog").
+router.get('/backlog', requireAdmin, async (req, res) => {
+  try {
+    res.json({ punten: await backlogService.lijst(), statussen: backlogService.STATUSSEN, prioriteiten: backlogService.PRIORITEITEN });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/backlog/:pageId', requireAdmin, async (req, res) => {
+  try {
+    const { status, prioriteit } = req.body || {};
+    await backlogService.zet(req.params.pageId, { status, prioriteit });
     res.json({ ok: true });
   } catch (err) {
     res.status(400).json({ error: err.message });
