@@ -246,18 +246,22 @@ async function listIdeaProposals(clientId) {
 }
 
 // decision: 'approve' zet 'm op Gepland (loopt gewoon de bestaande planning
-// in), 'reject' zet 'm op Afgewezen.
+// in), 'reject' zet 'm op Afgewezen. Geeft het bijgewerkte item terug en of de
+// status echt veranderde (dubbel klikken verandert niets).
 async function decideIdeaProposal(clientId, pageId, decision) {
   const config = getClient(clientId);
   const notion = getNotionClient(clientId);
   const statusValue = decision === 'approve' ? config.statusValues.planned : config.statusValues.rejected;
   if (!statusValue) throw new Error(`Geen statuswaarde geconfigureerd voor "${decision}" bij klant "${clientId}".`);
-  await notion.pages.update({
+  const voor = await notion.pages.retrieve({ page_id: pageId });
+  const vorigeStatus = readProperty(voor, config.fields.status);
+  const page = await notion.pages.update({
     page_id: pageId,
     properties: {
       [config.fields.status]: { select: { name: statusValue } }
     }
   });
+  return { item: summarizePage(page, config.fields), veranderd: vorigeStatus !== statusValue };
 }
 
 // Leest de dagelijkse aggregate prestatie-log (vaste kolomnamen, niet per klant

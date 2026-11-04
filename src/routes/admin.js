@@ -16,6 +16,7 @@ const rapportStart = require('../services/rapportStart');
 const pakket = require('../services/pakket');
 const mailPakket = require('../services/mailPakket');
 const aiFaq = require('../services/aiFaq');
+const ideeMelding = require('../services/ideeMelding');
 const { checkAdminPassword, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
@@ -218,7 +219,10 @@ router.get('/:clientId/idea-proposals', requireAdmin, async (req, res) => {
 
 router.post('/:clientId/idea-proposals/:pageId/approve', requireAdmin, async (req, res) => {
   try {
-    await notionService.decideIdeaProposal(req.params.clientId, req.params.pageId, 'approve');
+    const { item, veranderd } = await notionService.decideIdeaProposal(req.params.clientId, req.params.pageId, 'approve');
+    // Alleen bij een echte goedkeuring krijgt de klant een melding, niet bij afwijzen of dubbel klikken.
+    // We wachten niet op de mail: lukt die niet, dan blijft het goedkeuren gewoon gelden.
+    if (veranderd) ideeMelding.stuurIdeeIngepland(getClient(req.params.clientId), req.params.clientId, item).catch(() => {});
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
