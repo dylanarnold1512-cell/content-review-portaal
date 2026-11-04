@@ -141,6 +141,7 @@ function pvHoofdstukken(d) {
 
   // 4. Contact. Nooit een kale nul: bij nul staat er Nog geen en dat de meting loopt.
   const contact = [];
+  const doorklikMeting = Boolean(t.conversies && t.conversies.heeftDoorklik);
   if (t.conversies) {
     const c = t.conversies;
     const w = c.woorden || { lead: ['aanvraag', 'aanvragen'], boeking: ['boeking', 'boekingen'], boekLabel: 'boeken' };
@@ -153,7 +154,7 @@ function pvHoofdstukken(d) {
     const kort = doelen.length ? doelen : ['contact'];
     const aantal = c.heeftDoorklik ? c.doorkliks : (c.leads || 0) + (c.boekingen || 0);
     const nogGeen = [c.heeftLeads || !c.heeftBoekingen ? w.lead[0] : null, c.heeftBoekingen ? w.boeking[0] : null].filter(Boolean).join(' of ');
-    contact.push(V.stat({ label: `Direct van blog naar ${kort.join(' of ')}`, info: PV_INFO.doorklik, leeg: !aantal, waarde: F.getal(aantal || 0), tel: aantal, tekst: F.doorklikTekst(aantal, c.heeftDoorklik, delen, nogGeen) }));
+    contact.push(V.stat({ label: `${c.heeftDoorklik ? 'Doorgeklikt' : 'Direct'} van blog naar ${kort.join(' of ')}`, info: PV_INFO.doorklik, leeg: !aantal, waarde: F.getal(aantal || 0), tel: aantal, tekst: F.doorklikTekst(aantal, c.heeftDoorklik, delen, nogGeen) }));
   }
   if (t.eerderGelezen) {
     const e = t.eerderGelezen;
@@ -172,7 +173,7 @@ function pvHoofdstukken(d) {
     lijst.push({
       titel: 'Ze nemen contact op',
       lead: 'Een blog levert zelden direct een aanvraag op. Mensen lezen eerst, vergelijken en nemen later contact op. Daarom meten we twee dingen.',
-      inhoud: V.raster(contact.join(''), contact.length > 1 ? '2' : 'auto') + V.uitleg({ titel: 'Zo meten we wat het oplevert', inhoud: '<dl><dt>Direct van blog naar contact</dt><dd>Bezoeken die op een blog begonnen en in dezelfde sessie een aanvraag of boeking deden.</dd><dt>Na het lezen van een blog</dt><dd>Iemand las een blog en nam later contact op, ook via een andere weg. Wij onthouden welke blogs iemand las en tellen die mee zodra die persoon contact opneemt.</dd></dl><p>Staat er Nog geen, dan loopt de meting wel. Er is dan in deze periode nog niets gebeurd. Dat is geen fout. Cijfers uit Google lopen 2 tot 3 dagen achter. Wat per maand vastligt, staat bij Maandrapporten.</p>' })
+      inhoud: V.raster(contact.join(''), contact.length > 1 ? '2' : 'auto') + V.uitleg({ titel: 'Zo meten we wat het oplevert', inhoud: '<dl><dt>' + (doorklikMeting ? 'Doorgeklikt van blog naar contact' : 'Direct van blog naar contact') + '</dt><dd>' + (doorklikMeting ? 'Bezoeken die op een blog begonnen en in dezelfde sessie doorklikten naar contact of boeken. Een doorklik is nog geen ingevulde aanvraag of boeking.' : 'Bezoeken die op een blog begonnen en in dezelfde sessie een aanvraag of boeking deden.') + '</dd><dt>Na het lezen van een blog</dt><dd>Iemand las een blog en nam later contact op, ook via een andere weg. Wij onthouden welke blogs iemand las en tellen die mee zodra die persoon contact opneemt.</dd></dl><p>Staat er Nog geen, dan loopt de meting wel. Er is dan in deze periode nog niets gebeurd. Dat is geen fout. Cijfers uit Google lopen 2 tot 3 dagen achter. Wat per maand vastligt, staat bij Maandrapporten.</p>' })
     });
   }
 
