@@ -438,8 +438,17 @@ function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies, kansen
         ((rang[a.prioriteit] ?? 3) - (rang[b.prioriteit] ?? 3)) ||
         ((num(b.vertoningen) || 0) - (num(a.vertoningen) || 0))
     );
+    const normPad = (x) => String(x || '').trim().toLowerCase().replace(/^https?:\/\/[^/]+/, '').split('?')[0].replace(/\/+$/, '');
+    const aangevuld = {};
+    (verbeterRijen || []).forEach((v) => {
+      if (!v || (v.status !== 'geplaatst' && v.status !== 'gedeeltelijk') || !v.geplaatst_op) return;
+      const k = normPad(v.blog_pad);
+      if (k && (!aangevuld[k] || v.geplaatst_op > aangevuld[k])) aangevuld[k] = v.geplaatst_op;
+    });
     for (const r of gesorteerd) {
+      const geplaatst = r.soort === 'verbeteren' ? aangevuld[normPad(r.blog_pad)] : '';
       kansen.push({
+        aangevuldOp: geplaatst ? datumKort(String(geplaatst).slice(0, 10)) : '',
         soort: r.soort,
         soortLabel: r.soort === 'verbeteren' ? 'Bestaande blog verbeteren' : 'Nieuw onderwerp',
         prioriteit: r.prioriteit || 'laag',
@@ -458,7 +467,7 @@ function bouwPrestaties({ overzicht, blogs, weken, indexatie, conversies, kansen
       kansen.push({
         titel: `"${k.z.q}" staat op positie ${nl1(k.z.p)}`,
         tekst: `${nl(k.z.i)} vertoningen in de blog "${k.blog.titel}". Dit zoekwoord staat vlak achter pagina 1.`,
-        actie: 'Advertisr beoordeelt of deze blog kan worden aangevuld. Bestaande blogs worden niet automatisch aangepast.'
+        actie: 'Advertisr beoordeelt of deze blog kan worden aangevuld en voegt zo nodig zelf tekst toe.'
       });
     }
   }
