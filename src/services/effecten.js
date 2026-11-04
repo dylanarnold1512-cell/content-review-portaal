@@ -136,11 +136,11 @@ function linkItem(rij, maand) {
   };
 }
 
-function bouwEffecten(effRijen, verbRijen, maand) {
+function bouwEffecten(effRijen, verbRijen, maand, extraItems) {
   const blogs = (effRijen || []).filter((r) => r && r.soort === 'nieuwe_blog');
   const verbeteringen = (verbRijen || []).filter((r) => r && (r.status === 'geplaatst' || r.status === 'gedeeltelijk'));
   const links = (effRijen || []).filter((r) => r && r.soort === 'interne_link');
-  let items = blogs.map((r) => blogItem(r, maand)).concat(verbeteringen.map((r) => verbeterItem(r, maand)), links.map((r) => linkItem(r, maand)));
+  let items = blogs.map((r) => blogItem(r, maand)).concat(verbeteringen.map((r) => verbeterItem(r, maand)), links.map((r) => linkItem(r, maand)), Array.isArray(extraItems) ? extraItems : []);
   // In een maandrapport staan alleen metingen die in die maand zijn gedaan.
   if (maand) items = items.filter((i) => i.gemetenNa);
   // Eerst wat al gemeten is, daarbinnen nieuwste eerst. Nog niet gemeten onderaan.

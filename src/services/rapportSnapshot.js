@@ -6,6 +6,7 @@
 const prestaties = require('./prestaties');
 const ai = require('./aiZichtbaarheid');
 const { bouwEffecten } = require('./effecten');
+const { laadFaqItems } = require('./faqEffecten');
 
 const N8N_BASE_URL = (process.env.N8N_BASE_URL || 'https://n8n.advertisr.nl').replace(/\/+$/, '');
 const SNAPSHOT_VERSIE = 1;
@@ -182,7 +183,7 @@ function bouwGedaan(effectRijen, verbeterRijen, faqRijen, maand) {
   };
 }
 
-function maakSnapshot({ maand, klantNaam, aiAan, prestatieData, samenvatting, prompts, metingen, conversieRijen, effectRijen, verbeterRijen, faqRijen }, nu) {
+function maakSnapshot({ maand, klantNaam, aiAan, prestatieData, samenvatting, prompts, metingen, conversieRijen, effectRijen, verbeterRijen, faqRijen, faqItems }, nu) {
   return {
     versie: SNAPSHOT_VERSIE,
     vastgelegd: nu || new Date().toISOString(),
@@ -190,7 +191,7 @@ function maakSnapshot({ maand, klantNaam, aiAan, prestatieData, samenvatting, pr
     opbrengst: bouwOpbrengst(conversieRijen, maand, klantNaam),
     ai: aiAan ? bouwAiMaand(samenvatting, prompts, metingen, maand) : null,
     gedaan: bouwGedaan(effectRijen, verbeterRijen, faqRijen, maand),
-    effecten: bouwEffecten(effectRijen, verbeterRijen, maand)
+    effecten: bouwEffecten(effectRijen, verbeterRijen, maand, faqItems)
   };
 }
 
@@ -216,7 +217,8 @@ async function bouwSnapshot(klantNaam, maand, { aiAan } = {}) {
     tabel(TABELLEN.verbeteringen, opKlant).catch(leeg),
     tabel(TABELLEN.aiFaq, opKlantAi).catch(leeg)
   ]);
-  return maakSnapshot({ maand, klantNaam, aiAan: Boolean(aiAan), prestatieData, samenvatting, prompts, metingen, conversieRijen, effectRijen, verbeterRijen, faqRijen });
+  const faqItems = aiAan ? await laadFaqItems(klantNaam, { maand, faqRijen }) : [];
+  return maakSnapshot({ maand, klantNaam, aiAan: Boolean(aiAan), prestatieData, samenvatting, prompts, metingen, conversieRijen, effectRijen, verbeterRijen, faqRijen, faqItems });
 }
 
 module.exports = { bouwSnapshot, maakSnapshot, bouwAiMaand, bouwOpbrengst, bouwGoogle, bouwGedaan, wekenVanReeks, vorigeMaand, SNAPSHOT_VERSIE, N8N_BASE_URL };
