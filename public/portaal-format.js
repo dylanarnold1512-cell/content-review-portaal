@@ -110,7 +110,20 @@
     return ['zo', 'ma', 'di', 'wo', 'do', 'vr', 'za'][dag];
   }
 
-  const api = { getal, decimaal, positie, procent, verschil, datumKort, datumMetJaar, datumLang, maand, dagNaam };
+  // Tekst onder de tegel "Direct van blog naar contact". Het getal in de tegel telt doorklikken naar contact of boeken
+  // als de site die meet, anders aanvragen en boekingen. De tekst moet bij dat getal passen. delen: de aanvragen en
+  // boekingen in dezelfde bezoeken, al als tekst. nogGeen: wat er ontbreekt als het getal 0 is.
+  function doorklikTekst(aantal, heeftDoorklik, delen, nogGeen) {
+    const lijst = Array.isArray(delen) ? delen.filter(Boolean) : [];
+    if (heeftDoorklik && aantal > 0) {
+      const basis = 'Doorklikken naar contact of boeken in bezoeken die op een blog begonnen';
+      return lijst.length ? basis + '. In dezelfde bezoeken: ' + lijst.join(', ') : basis + '. Een doorklik is nog geen ingevulde aanvraag of boeking';
+    }
+    if (lijst.length) return lijst.join(', ') + ' in bezoeken die op een blog begonnen';
+    return 'Nog geen ' + nogGeen + ' vanuit een blog begonnen bezoek. Zodra het gebeurt, zie je het hier.';
+  }
+
+  const api = { doorklikTekst, getal, decimaal, positie, procent, verschil, datumKort, datumMetJaar, datumLang, maand, dagNaam };
   if (typeof window !== 'undefined') window.PortaalFormat = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
