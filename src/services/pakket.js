@@ -577,13 +577,24 @@ async function leesRapportCijfers(buffer, maand) {
   const res = {};
   blokken.forEach((b) => {
     if (b.startsWith('<table')) {
+      // Eén tabel kan meerdere kanalen bevatten, met per kanaal een titelrij (één gevulde cel, bijvoorbeeld "Google Ads").
+      // Daarom knippen we de tabel in stukken bij elke titelrij.
       const rijen = tabelNaarRijen(b);
-      const eerste = (rijen[0] && rijen[0][0]) || '';
-      const k = KANALEN.find(([, re]) => re.test(eerste));
-      const naam = k ? k[0] : kanaal;
-      if (!naam || res[naam]) return;
-      const c = cijfersUitTabel(rijen, MAANDEN[maand - 1]);
-      if (Object.keys(c).length) res[naam] = c;
+      const stukken = [];
+      rijen.forEach((r) => {
+        const gevuld = r.filter((c) => String(c).trim());
+        const titel = gevuld.length === 1 && gevuld[0].length < 40 ? KANALEN.find(([, re]) => re.test(gevuld[0])) : null;
+        if (titel || !stukken.length) stukken.push({ naam: titel ? titel[0] : null, rijen: [] });
+        if (!titel) stukken[stukken.length - 1].rijen.push(r);
+      });
+      stukken.forEach((s) => {
+        const eerste = (s.rijen[0] && s.rijen[0][0]) || '';
+        const k = KANALEN.find(([, re]) => re.test(eerste));
+        const naam = s.naam || (k ? k[0] : kanaal);
+        if (!naam || res[naam]) return;
+        const c = cijfersUitTabel(s.rijen, MAANDEN[maand - 1]);
+        if (Object.keys(c).length) res[naam] = c;
+      });
     } else {
       const t = platTekst(b);
       if (t.length < 60) { const k = KANALEN.find(([, re]) => re.test(t)); if (k) kanaal = k[0]; }
