@@ -153,7 +153,7 @@ function pvHoofdstukken(d) {
     const kort = doelen.length ? doelen : ['contact'];
     const aantal = c.heeftDoorklik ? c.doorkliks : (c.leads || 0) + (c.boekingen || 0);
     const nogGeen = [c.heeftLeads || !c.heeftBoekingen ? w.lead[0] : null, c.heeftBoekingen ? w.boeking[0] : null].filter(Boolean).join(' of ');
-    contact.push(V.stat({ label: `Direct van blog naar ${kort.join(' of ')}`, info: PV_INFO.doorklik, leeg: !aantal, waarde: F.getal(aantal || 0), tel: aantal, tekst: delen.length ? `${delen.join(', ')} in bezoeken die op een blog begonnen` : `Nog geen ${nogGeen} vanuit een blog begonnen bezoek. Zodra het gebeurt, zie je het hier.` }));
+    contact.push(V.stat({ label: `Direct van blog naar ${kort.join(' of ')}`, info: PV_INFO.doorklik, leeg: !aantal, waarde: F.getal(aantal || 0), tel: aantal, tekst: F.doorklikTekst(aantal, c.heeftDoorklik, delen, nogGeen) }));
   }
   if (t.eerderGelezen) {
     const e = t.eerderGelezen;

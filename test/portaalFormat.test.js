@@ -99,3 +99,13 @@ test('dagNaam geeft de dag van de week', () => {
   assert.strictEqual(f.dagNaam('2026-10-19'), 'ma');
   assert.strictEqual(f.dagNaam(''), '');
 });
+
+test('doorklikTekst past bij het getal in de tegel', () => {
+  const geen = f.doorklikTekst(0, true, [], 'aanvraag');
+  assert.match(geen, /^Nog geen aanvraag/);
+  const doorklik = f.doorklikTekst(1, true, [], 'aanvraag');
+  assert.doesNotMatch(doorklik, /Nog geen/);
+  assert.match(doorklik, /Doorklikken naar contact of boeken/);
+  assert.match(f.doorklikTekst(2, true, ['1 aanvraag'], 'aanvraag'), /In dezelfde bezoeken: 1 aanvraag/);
+  assert.strictEqual(f.doorklikTekst(2, false, ['2 aanvragen'], 'aanvraag'), '2 aanvragen in bezoeken die op een blog begonnen');
+});
