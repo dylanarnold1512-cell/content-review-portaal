@@ -94,6 +94,13 @@ test('bulk dupliceren: tekst mee met alleen de plaats vervangen, of alleen de op
     assert.equal(katTekst.slotData.intro, 'Wij bouwen en verbouwen in Katwijk en omstreken.');
     assert.equal(katTekst.slotData.heroImageSrc, 'https://klant.test/hillegom-foto.jpg');
 
+    // De lijst voor bulk live zetten toont de pagina's die nog niet live staan, met portaal en WordPress status.
+    const lijst = await (await post('/clients/macbouw/live-zetten/lijst')).json();
+    assert.ok(lijst.paginas.length >= 3);
+    const eerste = lijst.paginas.find((p) => p.id === aangemaakt[0].id);
+    assert.equal(eerste.wpStatus, 'niet gepubliceerd');
+    assert.equal(eerste.status, 'Formulier ingevuld');
+
     const veel = Array.from({ length: 35 }, (_, i) => `Plaats ${i + 1}`);
     const vol = await (await post('/pages/hillegom/dupliceer-meerdere', { plaatsen: veel, modus: 'kopieer' })).json();
     assert.equal(vol.resultaten.length, 30);

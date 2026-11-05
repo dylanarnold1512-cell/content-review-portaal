@@ -2338,6 +2338,37 @@ router.post('/clients/:clientId/zet-schone-live', requireLpInternal, async (req,
   }
 });
 
+// ---- Pagina's in bulk live zetten (05-11-2026) ----
+// Lijst met de pagina's van een klant die nog niet live staan (portaal status en echte WordPress status), zodat Dylan er
+// een aantal kan kiezen, bijvoorbeeld net gemaakte kopieen. Het live zetten zelf gaat per pagina via POST /pages/:id/zet-live,
+// dat de controle nog eens draait en alleen werkt met bevestigd: true.
+router.post('/clients/:clientId/live-zetten/lijst', requireLpInternal, async (req, res) => {
+  try {
+    const client = getLpClient(req.params.clientId);
+    const lijst = await lpNotion.listPages({ klant: req.params.clientId });
+    let statussen = {};
+    let statusWaarschuwing = null;
+    try {
+      statussen = await haalPaginaStatussen({ profile: client.profile, ids: lijst.filter((p) => p.wpPaginaId).map((p) => p.wpPaginaId) });
+    } catch (err) {
+      statusWaarschuwing = `De WordPress status kon niet worden opgehaald (${err.message}). Controleer zelf welke pagina's al live staan.`;
+    }
+    const paginas = lijst
+      .map((p) => ({
+        id: p.id,
+        titel: p.titel,
+        status: p.status || '',
+        wpUrl: p.wpUrl || null,
+        wpStatus: p.wpPaginaId ? (statussen[p.wpPaginaId] || 'onbekend') : 'niet gepubliceerd'
+      }))
+      .filter((p) => p.wpStatus !== 'publish')
+      .sort((a, b) => String(a.titel).localeCompare(String(b.titel), 'nl'));
+    res.json({ paginas, statusWaarschuwing });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // ---- Tekst vervangen bij alle pagina's van een klant (13-10-2026) ----
 // Stap 1 (zoek): welke pagina's van de klant bevatten deze tekst? Past niets aan. Het scherm toont de lijst met de
 // echte WordPress status per pagina, zodat Dylan ziet welke pagina's live staan.

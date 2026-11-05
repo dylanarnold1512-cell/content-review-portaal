@@ -3,16 +3,14 @@
 // Stap 1, zie besluiten.md "Opgelost: de 401-puzzel..."). Gebruikt de
 // wpautop-fix (wrapForWordPress) uit render.js.
 //
-// BELANGRIJK — veiligheidsgrens: dit endpoint zet ALTIJD status "draft".
-// Een pagina echt live zetten (WordPress status "publish", plus de
-// eenmalige "SWP Builder"-klik, zie besluiten.md) blijft een bewuste,
-// handmatige stap door Dylan/Marc. Er is bewust geen functie in deze tool
-// die status "publish" zet — "niets gaat live zonder dat jij het ziet".
+// pushDraft zet standaard status "draft". Live zetten (status "publish") gebeurt alleen als de aanroeper dat expliciet
+// vraagt met `status: 'publish'`. Sinds 16-10-2026 kan dat vanuit het portaal, maar alleen na een bewuste klik
+// (bevestigd: true) en een geslaagde controle, zie zetPaginaLive en de routes zet-live in routes/lp.js.
+// Er gaat dus niets live zonder dat Dylan erom vraagt.
 //
 // Aanvulling 13-10-2026 (tekst vervangen bij alle pagina's van een klant): met `behoudStatus: true` sturen we
 // bij een BESTAANDE pagina helemaal geen status mee, zodat WordPress de status laat zoals hij is. Een pagina die
-// live staat blijft dus live en een concept blijft een concept. Er is nog steeds nergens een functie die
-// status "publish" zet.
+// live staat blijft dus live en een concept blijft een concept.
 
 const { wrapForWordPress } = require('./render');
 const { stripHtml } = require('./utils');

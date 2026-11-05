@@ -1017,6 +1017,29 @@
         <ul id="lpDupBulkResultaat"></ul>
       </div>
 
+      <div class="admin-section-title" style="margin-top:34px;">Pagina's in bulk live zetten</div>
+      <p class="admin-footnote">
+        Kies pagina's die nog niet live staan, bijvoorbeeld de kopieen die je net hebt gemaakt, en zet ze in een keer live op WordPress.
+        Elke pagina wordt vlak voor het live gaat nog eens gecontroleerd. Een pagina met fouten gaat niet live en de rest gaat gewoon door.
+      </p>
+      <div class="modal-actions" style="justify-content:flex-start;gap:10px;">
+        <button type="button" id="lpLiveLijstBtn" class="btn btn-approve">Toon pagina's die nog niet live staan</button>
+      </div>
+      <div id="lpLiveResultaat" class="hidden" style="margin-top:14px;">
+        <p id="lpLiveWaarschuwing" class="admin-footnote hidden"></p>
+        <div class="lp-table-card">
+          <table class="lp-table">
+            <thead><tr><th><input type="checkbox" id="lpLiveAlles" aria-label="Alles selecteren"></th><th>Pagina</th><th>Portaal</th><th>WordPress</th><th>Uitkomst</th></tr></thead>
+            <tbody id="lpLiveBody"></tbody>
+          </table>
+        </div>
+        <div class="modal-actions" style="justify-content:flex-start;gap:10px;margin-top:10px;">
+          <button type="button" id="lpLiveUitvoerBtn" class="btn btn-approve" disabled>Live zetten...</button>
+          <button type="button" id="lpLiveAnnuleerBtn" class="btn-plain hidden">Annuleren</button>
+        </div>
+        <p id="lpLiveBevestig" class="admin-footnote hidden" style="font-weight:600;"></p>
+      </div>
+
       <div class="admin-section-title" style="margin-top:34px;">Een onderdeel overnemen van een voorbeeldpagina</div>
       <p class="admin-footnote">
         Staat een onderdeel op een pagina precies goed, bijvoorbeeld Projecten? Zet het dan in een keer op de andere pagina's. Alleen dat onderdeel verandert,

@@ -539,7 +539,95 @@
     dup.bezig = false;
     btn.disabled = false;
     btn.textContent = 'Dupliceren...';
-    status.textContent = `Klaar: ${gelukt} pagina's aangemaakt${mislukt ? `, ${mislukt} mislukt (zie de lijst)` : ''}. Je vindt ze onder Pagina's. Controleer ze en stuur ze daarna zelf naar WordPress.`;
+    status.textContent = `Klaar: ${gelukt} pagina's aangemaakt${mislukt ? `, ${mislukt} mislukt (zie de lijst)` : ''}. Je vindt ze onder Pagina's. Wil je ze live zetten? Gebruik hieronder "Pagina's in bulk live zetten".`;
+  });
+
+  // ---- Pagina's in bulk live zetten (05-11-2026) ----
+  const live = { paginas: [], bezig: false };
+  function liveReset() {
+    $('lpLiveBevestig').classList.add('hidden');
+    $('lpLiveAnnuleerBtn').classList.add('hidden');
+    $('lpLiveUitvoerBtn').textContent = 'Live zetten...';
+    $('lpLiveUitvoerBtn').dataset.stap = '';
+  }
+  function liveGeselecteerd() {
+    return [...document.querySelectorAll('#lpLiveBody input[type=checkbox]')].filter((c) => c.checked).map((c) => live.paginas.find((p) => p.id === c.dataset.id)).filter(Boolean);
+  }
+  async function liveLaad() {
+    toonFout('');
+    const btn = $('lpLiveLijstBtn');
+    setBtnLoading(btn, true, 'Laden...');
+    try {
+      const data = await lpApi(`/clients/${encodeURIComponent($('lpVervangKlant').value)}/live-zetten/lijst`, { method: 'POST', body: '{}' });
+      live.paginas = data.paginas;
+      $('lpLiveResultaat').classList.remove('hidden');
+      const w = $('lpLiveWaarschuwing');
+      w.textContent = data.statusWaarschuwing || (data.paginas.length ? `${data.paginas.length} pagina's staan nog niet live.` : "Alle pagina's van deze klant staan al live.");
+      w.classList.remove('hidden');
+      const body = $('lpLiveBody');
+      body.innerHTML = '';
+      data.paginas.forEach((p) => {
+        body.appendChild(el('tr', {}, [
+          el('td', {}, [el('input', { type: 'checkbox', 'data-id': p.id })]),
+          el('td', {}, [p.wpUrl ? el('a', { href: p.wpUrl, target: '_blank', rel: 'noopener', text: p.titel }) : document.createTextNode(p.titel)]),
+          el('td', { text: p.status }),
+          el('td', { text: wpNaam(p.wpStatus) }),
+          el('td', { 'data-live-uitkomst': p.id, text: '' })
+        ]));
+      });
+      $('lpLiveAlles').checked = false;
+      $('lpLiveUitvoerBtn').disabled = !data.paginas.length;
+      liveReset();
+    } catch (err) { toonFout(formatApiError(err)); } finally { setBtnLoading(btn, false); }
+  }
+  $('lpLiveLijstBtn').addEventListener('click', liveLaad);
+  $('lpLiveAlles').addEventListener('change', (e) => {
+    document.querySelectorAll('#lpLiveBody input[type=checkbox]').forEach((c) => { c.checked = e.target.checked; });
+    liveReset();
+  });
+  $('lpLiveBody').addEventListener('change', liveReset);
+  $('lpLiveAnnuleerBtn').addEventListener('click', liveReset);
+  $('lpVervangKlant').addEventListener('change', () => { live.paginas = []; $('lpLiveResultaat').classList.add('hidden'); $('lpLiveBody').innerHTML = ''; liveReset(); });
+
+  $('lpLiveUitvoerBtn').addEventListener('click', async () => {
+    const btn = $('lpLiveUitvoerBtn');
+    const gekozen = liveGeselecteerd();
+    if (live.bezig) return;
+    if (!gekozen.length) { $('lpLiveWaarschuwing').textContent = 'Vink eerst de pagina\'s aan die live moeten.'; $('lpLiveWaarschuwing').classList.remove('hidden'); return; }
+    if (btn.dataset.stap !== 'bevestig') {
+      $('lpLiveBevestig').textContent = `${gekozen.length} ${gekozen.length === 1 ? 'pagina wordt' : "pagina's worden"} nu live gezet op de website van de klant. Elke pagina wordt eerst nog eens gecontroleerd. Terugzetten naar concept doe je zelf in WordPress.`;
+      $('lpLiveBevestig').classList.remove('hidden');
+      $('lpLiveAnnuleerBtn').classList.remove('hidden');
+      btn.textContent = 'Ja, live zetten';
+      btn.dataset.stap = 'bevestig';
+      return;
+    }
+    live.bezig = true;
+    toonFout('');
+    liveReset();
+    btn.disabled = true;
+    let gelukt = 0;
+    let mislukt = 0;
+    // Een pagina per aanroep, zodat een fout bij een pagina de rest niet stopt.
+    for (let i = 0; i < gekozen.length; i += 1) {
+      const p = gekozen[i];
+      const cel = document.querySelector(`[data-live-uitkomst="${p.id}"]`);
+      btn.textContent = `Bezig (${i + 1} van ${gekozen.length})...`;
+      cel.textContent = 'Bezig...';
+      try {
+        await lpApi(`/pages/${encodeURIComponent(p.id)}/zet-live`, { method: 'POST', body: JSON.stringify({ bevestigd: true }) });
+        gelukt += 1;
+        cel.textContent = 'Live gezet.';
+      } catch (err) {
+        mislukt += 1;
+        cel.textContent = `Niet live gezet: ${err.message}`;
+      }
+    }
+    live.bezig = false;
+    btn.disabled = false;
+    btn.textContent = 'Live zetten...';
+    $('lpLiveWaarschuwing').textContent = `Klaar: ${gelukt} ${gelukt === 1 ? 'pagina' : "pagina's"} live gezet${mislukt ? `, ${mislukt} niet (zie de tabel)` : ''}.`;
+    $('lpLiveWaarschuwing').classList.remove('hidden');
   });
 
   function ondWis() {
