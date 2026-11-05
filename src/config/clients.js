@@ -207,6 +207,45 @@ const clients = [
       generating: 'In generatie'
     }
   },
+  {
+    id: 'schuijt-klussenbedrijf',
+    naam: 'Schuijt Klussenbedrijf',
+    producten: 'Blogr.',
+    notionTokenEnv: 'NOTION_TOKEN_SCHUIJT',
+    performanceV2: true,
+    databaseId: '630fe108db4e4f329c2d7441fff7f568', // "Schuijt Klussenbedrijf Content Planning"
+    // Shared klant met Blogr., website in Sanity (geen WordPress). Dylan is de reviewer (logt in met
+    // PORTAL_PASSWORD_SCHUIJT) tot de eerste blog gecontroleerd is, daarna krijgt Leon de reviewlink via
+    // notification_email in de Clients tabel.
+    reviewEnabled: true,
+    ideaEnrichmentEnabled: false,
+    loginPasswordEnv: 'PORTAL_PASSWORD_SCHUIJT',
+    fields: {
+      title: 'Titel',
+      status: 'Status',
+      category: 'Cluster',
+      publishDate: 'Publicatiedatum',
+      customerNotes: 'Opmerkingen',
+      wordpressPostId: 'WP post ID',
+      liveUrl: 'Live URL',
+      mainKeyword: 'Hoofdkeyword',
+      secondaryKeywords: 'Secundaire keywords',
+      searchIntent: 'Zoekintentie',
+      cluster: 'Cluster',
+      seoTitle: 'SEO Meta Title',
+      seoDescription: 'SEO Meta Description',
+      slug: 'Slug'
+    },
+    statusValues: {
+      review: 'Ter review',
+      approved: 'Goedgekeurd',
+      rejected: 'Afgewezen',
+      published: 'Gepubliceerd',
+      idea: 'Idee',
+      planned: 'Gepland',
+      generating: 'In generatie'
+    }
+  },
   // Klanten met alleen Pagr. (landingspagina's): geen Notion blogdatabase. Ze zien in het portaal alleen het onderdeel
   // Landingspagina's. Het product staat in Portaal Instellingen (veld Producten), producten hieronder is de terugval.
   // Inloggen kan pas nadat PORTAL_PASSWORD_MACBOUW en PORTAL_PASSWORD_ROOTS op Render staan.
