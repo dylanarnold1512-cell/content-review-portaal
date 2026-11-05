@@ -985,6 +985,33 @@
         <p id="lpVervangBevestig" class="admin-footnote hidden" style="font-weight:600;"></p>
       </div>
 
+      <div class="admin-section-title" style="margin-top:34px;">Een pagina in bulk dupliceren</div>
+      <p class="admin-footnote">
+        Staat een pagina goed, bijvoorbeeld Aannemer Hillegom? Zet hier een plaats per regel en maak in een keer een kopie per plaats. Alleen de plaatsnaam verandert (in de tekst, de titel en de meta), de rest blijft precies zoals op de voorbeeldpagina.
+        Foto's, links, het formulier en de opbouw blijven gelijk. De kopieen staan als nieuwe pagina in het portaal en gaan niet naar WordPress: dat doe je zelf na controle. Maximaal 30 plaatsen per keer.
+      </p>
+      <div id="lpDupBulkKeuze" class="hidden" style="margin-top:14px;">
+        <div class="lp-field-row">
+          <label for="lpDupBulkBron">Voorbeeldpagina</label>
+          <select id="lpDupBulkBron"></select>
+          <span id="lpDupBulkInfo" class="lp-field-hint"></span>
+        </div>
+        <div class="lp-field-row">
+          <label for="lpDupBulkPlaatsen">Plaatsen (een per regel)</label>
+          <textarea id="lpDupBulkPlaatsen" class="lp-json-textarea" style="min-height:140px;" placeholder="Lisse&#10;Sassenheim&#10;Noordwijkerhout"></textarea>
+        </div>
+        <div class="lp-field-row">
+          <label><input type="checkbox" id="lpDupBulkTekst" checked> De tekst van de voorbeeldpagina meenemen (alleen de plaatsnaam wordt vervangen). Haal dit vinkje weg als de AI voor elke plaats een nieuwe tekst moet schrijven.</label>
+        </div>
+        <div class="modal-actions" style="justify-content:flex-start;gap:10px;">
+          <button type="button" id="lpDupBulkBtn" class="btn btn-approve">Dupliceren...</button>
+          <button type="button" id="lpDupBulkAnnuleerBtn" class="btn-plain hidden">Annuleren</button>
+        </div>
+        <p id="lpDupBulkBevestig" class="admin-footnote hidden" style="font-weight:600;"></p>
+        <p id="lpDupBulkStatus" class="admin-footnote hidden"></p>
+        <ul id="lpDupBulkResultaat"></ul>
+      </div>
+
       <div class="admin-section-title" style="margin-top:34px;">Een onderdeel overnemen van een voorbeeldpagina</div>
       <p class="admin-footnote">
         Staat een onderdeel op een pagina precies goed, bijvoorbeeld Projecten? Zet het dan in een keer op de andere pagina's. Alleen dat onderdeel verandert,

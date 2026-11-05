@@ -2108,7 +2108,9 @@ router.post('/pages/:pageId/dupliceer', requireLpInternal, async (req, res) => {
 router.post('/pages/:pageId/dupliceer-meerdere', requireLpInternal, async (req, res) => {
   try {
     const { plaatsen, plaatsSleutel, schrijfMeteen, lokaleGegevens } = req.body || {};
-    const namen = [...new Set((Array.isArray(plaatsen) ? plaatsen : String(plaatsen || '').split(/\r?\n/)).map((n) => String(n).trim()).filter(Boolean))].slice(0, 15);
+    // modus 'kopieer' (bulk dupliceren): de tekst gaat mee, alleen de plaatsnaam wordt vervangen. Standaard 'opzet'.
+    const modus = req.body && req.body.modus === 'kopieer' ? 'kopieer' : 'opzet';
+    const namen = [...new Set((Array.isArray(plaatsen) ? plaatsen : String(plaatsen || '').split(/\r?\n/)).map((n) => String(n).trim()).filter(Boolean))].slice(0, 30);
     if (!namen.length) return res.status(400).json({ error: 'Geef minstens een plaats op.' });
     const origineel = await lpNotion.getPage(req.params.pageId);
     const sleutel = plaatsSleutel || Object.keys(origineel.invoer || {}).find((k) => !k.startsWith('_') && gelijk.PLAATS_SLEUTEL_RE.test(k));
@@ -2121,11 +2123,11 @@ router.post('/pages/:pageId/dupliceer-meerdere', requireLpInternal, async (req, 
         const { id } = await maakKopie(origineel, {
           titel: titelVoorPlaats(origineel.titel, oudePlaats, naam),
           invoer: { [sleutel]: naam },
-          modus: 'opzet',
+          modus,
           lokaleGegevens: (lokaleGegevens && lokaleGegevens[naam]) || ''
         });
-        const r = { plaats: naam, id, geschreven: false };
-        if (schrijfMeteen) {
+        const r = { plaats: naam, id, geschreven: false, modus };
+        if (schrijfMeteen && modus === 'opzet') {
           try {
             const nieuw = await lpNotion.getPage(id);
             const voorstel = await maakContentVoorstel(nieuw, {});

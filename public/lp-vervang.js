@@ -455,7 +455,86 @@
     const opt = sel.options[sel.selectedIndex];
     return opt ? opt.textContent : '';
   }
+  // ---- Een pagina in bulk dupliceren: alleen de plaats verandert ----
+  const dup = { bezig: false };
+  function dupReset() {
+    $('lpDupBulkBevestig').classList.add('hidden');
+    $('lpDupBulkAnnuleerBtn').classList.add('hidden');
+    $('lpDupBulkBtn').textContent = 'Dupliceren...';
+    $('lpDupBulkBtn').dataset.stap = '';
+  }
+  function dupVul(paginas) {
+    const sel = $('lpDupBulkBron');
+    sel.innerHTML = '<option value="">Kies de pagina die je wilt kopieren</option>' + paginas.map((p) => `<option value="${p.id}">${p.titel}</option>`).join('');
+    $('lpDupBulkKeuze').classList.remove('hidden');
+    dupReset();
+  }
+  function dupWis() {
+    $('lpDupBulkKeuze').classList.add('hidden');
+    $('lpDupBulkBron').innerHTML = '';
+    $('lpDupBulkResultaat').innerHTML = '';
+    $('lpDupBulkStatus').classList.add('hidden');
+    dupReset();
+  }
+  $('lpDupBulkBron').addEventListener('change', dupReset);
+  $('lpDupBulkPlaatsen').addEventListener('input', dupReset);
+  $('lpDupBulkTekst').addEventListener('change', dupReset);
+  $('lpDupBulkAnnuleerBtn').addEventListener('click', dupReset);
+
+  $('lpDupBulkBtn').addEventListener('click', async () => {
+    const btn = $('lpDupBulkBtn');
+    const bronId = $('lpDupBulkBron').value;
+    const plaatsen = [...new Set($('lpDupBulkPlaatsen').value.split(/\r?\n/).map((x) => x.trim()).filter(Boolean))];
+    const metTekst = $('lpDupBulkTekst').checked;
+    const status = $('lpDupBulkStatus');
+    if (dup.bezig) return;
+    if (!bronId) { status.textContent = 'Kies eerst de voorbeeldpagina.'; status.classList.remove('hidden'); return; }
+    if (!plaatsen.length) { status.textContent = 'Vul minstens een plaats in.'; status.classList.remove('hidden'); return; }
+    if (plaatsen.length > 30) { status.textContent = `Je hebt ${plaatsen.length} plaatsen ingevuld. Maximaal 30 per keer.`; status.classList.remove('hidden'); return; }
+    if (btn.dataset.stap !== 'bevestig') {
+      const titel = $('lpDupBulkBron').selectedOptions[0].textContent;
+      $('lpDupBulkBevestig').textContent = metTekst
+        ? `Er komen ${plaatsen.length} nieuwe pagina's in het portaal, allemaal een kopie van "${titel}" met alleen de plaatsnaam aangepast. Er gaat niets naar WordPress.`
+        : `Er komen ${plaatsen.length} nieuwe pagina's in het portaal met dezelfde opzet als "${titel}". De tekst blijft leeg en moet nog geschreven worden. Er gaat niets naar WordPress.`;
+      $('lpDupBulkBevestig').classList.remove('hidden');
+      $('lpDupBulkAnnuleerBtn').classList.remove('hidden');
+      btn.textContent = 'Ja, dupliceren';
+      btn.dataset.stap = 'bevestig';
+      return;
+    }
+    dup.bezig = true;
+    toonFout('');
+    dupReset();
+    btn.disabled = true;
+    const lijst = $('lpDupBulkResultaat');
+    lijst.innerHTML = '';
+    status.classList.remove('hidden');
+    let gelukt = 0;
+    let mislukt = 0;
+    // Een plaats per aanroep, zodat een fout bij een plaats de rest niet stopt en Render niet in een time-out loopt.
+    for (let i = 0; i < plaatsen.length; i += 1) {
+      btn.textContent = `Bezig (${i + 1} van ${plaatsen.length})...`;
+      status.textContent = `Bezig met ${plaatsen[i]} (${i + 1} van ${plaatsen.length})...`;
+      let r;
+      try {
+        ({ resultaten: [r] } = await lpApi(`/pages/${encodeURIComponent(bronId)}/dupliceer-meerdere`, {
+          method: 'POST',
+          body: JSON.stringify({ plaatsen: [plaatsen[i]], modus: metTekst ? 'kopieer' : 'opzet' })
+        }));
+      } catch (err) {
+        r = { plaats: plaatsen[i], fout: formatApiError(err) };
+      }
+      if (r.fout) mislukt += 1; else gelukt += 1;
+      lijst.appendChild(el('li', { text: r.fout ? `${r.plaats}: mislukt, ${r.fout}` : `${r.plaats}: aangemaakt${metTekst ? ' met de tekst van de voorbeeldpagina' : ', tekst nog te schrijven'}.` }));
+    }
+    dup.bezig = false;
+    btn.disabled = false;
+    btn.textContent = 'Dupliceren...';
+    status.textContent = `Klaar: ${gelukt} pagina's aangemaakt${mislukt ? `, ${mislukt} mislukt (zie de lijst)` : ''}. Je vindt ze onder Pagina's. Controleer ze en stuur ze daarna zelf naar WordPress.`;
+  });
+
   function ondWis() {
+    dupWis();
     ond.paginas = [];
     $('lpOndKeuze').classList.add('hidden');
     $('lpOndStatus').classList.add('hidden');
@@ -489,6 +568,7 @@
         return;
       }
       status.textContent = `${data.paginas.length} pagina's gevonden voor ${ondKlantNaam()}.`;
+      dupVul(data.paginas);
       $('lpOndKeuze').classList.remove('hidden');
       $('lpOndBron').innerHTML = '<option value="">Kies de pagina waar het goed staat</option>' + data.paginas.map((p) => `<option value="${p.id}">${p.titel}</option>`).join('');
     } catch (err) {
