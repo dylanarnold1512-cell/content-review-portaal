@@ -58,13 +58,15 @@ function lokaleFeiten(tekst, plaats, datum) {
 }
 
 // origineel: { klant, blueprint, titel, invoer, feitensheet, content }
-// opties: { titel, slug, invoer (volledige nieuwe invoer, optioneel), modus, lokaleGegevens, datum }
+// opties: { titel, slug, invoer (volledige nieuwe invoer, optioneel), modus, lokaleGegevens, datum, oudePlaats, nieuwePlaats }
 function bouwKopie(origineel, opties = {}) {
   const datum = opties.datum || new Date().toISOString().slice(0, 10);
   const oudeInvoer = origineel.invoer && typeof origineel.invoer === 'object' ? origineel.invoer : {};
   const invoer = { ...oudeInvoer, ...(opties.invoer && typeof opties.invoer === 'object' ? opties.invoer : {}) };
-  const oudePlaats = plaatsWaarde(oudeInvoer);
-  const nieuwePlaats = plaatsWaarde(invoer);
+  // Heeft de pagina geen plaatsveld in de invoer (bijvoorbeeld een pagina gebouwd met chat), dan geeft de aanroeper
+  // de oude en nieuwe plaats zelf mee.
+  const oudePlaats = String(opties.oudePlaats || '').trim() || plaatsWaarde(oudeInvoer);
+  const nieuwePlaats = String(opties.nieuwePlaats || '').trim() || plaatsWaarde(invoer);
   const modus = opties.modus === 'kopieer' ? 'kopieer' : 'opzet';
   const titel = String(opties.titel || '').trim() || titelVoorPlaats(origineel.titel, oudePlaats, nieuwePlaats);
   const slug = String(opties.slug || '').trim() || slugify(titel);

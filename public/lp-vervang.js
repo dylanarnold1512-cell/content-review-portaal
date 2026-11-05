@@ -476,7 +476,14 @@
     $('lpDupBulkStatus').classList.add('hidden');
     dupReset();
   }
-  $('lpDupBulkBron').addEventListener('change', dupReset);
+  // Raad de plaats van de voorbeeldpagina uit de titel (het laatste woord, bv. "Aannemer Hillegom"). Aanpasbaar.
+  $('lpDupBulkBron').addEventListener('change', () => {
+    const opt = $('lpDupBulkBron').selectedOptions[0];
+    const woorden = opt && opt.value ? opt.textContent.trim().split(/\s+/) : [];
+    $('lpDupBulkOud').value = woorden.length > 1 ? woorden[woorden.length - 1] : '';
+    dupReset();
+  });
+  $('lpDupBulkOud').addEventListener('input', dupReset);
   $('lpDupBulkPlaatsen').addEventListener('input', dupReset);
   $('lpDupBulkTekst').addEventListener('change', dupReset);
   $('lpDupBulkAnnuleerBtn').addEventListener('click', dupReset);
@@ -490,11 +497,13 @@
     if (dup.bezig) return;
     if (!bronId) { status.textContent = 'Kies eerst de voorbeeldpagina.'; status.classList.remove('hidden'); return; }
     if (!plaatsen.length) { status.textContent = 'Vul minstens een plaats in.'; status.classList.remove('hidden'); return; }
+    const oudePlaats = $('lpDupBulkOud').value.trim();
+    if (metTekst && !oudePlaats) { status.textContent = 'Vul de plaats van de voorbeeldpagina in, anders weet ik niet wat ik moet vervangen.'; status.classList.remove('hidden'); return; }
     if (plaatsen.length > 30) { status.textContent = `Je hebt ${plaatsen.length} plaatsen ingevuld. Maximaal 30 per keer.`; status.classList.remove('hidden'); return; }
     if (btn.dataset.stap !== 'bevestig') {
       const titel = $('lpDupBulkBron').selectedOptions[0].textContent;
       $('lpDupBulkBevestig').textContent = metTekst
-        ? `Er komen ${plaatsen.length} nieuwe pagina's in het portaal, allemaal een kopie van "${titel}" met alleen de plaatsnaam aangepast. Er gaat niets naar WordPress.`
+        ? `Er komen ${plaatsen.length} nieuwe pagina's in het portaal, allemaal een kopie van "${titel}" waarin "${oudePlaats}" wordt vervangen door de nieuwe plaats. Er gaat niets naar WordPress.`
         : `Er komen ${plaatsen.length} nieuwe pagina's in het portaal met dezelfde opzet als "${titel}". De tekst blijft leeg en moet nog geschreven worden. Er gaat niets naar WordPress.`;
       $('lpDupBulkBevestig').classList.remove('hidden');
       $('lpDupBulkAnnuleerBtn').classList.remove('hidden');
@@ -519,7 +528,7 @@
       try {
         ({ resultaten: [r] } = await lpApi(`/pages/${encodeURIComponent(bronId)}/dupliceer-meerdere`, {
           method: 'POST',
-          body: JSON.stringify({ plaatsen: [plaatsen[i]], modus: metTekst ? 'kopieer' : 'opzet' })
+          body: JSON.stringify({ plaatsen: [plaatsen[i]], modus: metTekst ? 'kopieer' : 'opzet', oudePlaats })
         }));
       } catch (err) {
         r = { plaats: plaatsen[i], fout: formatApiError(err) };

@@ -27,7 +27,9 @@ const bron = {
     overrides: {}
   }
 };
-const paginas = { hillegom: bron };
+// Pagina zonder plaatsveld in de invoer (bijvoorbeeld gebouwd met chat).
+const zonderVeld = { ...JSON.parse(JSON.stringify(bron)), id: 'zonderveld', invoer: {} };
+const paginas = { hillegom: bron, zonderveld: zonderVeld };
 const aangemaakt = [];
 const inhoud = {};
 let teller = 0;
@@ -80,6 +82,17 @@ test('bulk dupliceren: tekst mee met alleen de plaats vervangen, of alleen de op
     assert.equal(opzet.resultaten[0].modus, 'opzet');
     assert.equal(aangemaakt.length, aantalVoor + 1);
     assert.equal(inhoud[`${aangemaakt[aantalVoor].id}:content`], undefined, 'bij alleen de opzet wordt geen tekst gekopieerd');
+
+    // Zonder plaatsveld: eerst een duidelijke melding, daarna werkt het met de opgegeven plaats van de voorbeeldpagina.
+    const geen = await (await post('/pages/zonderveld/dupliceer-meerdere', { plaatsen: ['Katwijk'], modus: 'kopieer' })).json();
+    assert.match(geen.error, /Plaats op de voorbeeldpagina/);
+    const kat = await (await post('/pages/zonderveld/dupliceer-meerdere', { plaatsen: ['Katwijk'], modus: 'kopieer', oudePlaats: 'Hillegom' })).json();
+    assert.ok(!kat.resultaten[0].fout, kat.resultaten[0].fout);
+    const katP = aangemaakt.find((p) => p.invoer.plaatsnaam === 'Katwijk');
+    assert.equal(katP.titel, 'Aannemer Katwijk');
+    const katTekst = inhoud[`${katP.id}:content`];
+    assert.equal(katTekst.slotData.intro, 'Wij bouwen en verbouwen in Katwijk en omstreken.');
+    assert.equal(katTekst.slotData.heroImageSrc, 'https://klant.test/hillegom-foto.jpg');
 
     const veel = Array.from({ length: 35 }, (_, i) => `Plaats ${i + 1}`);
     const vol = await (await post('/pages/hillegom/dupliceer-meerdere', { plaatsen: veel, modus: 'kopieer' })).json();

@@ -2108,14 +2108,19 @@ router.post('/pages/:pageId/dupliceer', requireLpInternal, async (req, res) => {
 router.post('/pages/:pageId/dupliceer-meerdere', requireLpInternal, async (req, res) => {
   try {
     const { plaatsen, plaatsSleutel, schrijfMeteen, lokaleGegevens } = req.body || {};
+    const opgegevenOudePlaats = String((req.body && req.body.oudePlaats) || '').trim();
     // modus 'kopieer' (bulk dupliceren): de tekst gaat mee, alleen de plaatsnaam wordt vervangen. Standaard 'opzet'.
     const modus = req.body && req.body.modus === 'kopieer' ? 'kopieer' : 'opzet';
     const namen = [...new Set((Array.isArray(plaatsen) ? plaatsen : String(plaatsen || '').split(/\r?\n/)).map((n) => String(n).trim()).filter(Boolean))].slice(0, 30);
     if (!namen.length) return res.status(400).json({ error: 'Geef minstens een plaats op.' });
     const origineel = await lpNotion.getPage(req.params.pageId);
-    const sleutel = plaatsSleutel || Object.keys(origineel.invoer || {}).find((k) => !k.startsWith('_') && gelijk.PLAATS_SLEUTEL_RE.test(k));
-    if (!sleutel) return res.status(400).json({ error: 'Deze pagina heeft geen invoerveld voor een plaats, gebruik "Dupliceer pagina" en pas de invoer zelf aan.' });
-    const oudePlaats = gelijk.plaatsWaarde(origineel.invoer);
+    let sleutel = plaatsSleutel || Object.keys(origineel.invoer || {}).find((k) => !k.startsWith('_') && gelijk.PLAATS_SLEUTEL_RE.test(k));
+    // Een pagina zonder plaatsveld (bijvoorbeeld gebouwd met chat): bij de tekst meenemen geeft de gebruiker de plaats van
+    // de voorbeeldpagina zelf op en krijgt elke kopie een invoerveld plaatsnaam.
+    if (!sleutel && modus === 'kopieer' && opgegevenOudePlaats) sleutel = 'plaatsnaam';
+    if (!sleutel) return res.status(400).json({ error: 'Deze pagina heeft geen invoerveld voor een plaats. Vul bij "Plaats op de voorbeeldpagina" de plaats in die nu op de pagina staat, dan kan de tekst worden gekopieerd.' });
+    const oudePlaats = opgegevenOudePlaats || gelijk.plaatsWaarde(origineel.invoer);
+    if (modus === 'kopieer' && !oudePlaats) return res.status(400).json({ error: 'Vul bij "Plaats op de voorbeeldpagina" de plaats in die nu op de pagina staat, anders weet ik niet wat ik moet vervangen.' });
     const { titelVoorPlaats } = require('../lp/dupliceer');
     const resultaten = [];
     for (const naam of namen) {
@@ -2123,6 +2128,8 @@ router.post('/pages/:pageId/dupliceer-meerdere', requireLpInternal, async (req, 
         const { id } = await maakKopie(origineel, {
           titel: titelVoorPlaats(origineel.titel, oudePlaats, naam),
           invoer: { [sleutel]: naam },
+          oudePlaats,
+          nieuwePlaats: naam,
           modus,
           lokaleGegevens: (lokaleGegevens && lokaleGegevens[naam]) || ''
         });
