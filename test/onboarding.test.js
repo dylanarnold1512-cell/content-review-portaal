@@ -5,9 +5,9 @@ const { STAPPEN, FASEN, STATUSSEN } = require('../src/config/onboardingStappen')
 
 const rij = (nr, status, extra = {}) => ({ nr, status, fase: (STAPPEN.find((s) => s.nr === nr) || {}).fase, titel: 'x' + nr, ...extra });
 
-test('de lijst heeft 21 stappen met unieke nummers in 5 fasen', () => {
-  assert.strictEqual(STAPPEN.length, 21);
-  assert.strictEqual(new Set(STAPPEN.map((s) => s.nr)).size, 21);
+test('de lijst heeft 24 stappen met unieke nummers in 5 fasen', () => {
+  assert.strictEqual(STAPPEN.length, 24);
+  assert.strictEqual(new Set(STAPPEN.map((s) => s.nr)).size, 24);
   assert.strictEqual(FASEN.length, 5);
   STAPPEN.forEach((s) => assert.ok(FASEN.some((f) => f.code === s.fase), `fase van stap ${s.nr}`));
   assert.ok(STATUSSEN.includes('Wacht op Dylan'));
@@ -102,7 +102,7 @@ test('ontbrekendeStappen vult alleen aan wat er mist', () => {
 
 test('portaal en login staat als stap 11 direct na de Notion database', () => {
   const nrs = STAPPEN.map((s) => s.nr);
-  assert.deepStrictEqual(nrs, Array.from({ length: 21 }, (_, i) => i + 1));
+  assert.deepStrictEqual(nrs, Array.from({ length: 24 }, (_, i) => i + 1));
   assert.strictEqual(STAPPEN.find((s) => s.nr === 10).titel, 'Notion content database');
   assert.strictEqual(STAPPEN.find((s) => s.nr === 11).titel, 'Portaal en login');
   assert.strictEqual(STAPPEN.find((s) => s.nr === 12).titel, 'WordPress');
