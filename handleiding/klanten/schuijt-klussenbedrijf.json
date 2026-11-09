@@ -33,14 +33,12 @@
   "contactAdvertisr": "marc@advertisr.nl of dylan@advertisr.nl",
   "fotoTip": "foto's van een afgeronde oprit, terras of schutting werken het beste.",
   "schermenMap": "schermen-schuijt",
-  "zonderSchermen": [
+  "zonderSchermen": [],
+  "demoSchermen": [
+    "overzicht",
+    "blogs",
     "google",
     "ai",
     "rapporten"
-  ],
-  "leegTekst": {
-    "google": "Nog geen cijfers: er staat nog geen blog live.",
-    "ai": "Nog geen meting.",
-    "rapporten": "Nog geen rapport."
-  }
+  ]
 }

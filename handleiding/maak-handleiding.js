@@ -47,6 +47,10 @@ function bouwHtml(c, wachtwoord) {
   };
   const schermen = c.schermenMap || 'schermen';
   html = html.replace(/src="schermen\//g, 'src="' + schermen + '/');
+  // Demoschermen: een verzonnen klant met mooie cijfers, zodat ook een nieuwe klant ziet hoe het portaal eruitziet.
+  for (const naam of (c.demoSchermen || [])) {
+    html = html.replace(new RegExp('src="' + schermen + '/' + naam + '\\.png"', 'g'), 'src="schermen-demo/' + naam + '.png"');
+  }
   for (const naam of (c.zonderSchermen || [])) {
     const re = new RegExp('<div class="venster uitsnede"[^>]*><div class="balk">(?:<i></i>)*<span>[^<]*</span></div><img src="[^"]*/' + naam + '\\.png" alt=""></div>');
     const tekst = (c.leegTekst && c.leegTekst[naam]) || 'Zodra er data is, zie je hier de cijfers.';

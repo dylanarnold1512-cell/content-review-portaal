@@ -6,16 +6,16 @@
 <style>
 @font-face { font-family: "Geist"; src: url("../public/fonts/Geist-Variable.woff2") format("woff2"); font-weight: 100 900; }
 :root {
-  --bg: #f5f7fc; --ink: #14142b; --zacht: #62657f; --vaag: #9a9db5; --rand: #e6e8f1;
+  --bg: #f4f5fa; --ink: #14142b; --zacht: #62657f; --vaag: #9a9db5; --rand: #e6e8f1;
   --rood: #ff3951; --rood-zacht: #ffefef; --wit: #ffffff; --donker: #14142b;
-  --mono: "Geist Mono", "DejaVu Sans Mono", ui-monospace, monospace;
+  --mono: "Geist", Arial, sans-serif;
 }
 @page { size: A4; margin: 0; }
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: "Geist", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
 .page { width: 210mm; height: 297mm; padding: 13mm 16mm 11mm; position: relative; overflow: hidden; page-break-after: always; background: var(--bg); display: flex; flex-direction: column; }
 .page:last-child { page-break-after: auto; }
-.kop { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 7.5pt; letter-spacing: .08em; color: var(--zacht); text-transform: uppercase; margin-bottom: 8mm; }
+.kop { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 8pt; letter-spacing: .08em; color: var(--ink); text-transform: uppercase; margin-bottom: 8mm; }
 .label { font-family: var(--mono); font-size: 7.5pt; letter-spacing: .1em; text-transform: uppercase; color: var(--rood); margin-bottom: 3mm; }
 h1 { font-size: 22pt; line-height: 1.12; letter-spacing: -.02em; margin: 0 0 4mm; font-weight: 700; }
 h2 { font-size: 13pt; letter-spacing: -.01em; margin: 0 0 1.5mm; font-weight: 700; }
@@ -28,9 +28,9 @@ p { font-size: 9.5pt; line-height: 1.55; margin: 0 0 3mm; color: var(--ink); }
 /* Voorblad */
 .cover { background: var(--bg); }
 .cover .merk { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 26mm; }
-.cover .merk b { font-size: 14pt; letter-spacing: -.02em; }
-.cover .merk span { font-family: var(--mono); font-size: 7.5pt; letter-spacing: .1em; color: var(--zacht); }
-.cover .titel { font-size: 56pt; line-height: .98; letter-spacing: -.04em; font-weight: 800; margin: 0 0 9mm; }
+.cover .merk b { font-size: 17pt; letter-spacing: -.02em; }
+.cover .merk span { font-family: var(--mono); font-size: 8pt; letter-spacing: .08em; color: var(--ink); }
+.cover .titel { font-size: 77pt; line-height: .98; letter-spacing: -.04em; font-weight: 800; margin: 0 0 9mm; color: #3d4058; }
 .cover .ondertitel { font-size: 17pt; line-height: 1.25; letter-spacing: -.02em; font-weight: 700; max-width: 140mm; margin: 0 0 5mm; }
 .cover .uitleg { font-size: 10.5pt; line-height: 1.6; color: var(--zacht); max-width: 125mm; }
 .cover .scherm { margin-top: auto; margin-right: -17mm; border-radius: 10px 0 0 0; }
@@ -262,7 +262,7 @@ ul.punten li b { color: var(--ink); }
   <div class="blok">
     <span class="tab">Google</span>
     <div class="rij omgekeerd">
-      <div class="venster uitsnede" style="max-height:44mm"><div class="balk"><i></i><i></i><i></i><span>Google</span></div><img src="schermen/google.png" alt=""></div>
+      <div class="venster uitsnede" style="max-height:66mm"><div class="balk"><i></i><i></i><i></i><span>Google</span></div><img src="schermen/google.png" alt=""></div>
       <div>
         <h2>Zien wat Google doet met jullie blogs.</h2>
         <p>Hoe vaak jullie getoond worden, hoeveel bezoekers dat oplevert en op welke plek jullie staan. De cijfers lopen twee tot drie dagen achter. Een nieuwe blog heeft meestal een paar weken nodig voordat Google hem oppakt, dus de eerste weken is het rustig.</p>
@@ -279,14 +279,14 @@ ul.punten li b { color: var(--ink); }
         <p>Steeds meer mensen stellen hun vraag aan AI in plaats van aan Google. Wij stellen elke week dezelfde vragen aan ChatGPT en Gemini en tellen hoe vaak jullie bedrijf voorkomt. Zo zie je of jullie zichtbaarheid groeit.</p>
         <div class="tip"><p>De eerste meting volgt in de eerste week. Tot dan staat hier een melding.</p></div>
       </div>
-      <div class="venster uitsnede" style="max-height:24mm"><div class="balk"><i></i><i></i><i></i><span>Ai zichtbaarheid</span></div><img src="schermen/ai.png" alt=""></div>
+      <div class="venster uitsnede" style="max-height:58mm"><div class="balk"><i></i><i></i><i></i><span>Ai zichtbaarheid</span></div><img src="schermen/ai.png" alt=""></div>
     </div>
   </div>
 
   <div class="blok">
     <span class="tab">Maandrapporten</span>
     <div class="rij omgekeerd">
-      <div class="venster uitsnede" style="max-height:24mm"><div class="balk"><i></i><i></i><i></i><span>Maandrapporten</span></div><img src="schermen/rapporten.png" alt=""></div>
+      <div class="venster uitsnede" style="max-height:50mm"><div class="balk"><i></i><i></i><i></i><span>Maandrapporten</span></div><img src="schermen/rapporten.png" alt=""></div>
       <div>
         <h2>Elke maand een vast overzicht.</h2>
         <p>Op de 4e van de maand verschijnt het rapport over de maand ervoor, met een terugblik, de cijfers die vastliggen en een vooruitblik. Je kunt het als PDF downloaden en delen. De actuele stand zie je altijd bij Google.</p>
@@ -373,7 +373,7 @@ ul.punten li b { color: var(--ink); }
     <p>Mail ons gerust, ook voor een kleine vraag. We helpen je op weg of nemen het uit handen.</p>
     <div class="mail">{{contactAdvertisr}}</div>
   </div>
-  <div class="voet">De schermafbeeldingen komen uit het portaal van {{klant}}. Cijfers verschijnen zodra er data is.</div>
+  <div class="voet">De schermen met cijfers laten een voorbeeldportaal zien van een verzonnen klant. Jullie eigen cijfers verschijnen zodra jullie blogs live staan.</div>
 </section>
 
 </body>
