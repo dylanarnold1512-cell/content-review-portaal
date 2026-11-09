@@ -36,6 +36,7 @@ p { font-size: 9.5pt; line-height: 1.55; margin: 0 0 3mm; color: var(--ink); }
 .cover .scherm { margin-top: auto; margin-right: -17mm; border-radius: 10px 0 0 0; }
 
 /* Schermafbeeldingen in een venster */
+.leeg { border: 1px dashed var(--rand); border-radius: 8px; padding: 4mm; font-size: 8.4pt; color: var(--zacht); background: var(--wit); align-self: center; }
 .venster { background: var(--wit); border: 1px solid var(--rand); border-radius: 8px; overflow: hidden;  }
 .venster .balk { height: 6mm; border-bottom: 1px solid var(--rand); display: flex; align-items: center; gap: 1.2mm; padding: 0 3mm; font-size: 6pt; color: var(--vaag); }
 .venster .balk i { width: 1.6mm; height: 1.6mm; border-radius: 50%; background: #d8dbe8; display: inline-block; }
@@ -293,16 +294,57 @@ ul.punten li b { color: var(--ink); }
       <div>
         <h2>Foto's van jullie eigen werk.</h2>
         <p>Eigen foto's maken blogs en pagina's veel sterker dan stockfoto's. Sleep ze hier naartoe. Wij verkleinen ze, geven ze een passende naam en beschrijving en zetten ze in de juiste map. Jullie hoeven niets te sorteren.</p>
-        <div class="tip"><p><b>Tip:</b> projectfoto's van een badkamer, ketel of installatie werken het beste. Geen foto's? Dan gebruiken we beelden uit de bibliotheek.</p></div>
+        <div class="tip"><p><b>Tip:</b> {{fotoTip}} Geen foto's? Dan gebruiken we beelden uit de bibliotheek.</p></div>
       </div>
       <div class="venster uitsnede" style="max-height:60mm"><div class="balk"><i></i><i></i><i></i><span>Beeldbank</span></div><img src="schermen/beeldbank.png" alt=""></div>
     </div>
   </div>
 </section>
 
-<!-- 6. Wat we van jullie vragen -->
+<!--if:strategie-->
+<!-- Strategie -->
 <section class="page">
   <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>06</span></div>
+  <div class="label">Onze strategie</div>
+  <h1>Waar we op inzetten.</h1>
+  <p class="inleiding">De strategie in het kort: waarover we schrijven, voor wie, en hoe jullie gevonden worden in Google en in AI.</p>
+
+  <div class="kaarten drie">
+    <div class="kaart"><div class="klein">Tempo</div><div class="waarde">{{blogsPerMaand}} blogs per maand</div><p>{{strategieTempo}}</p></div>
+    <div class="kaart"><div class="klein">Verdeling</div><div class="waarde">{{strategieVerdeling}}</div><p>{{strategieVerdelingUitleg}}</p></div>
+    <div class="kaart"><div class="klein">Werkgebied</div><div class="waarde">{{strategieGebied}}</div><p>{{strategieGebiedUitleg}}</p></div>
+  </div>
+
+  <div class="blok">
+    <span class="tab">Onderwerpen</span>
+    <div class="rij">
+      <div>
+        <h2>{{strategieAantalClusters}} onderwerpen, elk met eigen blogs.</h2>
+        <ul class="punten">{{strategieClusters}}</ul>
+      </div>
+      <div>
+        <h2>Zo worden jullie gevonden.</h2>
+        <ul class="punten">
+          <li><b>In Google:</b> {{strategieGoogle}}</li>
+          <li><b>In ChatGPT en Gemini:</b> {{strategieAI}}</li>
+          <li><b>Zakelijk:</b> {{strategieZakelijk}}</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="donker">
+    <div class="label">Wat we niet schrijven</div>
+    <h2>Alleen wat jullie echt kunnen waarmaken.</h2>
+    <p>{{strategieNiet}}</p>
+  </div>
+  <div class="regie"><p><b>Elke maand bijsturen.</b> In het maandrapport zie je wat de blogs opleveren. Daarmee passen we de planning aan: meer van wat werkt, minder van wat niet werkt.</p></div>
+</section>
+<!--endif-->
+
+<!-- 6. Wat we van jullie vragen -->
+<section class="page">
+  <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>{{nrVragen}}</span></div>
   <div class="label">Wat we van jullie vragen</div>
   <h1>Twee dingen. Samen een kwartier.</h1>
   <p class="inleiding">Meer is er niet nodig om te starten. De rest doen wij.</p>

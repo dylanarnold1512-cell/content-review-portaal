@@ -18,7 +18,7 @@ const config = JSON.parse(fs.readFileSync(path.resolve(configPad), 'utf8'));
 
 function bouwHtml(c, wachtwoord) {
   let html = fs.readFileSync(path.join(map, 'template.html'), 'utf8');
-  const flags = { blogr: Boolean(c.blogr), pagr: Boolean(c.pagr) };
+  const flags = { blogr: Boolean(c.blogr), pagr: Boolean(c.pagr), strategie: Boolean(c.strategie) };
   html = html.replace(/<!--if:(\w+)-->([\s\S]*?)<!--endif-->/g, (_, naam, inhoud) => (flags[naam] ? inhoud : ''));
   const productTitel = [c.blogr ? 'Blogr<span class="dot">.</span>' : '', c.pagr ? 'Pagr<span class="dot">.</span>' : ''].filter(Boolean).join('<br>');
   const waarden = {
@@ -33,8 +33,24 @@ function bouwHtml(c, wachtwoord) {
     volgendeBlogTitel: c.volgendeBlogTitel,
     contactAdvertisr: c.contactAdvertisr || 'marc@advertisr.nl of dylan@advertisr.nl',
     wachtwoord: wachtwoord || '[vul het wachtwoord in]',
-    productTitel
+    productTitel,
+    nrVragen: c.strategie ? '07' : '06',
+    fotoTip: c.fotoTip || 'projectfoto\'s van eigen werk werken het beste.',
+    ...(c.strategie ? {
+      strategieTempo: c.strategie.tempo, strategieVerdeling: c.strategie.verdeling, strategieVerdelingUitleg: c.strategie.verdelingUitleg,
+      strategieGebied: c.strategie.gebied, strategieGebiedUitleg: c.strategie.gebiedUitleg,
+      strategieAantalClusters: c.strategie.clusters.length,
+      strategieClusters: c.strategie.clusters.map((k) => '<li>' + k + '</li>').join(''),
+      strategieGoogle: c.strategie.google, strategieAI: c.strategie.ai, strategieZakelijk: c.strategie.zakelijk, strategieNiet: c.strategie.niet
+    } : {})
   };
+  const schermen = c.schermenMap || 'schermen';
+  html = html.replace(/src="schermen\//g, 'src="' + schermen + '/');
+  for (const naam of (c.zonderSchermen || [])) {
+    const re = new RegExp('<div class="venster uitsnede"[^>]*><div class="balk">(?:<i></i>)*<span>[^<]*</span></div><img src="[^"]*/' + naam + '\\.png" alt=""></div>');
+    const tekst = (c.leegTekst && c.leegTekst[naam]) || 'Zodra er data is, zie je hier de cijfers.';
+    html = html.replace(re, '<div class="leeg">' + tekst + '</div>');
+  }
   return html.replace(/\{\{(\w+)\}\}/g, (m, k) => {
     if (waarden[k] === undefined || waarden[k] === null) throw new Error(`Ontbrekende waarde in de klantconfig: ${k}`);
     return String(waarden[k]);
