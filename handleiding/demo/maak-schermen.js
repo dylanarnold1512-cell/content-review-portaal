@@ -1,5 +1,6 @@
 // Maakt de demoschermen voor de handleiding. Gebruik:
-//   NODE_PATH=$(npm root -g) node handleiding/demo/maak-schermen.js [uitmap]
+//   DEMO_KLANT='Naam van de klant' NODE_PATH=$(npm root -g) node handleiding/demo/maak-schermen.js handleiding/schermen-demo-<slug>
+// De klantnaam staat op de schermen, de cijfers zijn altijd dezelfde voorbeeldcijfers.
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');

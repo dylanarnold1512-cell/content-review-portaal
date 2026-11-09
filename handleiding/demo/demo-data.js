@@ -2,7 +2,7 @@
 // Per branche een eigen set (nu: klussenbedrijf). Alle cijfers zijn verzonnen en bedoeld om het portaal
 // te laten zien zoals het eruitziet als het een paar maanden draait.
 
-const NAAM = 'Vermeulen Klussenbedrijf';
+const NAAM = process.env.DEMO_KLANT || 'Vermeulen Klussenbedrijf';
 const SLUG = 'demo-klussenbedrijf';
 const SITE = 'https://vermeulen-klussenbedrijf.nl';
 
