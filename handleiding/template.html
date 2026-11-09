@@ -6,16 +6,16 @@
 <style>
 @font-face { font-family: "Geist"; src: url("../public/fonts/Geist-Variable.woff2") format("woff2"); font-weight: 100 900; }
 :root {
-  --bg: #f5f7fc; --ink: #14142b; --zacht: #62657f; --vaag: #9a9db5; --rand: #e6e8f1;
+  --bg: #f4f5fa; --ink: #14142b; --zacht: #62657f; --vaag: #9a9db5; --rand: #e6e8f1;
   --rood: #ff3951; --rood-zacht: #ffefef; --wit: #ffffff; --donker: #14142b;
-  --mono: "Geist Mono", "DejaVu Sans Mono", ui-monospace, monospace;
+  --mono: "Geist", Arial, sans-serif;
 }
 @page { size: A4; margin: 0; }
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: "Geist", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
 .page { width: 210mm; height: 297mm; padding: 13mm 16mm 11mm; position: relative; overflow: hidden; page-break-after: always; background: var(--bg); display: flex; flex-direction: column; }
 .page:last-child { page-break-after: auto; }
-.kop { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 7.5pt; letter-spacing: .08em; color: var(--zacht); text-transform: uppercase; margin-bottom: 8mm; }
+.kop { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 8pt; letter-spacing: .08em; color: var(--ink); text-transform: uppercase; margin-bottom: 8mm; }
 .label { font-family: var(--mono); font-size: 7.5pt; letter-spacing: .1em; text-transform: uppercase; color: var(--rood); margin-bottom: 3mm; }
 h1 { font-size: 22pt; line-height: 1.12; letter-spacing: -.02em; margin: 0 0 4mm; font-weight: 700; }
 h2 { font-size: 13pt; letter-spacing: -.01em; margin: 0 0 1.5mm; font-weight: 700; }
@@ -28,14 +28,16 @@ p { font-size: 9.5pt; line-height: 1.55; margin: 0 0 3mm; color: var(--ink); }
 /* Voorblad */
 .cover { background: var(--bg); }
 .cover .merk { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 26mm; }
-.cover .merk b { font-size: 14pt; letter-spacing: -.02em; }
-.cover .merk span { font-family: var(--mono); font-size: 7.5pt; letter-spacing: .1em; color: var(--zacht); }
-.cover .titel { font-size: 56pt; line-height: .98; letter-spacing: -.04em; font-weight: 800; margin: 0 0 9mm; }
+.cover .merk b { font-size: 17pt; letter-spacing: -.02em; }
+.cover .merk span { font-family: var(--mono); font-size: 8pt; letter-spacing: .08em; color: var(--ink); }
+.cover .merk b .dot { color: var(--rood); font-family: inherit; font-size: inherit; letter-spacing: inherit; }
+.cover .titel { font-size: 77pt; line-height: .98; letter-spacing: -.04em; font-weight: 800; margin: 0 0 9mm; color: #3d4058; }
 .cover .ondertitel { font-size: 17pt; line-height: 1.25; letter-spacing: -.02em; font-weight: 700; max-width: 140mm; margin: 0 0 5mm; }
 .cover .uitleg { font-size: 10.5pt; line-height: 1.6; color: var(--zacht); max-width: 125mm; }
 .cover .scherm { margin-top: auto; margin-right: -17mm; border-radius: 10px 0 0 0; }
 
 /* Schermafbeeldingen in een venster */
+.leeg { border: 1px dashed var(--rand); border-radius: 8px; padding: 4mm; font-size: 8.4pt; color: var(--zacht); background: var(--wit); align-self: center; }
 .venster { background: var(--wit); border: 1px solid var(--rand); border-radius: 8px; overflow: hidden;  }
 .venster .balk { height: 6mm; border-bottom: 1px solid var(--rand); display: flex; align-items: center; gap: 1.2mm; padding: 0 3mm; font-size: 6pt; color: var(--vaag); }
 .venster .balk i { width: 1.6mm; height: 1.6mm; border-radius: 50%; background: #d8dbe8; display: inline-block; }
@@ -103,9 +105,50 @@ ul.punten li b { color: var(--ink); }
   <div class="venster scherm"><div class="balk"><i></i><i></i><i></i><span>portaal.advertisr.nl/{{slug}}</span></div><img src="schermen/overzicht.png" alt=""></div>
 </section>
 
-<!-- 2. Praktische gegevens -->
+<!--if:strategie-->
+<!-- Strategie -->
 <section class="page">
   <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>02</span></div>
+  <div class="label">Onze strategie</div>
+  <h1>Waar we op inzetten.</h1>
+  <p class="inleiding">De strategie in het kort: waarover we schrijven, voor wie, en hoe jullie gevonden worden in Google en in AI.</p>
+
+  <div class="kaarten drie">
+    <div class="kaart"><div class="klein">Tempo</div><div class="waarde">{{blogsPerMaand}} blogs per maand</div><p>{{strategieTempo}}</p></div>
+    <div class="kaart"><div class="klein">Verdeling</div><div class="waarde">{{strategieVerdeling}}</div><p>{{strategieVerdelingUitleg}}</p></div>
+    <div class="kaart"><div class="klein">Werkgebied</div><div class="waarde">{{strategieGebied}}</div><p>{{strategieGebiedUitleg}}</p></div>
+  </div>
+
+  <div class="blok">
+    <span class="tab">Onderwerpen</span>
+    <div class="rij">
+      <div>
+        <h2>{{strategieAantalClusters}} onderwerpen, elk met eigen blogs.</h2>
+        <ul class="punten">{{strategieClusters}}</ul>
+      </div>
+      <div>
+        <h2>Zo worden jullie gevonden.</h2>
+        <ul class="punten">
+          <li><b>In Google:</b> {{strategieGoogle}}</li>
+          <li><b>In ChatGPT en Gemini:</b> {{strategieAI}}</li>
+          <li><b>Zakelijk:</b> {{strategieZakelijk}}</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="donker">
+    <div class="label">Wat we niet schrijven</div>
+    <h2>Alleen wat jullie echt kunnen waarmaken.</h2>
+    <p>{{strategieNiet}}</p>
+  </div>
+  <div class="regie"><p><b>Elke maand bijsturen.</b> In het maandrapport zie je wat de blogs opleveren. Daarmee passen we de planning aan: meer van wat werkt, minder van wat niet werkt.</p></div>
+</section>
+<!--endif-->
+
+<!-- 2. Praktische gegevens -->
+<section class="page">
+  <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>{{p2}}</span></div>
   <div class="label">Praktische gegevens</div>
   <h1>Alles om te starten, op één plek.</h1>
   <p class="inleiding">Dit zijn de gegevens die je het vaakst nodig hebt. Bewaar deze pagina.</p>
@@ -148,7 +191,7 @@ ul.punten li b { color: var(--ink); }
 
 <!-- 3. Overzicht en Blogs -->
 <section class="page">
-  <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>03</span></div>
+  <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>{{p3}}</span></div>
   <div class="label">Zo werkt het portaal</div>
   <h1>Links vind je het menu. Dit doet elk onderdeel.</h1>
   <p class="inleiding">Het portaal heeft een vast menu aan de linkerkant. Hieronder lopen we het door, van boven naar beneden.</p>
@@ -197,7 +240,7 @@ ul.punten li b { color: var(--ink); }
 
 <!-- 4. Pagina's, Google, AI, Maandrapporten -->
 <section class="page">
-  <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>04</span></div>
+  <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>{{p4}}</span></div>
   <div class="label">Zo werkt het portaal, vervolg</div>
 
   <!--if:pagr-->
@@ -220,7 +263,7 @@ ul.punten li b { color: var(--ink); }
   <div class="blok">
     <span class="tab">Google</span>
     <div class="rij omgekeerd">
-      <div class="venster uitsnede" style="max-height:44mm"><div class="balk"><i></i><i></i><i></i><span>Google</span></div><img src="schermen/google.png" alt=""></div>
+      <div class="venster uitsnede" style="max-height:66mm"><div class="balk"><i></i><i></i><i></i><span>Google</span></div><img src="schermen/google.png" alt=""></div>
       <div>
         <h2>Zien wat Google doet met jullie blogs.</h2>
         <p>Hoe vaak jullie getoond worden, hoeveel bezoekers dat oplevert en op welke plek jullie staan. De cijfers lopen twee tot drie dagen achter. Een nieuwe blog heeft meestal een paar weken nodig voordat Google hem oppakt, dus de eerste weken is het rustig.</p>
@@ -237,14 +280,14 @@ ul.punten li b { color: var(--ink); }
         <p>Steeds meer mensen stellen hun vraag aan AI in plaats van aan Google. Wij stellen elke week dezelfde vragen aan ChatGPT en Gemini en tellen hoe vaak jullie bedrijf voorkomt. Zo zie je of jullie zichtbaarheid groeit.</p>
         <div class="tip"><p>De eerste meting volgt in de eerste week. Tot dan staat hier een melding.</p></div>
       </div>
-      <div class="venster uitsnede" style="max-height:24mm"><div class="balk"><i></i><i></i><i></i><span>Ai zichtbaarheid</span></div><img src="schermen/ai.png" alt=""></div>
+      <div class="venster uitsnede" style="max-height:58mm"><div class="balk"><i></i><i></i><i></i><span>Ai zichtbaarheid</span></div><img src="schermen/ai.png" alt=""></div>
     </div>
   </div>
 
   <div class="blok">
     <span class="tab">Maandrapporten</span>
     <div class="rij omgekeerd">
-      <div class="venster uitsnede" style="max-height:24mm"><div class="balk"><i></i><i></i><i></i><span>Maandrapporten</span></div><img src="schermen/rapporten.png" alt=""></div>
+      <div class="venster uitsnede" style="max-height:50mm"><div class="balk"><i></i><i></i><i></i><span>Maandrapporten</span></div><img src="schermen/rapporten.png" alt=""></div>
       <div>
         <h2>Elke maand een vast overzicht.</h2>
         <p>Op de 4e van de maand verschijnt het rapport over de maand ervoor, met een terugblik, de cijfers die vastliggen en een vooruitblik. Je kunt het als PDF downloaden en delen. De actuele stand zie je altijd bij Google.</p>
@@ -255,7 +298,7 @@ ul.punten li b { color: var(--ink); }
 
 <!-- 5. Merkprofiel, Kennisdocument, Beeldbank -->
 <section class="page">
-  <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>05</span></div>
+  <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>{{p5}}</span></div>
   <div class="label">Jullie merk</div>
   <h1>Hier bepaal je hoe wij over jullie schrijven.</h1>
   <p class="inleiding">Drie onderdelen waarmee je de blogs en pagina's persoonlijker en juister maakt.</p>
@@ -293,16 +336,17 @@ ul.punten li b { color: var(--ink); }
       <div>
         <h2>Foto's van jullie eigen werk.</h2>
         <p>Eigen foto's maken blogs en pagina's veel sterker dan stockfoto's. Sleep ze hier naartoe. Wij verkleinen ze, geven ze een passende naam en beschrijving en zetten ze in de juiste map. Jullie hoeven niets te sorteren.</p>
-        <div class="tip"><p><b>Tip:</b> projectfoto's van een badkamer, ketel of installatie werken het beste. Geen foto's? Dan gebruiken we beelden uit de bibliotheek.</p></div>
+        <div class="tip"><p><b>Tip:</b> {{fotoTip}} Geen foto's? Dan gebruiken we beelden uit de bibliotheek.</p></div>
       </div>
       <div class="venster uitsnede" style="max-height:60mm"><div class="balk"><i></i><i></i><i></i><span>Beeldbank</span></div><img src="schermen/beeldbank.png" alt=""></div>
     </div>
   </div>
 </section>
 
+
 <!-- 6. Wat we van jullie vragen -->
 <section class="page">
-  <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>06</span></div>
+  <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>{{nrVragen}}</span></div>
   <div class="label">Wat we van jullie vragen</div>
   <h1>Twee dingen. Samen een kwartier.</h1>
   <p class="inleiding">Meer is er niet nodig om te starten. De rest doen wij.</p>
@@ -330,7 +374,7 @@ ul.punten li b { color: var(--ink); }
     <p>Mail ons gerust, ook voor een kleine vraag. We helpen je op weg of nemen het uit handen.</p>
     <div class="mail">{{contactAdvertisr}}</div>
   </div>
-  <div class="voet">De schermafbeeldingen komen uit het portaal van {{klant}}. Cijfers verschijnen zodra er data is.</div>
+  <div class="voet">De schermen met cijfers laten een voorbeeldportaal zien van een verzonnen klant. Jullie eigen cijfers verschijnen zodra jullie blogs live staan.</div>
 </section>
 
 </body>

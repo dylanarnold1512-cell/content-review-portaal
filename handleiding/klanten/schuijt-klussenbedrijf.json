@@ -1,0 +1,44 @@
+{
+  "klant": "Schuijt Klussenbedrijf",
+  "slug": "schuijt-klussenbedrijf",
+  "email": "leonschuijt23@gmail.com",
+  "contact": "Leon",
+  "blogr": true,
+  "pagr": false,
+  "strategie": {
+    "tempo": "In de eerste drie maanden komen er twaalf blogs.",
+    "verdeling": "60 procent particulier",
+    "verdelingUitleg": "40 procent zakelijk, voor VvE's, beheerders en bedrijven.",
+    "gebied": "Heemskerk en omgeving",
+    "gebiedUitleg": "Een werkgebied van ongeveer 25 kilometer. De blogs noemen het werkgebied in gewone zinnen.",
+    "clusters": [
+      "Schuttingen en erfafscheidingen",
+      "Terras, oprit en pad bestraten",
+      "Complete tuinaanleg",
+      "Onderhoud en terrasreiniging",
+      "VvE's, beheerders en bedrijven",
+      "Verzakking, afwatering en herstel",
+      "Lokaal Heemskerk en IJmond"
+    ],
+    "google": "blogs beantwoorden de vragen die mensen echt stellen, zoals een oprit bestraten of een schutting plaatsen. Ze verwijzen naar de dienstpagina en de offerte.",
+    "ai": "korte antwoorden bovenaan, koppen als vraag en een vragenblok onderaan. Elke week meten we of ChatGPT en Gemini jullie noemen.",
+    "zakelijk": "deze blogs zijn gebouwd op vragen van beheerders en besturen: planning, hinder en gefaseerd werken.",
+    "niet": "Geen richtprijzen, geen prijs per m2 en geen vanafprijzen. Geen aantal jaren ervaring, klussen of tevreden klanten. Geen klantnamen of projectadressen, geen spoedservice en geen plaatsen buiten het werkgebied. Ook geen aanbestedingen of cases voor woningcorporaties."
+  },
+  "blogsPerMaand": 4,
+  "paginasPerMaand": 0,
+  "eersteBlog": "Oprit bestraten: zo zorg je voor een stevige ondergrond",
+  "volgendeBlogDatum": "20 nov",
+  "volgendeBlogTitel": "Complete tuinaanleg: hoe stemmen wij bestrating, borders en gazon op elkaar af?",
+  "contactAdvertisr": "marc@advertisr.nl of dylan@advertisr.nl",
+  "fotoTip": "foto's van een afgeronde oprit, terras of schutting werken het beste.",
+  "schermenMap": "schermen-schuijt",
+  "zonderSchermen": [],
+  "demoSchermen": [
+    "overzicht",
+    "blogs",
+    "google",
+    "ai",
+    "rapporten"
+  ]
+}
