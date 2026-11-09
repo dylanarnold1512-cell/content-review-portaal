@@ -104,9 +104,50 @@ ul.punten li b { color: var(--ink); }
   <div class="venster scherm"><div class="balk"><i></i><i></i><i></i><span>portaal.advertisr.nl/{{slug}}</span></div><img src="schermen/overzicht.png" alt=""></div>
 </section>
 
-<!-- 2. Praktische gegevens -->
+<!--if:strategie-->
+<!-- Strategie -->
 <section class="page">
   <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>02</span></div>
+  <div class="label">Onze strategie</div>
+  <h1>Waar we op inzetten.</h1>
+  <p class="inleiding">De strategie in het kort: waarover we schrijven, voor wie, en hoe jullie gevonden worden in Google en in AI.</p>
+
+  <div class="kaarten drie">
+    <div class="kaart"><div class="klein">Tempo</div><div class="waarde">{{blogsPerMaand}} blogs per maand</div><p>{{strategieTempo}}</p></div>
+    <div class="kaart"><div class="klein">Verdeling</div><div class="waarde">{{strategieVerdeling}}</div><p>{{strategieVerdelingUitleg}}</p></div>
+    <div class="kaart"><div class="klein">Werkgebied</div><div class="waarde">{{strategieGebied}}</div><p>{{strategieGebiedUitleg}}</p></div>
+  </div>
+
+  <div class="blok">
+    <span class="tab">Onderwerpen</span>
+    <div class="rij">
+      <div>
+        <h2>{{strategieAantalClusters}} onderwerpen, elk met eigen blogs.</h2>
+        <ul class="punten">{{strategieClusters}}</ul>
+      </div>
+      <div>
+        <h2>Zo worden jullie gevonden.</h2>
+        <ul class="punten">
+          <li><b>In Google:</b> {{strategieGoogle}}</li>
+          <li><b>In ChatGPT en Gemini:</b> {{strategieAI}}</li>
+          <li><b>Zakelijk:</b> {{strategieZakelijk}}</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="donker">
+    <div class="label">Wat we niet schrijven</div>
+    <h2>Alleen wat jullie echt kunnen waarmaken.</h2>
+    <p>{{strategieNiet}}</p>
+  </div>
+  <div class="regie"><p><b>Elke maand bijsturen.</b> In het maandrapport zie je wat de blogs opleveren. Daarmee passen we de planning aan: meer van wat werkt, minder van wat niet werkt.</p></div>
+</section>
+<!--endif-->
+
+<!-- 2. Praktische gegevens -->
+<section class="page">
+  <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>{{p2}}</span></div>
   <div class="label">Praktische gegevens</div>
   <h1>Alles om te starten, op één plek.</h1>
   <p class="inleiding">Dit zijn de gegevens die je het vaakst nodig hebt. Bewaar deze pagina.</p>
@@ -149,7 +190,7 @@ ul.punten li b { color: var(--ink); }
 
 <!-- 3. Overzicht en Blogs -->
 <section class="page">
-  <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>03</span></div>
+  <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>{{p3}}</span></div>
   <div class="label">Zo werkt het portaal</div>
   <h1>Links vind je het menu. Dit doet elk onderdeel.</h1>
   <p class="inleiding">Het portaal heeft een vast menu aan de linkerkant. Hieronder lopen we het door, van boven naar beneden.</p>
@@ -198,7 +239,7 @@ ul.punten li b { color: var(--ink); }
 
 <!-- 4. Pagina's, Google, AI, Maandrapporten -->
 <section class="page">
-  <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>04</span></div>
+  <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>{{p4}}</span></div>
   <div class="label">Zo werkt het portaal, vervolg</div>
 
   <!--if:pagr-->
@@ -256,7 +297,7 @@ ul.punten li b { color: var(--ink); }
 
 <!-- 5. Merkprofiel, Kennisdocument, Beeldbank -->
 <section class="page">
-  <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>05</span></div>
+  <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>{{p5}}</span></div>
   <div class="label">Jullie merk</div>
   <h1>Hier bepaal je hoe wij over jullie schrijven.</h1>
   <p class="inleiding">Drie onderdelen waarmee je de blogs en pagina's persoonlijker en juister maakt.</p>
@@ -301,46 +342,6 @@ ul.punten li b { color: var(--ink); }
   </div>
 </section>
 
-<!--if:strategie-->
-<!-- Strategie -->
-<section class="page">
-  <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>06</span></div>
-  <div class="label">Onze strategie</div>
-  <h1>Waar we op inzetten.</h1>
-  <p class="inleiding">De strategie in het kort: waarover we schrijven, voor wie, en hoe jullie gevonden worden in Google en in AI.</p>
-
-  <div class="kaarten drie">
-    <div class="kaart"><div class="klein">Tempo</div><div class="waarde">{{blogsPerMaand}} blogs per maand</div><p>{{strategieTempo}}</p></div>
-    <div class="kaart"><div class="klein">Verdeling</div><div class="waarde">{{strategieVerdeling}}</div><p>{{strategieVerdelingUitleg}}</p></div>
-    <div class="kaart"><div class="klein">Werkgebied</div><div class="waarde">{{strategieGebied}}</div><p>{{strategieGebiedUitleg}}</p></div>
-  </div>
-
-  <div class="blok">
-    <span class="tab">Onderwerpen</span>
-    <div class="rij">
-      <div>
-        <h2>{{strategieAantalClusters}} onderwerpen, elk met eigen blogs.</h2>
-        <ul class="punten">{{strategieClusters}}</ul>
-      </div>
-      <div>
-        <h2>Zo worden jullie gevonden.</h2>
-        <ul class="punten">
-          <li><b>In Google:</b> {{strategieGoogle}}</li>
-          <li><b>In ChatGPT en Gemini:</b> {{strategieAI}}</li>
-          <li><b>Zakelijk:</b> {{strategieZakelijk}}</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-
-  <div class="donker">
-    <div class="label">Wat we niet schrijven</div>
-    <h2>Alleen wat jullie echt kunnen waarmaken.</h2>
-    <p>{{strategieNiet}}</p>
-  </div>
-  <div class="regie"><p><b>Elke maand bijsturen.</b> In het maandrapport zie je wat de blogs opleveren. Daarmee passen we de planning aan: meer van wat werkt, minder van wat niet werkt.</p></div>
-</section>
-<!--endif-->
 
 <!-- 6. Wat we van jullie vragen -->
 <section class="page">

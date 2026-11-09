@@ -35,6 +35,7 @@ function bouwHtml(c, wachtwoord) {
     wachtwoord: wachtwoord || '[vul het wachtwoord in]',
     productTitel,
     nrVragen: c.strategie ? '07' : '06',
+    p2: c.strategie ? '03' : '02', p3: c.strategie ? '04' : '03', p4: c.strategie ? '05' : '04', p5: c.strategie ? '06' : '05',
     fotoTip: c.fotoTip || 'projectfoto\'s van eigen werk werken het beste.',
     ...(c.strategie ? {
       strategieTempo: c.strategie.tempo, strategieVerdeling: c.strategie.verdeling, strategieVerdelingUitleg: c.strategie.verdelingUitleg,
