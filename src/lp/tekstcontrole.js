@@ -167,8 +167,8 @@ function tekstControle(slotData, opties) {
     }
   }
 
-  // 8b. Mix (naam en wij): de bedrijfsnaam staat op de vaste plekken (hero of antwoordblok, waarom, contact), hooguit 6 keer
-  // in totaal, en de rest van de pagina is in de wij-vorm. "De installateur" of "het bedrijf" als vervanging past niet.
+  // 8b. Mix (naam en wij): de bedrijfsnaam staat precies een keer, bovenaan in de hero of het antwoordblok (10-11-2026, Dylan),
+  // en de rest van de pagina is in de wij-vorm. "De installateur" of "het bedrijf" als vervanging past niet.
   if (o.mix && o.bedrijfsnaam) {
     const naamRegex = new RegExp(String(o.bedrijfsnaam).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'), 'gi');
     const GENERIEK = /\b(de installateur|het bedrijf|de aannemer|de vakman)\b/gi;
@@ -187,20 +187,20 @@ function tekstControle(slotData, opties) {
       if (tel(GENERIEK, v.tekst)) metGeneriek.push(v.slot);
     });
     const bestaat = (re) => uniek(tekstVelden.map((v) => v.slot).filter((k) => re.test(k)));
-    const vasteSlots = bestaat(/^(heroIntro|directAnswer|uspIntro|uspTitle|contactIntro)$/);
-    if (naamTotaal < 3) {
+    const vasteSlots = bestaat(/^(heroIntro|directAnswer)$/);
+    if (naamTotaal < 1) {
       punten.push({
         soort: 'toon',
-        tekst: `De bedrijfsnaam "${o.bedrijfsnaam}" staat ${naamTotaal} keer op de pagina. Dat moet minstens 3 keer: in de hero of het antwoordblok, bij waarom en in het contactblok.`,
+        tekst: `De bedrijfsnaam "${o.bedrijfsnaam}" staat niet op de pagina. Noem hem een keer bovenaan, in de hero of het antwoordblok.`,
         slots: vasteSlots.slice(0, 6),
-        aanwijzing: `Noem de bedrijfsnaam "${o.bedrijfsnaam}" bij naam in de hero of het antwoordblok, in de intro of kop van waarom (de USP's) en in het contactblok. In de rest van de pagina blijft het "wij", "we" en "ons".`
+        aanwijzing: `Noem de bedrijfsnaam "${o.bedrijfsnaam}" een keer bij naam in de hero of het antwoordblok. In de rest van de pagina blijft het "wij", "we" en "ons".`
       });
-    } else if (naamTotaal > 6) {
+    } else if (naamTotaal > 1) {
       punten.push({
         soort: 'toon',
-        tekst: `De bedrijfsnaam "${o.bedrijfsnaam}" staat ${naamTotaal} keer op de pagina. Dat klinkt als een brochure.`,
-        slots: uniek(metNaam).filter((k) => !vasteSlots.includes(k)).slice(0, 6),
-        aanwijzing: `Noem de bedrijfsnaam alleen in de hero of het antwoordblok, bij waarom en in het contactblok. Schrijf in de andere onderdelen "wij", "we" of "ons".`
+        tekst: `De bedrijfsnaam "${o.bedrijfsnaam}" staat ${naamTotaal} keer op de pagina. Dat klinkt als een brochure. Hij hoort er een keer te staan, bovenaan.`,
+        slots: uniek(metNaam).slice(0, 8),
+        aanwijzing: `Noem de bedrijfsnaam alleen een keer, in de hero of het antwoordblok. Schrijf in alle andere onderdelen, ook in koppen en in het contactblok, "wij", "we", "ons" of "onze".`
       });
     }
     if (metGeneriek.length) {

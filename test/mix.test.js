@@ -9,23 +9,25 @@ const opt = { mix: true, bedrijfsnaam: 'Hirs Installaties', nietNoemen: ['Nick']
 const goed = {
   heroIntro: 'Wil je een nieuwe badkamer? Hirs Installaties helpt je van plan tot oplevering.',
   introText: 'We bespreken je wensen en denken mee over de indeling.',
-  uspTitle: 'Daarom kies je voor Hirs Installaties',
+  uspTitle: 'Daarom kies je voor ons',
   uspIntro: 'Wij werken veiligheidsbewust.',
   offerItems: [{ title: 'Badkamers', text: 'Wij verzorgen het leidingwerk en het sanitair.' }],
   stepItems: [{ title: 'Bespreek', text: 'We nemen contact met je op.' }],
-  contactIntro: 'Vraag een offerte aan bij Hirs Installaties. We reageren snel.'
+  contactIntro: 'Vraag een offerte aan. We reageren snel.'
 };
 
-test('mix: naam op de vaste plekken en wij in de rest is goed', () => {
+test('mix: naam een keer bovenaan en wij in de rest is goed', () => {
   const punten = tekstControle(goed, opt).filter((p) => /bedrijfsnaam|wij, we|installateur/i.test(p.tekst));
   assert.deepStrictEqual(punten, []);
 });
 
 test('mix: te weinig naam, te vaak naam en generieke verwijzing worden gemeld', () => {
-  const weinig = tekstControle({ ...goed, heroIntro: 'Wil je een badkamer? We helpen je.', uspTitle: 'Daarom kiezen klanten voor ons', contactIntro: 'Vraag een offerte aan.' }, opt);
-  assert.ok(weinig.some((p) => /staat \d+ keer op de pagina\. Dat moet minstens 3/.test(p.tekst)));
-  const veel = tekstControle({ ...goed, introText: 'Hirs Installaties doet dit. Hirs Installaties doet dat.', offerItems: [{ text: 'Hirs Installaties en Hirs Installaties.' }] }, opt);
+  const weinig = tekstControle({ ...goed, heroIntro: 'Wil je een badkamer? We helpen je.' }, opt);
+  assert.ok(weinig.some((p) => /staat niet op de pagina/.test(p.tekst)));
+  const veel = tekstControle({ ...goed, contactIntro: 'Vraag een offerte aan bij Hirs Installaties.' }, opt);
   assert.ok(veel.some((p) => /brochure/.test(p.tekst)));
+  const veelMeer = tekstControle({ ...goed, introText: 'Hirs Installaties doet dit. Hirs Installaties doet dat.', offerItems: [{ text: 'Hirs Installaties en Hirs Installaties.' }] }, opt);
+  assert.ok(veelMeer.some((p) => /brochure/.test(p.tekst)));
   const generiek = tekstControle({ ...goed, introText: 'De installateur bespreekt je wensen.' }, opt);
   assert.ok(generiek.some((p) => /de installateur/i.test(p.tekst)));
 });
@@ -44,7 +46,7 @@ test('mix: de wij-controle van de derde persoon staat uit', () => {
 
 test('mix: de prompts noemen naam en wij, zonder gezicht van de eigenaar', () => {
   assert.match(kv.mixBlok('Hirs Installaties', ['Nick']), /nooit: Nick/);
-  assert.match(kv.mixBlok('Hirs Installaties', []), /hooguit 6 keer/);
+  assert.match(kv.mixBlok('Hirs Installaties', []), /hooguit 1 keer/);
   const regels = kv.paginaOpbouwRegels({ derde: false, mix: true });
   assert.match(regels, /noem daarna de bedrijfsnaam een keer bij naam/);
   const verhaalMetGezicht = { status: 'goedgekeurd', stem: {}, gezicht: { naam: 'Nick Hirs', tekst: 'eigenaar' }, waaromKiezen: [{ punt: 'x' }] };
