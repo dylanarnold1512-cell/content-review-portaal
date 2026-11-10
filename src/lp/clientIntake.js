@@ -132,7 +132,7 @@ async function getIntake(intakeId) {
 }
 
 // intake bevat: { klantnaam, taal, wpEnvNamen: {urlEnv, usernameEnv, appPasswordEnv}, nietToegestaan:
-// [string], toonNotitie, referentieUrl, huisstijlVoorstel: {tokensVoorstel, samenvatting, twijfels},
+// [string], toonNotitie, schrijfvorm ('wij' | 'mix' | 'derde', voorstel uit de sitetekst, door Dylan bevestigd), referentieUrl, huisstijlVoorstel: {tokensVoorstel, samenvatting, twijfels},
 // feiten: [{label, waarde, bron}] } — precies genoeg om er profile.js/feiten.js/tokens.js van te maken.
 async function createIntake({ klantnaam, klantId, intake }) {
   const client = getNotionClient();

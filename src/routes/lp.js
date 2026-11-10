@@ -16,6 +16,7 @@ const templates = require('../lp/templates');
 const clientIntake = require('../lp/clientIntake');
 const { buildHuisstijlVoorstel } = require('../lp/huisstijl');
 const { buildFeitenVoorstel } = require('../lp/siteAnalyse');
+const { analyseerSchrijfvormVanSite } = require('../lp/schrijfvormAnalyse');
 const ai = require('../lp/ai');
 const { renderPageHtml } = require('../lp/render');
 const { buildRenderPage, contentIsEmpty } = require('../lp/pageRender');
@@ -229,6 +230,16 @@ router.post('/intake/analyseer-feiten', requireLpInternal, async (req, res) => {
     const { referentieUrl, contactUrl } = req.body || {};
     const voorstel = await buildFeitenVoorstel(referentieUrl, contactUrl);
     res.json(voorstel);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/intake/analyseer-schrijfvorm', requireLpInternal, async (req, res) => {
+  try {
+    const { referentieUrl, bedrijfsnaam, taal } = req.body || {};
+    if (!referentieUrl || !String(referentieUrl).trim()) throw new Error('Vul eerst de website van de klant in.');
+    res.json(await analyseerSchrijfvormVanSite({ url: String(referentieUrl).trim(), bedrijfsnaam, taal }));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

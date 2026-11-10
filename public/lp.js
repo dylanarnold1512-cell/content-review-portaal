@@ -2523,6 +2523,17 @@ document.getElementById('lpIntakeAnalyseerFeitenBtn').addEventListener('click', 
       twijfelsEl.innerHTML += extraTwijfels.map((t) => `<li>${t}</li>`).join('');
       document.getElementById('lpIntakeVoorstelSection').classList.remove('hidden');
     }
+    // Schrijfvorm van de bestaande site (telt wij en de bedrijfsnaam, geen AI). Mislukt dit, dan blijft de standaard staan.
+    try {
+      const sv = await lpApi('/intake/analyseer-schrijfvorm', {
+        method: 'POST',
+        body: JSON.stringify({ referentieUrl, bedrijfsnaam: document.getElementById('lpIntakeKlantnaam').value.trim(), taal: document.getElementById('lpIntakeTaal').value })
+      });
+      document.getElementById('lpIntakeSchrijfvorm').value = sv.schrijfvorm || 'wij';
+      document.getElementById('lpIntakeSchrijfvormToelichting').textContent = (sv.zeker ? 'Voorstel: ' : 'Let op, niet zeker: ') + sv.toelichting;
+    } catch (svErr) {
+      document.getElementById('lpIntakeSchrijfvormToelichting').textContent = 'De schrijfvorm van de site kon niet geanalyseerd worden. Kies zelf.';
+    }
     statusEl.textContent = `Voorstel klaar - ${(feitenVoorstel || []).length} feit(en) toegevoegd hierboven in de Feitenbibliotheek, controleer ze voordat je verzendt.`;
   } catch (err) {
     statusEl.textContent = '';
@@ -2569,6 +2580,7 @@ document.getElementById('lpIntakeSubmitBtn').addEventListener('click', async () 
       appPasswordEnv: document.getElementById('lpIntakeWpPassEnv').value.trim()
     },
     nietToegestaan: document.getElementById('lpIntakeNietToegestaan').value.split('\n').map((r) => r.trim()).filter(Boolean),
+    schrijfvorm: document.getElementById('lpIntakeSchrijfvorm').value,
     toonNotitie: document.getElementById('lpIntakeToonNotitie').value.trim(),
     referentieUrl: document.getElementById('lpIntakeReferentieUrl').value.trim(),
     huisstijlVoorstel: document.getElementById('lpIntakeVoorstelSection').classList.contains('hidden')
@@ -2587,6 +2599,8 @@ document.getElementById('lpIntakeSubmitBtn').addEventListener('click', async () 
     document.getElementById('lpIntakeKlantnaam').value = '';
     document.getElementById('lpIntakeKlantId').value = '';
     document.getElementById('lpIntakeToonNotitie').value = '';
+    document.getElementById('lpIntakeSchrijfvorm').value = 'wij';
+    document.getElementById('lpIntakeSchrijfvormToelichting').textContent = 'Wordt voorgesteld als je de website analyseert. Je kunt het zelf aanpassen.';
     document.getElementById('lpIntakeNietToegestaan').value = '';
     document.getElementById('lpIntakeWpUrlEnv').value = '';
     document.getElementById('lpIntakeWpUserEnv').value = '';
