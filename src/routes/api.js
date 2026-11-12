@@ -3,6 +3,7 @@ const { getClient } = require('../config/clients');
 const notionService = require('../services/notion');
 const settingsService = require('../services/settings');
 const kennisdocumentService = require('../services/kennisdocument');
+const klantvragenService = require('../services/klantvragen');
 const merkprofielService = require('../services/merkprofiel');
 const prestatiesService = require('../services/prestaties');
 const rapportenService = require('../services/rapporten');
@@ -308,6 +309,26 @@ router.post('/:clientId/publiceren', requireLogin, async (req, res) => {
     const config = getClient(req.params.clientId);
     const { aan, modus, inkijkUren } = req.body || {};
     res.json(await publicerenService.bewaarInstellingen({ clientId: req.params.clientId, naam: config.naam, aan: aan === true, modus, inkijkUren }));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Vraag van de week: zie src/services/klantvragen.js.
+router.get('/:clientId/vraag', requireLogin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    res.json(await klantvragenService.getVraag({ naam: config.naam }));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/:clientId/vraag', requireLogin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    const { id, antwoord, overslaan } = req.body || {};
+    res.json(await klantvragenService.beantwoord({ naam: config.naam, id, antwoord, overslaan: overslaan === true }));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
