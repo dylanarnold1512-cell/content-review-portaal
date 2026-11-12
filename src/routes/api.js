@@ -8,6 +8,7 @@ const prestatiesService = require('../services/prestaties');
 const rapportenService = require('../services/rapporten');
 const aiZichtbaarheidService = require('../services/aiZichtbaarheid');
 const beeldbankService = require('../services/beeldbank');
+const publicerenService = require('../services/publiceren');
 const documentTekst = require('../services/documentTekst');
 const lpNotion = require('../lp/notion');
 const lpTemplates = require('../lp/templates');
@@ -289,6 +290,44 @@ router.post('/:clientId/items/:pageId/reject', requireLogin, async (req, res) =>
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Automatisch publiceren: instellingen per klant en de stand per blog. Zie src/services/publiceren.js.
+router.get('/:clientId/publiceren', requireLogin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    res.json(await publicerenService.getInstellingen({ clientId: req.params.clientId, naam: config.naam }));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/:clientId/publiceren', requireLogin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    const { aan, modus, inkijkUren } = req.body || {};
+    res.json(await publicerenService.bewaarInstellingen({ clientId: req.params.clientId, naam: config.naam, aan: aan === true, modus, inkijkUren }));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.get('/:clientId/items/:pageId/publicatie', requireLogin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    res.json(await publicerenService.getBlog({ clientId: req.params.clientId, naam: config.naam, pageId: req.params.pageId }));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/:clientId/items/:pageId/tegenhouden', requireLogin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    res.json(await publicerenService.tegenhouden({ clientId: req.params.clientId, naam: config.naam, pageId: req.params.pageId }));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 

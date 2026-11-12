@@ -296,24 +296,25 @@
     const st = { clientNaam: naam, ideaEnrichmentEnabled: state.ideaEnrichmentEnabled };
     // Eerste keer: skelet. Daarna meteen de laatst bekende cijfers tonen terwijl er ververst wordt.
     const cache = (sleutel) => (laatsteGoed[id + sleutel] ? { status: 'ok', data: laatsteGoed[id + sleutel].data } : null);
-    const c = { google: cache('google'), ai: cache('ai'), merk: cache('merk'), kennis: cache('kennis') };
+    const c = { google: cache('google'), ai: cache('ai'), merk: cache('merk'), kennis: cache('kennis'), publiceren: cache('publiceren') };
     if (c.ai || c.google) {
-      doel.innerHTML = bouwHtml(st, { ...basis, google: c.google || { status: 'uit' }, ai: c.ai || { status: 'uit' }, merk: c.merk || { status: 'uit' }, kennis: c.kennis || { status: 'uit' } });
+      doel.innerHTML = bouwHtml(st, { ...basis, google: c.google || { status: 'uit' }, ai: c.ai || { status: 'uit' }, merk: c.merk || { status: 'uit' }, kennis: c.kennis || { status: 'uit' }, publiceren: c.publiceren || { status: 'uit' } });
     } else {
       doel.innerHTML = skelet();
     }
     koppel(doel, openBlog);
     activeer(doel);
-    const [google, ai, merk, kennis] = await Promise.all([
+    const [google, ai, merk, kennis, publiceren] = await Promise.all([
       state.performanceEnabled ? haal('google', id, '/performance-v2') : Promise.resolve({ status: 'uit' }),
       haal('ai', id, '/ai-zichtbaarheid'),
       haal('merk', id, '/merkprofiel'),
-      haal('kennis', id, '/kennisdocument')
+      haal('kennis', id, '/kennisdocument'),
+      haal('publiceren', id, '/publiceren')
     ]);
     if (mijn !== teller) return;
     // Een klant zonder deze dienst of een mislukte aanroep zonder oude stand: het onderdeel verdwijnt.
     const uit = (b) => (b.status === 'fout' && !b.stand ? { status: 'uit' } : b);
-    doel.innerHTML = bouwHtml(st, { ...basis, google, ai: uit(ai), merk: uit(merk), kennis: uit(kennis) });
+    doel.innerHTML = bouwHtml(st, { ...basis, google, ai: uit(ai), merk: uit(merk), kennis: uit(kennis), publiceren: uit(publiceren) });
     koppel(doel, openBlog);
     activeer(doel);
   }
