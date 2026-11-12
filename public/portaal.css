@@ -1143,3 +1143,49 @@ button.pa-item:focus-visible, .pa-filter:focus-visible, .pa-volgende:focus-visib
 .pb-rapport-kop span span { display: block; font-size: 12px; color: var(--p-tekst-zacht); }
 .pb-rapport-inhoud { padding: 0 18px 16px; }
 @media (prefers-reduced-motion: reduce) { .pb-baan, .pb-bol { transition: none; } }
+
+/* Publiceren als verhaal (12-11-2026, tweede versie): sluit aan op Overzicht en Google. */
+.v-publiceren .pb-kop-status { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 99px; background: rgba(255, 255, 255, 0.7); border: 1px solid rgba(20, 20, 43, 0.1); backdrop-filter: blur(10px); font-size: 13px; font-weight: 600; color: var(--v-marine); }
+.v-publiceren .pb-kop-status i { width: 8px; height: 8px; border-radius: 50%; background: var(--p-tekst-vaag); }
+.v-publiceren .pb-kop-status.aan i { background: var(--p-goed); box-shadow: 0 0 0 0 rgba(23, 136, 90, 0.45); animation: pb-puls 2s ease-out infinite; }
+@keyframes pb-puls { 0% { box-shadow: 0 0 0 0 rgba(23, 136, 90, 0.45); } 70% { box-shadow: 0 0 0 8px rgba(23, 136, 90, 0); } 100% { box-shadow: 0 0 0 0 rgba(23, 136, 90, 0); } }
+.v-publiceren .pb-keuze { position: relative; }
+.v-publiceren .pb-keuze::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--p-rand-sterk); transition: background 0.2s ease; }
+.v-publiceren .pb-keuze-aan::before { background: var(--v-rood); }
+.v-publiceren .pb-schakel-rij { padding: 22px 24px; }
+.v-publiceren .pb-schakel-titel { font-size: 20px; letter-spacing: -0.02em; }
+.v-publiceren .pb-schakel-tekst p { font-size: 14px; }
+.v-publiceren .pb-baan { width: 54px; height: 30px; }
+.v-publiceren .pb-bol { width: 24px; height: 24px; }
+.v-publiceren .pb-schakelaar.aan .pb-bol { left: 27px; }
+.v-publiceren .pb-schakel-label { min-width: 24px; }
+.v-publiceren .pb-sectie, .v-publiceren .pb-uit { padding-left: 24px; padding-right: 24px; }
+.v-publiceren .pb-stand { background: rgba(255, 255, 255, 0.6); transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease; }
+.v-publiceren .pb-stand:hover { transform: translateY(-1px); }
+.v-publiceren .pb-stand.gekozen { border-color: var(--v-marine); background: #fff; box-shadow: 0 0 0 3px rgba(255, 57, 81, 0.12), 0 8px 24px rgba(20, 20, 43, 0.08); }
+.v-publiceren .pb-stand.gekozen .pb-radio { border-color: var(--v-rood); }
+.v-publiceren .pb-voorbeeld { background: rgba(58, 95, 217, 0.08); }
+.v-publiceren .pb-voorbeeld b { font-weight: 600; margin-right: 4px; }
+.v-publiceren .pb-opslaan { padding: 14px 24px 18px; border-top: 1px solid var(--border); background: rgba(248, 249, 252, 0.6); }
+.v-publiceren .pb-opslaan .p-knop { height: 40px; padding: 0 18px; }
+#pbGepland:empty { display: none; }
+#pbGepland { margin-top: 16px; }
+.pb-gepland-knop { flex-direction: row; align-items: center; gap: 12px; }
+.pb-gepland-knop > span:last-child { display: flex; flex-direction: column; gap: 2px; }
+.pb-gepland-punt { width: 10px; height: 10px; border-radius: 50%; background: var(--p-plan); box-shadow: 0 0 0 4px var(--p-plan-zacht); flex: none; }
+
+.pb-route { list-style: none; margin: 0 0 16px; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; position: relative; }
+.pb-route::before { content: ""; position: absolute; left: 10%; right: 10%; top: 34px; height: 2px; background: linear-gradient(90deg, rgba(20, 20, 43, 0.12), var(--v-rood, #ff3951), rgba(20, 20, 43, 0.12)); z-index: 0; }
+.pb-route-stap { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 18px 14px 20px; border-radius: 16px; background: var(--v-glas, rgba(255, 255, 255, 0.74)); border: 1px solid var(--v-glas-rand, rgba(255, 255, 255, 0.95)); box-shadow: var(--v-schaduw); backdrop-filter: blur(14px); transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.pb-route-stap:hover { transform: translateY(-2px); }
+.pb-route-bol { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: #fff; color: var(--v-marine, #14142b); border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(20, 20, 43, 0.08); }
+.pb-route-nr { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--p-tekst-zacht); margin-top: 4px; }
+.pb-route-stap b { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+.pb-route-tekst { font-size: 12.5px; line-height: 1.45; color: var(--p-tekst-zacht); }
+.pb-route-keuze { border-color: rgba(255, 57, 81, 0.45); box-shadow: 0 0 0 3px rgba(255, 57, 81, 0.1), var(--v-schaduw); }
+.pb-route-keuze .pb-route-bol { background: var(--v-rood, #ff3951); color: #fff; border-color: transparent; }
+.pb-route-keuze .pb-route-nr { color: var(--p-merk-donker); }
+.pb-stat .v-stat-waarde { font-size: clamp(30px, 3vw, 44px); }
+@media (max-width: 1100px) { .pb-route { grid-template-columns: repeat(3, minmax(0, 1fr)); } .pb-route::before { display: none; } }
+@media (max-width: 640px) { .pb-route { grid-template-columns: minmax(0, 1fr); } .pb-route-stap { flex-direction: row; text-align: left; align-items: flex-start; flex-wrap: wrap; } .pb-route-stap b, .pb-route-tekst { width: 100%; padding-left: 46px; margin-top: -4px; } .pb-route-bol { position: absolute; left: 14px; top: 18px; } .pb-route-nr { padding-left: 46px; margin-top: 0; } }
+@media (prefers-reduced-motion: reduce) { .pb-route-stap, .v-publiceren .pb-stand { transition: none; } .v-publiceren .pb-kop-status.aan i { animation: none; } }
