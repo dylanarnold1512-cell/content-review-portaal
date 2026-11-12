@@ -117,8 +117,8 @@
       : '<div class="pb-uit">' + ICOON.info + '<span>Je krijgt een mail zodra er een blog klaarstaat. Pas na jouw akkoord gaat hij live. Reageer je niet, dan sturen we na 7 en 14 dagen een herinnering.</span></div>';
 
     return '<section class="p-kaart pb-keuze' + (aan ? ' pb-keuze-aan' : '') + '">' +
-      '<div class="pb-schakel-rij"><div class="pb-schakel-tekst"><h3 class="pb-schakel-titel" id="pbTitel">Automatisch publiceren</h3><p>' +
-      esc(aan ? 'Wij plaatsen blogs na onze controle zelf op jullie website. Jij hoeft niets na te lopen, maar kunt altijd meekijken.' : 'Je loopt elke blog zelf na en keurt hem goed voordat hij live gaat.') +
+      '<div class="pb-schakel-rij"><div class="pb-schakel-tekst"><h3 class="pb-schakel-titel" id="pbTitel">Laat blogs automatisch live gaan</h3><p>' +
+      esc(aan ? 'Wij plaatsen blogs na onze controle zelf op jullie website. Jij hoeft niets na te lopen, maar kunt altijd meekijken.' : 'Nu keur je elke blog zelf goed voordat hij live gaat. Zet dit aan als wij dat voor je mogen doen.') +
       '</p></div><button type="button" role="switch" class="pb-schakelaar' + (aan ? ' aan' : '') + '" aria-checked="' + aan + '" aria-labelledby="pbTitel" id="pbSchakelaar"><span class="pb-baan" aria-hidden="true"><span class="pb-bol"></span></span><span class="pb-schakel-label">' + (aan ? 'Aan' : 'Uit') + '</span></button></div>' +
       '<div class="pb-scheiding"></div>' + keuzeDeel +
       '<div class="pb-opslaan"><span id="pbStatus">' + esc(gewijzigd ? 'Je hebt iets gewijzigd. Vergeet niet op te slaan.' : 'Je kunt dit op elk moment weer veranderen.') + '</span><button type="button" class="p-knop p-knop-hoofd" id="pbOpslaan"' + (gewijzigd ? '' : ' disabled') + '>Wijzigingen opslaan</button></div>' +
