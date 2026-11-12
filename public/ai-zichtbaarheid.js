@@ -15,7 +15,7 @@
 
   function verschilTekst(v) {
     if (!v || v.soort === 'geen') return '';
-    if (v.soort === 'schommeling') return 'Ongeveer gelijk aan de vorige meting';
+    if (v.soort === 'schommeling') return 'Binnen normale schommeling';
     if (v.soort === 'meer') return `${v.aantal} keer vaker genoemd dan verwacht op basis van de vorige meting`;
     return `${v.aantal} keer minder genoemd dan verwacht op basis van de vorige meting`;
   }
@@ -245,10 +245,10 @@
     const gec = data.platformen.reduce((t, p) => t + p.geciteerd, 0);
     const d = new Date(Date.UTC(+data.laatsteWeek.start.slice(0, 4), +data.laatsteWeek.start.slice(5, 7) - 1, +data.laatsteWeek.start.slice(8, 10) + 7)).toISOString().slice(0, 10);
     const volgende = d >= new Date().toISOString().slice(0, 10) ? F().datumLang(d) : 'Deze week';
-    const platInfo = (p) => 'Wij stellen elke week dezelfde vragen over jullie vakgebied aan ' + p.label + '. Dit is het percentage antwoorden waarin jullie merk genoemd wordt. Een meting is een momentopname, het antwoord van een AI assistent kan per dag verschillen.';
+    const platInfo = (p) => 'Wij stellen elke week dezelfde vragen over jullie vakgebied aan ' + p.label + '. Dit is het percentage antwoorden waarin jullie merk genoemd wordt. Een AI geeft niet elke keer hetzelfde antwoord. Een verschil van een of twee antwoorden tussen twee weken is dus toeval.';
     const ringen = data.platformen.map((p) => {
       const vt = verschilTekst(p.verschil);
-      return V().ring(p.percentage, p.label, p.genoemd + ' van de ' + p.antwoorden + ' antwoorden' + (vt && p.verschil.soort !== 'schommeling' ? '. ' + vt : p.verschil && p.verschil.soort === 'schommeling' ? '. Ongeveer gelijk aan de vorige meting' : ''), platInfo(p));
+      return V().ring(p.percentage, p.label, p.genoemd + ' van de ' + p.antwoorden + ' antwoorden' + (vt ? '. ' + vt : ''), platInfo(p));
     }).join('');
     const verloop = data.aantalWeken < 3
       ? U().kaart({ titel: 'Verloop per week', inhoud: U().legeStand({ soort: 'wacht', titel: 'Het verloop volgt na drie weken', tekst: 'Zo voorkomen we dat toeval als winst of verlies wordt gezien.' }) })
@@ -259,7 +259,7 @@
       titel: 'Wat AI over jullie zegt',
       lead: (totaal === 0 ? 'AI noemt jullie merk nog niet. Dat is een normaal beginpunt. Wij meten elke week en laten hier zien wat er verandert.' : 'In ' + totaal + '% van de antwoorden noemt AI jullie merk. Dit is het totaal over ChatGPT en Gemini in de laatste volledige week.') + (data.melding ? ' ' + data.melding : ''),
       inhoud: V().raster(
-        V().stat({ label: 'Merk genoemd door AI', info: 'In hoeveel van de antwoorden die wij ophalen jullie merk genoemd wordt, over ChatGPT en Gemini samen. Een meting is een momentopname.', groot: true, waarde: totaal + '%', tel: totaal, tekst: gen + ' van de ' + antw + ' antwoorden noemt jullie merk', extra: 'Laatste meting: ' + data.laatsteWeek.label + '. Volgende meting: ' + volgende + '. ' + data.aantalWeken + (data.aantalWeken === 1 ? ' week' : ' weken') + ' gemeten.' }) +
+        V().stat({ label: 'Merk genoemd door AI', info: 'In hoeveel van de antwoorden die wij ophalen jullie merk genoemd wordt, over ChatGPT en Gemini samen. Een meting is een momentopname.', groot: true, waarde: totaal + '%', tel: totaal, tekst: 'In ' + gen + ' van de ' + antw + ' antwoorden werd jullie merk genoemd', extra: 'Laatste meting: ' + data.laatsteWeek.label + '. Volgende meting: ' + volgende + '. ' + data.aantalWeken + (data.aantalWeken === 1 ? ' week' : ' weken') + ' gemeten.' }) +
         '<div class="v-kolom-stapel v-ringen">' + ringen + '</div>', 'groot') + verloop
     });
     if (data.clusters && data.clusters.length) {
