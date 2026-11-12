@@ -68,7 +68,7 @@
   }
 
   // ---------- Tabblad ----------
-  // Zelfde opzet als Overzicht en Google: de wereld met gradient, kop en hoofdstukken langs de rode lijn.
+  // Zelfde wereld als Overzicht en Google (gradient, glas), maar als instellingenpagina.
   // De pagina wordt één keer opgebouwd. Een klik werkt alleen de keuze en de route bij, zodat er niets verspringt.
   const V = () => window.PortaalVerhaal;
 
@@ -101,31 +101,14 @@
       '</section>';
   }
 
-  // De route van een blog, volgens de keuze op het scherm.
-  function routeHtml() {
-    const k = keuze;
-    const stap4 = !k.aan
-      ? { titel: 'Jij keurt goed', tekst: 'Je krijgt een mail en beoordeelt de blog in het portaal.', icoon: ICOON.pen }
-      : k.modus === 'inkijk'
-        ? { titel: k.inkijkUren + ' uur inkijktijd', tekst: 'Je krijgt een mail. Tegenhouden of feedback geven kan altijd.', icoon: ICOON.pauze }
-        : { titel: 'Direct door', tekst: 'Geen wachttijd. Na publicatie krijg je een mail.', icoon: ICOON.vink };
-    const stappen = [
-      { titel: 'Onderwerp gekozen', tekst: 'Uit zoekdata, en eerst door ons beoordeeld.', icoon: ICOON.zoek },
-      { titel: 'Blog geschreven', tekst: 'Met jullie kennisdocument en merkprofiel.', icoon: ICOON.pen },
-      { titel: 'Gecontroleerd', tekst: 'Op 12 punten. Afgekeurd is opnieuw schrijven.', icoon: ICOON.schild },
-      stap4,
-      { titel: 'Live om 11:00', tekst: 'Op jullie website, daarna volgen we de cijfers.', icoon: ICOON.raket }
-    ];
-    return '<ol class="pb-route">' + stappen.map((s, i) => '<li class="pb-route-stap' + (i === 3 ? ' pb-route-keuze' : '') + '"><span class="pb-route-bol" aria-hidden="true">' + s.icoon + '</span><span class="pb-route-nr">Stap ' + (i + 1) + '</span><b>' + esc(s.titel) + '</b><span class="pb-route-tekst">' + esc(s.tekst) + '</span></li>').join('') + '</ol>';
-  }
-
+  // Wat de keuze betekent, als compacte tegels naast de bediening. Verandert direct mee.
   function cijfersHtml() {
     const k = keuze;
-    const kaart = (label, waarde, eenheid, tekst) => '<article class="v-stat pb-stat"><div class="v-stat-kop"><span class="v-stat-label">' + esc(label) + '</span></div><div class="v-stat-waarde"><span>' + esc(waarde) + '</span>' + (eenheid ? '<small>' + esc(eenheid) + '</small>' : '') + '</div><p class="v-stat-tekst">' + esc(tekst) + '</p></article>';
-    const wacht = !k.aan ? kaart('Wachten op', 'Jou', '', 'Een blog gaat pas live na jouw akkoord.')
-      : k.modus === 'inkijk' ? kaart('Inkijktijd', String(k.inkijkUren), 'uur', 'Zo lang kun je meekijken voordat de blog live gaat.')
-        : kaart('Inkijktijd', 'Geen', '', 'De blog gaat bij de eerstvolgende publicatie live.');
-    return kaart('Controles per blog', '12', '', 'Elke blog, voordat hij ooit live kan gaan.') + wacht + kaart('Publicatie', '11:00', '', 'Elke dag op hetzelfde moment.');
+    const tegel = (icoon, label, waarde, tekst, accent) => '<article class="pb-tegel' + (accent ? ' pb-tegel-accent' : '') + '"><span class="pb-tegel-icoon" aria-hidden="true">' + icoon + '</span><div><span class="pb-tegel-label">' + esc(label) + '</span><b class="pb-tegel-waarde">' + esc(waarde) + '</b><span class="pb-tegel-tekst">' + esc(tekst) + '</span></div></article>';
+    const live = !k.aan ? tegel(ICOON.pen, 'Live gaan', 'Na jouw akkoord', 'Je krijgt een mail en beoordeelt de blog in het portaal.', false)
+      : k.modus === 'inkijk' ? tegel(ICOON.pauze, 'Inkijktijd', k.inkijkUren + ' uur', 'Zo lang kun je meekijken, tegenhouden of feedback geven.', true)
+        : tegel(ICOON.vink, 'Inkijktijd', 'Geen', 'De blog gaat bij de eerstvolgende publicatie live.', true);
+    return tegel(ICOON.schild, 'Controle', '12 punten', 'Bij elke blog, voordat hij live kan gaan.', false) + live + tegel(ICOON.raket, 'Publicatie', 'Elke dag 11:00', 'Daarna volgen we de cijfers in Google en AI.', false);
   }
 
   function geplandHtml() {
@@ -151,16 +134,20 @@
     return '<span class="pb-kop-status' + (stand && stand.aan ? ' aan' : '') + '"><i aria-hidden="true"></i>' + esc(stand && stand.aan ? 'Automatisch publiceren staat aan' : 'Je keurt zelf goed') + '</span>';
   }
 
+  // Een instellingenpagina in de wereld van het portaal: kop op de gradient, de bediening groot links,
+  // wat de keuze betekent rechts, en daaronder de zekerheid. Bewust zonder hoofdstukken of stappen.
   function bouwTab() {
     const v = V();
-    const hoofdstukken =
-      v.hoofdstuk({ nr: 1, eyebrow: 'Jouw keuze', titel: 'Hoe gaan jullie blogs live?', lead: 'Zelf elke blog nalopen, of ons laten publiceren na de controle. Je kunt altijd wisselen.', inhoud: '<div id="pbKeuze">' + keuzeHtml() + '</div><div id="pbGepland">' + geplandHtml() + '</div>' }) +
-      v.hoofdstuk({ nr: 2, eyebrow: 'De route', titel: 'Zo gaat een blog live', lead: 'Van onderwerp tot publicatie. Stap 4 volgt jouw keuze hierboven.', inhoud: '<div id="pbRoute">' + routeHtml() + '</div><div class="v-raster v-raster-3" id="pbCijfers">' + cijfersHtml() + '</div>' }) +
-      v.hoofdstuk({ nr: 3, eyebrow: 'Zekerheid', titel: 'Niets gaat zonder controle live', lead: 'Ook als automatisch publiceren aan staat.', inhoud: zekerheidHtml() });
-    return v.wereld({
-      kop: v.kop({ titel: 'Publiceren', tekst: 'Kies of je elke blog zelf wilt nalopen of dat wij hem na onze controle automatisch plaatsen.', acties: '<span id="pbKopActies">' + kopActies() + '</span>' }),
-      hoofdstukken
-    }).replace('class="v-wereld"', 'class="v-wereld v-publiceren"');
+    return '<div class="v-wereld v-publiceren" data-v-wereld>' +
+      '<div class="v-achtergrond" aria-hidden="true"><i class="v-vlek v-vlek-1"></i><i class="v-vlek v-vlek-2"></i><i class="v-vlek v-vlek-3"></i></div>' +
+      '<div class="v-kolom">' +
+      v.kop({ titel: 'Publiceren', tekst: 'Kies of je elke blog zelf wilt nalopen of dat wij hem na onze controle automatisch plaatsen. Je kunt altijd wisselen.', acties: '<span id="pbKopActies">' + kopActies() + '</span>' }) +
+      '<div class="pb-indeling">' +
+      '<div class="pb-indeling-hoofd v-in"><div id="pbKeuze">' + keuzeHtml() + '</div><div id="pbGepland">' + geplandHtml() + '</div></div>' +
+      '<aside class="pb-indeling-zij v-in" aria-label="Wat je keuze betekent"><span class="pb-zij-kop">Wat dit betekent</span><div id="pbCijfers" class="pb-tegels">' + cijfersHtml() + '</div></aside>' +
+      '</div>' +
+      '<div class="pb-onder v-in">' + zekerheidHtml() + '</div>' +
+      '</div></div>';
   }
 
   // Alleen de onderdelen die van de keuze afhangen opnieuw tekenen.
@@ -168,7 +155,6 @@
     const zet = (id, html) => { const x = el(id); if (x) x.innerHTML = html; };
     zet('pbKeuze', keuzeHtml());
     zet('pbGepland', geplandHtml());
-    zet('pbRoute', routeHtml());
     zet('pbCijfers', cijfersHtml());
     zet('pbKopActies', kopActies());
     koppel();
@@ -214,7 +200,7 @@
   }
 
   function kaal(titel, tekst) {
-    return V().wereld({ kop: V().kop({ titel, tekst }), hoofdstukken: '' });
+    return '<div class="v-wereld v-publiceren" data-v-wereld><div class="v-achtergrond" aria-hidden="true"><i class="v-vlek v-vlek-1"></i><i class="v-vlek v-vlek-2"></i></div><div class="v-kolom">' + V().kop({ titel, tekst }) + '</div></div>';
   }
 
   async function laad() {
