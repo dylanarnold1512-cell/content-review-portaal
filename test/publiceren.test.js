@@ -17,7 +17,7 @@ test('metStreepjes: Notion id met en zonder streepjes wordt hetzelfde', () => {
 });
 
 test('beschikbaar: niet voor klanten met eigen workflows', () => {
-  assert.strictEqual(publiceren.beschikbaar('basecamp-utrecht'), false);
+  assert.strictEqual(publiceren.beschikbaar('basecamp-utrecht'), true);
   assert.strictEqual(publiceren.beschikbaar('ppe'), false);
   assert.strictEqual(publiceren.beschikbaar('trockenblumengrosshandel'), true);
 });

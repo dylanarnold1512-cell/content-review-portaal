@@ -16,7 +16,7 @@ const workflowGegevens = require('./workflowGegevens');
 const N8N_BASE_URL = (process.env.N8N_BASE_URL || 'https://n8n.advertisr.nl').replace(/\/+$/, '');
 const CLIENTS_TABLE_ID = process.env.N8N_CLIENTS_TABLE_ID || '42vYfT6ktan72bpa';
 const AUTO_TABLE_ID = process.env.N8N_AUTO_PUBLICATIE_TABLE_ID || 'uXuHu6NGcQuu8WRq';
-const EIGEN_WORKFLOWS = ['basecamp-utrecht', 'ppe'];
+const EIGEN_WORKFLOWS = ['ppe'];
 const MODI = ['inkijk', 'direct'];
 const UREN = [24, 48, 72];
 
