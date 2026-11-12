@@ -73,7 +73,7 @@
         const pct = d.antwoorden ? Math.round((d.genoemd / d.antwoorden) * 100) : 0;
         return `<div class="ai-balk-rij"><span class="ai-balk-naam">${p === 'chatgpt' ? 'ChatGPT' : 'Gemini'}</span><span class="ai-balk"><span class="ai-balk-vul" style="width:${pct}%"></span></span><span class="ai-balk-waarde">${pct}%</span></div>`;
       };
-      const markering = w.kernVervangen ? `<div class="ai-markering">Vanaf deze week ${w.kernVervangen === 1 ? 'is 1 vaste vraag' : `zijn ${w.kernVervangen} vaste vragen`} vervangen. Vergelijk met eerdere weken daarom met enige voorzichtigheid.</div>` : '';
+      const markering = w.kernVervangen ? `<div class="ai-markering">Vanaf deze week ${w.kernVervangen === 1 ? 'is 1 vaste vraag' : `zijn ${w.kernVervangen} vaste vragen`} vervangen. Vergelijk met eerdere weken daarom met enige voorzichtigheid.</div>` : (w.kernUitgebreid ? `<div class="ai-markering">Vanaf deze week meten we ${w.kernUitgebreid === 1 ? '1 vaste vraag' : `${w.kernUitgebreid} vaste vragen`} meer. Daarmee dekken we meer onderwerpen. Vergelijk met eerdere weken daarom met enige voorzichtigheid.</div>` : '');
       return `<div class="ai-trend-week"><div class="ai-trend-label">${esc(w.label)}</div>${balk('chatgpt')}${balk('gemini')}${markering}</div>`;
     }).join('');
     const basis = reeks === 'kern'

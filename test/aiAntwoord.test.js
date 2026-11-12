@@ -227,3 +227,16 @@ test('bouwVraagKansen: toont voor de klant of het antwoord al als veelgestelde v
   assert.equal(uit.find((k) => k.vraagId === 'k03').faqStatus, '', 'een concept voorstel is nog niet voor de klant zichtbaar');
   assert.doesNotMatch(uit.find((k) => k.vraagId === 'k03').actie, /staat inmiddels|wordt als korte/);
 });
+
+test('bouwKernWijzigingen: vervangen en bijgekomen vragen apart per reeksstart', () => {
+  const r = S.bouwKernWijzigingen([
+    { soort: 'controle', datum: '2027-02-01', reeks_start: '2027-02-08' },
+    { soort: 'vervangen', datum: '2027-02-01', reeks_start: '2027-02-08' },
+    { soort: 'uitgebreid', datum: '2026-11-16', reeks_start: '2026-11-16' },
+    { soort: 'uitgebreid', datum: '2026-11-16', reeks_start: '2026-11-16' },
+    { soort: 'uitgebreid', datum: '2026-11-16', reeks_start: '' }
+  ]);
+  assert.deepEqual(r.wijzigingen.map((w) => [w.weekStart, w.aantal]), [['2027-02-08', 1]]);
+  assert.deepEqual(r.uitbreidingen.map((w) => [w.weekStart, w.aantal]), [['2026-11-16', 2]]);
+  assert.equal(r.laatsteControle, '2027-02-01');
+});

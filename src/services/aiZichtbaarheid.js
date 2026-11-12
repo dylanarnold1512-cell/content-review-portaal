@@ -160,22 +160,24 @@ function bouwEigenUrls(rijen, weekStart) {
   return [...telling.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([url, aantal]) => ({ url, aantal }));
 }
 
-// Wanneer de kernvragen zijn aangepast: per reeksstart het aantal vervangen vragen,
-// plus de datum van de laatste kwartaalcontrole. Zonder vraagteksten van de klant te tonen.
+// Wanneer de kernvragen zijn aangepast: per reeksstart het aantal vervangen vragen en het aantal
+// vragen dat erbij kwam, plus de datum van de laatste kwartaalcontrole. Zonder vraagteksten van de klant te tonen.
 function bouwKernWijzigingen(rijen) {
   const perStart = new Map();
+  const bijStart = new Map();
   let laatsteControle = '';
   for (const r of rijen || []) {
     if (!r || !r.soort) continue;
     const datum = String(r.datum || '').slice(0, 10);
     if (datum > laatsteControle) laatsteControle = datum;
-    if (r.soort !== 'vervangen') continue;
+    if (r.soort !== 'vervangen' && r.soort !== 'uitgebreid') continue;
     const start = String(r.reeks_start || '').slice(0, 10);
     if (!start) continue;
-    perStart.set(start, (perStart.get(start) || 0) + 1);
+    const doel = r.soort === 'vervangen' ? perStart : bijStart;
+    doel.set(start, (doel.get(start) || 0) + 1);
   }
-  const wijzigingen = [...perStart.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([weekStart, aantal]) => ({ weekStart, aantal, label: weekLabel(weekStart) }));
-  return { wijzigingen, laatsteControle };
+  const lijst = (m) => [...m.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([weekStart, aantal]) => ({ weekStart, aantal, label: weekLabel(weekStart) }));
+  return { wijzigingen: lijst(perStart), uitbreidingen: lijst(bijStart), laatsteControle };
 }
 
 // AI kansen uit de kansentabel (soort ai_zichtbaarheid). Alleen de tekstvelden, zonder interne velden.
@@ -245,13 +247,18 @@ function bouwOverzicht(ruweRijen, opties = {}) {
       weekStart: w.weekStart,
       label: weekLabel(w.weekStart),
       platformen: Object.fromEntries(PLATFORMEN.map((p) => [p, { antwoorden: w.platformen[p].antwoorden, genoemd: w.platformen[p].genoemd, geciteerd: w.platformen[p].geciteerd }])),
-      kernVervangen: 0
+      kernVervangen: 0,
+      kernUitgebreid: 0
     }))
     : [];
   // De markering hoort bij de eerste week in het verloop vanaf de dag dat de nieuwe kernvragen ingaan.
   for (const k of kernInfo.wijzigingen) {
     const doel = trend.find((w) => w.weekStart >= k.weekStart);
     if (doel) doel.kernVervangen += k.aantal;
+  }
+  for (const k of kernInfo.uitbreidingen) {
+    const doel = trend.find((w) => w.weekStart >= k.weekStart);
+    if (doel) doel.kernUitgebreid += k.aantal;
   }
 
   const nieuwsteOnvolledig = nieuwste && !nieuwste.compleet && nieuwste.weekStart > laatste.weekStart;
