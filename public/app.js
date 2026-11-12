@@ -178,7 +178,7 @@ function switchTab(tab) {
   // Een tab van een product dat de klant niet heeft, openen we nooit (ook niet via een link met #paginas).
   const pr = state.producten || { blogr: true, pagr: false };
   if (['paginas', 'pagrOverzicht', 'pagrResultaten'].includes(tab) && !pr.pagr) tab = 'overzicht';
-  if (!pr.blogr && ['overzicht', 'blogs', 'prestaties', 'aiZichtbaarheid', 'rapportages', 'merkprofiel', 'kennisdocument', 'beeldbank'].includes(tab)) tab = 'pagrOverzicht';
+  if (!pr.blogr && ['overzicht', 'blogs', 'prestaties', 'aiZichtbaarheid', 'rapportages', 'merkprofiel', 'kennisdocument', 'beeldbank', 'publiceren'].includes(tab)) tab = 'pagrOverzicht';
   state.activeTab = tab;
   document.querySelectorAll('.tab-btn').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.tab === tab);
@@ -203,6 +203,9 @@ function switchTab(tab) {
   const beeldbankTab = document.getElementById('beeldbankTab');
   if (beeldbankTab) beeldbankTab.classList.toggle('hidden', tab !== 'beeldbank');
   if (tab === 'beeldbank' && window.loadBeeldbank) window.loadBeeldbank();
+  const publicerenTab = document.getElementById('publicerenTab');
+  if (publicerenTab) publicerenTab.classList.toggle('hidden', tab !== 'publiceren');
+  if (tab === 'publiceren' && window.loadPubliceren) window.loadPubliceren();
   const aiTab = document.getElementById('aiZichtbaarheidTab');
   if (aiTab) aiTab.classList.toggle('hidden', tab !== 'aiZichtbaarheid');
   if (tab === 'aiZichtbaarheid' && window.loadAiZichtbaarheid) window.loadAiZichtbaarheid();
@@ -247,6 +250,7 @@ async function loadItems() {
   if (window.checkMerkprofiel) window.checkMerkprofiel(state.clientId);
   if (window.checkAiZichtbaarheid) window.checkAiZichtbaarheid(state.clientId);
   if (window.checkBeeldbank) window.checkBeeldbank(state.clientId);
+  if (window.checkPubliceren) window.checkPubliceren(state.clientId);
   if (!state.selectedId && state.items.length) {
     const deepLinked = deepLinkItemId && state.items.find((i) => i.id === deepLinkItemId);
     state.selectedId = deepLinked ? deepLinked.id : state.items[0].id;
@@ -739,11 +743,14 @@ async function renderDetail() {
       <div><span class="seo-label">Beschrijving in Google</span>${item.seoDescription || '—'}</div>
       <div><span class="seo-label">Knop onder de blog</span>${item.cta || '—'}</div>
     </div>
+    <div id="publicatieBlok"></div>
     ${feedbackBlock}
     ${strategyBlock}
     <div class="content-body">${item.contentHtml || geenTekstBericht(item)}</div>
     ${actionsBlock}
   `;
+
+  if (window.Publiceren) window.Publiceren.vulDetail(item, state);
 
   const approveBtn = document.getElementById('approveBtn');
   if (approveBtn) {

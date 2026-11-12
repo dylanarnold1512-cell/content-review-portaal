@@ -29,7 +29,13 @@
     const sv = (inv && inv.statusValues) || {};
     const items = Array.isArray(inv && inv.items) ? inv.items.filter(Boolean) : [];
 
-    const review = inv && inv.reviewEnabled ? items.filter((i) => sv.review && i.status === sv.review) : [];
+    // Automatisch publiceren: blogs die vanzelf live gaan wachten niet op de klant.
+    const publ = inv && inv.publiceren && inv.publiceren.status === 'ok' && inv.publiceren.data && inv.publiceren.data.beschikbaar ? inv.publiceren.data : null;
+    const autoAan = Boolean(publ && publ.aan);
+    const autoGepland = publ && Array.isArray(publ.gepland) ? publ.gepland : [];
+    const kaal = (id) => String(id || '').replace(/-/g, '').toLowerCase();
+    const autoIds = new Set(autoGepland.map((x) => kaal(x.pageId)));
+    const review = inv && inv.reviewEnabled ? items.filter((i) => sv.review && i.status === sv.review && !autoIds.has(kaal(i.id))) : [];
     const live = items.filter((i) => sv.published && i.status === sv.published);
     const nogTeGaan = [sv.planned, sv.generating, sv.approved, sv.idea].filter(Boolean);
     const gepland = items.filter((i) => nogTeGaan.includes(i.status));
@@ -156,6 +162,10 @@
       if (e && e.soort === 'verbetering' && geldig(d) && d <= vandaag) feed.push({ soort: 'goed', datum: d, tekst: 'Blog aangevuld', sub: e.titel || '(geen titel)' });
       if (e && e.soort === 'interne_link' && geldig(d) && d <= vandaag) feed.push({ soort: 'goed', datum: d, tekst: 'Interne link toegevoegd', sub: e.titel || '(geen titel)' });
     });
+    autoGepland.forEach((x) => {
+      const d = dagTekst(x.klaarOp);
+      if (geldig(d) && d <= vandaag) feed.push({ soort: 'goed', datum: d, tekst: 'Blog gecontroleerd op 12 punten', sub: (x.titel || '(geen titel)') + ', gaat vanzelf live' });
+    });
     if (google.status === 'ok' && google.bijgewerkt && geldig(dagTekst(google.bijgewerkt))) feed.push({ soort: 'grafiek', datum: dagTekst(google.bijgewerkt), tekst: 'Google cijfers bijgewerkt', sub: '' });
     if (ai.status === 'ok' && ai.heeftMeting && ai.weekStart) feed.push({ soort: 'ai', datum: ai.weekStart, tekst: 'AI meting afgerond', sub: ai.weekLabel });
     if (kennis.status === 'ok' && kennis.heeft && geldig(dagTekst(kennis.bijgewerkt))) feed.push({ soort: 'boek', datum: dagTekst(kennis.bijgewerkt), tekst: 'Kennisdocument bijgewerkt', sub: kennis.woorden ? kennis.woorden + (kennis.woorden === 1 ? ' woord' : ' woorden') : '' });
@@ -206,7 +216,9 @@
       merk,
       kennis,
       onderwerpen,
-      feed: feed.slice(0, 6),
+      feed: feed.slice(0, 8),
+      autoAan,
+      aantalAutoGepland: autoGepland.length,
       stappen,
       volgendeAiMeting,
       bijgewerkt: google.bijgewerkt || null,
@@ -229,6 +241,7 @@
     if (s.stand === 'actie') return 'Lees ze en keur goed of geef een opmerking. Daarna plannen wij ze in.' + (s.volgendeBlog ? ' Een blog gaat pas live na jouw akkoord.' : '');
     if (s.stand === 'storing') return 'Je ziet de laatst bekende cijfers. Wij proberen het automatisch opnieuw en Advertisr krijgt er een melding van. Blogs en planning lopen gewoon door.';
     if (s.stand === 'nieuw') return 'In de eerste weken bouwen wij jullie merkprofiel en de eerste blogs. Hieronder zie je welke stap nu loopt en wat we van jou nodig hebben.';
+    if (s.autoAan) return 'Automatisch publiceren staat aan: wij plaatsen gecontroleerde blogs zelf. Ondertussen volgen we de cijfers in Google en in AI assistenten.';
     return 'Wij volgen de cijfers in Google en in AI assistenten en melden het hier als er iets te doen is.';
   }
 

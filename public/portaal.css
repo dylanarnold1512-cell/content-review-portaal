@@ -1070,3 +1070,76 @@ button.pa-item:focus-visible, .pa-filter:focus-visible, .pa-volgende:focus-visib
 .p-kerncijfer:hover { box-shadow: 0 2px 4px rgba(20, 20, 43, 0.05), 0 10px 28px rgba(20, 20, 43, 0.08); transform: translateY(-1px); }
 .p-kerncijfer-waarde { letter-spacing: -0.03em; }
 @media (prefers-reduced-motion: reduce) { .p-kerncijfer { transition: none; } .p-kerncijfer:hover { transform: none; } }
+
+/* Publiceren (12-11-2026): tabblad, aftellen en controlerapport in het blogdetail. Klassen beginnen met pb-. */
+.pb-rij { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+.pb-hoofd { flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
+.pb-zij { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
+.pb-schakel-rij { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 20px; padding: 18px; }
+.pb-schakel-tekst { flex: 1 1 300px; min-width: 0; }
+.pb-schakel-titel { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+.pb-schakel-tekst p { margin: 4px 0 0; font-size: 13px; color: var(--p-tekst-zacht); line-height: 1.5; }
+.pb-schakelaar { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 4px; border: 0; background: none; cursor: pointer; font: inherit; font-size: 14px; font-weight: 600; color: var(--p-tekst); }
+.pb-baan { width: 46px; height: 26px; border-radius: 99px; background: var(--p-rand-sterk); position: relative; flex: none; transition: background 0.15s ease; }
+.pb-bol { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(20, 20, 43, 0.25); transition: left 0.15s ease; }
+.pb-schakelaar.aan .pb-baan { background: var(--p-goed); }
+.pb-schakelaar.aan .pb-bol { left: 23px; }
+.pb-schakelaar:focus-visible { outline: 2px solid var(--p-plan); outline-offset: 2px; border-radius: 8px; }
+.pb-scheiding { height: 1px; background: var(--border); }
+.pb-uit { display: flex; gap: 10px; align-items: flex-start; padding: 14px 18px 18px; font-size: 13px; line-height: 1.5; color: var(--p-tekst-zacht); }
+.pb-uit .p-i { margin-top: 2px; }
+.pb-sectie { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 16px; }
+.pb-label { font-size: 13px; font-weight: 600; }
+.pb-standen { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.pb-stand { display: flex; gap: 12px; align-items: flex-start; width: 100%; box-sizing: border-box; padding: 14px 16px; border: 1.5px solid var(--border); border-radius: var(--p-hoek-m); background: var(--panel); cursor: pointer; text-align: left; font: inherit; color: inherit; }
+.pb-stand:hover { border-color: var(--p-rand-sterk); }
+.pb-stand.gekozen { border-color: var(--p-tekst); box-shadow: 0 0 0 3px rgba(20, 20, 43, 0.06); }
+.pb-radio { width: 18px; height: 18px; box-sizing: border-box; border-radius: 50%; border: 1.5px solid var(--p-rand-sterk); flex: none; margin-top: 1px; }
+.pb-stand.gekozen .pb-radio { border: 5px solid var(--p-tekst); }
+.pb-stand-tekst { flex: 1; min-width: 0; display: block; }
+.pb-stand-titel { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
+.pb-stand-uitleg { display: block; font-size: 13px; color: var(--p-tekst-zacht); margin-top: 4px; line-height: 1.5; }
+.pb-veld { display: flex; flex-direction: column; gap: 8px; }
+.pb-hulp { font-size: 12px; color: var(--p-tekst-zacht); line-height: 1.45; }
+.pb-segment { display: inline-flex; padding: 3px; border-radius: 10px; background: var(--p-vlak-2); border: 1px solid var(--border); gap: 2px; align-self: flex-start; }
+.pb-segment button { min-height: 36px; padding: 0 16px; border: 0; border-radius: 7px; background: none; font: inherit; font-size: 13px; font-weight: 600; color: var(--p-tekst-zacht); cursor: pointer; }
+.pb-segment button.gekozen { background: var(--panel); color: var(--p-tekst); box-shadow: 0 1px 2px rgba(20, 20, 43, 0.08), 0 0 0 1px var(--border); }
+.pb-voorbeeld { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: var(--p-hoek-m); background: var(--p-plan-zacht); color: var(--p-plan); font-size: 13px; line-height: 1.5; }
+.pb-voorbeeld span { color: var(--p-tekst); }
+.pb-voorbeeld .p-i { margin-top: 2px; }
+.pb-opslaan { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.pb-opslaan span { font-size: 13px; color: var(--p-tekst-zacht); flex: 1 1 260px; }
+.pb-opslaan .p-knop[disabled] { opacity: 0.5; cursor: default; }
+.pb-regels { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; }
+.pb-regels li { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.5; color: var(--p-tekst-zacht); }
+.pb-regels li b { display: block; font-size: 14px; font-weight: 600; color: var(--p-tekst); }
+.pb-regel-icoon { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; flex: none; background: var(--p-vlak-2); border: 1px solid var(--border); color: var(--p-tekst-zacht); }
+.pb-checks { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.pb-checks li { display: flex; gap: 10px; align-items: center; padding: 9px 0; border-top: 1px solid var(--border); font-size: 13px; }
+.pb-checks li:first-child { border-top: 0; padding-top: 0; }
+.pb-check { width: 20px; height: 20px; border-radius: 50%; background: var(--p-goed-zacht); color: var(--p-goed); display: grid; place-items: center; flex: none; }
+.pb-check .p-i { width: 12px; height: 12px; stroke-width: 2.4; }
+.pb-gepland { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.pb-gepland-knop { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--p-hoek-m); background: var(--p-vlak-2); text-align: left; font: inherit; cursor: pointer; color: inherit; }
+.pb-gepland-knop b { font-size: 14px; font-weight: 600; }
+.pb-gepland-knop span { font-size: 12px; color: var(--p-tekst-zacht); }
+#publicatieBlok { display: flex; flex-direction: column; gap: 12px; margin: 0 0 16px; }
+#publicatieBlok:empty { display: none; }
+.pb-aftel { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: center; padding: 16px 18px; }
+.pb-aftel-tekst { flex: 1 1 300px; min-width: 0; }
+.pb-aftel-label { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--p-plan); }
+.pb-aftel-stil .pb-aftel-label { color: var(--p-let-op); }
+.pb-aftel-titel { margin: 4px 0 2px; font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+.pb-aftel-sub { font-size: 13px; color: var(--p-tekst-zacht); line-height: 1.5; }
+.pb-aftel-balk { height: 6px; border-radius: 99px; background: var(--p-raster); overflow: hidden; margin-top: 12px; max-width: 420px; }
+.pb-aftel-balk i { display: block; height: 100%; background: var(--p-plan); border-radius: 99px; }
+.pb-aftel-knoppen { display: flex; flex-wrap: wrap; gap: 8px; }
+.pb-aandacht { box-shadow: 0 0 0 3px var(--p-plan-zacht); border-color: var(--p-plan); }
+.pb-rapport > summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 18px; cursor: pointer; list-style: none; }
+.pb-rapport > summary::-webkit-details-marker { display: none; }
+.pb-rapport-kop { display: flex; gap: 10px; align-items: flex-start; }
+.pb-rapport-kop .p-i { color: var(--p-goed); margin-top: 2px; }
+.pb-rapport-kop b { display: block; font-size: 14px; font-weight: 600; }
+.pb-rapport-kop span span { display: block; font-size: 12px; color: var(--p-tekst-zacht); }
+.pb-rapport-inhoud { padding: 0 18px 16px; }
+@media (prefers-reduced-motion: reduce) { .pb-baan, .pb-bol { transition: none; } }
