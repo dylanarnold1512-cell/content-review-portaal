@@ -182,6 +182,19 @@
       if (volgendeAiMeting < vandaag) volgendeAiMeting = null;
     }
 
+    // Agenda "Komt eraan": wat er de komende tijd gebeurt, op datum. Alleen wat vaststaat.
+    const agendaRegels = [];
+    autoGepland.forEach((x) => {
+      const d = dagTekst(x.liveOp);
+      if (geldig(d) && d >= vandaag) agendaRegels.push({ datum: d, titel: 'Blog gaat live', sub: x.titel || '(geen titel)' });
+    });
+    komend.forEach((b) => {
+      if (autoIds.has(kaal(b.id))) return;
+      agendaRegels.push({ datum: b.datum, titel: b.status === sv.idea ? 'Onderwerp wordt uitgewerkt' : 'Blog gaat live', sub: b.titel });
+    });
+    if (volgendeAiMeting) agendaRegels.push({ datum: volgendeAiMeting, titel: 'Wekelijkse AI meting', sub: 'Dezelfde vragen in ChatGPT en Gemini' });
+    agendaRegels.sort((x, y) => (x.datum < y.datum ? -1 : x.datum > y.datum ? 1 : 0));
+
     // Stand van de klant
     let stand = 'normaal';
     if (review.length) stand = 'actie';
@@ -221,6 +234,7 @@
       aantalAutoGepland: autoGepland.length,
       stappen,
       volgendeAiMeting,
+      agenda: agendaRegels.slice(0, 4),
       bijgewerkt: google.bijgewerkt || null,
       bronFout: meerdereBronnenFout
     };

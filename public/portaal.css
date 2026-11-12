@@ -1195,3 +1195,19 @@ button.pa-item:focus-visible, .pa-filter:focus-visible, .pa-volgende:focus-visib
 .pb-onder .p-kaart { height: 100%; }
 @media (max-width: 1000px) { .pb-indeling { grid-template-columns: minmax(0, 1fr); } .pb-indeling-zij { position: static; } }
 @media (prefers-reduced-motion: reduce) { .pb-tegel { transition: none; } }
+
+/* Overzicht: agenda en vraag van de week */
+.p-ov-agenda { display: flex; flex-direction: column; }
+.p-ov-agenda-item { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; border-top: 1px solid var(--border); }
+.p-ov-agenda-item:first-child { border-top: 0; padding-top: 0; }
+.p-ov-agenda-item .p-ov-datum { flex: none; width: 48px; height: 46px; }
+.p-ov-vraag-in { padding: 18px 20px 20px; }
+.p-ov-vraag-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--p-plan); }
+.p-ov-vraag-label svg { width: 14px; height: 14px; }
+.p-ov-vraag-tekst { margin: 8px 0 4px; font-size: 15px; font-weight: 600; line-height: 1.4; }
+.p-ov-vraag-uitleg { margin: 0 0 14px; font-size: 13px; color: var(--p-tekst-zacht); line-height: 1.5; }
+.p-ov-vraag-knoppen { display: flex; flex-wrap: wrap; gap: 8px; }
+.p-ov-vraag-vrij { margin-top: 12px; }
+.p-ov-vraag-vrij[hidden] { display: none; }
+.p-ov-vraag-vrij textarea { width: 100%; box-sizing: border-box; margin-bottom: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font: inherit; font-size: 14px; resize: vertical; }
+.p-ov-vraag-melding { margin-top: 8px; font-size: 13px; color: var(--p-let-op, #b42318); }

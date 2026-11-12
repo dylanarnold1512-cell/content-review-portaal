@@ -194,6 +194,30 @@
       uitleg: 'Dit zijn de blogs die eraan komen, op datum.', inhoud: '<div class="p-ov-rijen">' + rijen + '</div><div class="p-ov-meer"><button type="button" class="p-knop" data-tab="blogs">Hele planning ' + ic('pijl') + '</button></div>' });
   }
 
+  function agendaKaart(s) {
+    if (!s.agenda || !s.agenda.length) return '';
+    const Fm = F();
+    const rijen = s.agenda.map((a) => {
+      const delen = Fm.datumKort(a.datum).split(' ');
+      return '<div class="p-ov-agenda-item"><div class="p-ov-datum"><b>' + esc(delen[0] || '') + '</b><span>' + esc(delen[1] || '') + '</span></div>' +
+        '<div class="p-ov-rij-tekst"><div class="p-ov-rij-titel">' + esc(a.titel) + '</div><div class="p-ov-rij-meta">' + esc(a.sub) + '</div></div></div>';
+    }).join('');
+    return U().kaart({ titel: 'Komt eraan', uitleg: 'Wat we de komende weken voor jullie doen.', inhoud: '<div class="p-ov-agenda">' + rijen + '</div>' });
+  }
+
+  function vraagKaart(v) {
+    if (!v || !v.vraag) return '';
+    const q = v.vraag;
+    const knoppen = q.soort === 'open'
+      ? '<button type="button" class="p-knop p-knop-hoofd" data-vraag-open>Antwoord geven</button>'
+      : '<button type="button" class="p-knop" data-vraag-antwoord="Ja.">Ja</button><button type="button" class="p-knop" data-vraag-antwoord="Nee.">Nee</button><button type="button" class="p-knop" data-vraag-open>Anders, namelijk</button>';
+    return '<section class="p-kaart p-ov-vraag" data-vraag-id="' + esc(q.id) + '"><div class="p-ov-vraag-in"><span class="p-ov-vraag-label">' + ic('ai') + 'Vraag van de week</span>' +
+      '<p class="p-ov-vraag-tekst">' + esc(q.vraag) + '</p><p class="p-ov-vraag-uitleg">' + esc(q.uitleg || 'Je antwoord gaat direct in jullie kennisdocument, zodat we het goed in blogs kunnen gebruiken.') + '</p>' +
+      '<div class="p-ov-vraag-knoppen">' + knoppen + '</div>' +
+      '<div class="p-ov-vraag-vrij" hidden><textarea rows="3" maxlength="600" aria-label="Jouw antwoord"></textarea><div class="p-ov-vraag-knoppen"><button type="button" class="p-knop p-knop-hoofd" data-vraag-stuur>Opslaan</button><button type="button" class="p-knop" data-vraag-overslaan>Sla over</button></div></div>' +
+      '<div class="p-ov-vraag-melding" role="status" aria-live="polite"></div></div></section>';
+  }
+
   function wachtKaart(s) {
     const U_ = U();
     let inhoud;
@@ -257,6 +281,7 @@
   }
 
   function bouwHtml(state, inv) {
+    const vraagData = inv && inv.vraag && inv.vraag.status === 'ok' ? inv.vraag.data : null;
     const M = window.OverzichtModel;
     const V_ = V();
     const s = M.bouwStartscherm(inv, new Date().toISOString().slice(0, 10));
@@ -265,7 +290,7 @@
     const r = resultaten(s);
     const onderwerpen = onderwerpKaart(s);
     const links = '<div class="v-kolom-stapel">' + r.grafiek + planKaart(s) + '</div>';
-    const rechts = '<div class="v-kolom-stapel">' + wachtKaart(s) + merkKaart(s) + feedKaart(s) + '</div>';
+    const rechts = '<div class="v-kolom-stapel">' + wachtKaart(s) + agendaKaart(s) + vraagKaart(vraagData) + merkKaart(s) + feedKaart(s) + '</div>';
     const html = V_.wereld({ kop: kop(s, state), hoofdstukken: '<div class="v-ov-blokken">' + statusBalk(s, M, state) + fouten.join('') + r.cijfers + V_.raster(links + rechts, 'groot') + onderwerpen + '</div>' });
     return html.replace('class="v-wereld"', 'class="v-wereld v-overzicht"');
   }
@@ -278,6 +303,33 @@
       const knop = document.getElementById('newIdeaBtn');
       if (knop) knop.click();
     }));
+  }
+
+  function koppelVraag(doel, id) {
+    const kaart = doel.querySelector('.p-ov-vraag');
+    if (!kaart) return;
+    const melding = kaart.querySelector('.p-ov-vraag-melding');
+    const vrij = kaart.querySelector('.p-ov-vraag-vrij');
+    const stuur = async (body) => {
+      kaart.querySelectorAll('button').forEach((b) => { b.disabled = true; });
+      melding.textContent = '';
+      try {
+        const res = await fetch('/api/' + id + '/vraag', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: kaart.dataset.vraagId, ...body }) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Opslaan mislukt');
+        delete laatsteGoed[id + 'vraag'];
+        kaart.innerHTML = '<div class="p-ov-vraag-in"><span class="p-ov-vraag-label">' + ic('vinkje') + 'Vraag van de week</span><p class="p-ov-vraag-tekst">' + (body.overslaan ? 'Geen probleem, we slaan hem over.' : 'Bedankt, het staat in jullie kennisdocument.') + '</p></div>';
+      } catch (err) {
+        kaart.querySelectorAll('button').forEach((b) => { b.disabled = false; });
+        melding.textContent = err.message;
+      }
+    };
+    kaart.querySelectorAll('[data-vraag-antwoord]').forEach((k) => k.addEventListener('click', () => stuur({ antwoord: k.dataset.vraagAntwoord })));
+    kaart.querySelectorAll('[data-vraag-open]').forEach((k) => k.addEventListener('click', () => { vrij.hidden = false; const t = vrij.querySelector('textarea'); if (t) t.focus(); }));
+    const s = kaart.querySelector('[data-vraag-stuur]');
+    if (s) s.addEventListener('click', () => stuur({ antwoord: vrij.querySelector('textarea').value }));
+    const o = kaart.querySelector('[data-vraag-overslaan]');
+    if (o) o.addEventListener('click', () => stuur({ overslaan: true }));
   }
 
   function activeer(doel) {
@@ -304,18 +356,20 @@
     }
     koppel(doel, openBlog);
     activeer(doel);
-    const [google, ai, merk, kennis, publiceren] = await Promise.all([
+    const [google, ai, merk, kennis, publiceren, vraag] = await Promise.all([
       state.performanceEnabled ? haal('google', id, '/performance-v2') : Promise.resolve({ status: 'uit' }),
       haal('ai', id, '/ai-zichtbaarheid'),
       haal('merk', id, '/merkprofiel'),
       haal('kennis', id, '/kennisdocument'),
-      haal('publiceren', id, '/publiceren')
+      haal('publiceren', id, '/publiceren'),
+      haal('vraag', id, '/vraag')
     ]);
     if (mijn !== teller) return;
     // Een klant zonder deze dienst of een mislukte aanroep zonder oude stand: het onderdeel verdwijnt.
     const uit = (b) => (b.status === 'fout' && !b.stand ? { status: 'uit' } : b);
-    doel.innerHTML = bouwHtml(st, { ...basis, google, ai: uit(ai), merk: uit(merk), kennis: uit(kennis), publiceren: uit(publiceren) });
+    doel.innerHTML = bouwHtml(st, { ...basis, google, ai: uit(ai), merk: uit(merk), kennis: uit(kennis), publiceren: uit(publiceren), vraag: uit(vraag) });
     koppel(doel, openBlog);
+    koppelVraag(doel, id);
     activeer(doel);
   }
 
