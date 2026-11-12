@@ -758,6 +758,7 @@ async function renderDetail() {
       approveBtn.disabled = true;
       try {
         await api(`/${state.clientId}/items/${item.id}/approve`, { method: 'POST' });
+        if (window.Publiceren && window.Publiceren.aanbodNaGoedkeuren) window.Publiceren.aanbodNaGoedkeuren(item.id);
         await loadItems();
       } catch (err) {
         alert(err.message);

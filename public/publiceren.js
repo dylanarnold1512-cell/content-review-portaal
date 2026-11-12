@@ -44,6 +44,30 @@
   let stand = null; // laatst geladen instellingen van de server
   let keuze = null; // wat de klant op het scherm heeft gekozen
 
+  // Wat de klant al zag of wegklikte. Per browser en per klant, alleen een gemak: zonder opslag toont het aanbod gewoon opnieuw.
+  function leesOnthouden(naam) {
+    try { return window.localStorage.getItem('pb_' + naam + '_' + clientId) === '1'; } catch (e) { return false; }
+  }
+  function bewaarOnthouden(naam) {
+    try { window.localStorage.setItem('pb_' + naam + '_' + clientId, '1'); } catch (e) { /* geen opslag, geen probleem */ }
+  }
+  // Blog waarvoor het aanbod na het goedkeuren in beeld moet komen.
+  let aanbodVoor = null;
+
+  function werkNieuwLabelBij() {
+    const label = el('publicerenNieuw');
+    if (!label) return;
+    const tonen = window.PubliceerAanbod ? window.PubliceerAanbod.moetNieuwTonen({ stand, gezien: leesOnthouden('gezien') }) : false;
+    label.classList.toggle('hidden', !tonen);
+  }
+
+  function aanbodHtml() {
+    return '<section class="p-kaart pb-aanbod" id="pbAanbod"><span class="pb-aanbod-icoon" aria-hidden="true">' + ICOON.raket + '</span>' +
+      '<div class="pb-aanbod-tekst"><h3 class="pb-aanbod-titel">Geen zin meer om elke blog na te lopen?</h3>' +
+      '<p>Je hebt al een paar blogs goedgekeurd. Wij kunnen blogs voortaan na onze controle zelf plaatsen. Je kunt altijd meekijken, een blog tegenhouden en het met één klik weer uitzetten.</p></div>' +
+      '<div class="pb-aanbod-knoppen"><button type="button" class="p-knop p-knop-hoofd" id="pbAanbodOpen">Bekijk de opties</button><button type="button" class="p-knop" id="pbAanbodWeg">Nu niet</button></div></section>';
+  }
+
   async function vraag(pad, opties) {
     const res = await fetch('/api/' + clientId + pad, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opties || {}));
     const data = await res.json().catch(() => ({}));
@@ -207,6 +231,8 @@
     const doel = el('publicerenTab');
     if (!doel) return;
     doel.classList.add('v-tab');
+    bewaarOnthouden('gezien');
+    werkNieuwLabelBij();
     if (!keuze) doel.innerHTML = kaal('Publiceren', 'Even geduld, we halen jullie instellingen op.');
     try {
       stand = await vraag('/publiceren');
@@ -231,6 +257,7 @@
       const zichtbaar = Boolean(data.beschikbaar);
       if (knop) knop.classList.toggle('hidden', !zichtbaar);
       if (groep) groep.classList.toggle('hidden', !zichtbaar);
+      werkNieuwLabelBij();
     } catch (err) {
       if (knop) knop.classList.add('hidden');
       if (groep) groep.classList.add('hidden');
@@ -251,7 +278,14 @@
     if (!doel || !item) return;
     const sv = state.statusValues || {};
     const rapport = controleRapport(item, sv);
-    doel.innerHTML = rapport;
+    let aanbod = '';
+    if (aanbodVoor === item.id) {
+      aanbodVoor = null;
+      const A = window.PubliceerAanbod;
+      if (A && A.moetAanbodTonen({ stand, items: state.items, statusValues: sv, weggeklikt: leesOnthouden('aanbod_weg') })) aanbod = aanbodHtml();
+    }
+    doel.innerHTML = aanbod + rapport;
+    koppelAanbod();
     if (item.status !== sv.review) return;
     let data = null;
     try { data = await vraag('/items/' + item.id + '/publicatie'); } catch (err) { return; }
@@ -295,7 +329,21 @@
     }
   }
 
+  function koppelAanbod() {
+    const open = el('pbAanbodOpen');
+    if (open) open.addEventListener('click', () => { const b = el('publicerenTabBtn'); if (b) b.click(); });
+    const weg = el('pbAanbodWeg');
+    if (weg) weg.addEventListener('click', () => {
+      bewaarOnthouden('aanbod_weg');
+      const k = el('pbAanbod');
+      if (k) k.remove();
+    });
+  }
+
+  // Aangeroepen vlak voor het blogdetail opnieuw wordt getekend na het goedkeuren van een blog.
+  function aanbodNaGoedkeuren(itemId) { aanbodVoor = itemId; }
+
   window.checkPubliceren = controleer;
   window.loadPubliceren = laad;
-  window.Publiceren = { vulDetail, CONTROLEPUNTEN, stand: () => stand };
+  window.Publiceren = { vulDetail, aanbodNaGoedkeuren, CONTROLEPUNTEN, stand: () => stand };
 })();
