@@ -1215,3 +1215,14 @@ button.pa-item:focus-visible, .pa-filter:focus-visible, .pa-volgende:focus-visib
 /* Logo vangnet: naam als tekst als het plaatje niet laadt */
 .logo-tekst { font-weight: 700; letter-spacing: -0.01em; color: #14142b; font-size: 15px; line-height: 1; }
 .p-door .logo-tekst { font-size: 13px; }
+
+/* Aanbod automatisch publiceren: label Nieuw in het menu en het kaartje na het goedkeuren */
+.p-nieuw { margin-left: auto; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 2px 7px; border-radius: 99px; background: var(--p-merk, #e0263e); color: #fff; }
+.p-nieuw.hidden { display: none; }
+.pb-aanbod { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 18px; padding: 16px 18px; }
+.pb-aanbod-icoon { width: 40px; height: 40px; border-radius: 12px; background: var(--p-plan-zacht); color: var(--p-plan); display: grid; place-items: center; flex: none; }
+.pb-aanbod-icoon .p-i { width: 20px; height: 20px; }
+.pb-aanbod-tekst { flex: 1 1 280px; min-width: 0; }
+.pb-aanbod-titel { margin: 0 0 2px; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+.pb-aanbod-tekst p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--p-tekst-zacht); }
+.pb-aanbod-knoppen { display: flex; flex-wrap: wrap; gap: 8px; }
