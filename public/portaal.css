@@ -1211,3 +1211,7 @@ button.pa-item:focus-visible, .pa-filter:focus-visible, .pa-volgende:focus-visib
 .p-ov-vraag-vrij[hidden] { display: none; }
 .p-ov-vraag-vrij textarea { width: 100%; box-sizing: border-box; margin-bottom: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font: inherit; font-size: 14px; resize: vertical; }
 .p-ov-vraag-melding { margin-top: 8px; font-size: 13px; color: var(--p-let-op, #b42318); }
+
+/* Logo vangnet: naam als tekst als het plaatje niet laadt */
+.logo-tekst { font-weight: 700; letter-spacing: -0.01em; color: #14142b; font-size: 15px; line-height: 1; }
+.p-door .logo-tekst { font-size: 13px; }
