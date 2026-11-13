@@ -346,9 +346,14 @@
   async function laad() {
     const inhoud = el('aiZichtbaarheidInhoud');
     if (inhoud) inhoud.innerHTML = '<div class="p-pagina">' + U().laden([{ breedte: '40%', hoogte: 30 }, { breedte: '100%', hoogte: 120 }, { breedte: '100%', hoogte: 160 }]) + '</div>';
+    const volgnr = (laad.volgnr = (laad.volgnr || 0) + 1);
     try {
-      teken(await apiAi(`/${clientId}/ai-zichtbaarheid`));
+      const data = await apiAi(`/${clientId}/ai-zichtbaarheid`);
+      // Een nieuwere aanvraag (opnieuw op de tab geklikt) wint van dit oudere antwoord.
+      if (volgnr !== laad.volgnr) return;
+      teken(data);
     } catch (err) {
+      if (volgnr !== laad.volgnr) return;
       if (inhoud) inhoud.innerHTML = '<div class="p-pagina">' + U().foutStand({ titel: 'De AI meting laadt even niet', tekst: 'De rest van het portaal werkt gewoon. Probeer het straks opnieuw.' }) + '</div>';
     }
   }
