@@ -287,3 +287,28 @@ test('bouwGoogle: geen overzicht telt niet als niet genoemd, fouten tellen niet 
 test('bouwGoogle: zonder metingen leeg', () => {
   assert.strictEqual(S.bouwGoogle([], []).status, 'leeg');
 });
+
+test('bouwBronnen: kansen alleen voor soorten waar een actie bij past, eigen site en aanbieders tellen niet als kans', () => {
+  const m = (id, bronnen, genoemd) => ({ prompt_id: id, platform: 'chatgpt', genoemd, bronnen });
+  const lijst = 'Gids | https://www.locaties.nl/a?utm_source=chatgpt.com\nVergelijk | https://spacebase.com/x\nAanbieder | https://fort.nl/p\nEigen | https://www.basecamp.nl/blog';
+  const metingen = [m('p1', lijst, false), m('p2', lijst, true), m('p3', lijst, false), m('p4', 'Maps | https://www.google.com/maps/place/x', false)];
+  const domeinen = [{ domein: 'locaties.nl', soort: 'overzichtssite' }, { domein: 'spacebase.com', soort: 'overzichtssite' }, { domein: 'fort.nl', soort: 'aanbieder' }, { domein: 'google.com', soort: 'platform' }];
+  const r = S.bouwBronnen(metingen, domeinen, 'https://www.basecamp.nl');
+  assert.equal(r.status, 'ok');
+  assert.equal(r.antwoorden, 4);
+  assert.deepEqual(r.kansen.map((k) => k.domein), ['locaties.nl', 'spacebase.com']);
+  assert.equal(r.kansen[0].antwoorden, 3);
+  assert.equal(r.kansen[0].vragen, 3);
+  assert.equal(r.kansen[0].genoemd, 1);
+  assert.deepEqual(r.aanbieders.map((a) => a.domein), ['fort.nl']);
+  assert.ok(!r.kansen.some((k) => k.domein.includes('basecamp')));
+});
+
+test('bouwBronnen: zonder indeling een eerlijke tussenstand, zonder bronnen leeg', () => {
+  const metingen = [1, 2, 3].map((i) => ({ prompt_id: 'p' + i, platform: 'gemini', genoemd: false, bronnen: 'X | https://a.nl/' + i }));
+  const r = S.bouwBronnen(metingen, [], 'b.nl');
+  assert.equal(r.status, 'indeling_volgt');
+  assert.deepEqual(r.kansen, []);
+  assert.equal(r.aanbieders[0].domein, 'a.nl');
+  assert.equal(S.bouwBronnen([], [], 'b.nl').status, 'leeg');
+});
