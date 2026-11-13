@@ -22,11 +22,11 @@
     return telGoedgekeurd(o.items, o.statusValues) >= (o.drempel || DREMPEL);
   }
 
-  // Het label Nieuw staat in het menu tot de klant het tabblad opent, of als de klant het al aan heeft.
+  // Het label Nieuw staat bij elke klant in het menu tot de klant het tabblad opent, ook als automatisch publiceren al aan staat.
   function moetNieuwTonen(opties) {
     const o = opties || {};
     const stand = o.stand || {};
-    return Boolean(stand.beschikbaar) && !stand.aan && !o.gezien;
+    return Boolean(stand.beschikbaar) && !o.gezien;
   }
 
   const api = { DREMPEL, telGoedgekeurd, moetAanbodTonen, moetNieuwTonen };

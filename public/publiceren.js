@@ -57,7 +57,7 @@
   function werkNieuwLabelBij() {
     const label = el('publicerenNieuw');
     if (!label) return;
-    const tonen = window.PubliceerAanbod ? window.PubliceerAanbod.moetNieuwTonen({ stand, gezien: leesOnthouden('gezien') }) : false;
+    const tonen = window.PubliceerAanbod ? window.PubliceerAanbod.moetNieuwTonen({ stand, gezien: leesOnthouden('gezien2') }) : false;
     label.classList.toggle('hidden', !tonen);
   }
 
@@ -231,7 +231,7 @@
     const doel = el('publicerenTab');
     if (!doel) return;
     doel.classList.add('v-tab');
-    bewaarOnthouden('gezien');
+    bewaarOnthouden('gezien2');
     werkNieuwLabelBij();
     if (!keuze) doel.innerHTML = kaal('Publiceren', 'Even geduld, we halen jullie instellingen op.');
     try {
