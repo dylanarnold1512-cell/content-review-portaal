@@ -96,3 +96,6 @@ mark.ai-merk { background: #fff1a8; color: inherit; padding: 0 2px; border-radiu
 .ai-antw-bronnen li.ai-antw-eigen span { color: #17713a; }
 .ai-antw-voet { margin: 0; font-size: 12.5px; color: var(--text-faint); }
 @media (max-width: 720px) { .pa-paneel.ai-antw-paneel { width: 100%; } }
+.ai-beweeg-titel { font-size: 13px; font-weight: 600; margin: 14px 0 6px; }
+.ai-beweeg-titel:first-child { margin-top: 0; }
+.ai-beweeg-lijst { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }

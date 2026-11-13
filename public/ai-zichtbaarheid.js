@@ -127,6 +127,27 @@
     return url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 48))}</a>` : `${n} keer`;
   }
 
+  // Wat er bewoog ten opzichte van de week ervoor. Alleen feiten, geen oorzaak.
+  function bewegingenBlok(data) {
+    const b = data.bewegingen;
+    if (!b || !b.vergelijkbaar) return '';
+    if (!b.nieuw.length && !b.nieuweVragen.length && !b.weg.length) return '';
+    const MAX = 5;
+    const regel = (v, extra) => `<li><button type="button" class="ai-vraag-knop" data-ai-vraag="${esc(v.id)}">${esc(v.vraag)}<span class="ai-vraag-lees">${esc(extra)}</span></button></li>`;
+    const groep = (titel, items, extra) => {
+      if (!items.length) return '';
+      const rest = items.length - MAX;
+      return `<h4 class="ai-beweeg-titel">${esc(titel)} (${items.length})</h4><ul class="ai-beweeg-lijst">${items.slice(0, MAX).map((v) => regel(v, extra(v))).join('')}</ul>${rest > 0 ? `<p class="ai-voet">En nog ${rest} meer in de tabel hieronder.</p>` : ''}`;
+    };
+    const plat = (v) => (v.platformen.length ? 'Genoemd door ' + v.platformen.join(' en ') : 'Lees het antwoord');
+    const inhoud =
+      groep('Nu wel genoemd', b.nieuw, plat) +
+      groep('Nieuwe vragen met vermelding', b.nieuweVragen, plat) +
+      groep('Niet meer genoemd', b.weg, () => 'Lees het antwoord');
+    const uitleg = `Vergeleken met de meting van ${b.vorigeLabel}. Een AI geeft niet elke keer hetzelfde antwoord, dus een enkele wisseling kan toeval zijn. Let op wat er over meerdere weken terugkomt.` + (b.blijft ? ` Bij ${b.blijft} vragen werd jullie merk in beide weken genoemd.` : '');
+    return U().kaart({ titel: 'Wat er bewoog', uitleg, inhoud });
+  }
+
   function vragenBlok(data) {
     const markt = data.clusterSoort === 'markt';
     const lijst = data.vragen || [];
@@ -210,7 +231,7 @@
       const data = await apiAi(`/${clientId}/ai-zichtbaarheid/vragen`);
       if (data.status !== 'ok' || !(data.vragen || []).length) { blok.remove(); return; }
       const teken2 = () => {
-        blok.innerHTML = vragenBlok(data);
+        blok.innerHTML = bewegingenBlok(data) + vragenBlok(data);
         const knop = el('aiVragenAlle');
         if (knop) knop.addEventListener('click', () => { toonAlleVragen = !toonAlleVragen; teken2(); });
       };
