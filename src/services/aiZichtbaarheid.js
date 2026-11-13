@@ -351,6 +351,43 @@ function bouwVragen(prompts, metingen, weekStart) {
   return rijen;
 }
 
+// Wat er bewoog: per vraag de laatste week naast de week ervoor. Alleen feiten, geen oorzaak.
+//   nieuw: vraag die vorige meting ook al werd gesteld, toen zonder vermelding, nu met vermelding.
+//   nieuweVragen: vraag die vorige meting niet werd gesteld en nu meteen een vermelding geeft.
+//   weg: vraag met vermelding vorige meting, nu zonder. blijft: aantal vragen met vermelding in beide weken.
+function bouwBewegingen(prompts, metingen, weekStart) {
+  const vorigeStart = (() => { const d = new Date(weekStart + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - 7); return d.toISOString().slice(0, 10); })();
+  const tel = (start) => {
+    const per = new Map();
+    for (const m of metingen || []) {
+      if (!m || m.fout || !PLATFORMEN.includes(m.platform) || maandagVan(m.datum) !== start) continue;
+      const rec = per.get(m.prompt_id) || { chatgpt: 0, gemini: 0 };
+      if (waar(m.genoemd)) rec[m.platform] += 1;
+      per.set(m.prompt_id, rec);
+    }
+    return per;
+  };
+  const nu = tel(weekStart);
+  const vorig = tel(vorigeStart);
+  const uit = { vergelijkbaar: false, vorigeLabel: weekLabel(vorigeStart), nieuw: [], nieuweVragen: [], weg: [], blijft: 0 };
+  for (const pr of prompts || []) {
+    const n = nu.get(pr.prompt_id);
+    if (!n) continue;
+    const v = vorig.get(pr.prompt_id);
+    const nuGenoemd = n.chatgpt + n.gemini > 0;
+    const regel = () => ({ id: pr.prompt_id, vraag: pr.prompt || '', onderwerp: pr.cluster || '', platformen: PLATFORMEN.filter((id) => n[id] > 0).map((id) => PLATFORM_LABEL[id]) });
+    if (!v) { if (nuGenoemd) uit.nieuweVragen.push(regel()); continue; }
+    uit.vergelijkbaar = true;
+    const voorGenoemd = v.chatgpt + v.gemini > 0;
+    if (nuGenoemd && !voorGenoemd) uit.nieuw.push(regel());
+    else if (!nuGenoemd && voorGenoemd) uit.weg.push({ id: pr.prompt_id, vraag: pr.prompt || '', onderwerp: pr.cluster || '', platformen: PLATFORMEN.filter((id) => v[id] > 0).map((id) => PLATFORM_LABEL[id]) });
+    else if (nuGenoemd && voorGenoemd) uit.blijft += 1;
+  }
+  const volg = (a, b) => String(a.id).localeCompare(String(b.id), 'nl', { numeric: true });
+  uit.nieuw.sort(volg); uit.nieuweVragen.sort(volg); uit.weg.sort(volg);
+  return uit;
+}
+
 // Bronnen staan in ai_metingen als regels "titel | url".
 function parseBronnen(tekst) {
   const uit = [];
@@ -500,13 +537,15 @@ async function getAiVragen(klantNaam) {
   const week = overzicht.laatsteWeek;
   const klantFilter = { columnName: 'klant', condition: 'eq', value: klantNaam };
   const prompts = await n8nTabel(PROMPTS_TABLE_ID, [klantFilter]);
+  // Vanaf de week ervoor, zodat we kunnen laten zien wat er bewoog.
+  const van = (() => { const d = new Date(week.start + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - 7); return d.toISOString().slice(0, 10); })();
   let metingen;
   try {
-    metingen = await n8nTabel(METINGEN_TABLE_ID, [klantFilter, { columnName: 'datum', condition: 'gte', value: week.start }]);
+    metingen = await n8nTabel(METINGEN_TABLE_ID, [klantFilter, { columnName: 'datum', condition: 'gte', value: van }]);
   } catch (err) {
     metingen = await n8nTabel(METINGEN_TABLE_ID, [klantFilter]);
   }
-  return { status: 'ok', week, vragen: bouwVragen(prompts, metingen, week.start) };
+  return { status: 'ok', week, vragen: bouwVragen(prompts, metingen, week.start), bewegingen: bouwBewegingen(prompts, metingen, week.start) };
 }
 
 // Kernwijzigingen en kansen zijn extra: lukt het ophalen niet (tabel bestaat nog niet), dan blijft de rest werken.
@@ -625,4 +664,4 @@ async function getAiIntern(klantNaam) {
   return bouwIntern(await n8nRows(klantNaam));
 }
 
-module.exports = { n8nTabel, schoneUrl, getAiZichtbaarheid, getAiIntern, getAiVragen, getAiAntwoord, getAiVragenMaand, bouwOverzicht, bouwIntern, bouwVragen, bouwAntwoord, bouwVragenMaand, parseBronnen, merkTermen, bouwKernWijzigingen, bouwAiKansen, bouwVraagKansen, weekLabel };
+module.exports = { n8nTabel, schoneUrl, getAiZichtbaarheid, getAiIntern, getAiVragen, getAiAntwoord, getAiVragenMaand, bouwOverzicht, bouwIntern, bouwVragen, bouwBewegingen, bouwAntwoord, bouwVragenMaand, parseBronnen, merkTermen, bouwKernWijzigingen, bouwAiKansen, bouwVraagKansen, weekLabel };

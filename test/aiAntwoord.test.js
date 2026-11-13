@@ -240,3 +240,29 @@ test('bouwKernWijzigingen: vervangen en bijgekomen vragen apart per reeksstart',
   assert.deepEqual(r.uitbreidingen.map((w) => [w.weekStart, w.aantal]), [['2026-11-16', 2]]);
   assert.equal(r.laatsteControle, '2027-02-01');
 });
+
+test('bouwBewegingen: nieuw, nieuwe vraag, weg en blijft, per vraag week tegen week', () => {
+  const prompts = [1, 2, 3, 4, 5].map((n) => ({ prompt_id: 'k' + n, prompt: 'Vraag ' + n, cluster: 'x' }));
+  const m = (id, datum, genoemd, platform = 'chatgpt') => ({ prompt_id: id, datum, platform, genoemd });
+  const metingen = [
+    m('k1', '2026-11-03', false), m('k1', '2026-11-10', true),
+    m('k2', '2026-11-03', true), m('k2', '2026-11-10', false),
+    m('k3', '2026-11-03', true), m('k3', '2026-11-10', true, 'gemini'),
+    m('k4', '2026-11-10', true),
+    m('k5', '2026-11-10', false),
+    { prompt_id: 'k1', datum: '2026-11-10', platform: 'gemini', genoemd: false, fout: 'x' },
+  ];
+  const b = S.bouwBewegingen(prompts, metingen, '2026-11-09');
+  assert.strictEqual(b.vergelijkbaar, true);
+  assert.deepStrictEqual(b.nieuw.map((v) => v.id), ['k1']);
+  assert.deepStrictEqual(b.weg.map((v) => v.id), ['k2']);
+  assert.deepStrictEqual(b.nieuweVragen.map((v) => v.id), ['k4']);
+  assert.strictEqual(b.blijft, 1);
+  assert.deepStrictEqual(b.nieuw[0].platformen, ['ChatGPT']);
+});
+
+test('bouwBewegingen: zonder vorige week niet vergelijkbaar', () => {
+  const b = S.bouwBewegingen([{ prompt_id: 'k1', prompt: 'V' }], [{ prompt_id: 'k1', datum: '2026-11-10', platform: 'chatgpt', genoemd: true }], '2026-11-09');
+  assert.strictEqual(b.vergelijkbaar, false);
+  assert.strictEqual(b.nieuw.length, 0);
+});
