@@ -192,3 +192,11 @@ test('Prestaties laadt het paneel met de gekozen periode in plaats van de standa
   assert.match(app, /pvGekozenPeriode/);
   assert.match(app, /qs\.set\('periode'/);
 });
+
+test('Tellers tellen een getal maar een keer en bewaren de eindtekst', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const bron = fs.readFileSync(path.join(__dirname, '..', 'public', 'portaal-verhaal.js'), 'utf8');
+  assert.match(bron, /data-v-geteld/);
+  assert.match(bron, /data-v-eind/);
+});
