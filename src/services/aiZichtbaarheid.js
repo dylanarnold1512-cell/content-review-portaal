@@ -475,19 +475,41 @@ async function klantTermen(klantNaam) {
 const BRON_DAGEN = 28;
 const BRON_MIN_ANTWOORDEN = 3;
 const BRON_MAX_KANSEN = 8;
-const BRON_ACTIES = {
-  overzichtssite: { label: 'Overzichtssite', actie: 'Een vermelding op deze overzichtssite vergroot de kans dat AI jullie noemt. Wij zoeken uit hoe jullie hier kunnen worden opgenomen. Er is geen garantie dat AI jullie daarna noemt.' },
-  platform: { label: 'Platform', actie: 'Zorg dat jullie profiel hier compleet en actueel is, met foto\'s, omschrijving en recente reviews. Wij controleren wat er nog ontbreekt.' },
-  media: { label: 'Media of blog', actie: 'Een artikel of vermelding op deze site helpt. Wij kijken of dat kan via de redactie of met een gastbijdrage.' },
-  overheid: { label: 'Organisatie', actie: 'Deze organisatie noemt aanbieders uit de regio of branche. Wij zoeken uit of jullie hier kunnen worden vermeld.' }
+const BRON_SOORTEN = {
+  overzichtssite: { label: 'Overzichtssite', tip: 'Op een overzichtssite kunnen jullie meestal zelf een vermelding aanvragen. Dat kunnen wij niet voor jullie regelen.' },
+  platform: { label: 'Platform', tip: 'Een compleet en actueel profiel op dit platform helpt, met foto\'s, omschrijving en recente reviews. Dit beheren jullie zelf.' },
+  media: { label: 'Media of blog', tip: '' },
+  overheid: { label: 'Organisatie', tip: '' }
 };
+// Wat wij bij een vraag doen, afgeleid van wat er al in het systeem staat (FAQ status en koppeling aan een pagina).
+const BRON_VRAAG_STATUS = {
+  staat: 'Het antwoord staat inmiddels als veelgestelde vraag op jullie website',
+  komt: 'Het antwoord wordt als veelgestelde vraag aan jullie website toegevoegd',
+  pagina: 'Wij beoordelen of dit antwoord op een bestaande pagina van jullie kan',
+  nieuw: 'Wij beoordelen of hier een nieuw onderwerp voor komt'
+};
+const BRON_MAX_VRAGEN = 3;
 
 function domeinVan(url) {
   const m = String(url || '').trim().match(/^https?:\/\/([^/?#]+)/i);
   return m ? m[1].toLowerCase().replace(/^www\./, '') : '';
 }
 
-function bouwBronnen(metingen, domeinen, eigenDomein) {
+function bouwBronnen(metingen, domeinen, eigenDomein, ctx = {}) {
+  const vraagTekst = new Map();
+  for (const p of ctx.prompts || []) if (p && p.prompt_id) vraagTekst.set(String(p.prompt_id), String(p.prompt || '').trim());
+  const koppel = new Map();
+  for (const k of ctx.koppelingen || []) if (k && k.prompt_id) koppel.set(String(k.prompt_id), k);
+  const faq = ctx.faqStatus || {};
+  const statusVan = (id) => {
+    const f = faq[String(id)] && faq[String(id)].status;
+    if (f === 'toegepast') return 'staat';
+    if (f === 'goedgekeurd') return 'komt';
+    const k = koppel.get(String(id));
+    if (k && k.oordeel === 'past') return 'pagina';
+    if (k && k.oordeel === 'geen') return 'nieuw';
+    return '';
+  };
   const eigen = String(eigenDomein || '').toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
   const soortVan = new Map();
   for (const d of domeinen || []) if (d && d.domein) soortVan.set(String(d.domein).toLowerCase(), String(d.soort || ''));
@@ -504,10 +526,13 @@ function bouwBronnen(metingen, domeinen, eigenDomein) {
       if (!dom || gezien.has(dom)) continue;
       if (eigen && (dom === eigen || dom.endsWith('.' + eigen))) continue;
       gezien.add(dom);
-      const rec = perDomein.get(dom) || { domein: dom, antwoorden: 0, vragen: new Set(), genoemd: 0, url: schoneUrl(b.url), titel: b.titel };
+      const rec = perDomein.get(dom) || { domein: dom, antwoorden: 0, vragen: new Set(), perVraag: new Map(), genoemd: 0, url: schoneUrl(b.url), titel: b.titel };
       rec.antwoorden += 1;
       rec.vragen.add(m.prompt_id);
-      if (waar(m.genoemd)) rec.genoemd += 1;
+      const pv = rec.perVraag.get(m.prompt_id) || { n: 0, genoemd: 0 };
+      pv.n += 1;
+      if (waar(m.genoemd)) { rec.genoemd += 1; pv.genoemd += 1; }
+      rec.perVraag.set(m.prompt_id, pv);
       perDomein.set(dom, rec);
     }
   }
@@ -516,9 +541,17 @@ function bouwBronnen(metingen, domeinen, eigenDomein) {
   const metSoort = lijst.map((r) => ({ ...r, soort: soortVan.get(r.domein) || '' }));
   const ingedeeld = metSoort.some((r) => r.soort);
   const kansen = metSoort
-    .filter((r) => BRON_ACTIES[r.soort])
+    .filter((r) => BRON_SOORTEN[r.soort])
     .slice(0, BRON_MAX_KANSEN)
-    .map((r) => ({ domein: r.domein, soort: r.soort, label: BRON_ACTIES[r.soort].label, antwoorden: r.antwoorden, vragen: r.vragen.size, genoemd: r.genoemd, url: r.url, titel: r.titel, actie: BRON_ACTIES[r.soort].actie }));
+    .map((r) => {
+      // Vragen waarbij het merk niet genoemd werd eerst, want daar valt iets te winnen.
+      const vragenLijst = [...r.perVraag.entries()]
+        .filter(([id]) => vraagTekst.get(String(id)))
+        .sort((a, b) => (a[1].genoemd > 0) - (b[1].genoemd > 0) || b[1].n - a[1].n)
+        .slice(0, BRON_MAX_VRAGEN)
+        .map(([id, v]) => { const st = statusVan(id); return { id, vraag: vraagTekst.get(String(id)), genoemd: v.genoemd > 0, status: st, statusTekst: BRON_VRAAG_STATUS[st] || '' }; });
+      return { domein: r.domein, soort: r.soort, label: BRON_SOORTEN[r.soort].label, antwoorden: r.antwoorden, vragen: r.vragen.size, genoemd: r.genoemd, url: r.url, titel: r.titel, tip: BRON_SOORTEN[r.soort].tip, vragenLijst };
+    });
   const aanbieders = metSoort
     .filter((r) => (ingedeeld ? r.soort === 'aanbieder' : true))
     .slice(0, 5)
@@ -529,12 +562,17 @@ function bouwBronnen(metingen, domeinen, eigenDomein) {
 async function getAiBronnen(klantNaam) {
   const dag = new Date(Date.now() - BRON_DAGEN * 86400000).toISOString().slice(0, 10);
   const klantFilter = { columnName: 'klant', condition: 'eq', value: klantNaam };
-  const [metingen, domeinen, klantRijen] = await Promise.all([
+  const [metingen, domeinen, klantRijen, prompts, koppelingen, faqRijen] = await Promise.all([
     n8nTabel(METINGEN_TABLE_ID, [klantFilter, { columnName: 'datum', condition: 'gte', value: dag }]),
     optioneleTabel(BRON_DOMEINEN_TABLE_ID, [{ columnName: 'domein', condition: 'neq', value: '' }]),
-    optioneleTabel(CLIENTS_TABLE_ID, [{ columnName: 'client_name', condition: 'eq', value: klantNaam }])
+    optioneleTabel(CLIENTS_TABLE_ID, [{ columnName: 'client_name', condition: 'eq', value: klantNaam }]),
+    optioneleTabel(PROMPTS_TABLE_ID, [klantFilter]),
+    optioneleTabel(KOPPELINGEN_TABLE_ID, [klantFilter]),
+    optioneleTabel(aiFaqService.TABLE_ID, [klantFilter])
   ]);
-  return bouwBronnen(metingen, domeinen, (klantRijen[0] || {}).ai_domein);
+  let faqStatus = {};
+  try { faqStatus = aiFaqService.statusPerVraag(faqRijen); } catch (err) { /* geen FAQ status, de bronnen blijven staan */ }
+  return bouwBronnen(metingen, domeinen, (klantRijen[0] || {}).ai_domein, { prompts, koppelingen, faqStatus });
 }
 
 async function getAiAntwoord(klantNaam, promptId) {

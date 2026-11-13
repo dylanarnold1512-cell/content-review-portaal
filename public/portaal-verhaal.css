@@ -247,3 +247,12 @@
 /* De rode lijn loopt altijd door tot het einde van het verhaal en loopt daar zacht uit. Hij stopt niet meer halverwege. */
 .v-spoor-vul { height: 100% !important; -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 140px), transparent 100%); mask-image: linear-gradient(180deg, #000 calc(100% - 140px), transparent 100%); }
 .v-spoor { background: transparent; }
+
+.pv-bron-vragen { margin-top: 10px; font-size: 14px; }
+.pv-bron-vragen ul { margin: 6px 0 0; padding-left: 18px; }
+.pv-bron-vragen li { margin: 4px 0; }
+.pv-bron-status { display: block; font-size: 13px; color: var(--v-zacht); }
+.pv-bron-status-staat, .pv-bron-status-komt { color: var(--v-goed, inherit); }
+.pv-bron-tip { margin-top: 10px; font-size: 14px; color: var(--v-zacht); }
+.pv-bron-tip summary { cursor: pointer; }
+.pv-bron-tip p { margin: 6px 0 0; }
