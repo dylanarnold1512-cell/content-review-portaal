@@ -184,3 +184,11 @@ test('waarom-tekst bij verbeterkansen klopt met de positie', () => {
   assert.match(uit(25.5).waarom, /pagina 3/);
   assert.doesNotMatch(uit(25.5).actie, /niet automatisch/);
 });
+
+test('Prestaties laadt het paneel met de gekozen periode in plaats van de standaard', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const app = fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8');
+  assert.match(app, /pvGekozenPeriode/);
+  assert.match(app, /qs\.set\('periode'/);
+});

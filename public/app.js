@@ -283,8 +283,15 @@ async function loadPerformancePanel() {
   // Eerst de nieuwe weergave proberen. Lukt dat niet (vlag uit of nog geen
   // data), dan blijft de oude weergave hieronder gewoon werken.
   try {
-    const v2Param = new URLSearchParams(location.search).get('prestaties') === 'nieuw' ? '?v2=1' : '';
-    const v2 = await api(`/${state.clientId}/performance-v2${v2Param}`);
+    // Onthoud de gekozen periode: terugkomen op de tab of herladen mag niet terugvallen op 28 dagen.
+    const gekozen = window.pvGekozenPeriode ? window.pvGekozenPeriode() : '';
+    const qs = new URLSearchParams();
+    if (gekozen) qs.set('periode', gekozen);
+    if (new URLSearchParams(location.search).get('prestaties') === 'nieuw') qs.set('v2', '1');
+    const volgnr = (loadPerformancePanel.volgnr = (loadPerformancePanel.volgnr || 0) + 1);
+    const v2 = await api(`/${state.clientId}/performance-v2${qs.toString() ? '?' + qs.toString() : ''}`);
+    // Een nieuwere aanvraag (andere periode of tab) wint van dit oudere antwoord.
+    if (volgnr !== loadPerformancePanel.volgnr) return;
     renderPrestatiesV2(v2);
     state.performanceV2Active = true;
     panel.classList.add('hidden');
