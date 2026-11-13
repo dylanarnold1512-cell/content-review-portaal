@@ -152,7 +152,8 @@
       const doel = Number(el.getAttribute('data-v-tel'));
       const dec = Number(el.getAttribute('data-v-dec')) || 0;
       const eind = el.textContent;
-      if (minder || !Number.isFinite(doel)) { el.textContent = eind; return; }
+      // Kleine getallen (tot 20) tellen niet op: een tegel die even op 0 staat lijkt op een fout.
+      if (minder || !Number.isFinite(doel) || Math.abs(doel) < 20) { el.textContent = eind; return; }
       const start = performance.now();
       const duur = 900;
       const stap = (nu) => {
