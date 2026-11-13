@@ -266,3 +266,24 @@ test('bouwBewegingen: zonder vorige week niet vergelijkbaar', () => {
   assert.strictEqual(b.vergelijkbaar, false);
   assert.strictEqual(b.nieuw.length, 0);
 });
+
+test('bouwGoogle: geen overzicht telt niet als niet genoemd, fouten tellen niet mee', () => {
+  const prompts = [{ prompt_id: 'k1', prompt: 'Vraag 1' }, { prompt_id: 'k2', prompt: 'Vraag 2' }, { prompt_id: 'k3', prompt: 'Vraag 3' }];
+  const metingen = [
+    { prompt_id: 'k1', datum: '2026-11-02', overzicht_getoond: true, genoemd: false, geciteerd: false },
+    { prompt_id: 'k1', datum: '2026-11-09', overzicht_getoond: true, genoemd: true, geciteerd: true, geciteerde_urls: 'https://www.voorbeeld.nl/pagina' },
+    { prompt_id: 'k2', datum: '2026-11-09', overzicht_getoond: false, genoemd: false, geciteerd: false },
+    { prompt_id: 'k3', datum: '2026-11-09', overzicht_getoond: false, genoemd: false, geciteerd: false, fout: '500' }
+  ];
+  const g = S.bouwGoogle(prompts, metingen);
+  assert.strictEqual(g.status, 'ok');
+  assert.strictEqual(g.week.start, '2026-11-09');
+  assert.deepStrictEqual({ v: g.nu.vragen, m: g.nu.metOverzicht, g: g.nu.genoemd, c: g.nu.geciteerd }, { v: 2, m: 1, g: 1, c: 1 });
+  assert.strictEqual(g.vorige.metOverzicht, 1);
+  assert.strictEqual(g.vragen.length, 1);
+  assert.strictEqual(g.vragen[0].url, 'https://www.voorbeeld.nl/pagina');
+});
+
+test('bouwGoogle: zonder metingen leeg', () => {
+  assert.strictEqual(S.bouwGoogle([], []).status, 'leeg');
+});

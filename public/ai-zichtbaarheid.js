@@ -127,6 +127,26 @@
     return url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 48))}</a>` : `${n} keer`;
   }
 
+  // Google AI Overviews: apart van ChatGPT en Gemini, want Google toont niet bij elke zoekopdracht een overzicht.
+  function googleBlok(data) {
+    if (!data || data.status !== 'ok' || !data.nu) return '';
+    const n = data.nu;
+    const v = data.vorige;
+    const stuk = (waarde, tekst) => `<div class="ai-g-stuk"><strong>${esc(waarde)}</strong><span>${esc(tekst)}</span></div>`;
+    const tegels = '<div class="ai-g-rij">' +
+      stuk(n.metOverzicht + ' van ' + n.vragen, 'zoekopdrachten waar Google een AI overzicht toont') +
+      stuk(String(n.genoemd), n.metOverzicht ? 'overzichten waarin jullie merk staat' : 'overzichten met jullie merk') +
+      stuk(String(n.geciteerd), 'overzichten met jullie website als bron') + '</div>';
+    let vergelijk = '';
+    if (v && v.metOverzicht) vergelijk = `<p class="ai-voet">Vorige meting (${esc(v.label)}): ${v.metOverzicht} overzichten, jullie merk stond in ${v.genoemd}.</p>`;
+    const lijst = data.vragen.filter((x) => x.genoemd || x.geciteerd).slice(0, 8);
+    const tabel = lijst.length
+      ? `<div class="ai-tabel-wrap"><table class="ai-tabel"><thead><tr><th>Zoekopdracht waar Google jullie noemt</th><th class="ai-kol">Merk genoemd</th><th class="ai-kol-bron">Website als bron</th></tr></thead><tbody>${lijst.map((x) => `<tr><td>${esc(x.vraag)}</td><td class="ai-kol">${x.genoemd ? stip({ genoemd: 1, metingen: 1 }) : '<span class="ai-nvt">nee</span>'}</td><td class="ai-kol-bron">${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">${esc(x.url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 48))}</a>` : '<span class="ai-nvt">geen</span>'}</td></tr>`).join('')}</tbody></table></div>`
+      : '';
+    const uitleg = `Google toont niet bij elke zoekopdracht een AI overzicht. Daarom tellen we apart: bij hoeveel zoekopdrachten er een overzicht staat, en of jullie daarin voorkomen. ${esc(data.week.label)}.`;
+    return U().kaart({ titel: 'Google AI Overviews', uitleg, inhoud: tegels + vergelijk + tabel });
+  }
+
   // Wat er bewoog ten opzichte van de week ervoor. Alleen feiten, geen oorzaak.
   function bewegingenBlok(data) {
     const b = data.bewegingen;
@@ -224,6 +244,19 @@
     }
   }
 
+  async function laadGoogle() {
+    const blok = el('aiGoogleBlok');
+    if (!blok) return;
+    try {
+      const data = await apiAi(`/${clientId}/ai-zichtbaarheid/google`);
+      const html = data.beschikbaar === false ? '' : googleBlok(data);
+      if (!html) { blok.remove(); return; }
+      blok.innerHTML = html;
+    } catch (err) {
+      blok.remove();
+    }
+  }
+
   async function laadVragen() {
     const blok = el('aiVragenBlok');
     if (!blok) return;
@@ -292,7 +325,7 @@
     lijst.push({ titel: 'Wat het oplevert', lead: 'Komen er mensen via een AI assistent op de site, en nemen die contact op?', inhoud: opbrengstHtml(data.conversie) });
     const kansen = kansenBlok(data.kansen) + vraagKansenBlok(data.vraagKansen);
     lijst.push({ titel: 'Wat wij ermee doen', lead: 'Signalen uit de meting en wat wij daarna doen.', inhoud: (kansen || U().legeStand({ soort: 'klaar', titel: 'Geen aandachtspunten', tekst: 'Zodra de meting iets laat zien om op te volgen, staat het hier.' })) });
-    lijst.push({ titel: 'Elke vraag apart', lead: 'Alle vragen die wij stelden en wat de AI antwoordde.', inhoud: '<div id="aiVragenBlok"></div><p class="ai-voet">Het gaat om vragen die wij zelf hebben opgesteld. AI antwoorden verschillen van keer tot keer, dus het gaat om het grote beeld.</p>' });
+    lijst.push({ titel: 'Elke vraag apart', lead: 'Alle vragen die wij stelden en wat de AI antwoordde.', inhoud: '<div id="aiGoogleBlok"></div><div id="aiVragenBlok"></div><p class="ai-voet">Het gaat om vragen die wij zelf hebben opgesteld. AI antwoorden verschillen van keer tot keer, dus het gaat om het grote beeld.</p>' });
     inhoud.innerHTML = V().wereld({ kop, hoofdstukken: lijst.map((h, i) => V().hoofdstuk({ nr: i + 1, titel: h.titel, lead: h.lead, inhoud: h.inhoud })).join('') });
     const kansenVraag = el('aiVraagKansen');
     if (kansenVraag) {
@@ -303,6 +336,7 @@
     }
     V().activeer(inhoud.querySelector('[data-v-wereld]'));
     laadVragen();
+    laadGoogle();
   }
 
   async function laad() {

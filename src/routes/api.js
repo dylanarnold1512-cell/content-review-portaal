@@ -502,6 +502,18 @@ router.get('/:clientId/ai-zichtbaarheid/vragen', requireLogin, async (req, res) 
   }
 });
 
+// Google AI Overviews: bij hoeveel vragen Google een AI overzicht toont en of het merk daarin staat.
+router.get('/:clientId/ai-zichtbaarheid/google', requireLogin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    const settings = await settingsService.getClientSettings(req.params.clientId, config);
+    if (!settings.aiZichtbaarheid) return res.json({ beschikbaar: false });
+    res.json({ beschikbaar: true, ...(await aiZichtbaarheidService.getAiGoogle(config.naam)) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Het antwoord van ChatGPT en Gemini op een vraag in de laatste gemeten week, zodat
 // de klant ziet in welk antwoord het merk stond. Daarin staan ook andere bedrijven.
 router.get('/:clientId/ai-zichtbaarheid/vragen/:promptId', requireLogin, async (req, res) => {
