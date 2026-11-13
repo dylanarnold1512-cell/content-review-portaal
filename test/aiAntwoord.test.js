@@ -304,6 +304,26 @@ test('bouwBronnen: kansen alleen voor soorten waar een actie bij past, eigen sit
   assert.ok(!r.kansen.some((k) => k.domein.includes('basecamp')));
 });
 
+test('bouwBronnen: per bron de vragen met wat wij ermee doen, tips alleen voor overzichtssites en platforms', () => {
+  const m = (id, bronnen, genoemd) => ({ prompt_id: id, platform: 'chatgpt', genoemd, bronnen });
+  const lijst = 'Gids | https://www.locaties.nl/a\nKrant | https://nieuws.nl/x';
+  const metingen = [m('p1', lijst, false), m('p2', lijst, false), m('p3', lijst, true)];
+  const domeinen = [{ domein: 'locaties.nl', soort: 'overzichtssite' }, { domein: 'nieuws.nl', soort: 'media' }];
+  const ctx = {
+    prompts: [{ prompt_id: 'p1', prompt: 'Vraag een' }, { prompt_id: 'p2', prompt: 'Vraag twee' }, { prompt_id: 'p3', prompt: 'Vraag drie' }],
+    koppelingen: [{ prompt_id: 'p1', oordeel: 'past' }, { prompt_id: 'p2', oordeel: 'geen' }],
+    faqStatus: { p1: { status: 'toegepast' } }
+  };
+  const r = S.bouwBronnen(metingen, domeinen, 'b.nl', ctx);
+  const k = r.kansen.find((x) => x.domein === 'locaties.nl');
+  assert.deepEqual(k.vragenLijst.map((v) => v.id), ['p1', 'p2', 'p3']);
+  assert.deepEqual(k.vragenLijst.map((v) => v.status), ['staat', 'nieuw', '']);
+  assert.equal(k.vragenLijst[2].genoemd, true);
+  assert.ok(k.tip);
+  assert.equal(r.kansen.find((x) => x.domein === 'nieuws.nl').tip, '');
+  assert.ok(!('actie' in k));
+});
+
 test('bouwBronnen: zonder indeling een eerlijke tussenstand, zonder bronnen leeg', () => {
   const metingen = [1, 2, 3].map((i) => ({ prompt_id: 'p' + i, platform: 'gemini', genoemd: false, bronnen: 'X | https://a.nl/' + i }));
   const r = S.bouwBronnen(metingen, [], 'b.nl');
