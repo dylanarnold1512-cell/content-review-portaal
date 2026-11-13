@@ -221,3 +221,11 @@ test('n8nRows leest alle pagina\'s van een klant', async () => {
     global.fetch = echteFetch;
   }
 });
+
+test('AI zichtbaarheid toont Google als derde ring en geen los hoofdstuk meer', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const bron = fs.readFileSync(path.join(__dirname, '..', 'public', 'ai-zichtbaarheid.js'), 'utf8');
+  assert.match(bron, /googleRing\(google\)/);
+  assert.doesNotMatch(bron, /titel: 'Ook in Google'/);
+});
