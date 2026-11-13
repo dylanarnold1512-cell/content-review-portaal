@@ -151,9 +151,13 @@
     const tel = (el) => {
       const doel = Number(el.getAttribute('data-v-tel'));
       const dec = Number(el.getAttribute('data-v-dec')) || 0;
-      const eind = el.textContent;
-      // Kleine getallen (tot 20) tellen niet op: een tegel die even op 0 staat lijkt op een fout.
-      if (minder || !Number.isFinite(doel) || Math.abs(doel) < 20) { el.textContent = eind; return; }
+      // Een getal telt maar een keer. Een omliggend blok en de tegel zelf melden zich allebei bij het
+      // verschijnen. Las de tweede melding de tekst halverwege het tellen, dan bleef die tussenstand staan.
+      if (el.getAttribute('data-v-geteld')) return;
+      el.setAttribute('data-v-geteld', '1');
+      const eind = el.getAttribute('data-v-eind') || el.textContent;
+      el.setAttribute('data-v-eind', eind);
+      if (minder || !Number.isFinite(doel)) { el.textContent = eind; return; }
       const start = performance.now();
       const duur = 900;
       const stap = (nu) => {
