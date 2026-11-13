@@ -237,11 +237,14 @@ function pvPeriodeKeuze(d) {
   </div>`;
 }
 
+window.pvGekozenPeriode = function () { return pvState.periode; };
+
 async function pvLaadPeriode(code) {
   if (pvState.laden || code === pvState.periode) return;
   const vorige = pvState.periode;
   pvState.periode = code;
   pvState.laden = true;
+  if (typeof loadPerformancePanel === 'function') loadPerformancePanel.volgnr = (loadPerformancePanel.volgnr || 0) + 1;
   const el = document.getElementById('performanceV2');
   if (el) el.classList.add('pv-laden');
   try {

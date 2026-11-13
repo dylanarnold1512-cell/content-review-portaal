@@ -90,6 +90,13 @@ function perKlant(klantNaam) {
 
 // Geeft null terug als de sync voor deze klant nog niet heeft gedraaid, zodat
 // het portaal dan gewoon de oude weergave kan tonen.
+function extra(naam, tableId, filter, limit) {
+  return n8nRows(tableId, filter, limit).catch((err) => {
+    console.warn(`Prestaties: extra tabel ${naam} niet geladen: ${err.message}`);
+    return [];
+  });
+}
+
 async function getPrestatiesData(klantNaam, periodeKeuze) {
   const periode = kiesPeriode(periodeKeuze);
   const [overzichtAlle, blogsAlle, weken, indexatie, conversiesAlle, kansenRijen, effectRijen, verbeterRijen, totalenAlle, cpcRijen, merkAlle, faqItems] = await Promise.all([
@@ -98,14 +105,14 @@ async function getPrestatiesData(klantNaam, periodeKeuze) {
     n8nRows(TABLES.weken, perKlant(klantNaam), 60),
     // Indexatie is een extra. Ontbreekt de tabel of de data, dan werkt de rest gewoon.
     n8nRows(TABLES.indexatie, perKlant(klantNaam), 250).catch(() => []),
-    n8nRows(TABLES.conversies, perKlant(klantNaam), 250).catch(() => []),
+    extra('conversies', TABLES.conversies, perKlant(klantNaam), 250),
     // Kansen zijn een extra. Ontbreekt de tabel of de data, dan gelden de oude regels.
     n8nRows(TABLES.kansen, perKlant(klantNaam), 100).catch(() => []),
     // Effecten zijn een extra. Ontbreekt de tabel of de data, dan verschijnt het blok niet.
     n8nRows(TABLES.effecten, perKlant(klantNaam), 250).catch(() => []),
     n8nRows(TABLES.verbeteringen, perKlant(klantNaam), 250).catch(() => []),
     // Extra metingen (30-10-2026). Ontbreken ze, dan verschijnen de tegels niet.
-    n8nRows(TABLES.conversieTotalen, perKlant(klantNaam), 20).catch(() => []),
+    extra('conversie_totalen', TABLES.conversieTotalen, perKlant(klantNaam), 20),
     n8nRows(TABLES.paginaCpc, perKlant(klantNaam), 250).catch(() => []),
     n8nRows(TABLES.merk, perKlant(klantNaam), 20).catch(() => []),
     laadFaqItems(klantNaam)
