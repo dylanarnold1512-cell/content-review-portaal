@@ -267,6 +267,29 @@
     return U().kaart({ titel: 'Google AI Overviews', inhoud: U().legeStand({ soort: 'wacht', titel: 'De eerste Google meting volgt', tekst: 'Google toont boven de zoekresultaten steeds vaker een eigen AI antwoord. Elke maandag stellen wij jullie belangrijkste vragen ook aan Google. Zodra de eerste meting binnen is, zie je hier bij hoeveel zoekopdrachten Google een AI antwoord toont, en of jullie merk en website daarin staan.' }) });
   }
 
+  // Bronnen die AI aanhaalt en wat wij ermee doen. Altijd zichtbaar, ook zonder data.
+  function bronnenBlok(b) {
+    if (!b || b.beschikbaar === false || b.status === 'leeg') {
+      return U().legeStand({ soort: 'wacht', titel: 'Wij brengen in kaart welke bronnen AI gebruikt', tekst: 'AI haalt bij elk antwoord websites aan. Zodra er genoeg metingen zijn, zie je hier op welke overzichtssites en platforms jullie nog ontbreken en wat wij daaraan doen.' });
+    }
+    const link = (domein, url) => `<a href="${esc(url || 'https://' + domein)}" target="_blank" rel="noopener noreferrer">${esc(domein)}</a>`;
+    const items = (b.kansen || []).map((k) => `<div class="pv-kans">
+      <div class="pv-kans-tags"><span class="pv-tag pv-tag-middel">${esc(k.label)}</span></div>
+      <div class="pv-ins-titel">${link(k.domein, k.url)}</div>
+      <div class="pv-ins-tekst">AI haalt deze bron ${esc(k.antwoorden)} keer aan bij ${esc(k.vragen)} verschillende vragen. Jullie merk wordt in ${esc(k.genoemd)} van die antwoorden genoemd.</div>
+      <div class="pv-ins-actie">Wat wij doen: ${esc(k.actie)}</div>
+    </div>`).join('');
+    const lijst = (b.kansen || []).length
+      ? V().inklap({ titel: 'Waar jullie nog kansen liggen', aantal: b.kansen.length, open: true, uitleg: 'Overzichtssites, platforms en media die AI vaak aanhaalt. Een vermelding daar maakt het waarschijnlijker dat AI jullie noemt.', inhoud: items + '<div class="pv-muted pv-kans-noot">Dit zijn signalen uit de meting, geen garanties. De cijfers gaan over de laatste ' + esc(b.dagen) + ' dagen.</div>' })
+      : (b.status === 'indeling_volgt'
+        ? U().legeStand({ soort: 'wacht', titel: 'De bronnen worden nog ingedeeld', tekst: 'Wij delen de bronnen in overzichtssites, platforms, media en aanbieders. Daarna zie je hier waar jullie nog kansen liggen.' })
+        : U().legeStand({ soort: 'klaar', titel: 'Geen duidelijke kansen op andere sites', tekst: 'AI leunt vooral op websites van aanbieders zelf. Daar kunnen wij niets aan toevoegen buiten jullie eigen site.' }));
+    const aanbieders = (b.aanbieders || []).length
+      ? `<div class="ai-uitleg"><b>${b.status === 'ok' ? 'Websites van aanbieders die AI het vaakst aanhaalt' : 'Meest aangehaalde bronnen'}</b><ul>${b.aanbieders.map((a) => `<li>${link(a.domein)}: ${esc(a.antwoorden)} keer bij ${esc(a.vragen)} vragen</li>`).join('')}</ul></div>`
+      : '';
+    return lijst + aanbieders;
+  }
+
   function googleBlokOfLeeg(google) {
     return (google && google.beschikbaar !== false && googleBlok(google)) || googleLeeg();
   }
@@ -295,7 +318,7 @@
     }
   }
 
-  function teken(data, google) {
+  function teken(data, google, bronnen) {
     const inhoud = el('aiZichtbaarheidInhoud');
     if (!inhoud) return;
     const tab = el('aiZichtbaarheidTab');
@@ -335,6 +358,7 @@
     const bronBlok = [V().stat({ label: 'Website als bron', info: 'Hoe vaak een AI assistent jullie website als bron noemde onder het antwoord. Dat is waardevol, want mensen kunnen dan doorklikken.', leeg: !gec, waarde: F().getal(gec), tel: gec, tekst: gec ? 'Keer dat jullie website in een antwoord werd aangehaald' : 'Zodra een AI assistent jullie website als bron noemt, zie je het hier.' })];
     const urls = urlBlok(data.eigenUrls || []);
     lijst.push({ titel: 'Noemen ze jullie website', lead: 'Een AI assistent kan jullie website als bron onder het antwoord zetten. Dan kunnen mensen doorklikken.', inhoud: urls ? V().raster(bronBlok[0] + urls, '2') : bronBlok[0] });
+    lijst.push({ titel: 'Waar AI de antwoorden vandaan haalt', lead: 'AI noemt onder een antwoord vaak de websites waar het de informatie vond. Daar kunnen jullie ook op staan.', inhoud: bronnenBlok(bronnen) });
     lijst.push({ titel: 'Wat het oplevert', lead: 'Komen er mensen via een AI assistent op de site, en nemen die contact op?', inhoud: opbrengstHtml(data.conversie) });
     const kansen = kansenBlok(data.kansen) + vraagKansenBlok(data.vraagKansen);
     lijst.push({ titel: 'Wat wij ermee doen', lead: 'Signalen uit de meting en wat wij daarna doen.', inhoud: (kansen || U().legeStand({ soort: 'klaar', titel: 'Geen aandachtspunten', tekst: 'Zodra de meting iets laat zien om op te volgen, staat het hier.' })) });
@@ -357,13 +381,14 @@
     const volgnr = (laad.volgnr = (laad.volgnr || 0) + 1);
     try {
       // Google is een extra: lukt het ophalen niet, dan tonen we de rest gewoon.
-      const [data, google] = await Promise.all([
+      const [data, google, bronnen] = await Promise.all([
         apiAi(`/${clientId}/ai-zichtbaarheid`),
-        apiAi(`/${clientId}/ai-zichtbaarheid/google`).catch(() => null)
+        apiAi(`/${clientId}/ai-zichtbaarheid/google`).catch(() => null),
+        apiAi(`/${clientId}/ai-zichtbaarheid/bronnen`).catch(() => null)
       ]);
       // Een nieuwere aanvraag (opnieuw op de tab geklikt) wint van dit oudere antwoord.
       if (volgnr !== laad.volgnr) return;
-      teken(data, google);
+      teken(data, google, bronnen);
     } catch (err) {
       if (volgnr !== laad.volgnr) return;
       if (inhoud) inhoud.innerHTML = '<div class="p-pagina">' + U().foutStand({ titel: 'De AI meting laadt even niet', tekst: 'De rest van het portaal werkt gewoon. Probeer het straks opnieuw.' }) + '</div>';

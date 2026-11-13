@@ -20,6 +20,7 @@ const PROMPTS_TABLE_ID = process.env.N8N_AI_PROMPTS_TABLE_ID || 'fOe0eUDOQ7FNaL1
 const METINGEN_TABLE_ID = process.env.N8N_AI_METINGEN_TABLE_ID || 'IRsXYL5ndnD6Yy7m';
 const GOOGLE_TABLE_ID = process.env.N8N_AI_GOOGLE_TABLE_ID || 'pkdY2ZoRt12SSZPT';
 const KERN_WIJZIGINGEN_TABLE_ID = process.env.N8N_AI_KERN_WIJZIGINGEN_TABLE_ID || 'SeItyAsQZfNQXZ3t';
+const BRON_DOMEINEN_TABLE_ID = process.env.N8N_AI_BRON_DOMEINEN_TABLE_ID || 'IfsEE7Mljx5bHDX0';
 const KANSEN_TABLE_ID = process.env.N8N_KANSEN_TABLE_ID || 'C0ASGyrj8nT1zXOS';
 const KOPPELINGEN_TABLE_ID = process.env.N8N_AI_VRAAG_PAGINAS_TABLE_ID || 'ZWXBXwyJNBhRbk8e';
 const CLIENTS_TABLE_ID = process.env.N8N_CLIENTS_TABLE_ID || '42vYfT6ktan72bpa';
@@ -468,6 +469,74 @@ async function klantTermen(klantNaam) {
   }
 }
 
+// Bronnen die AI in de antwoorden aanhaalt, omgezet in acties. Het soort bron (overzichtssite, platform,
+// media, overheid, aanbieder) komt uit ai_bron_domeinen, die de workflow "BA - AI Meting Bronnen Indelen" vult.
+// Op websites van andere aanbieders kunnen we niets doen, die tonen we alleen als context.
+const BRON_DAGEN = 28;
+const BRON_MIN_ANTWOORDEN = 3;
+const BRON_MAX_KANSEN = 8;
+const BRON_ACTIES = {
+  overzichtssite: { label: 'Overzichtssite', actie: 'Een vermelding op deze overzichtssite vergroot de kans dat AI jullie noemt. Wij zoeken uit hoe jullie hier kunnen worden opgenomen. Er is geen garantie dat AI jullie daarna noemt.' },
+  platform: { label: 'Platform', actie: 'Zorg dat jullie profiel hier compleet en actueel is, met foto\'s, omschrijving en recente reviews. Wij controleren wat er nog ontbreekt.' },
+  media: { label: 'Media of blog', actie: 'Een artikel of vermelding op deze site helpt. Wij kijken of dat kan via de redactie of met een gastbijdrage.' },
+  overheid: { label: 'Organisatie', actie: 'Deze organisatie noemt aanbieders uit de regio of branche. Wij zoeken uit of jullie hier kunnen worden vermeld.' }
+};
+
+function domeinVan(url) {
+  const m = String(url || '').trim().match(/^https?:\/\/([^/?#]+)/i);
+  return m ? m[1].toLowerCase().replace(/^www\./, '') : '';
+}
+
+function bouwBronnen(metingen, domeinen, eigenDomein) {
+  const eigen = String(eigenDomein || '').toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
+  const soortVan = new Map();
+  for (const d of domeinen || []) if (d && d.domein) soortVan.set(String(d.domein).toLowerCase(), String(d.soort || ''));
+  const perDomein = new Map();
+  let antwoorden = 0;
+  for (const m of metingen || []) {
+    if (!m || m.fout) continue;
+    const bronnen = parseBronnen(m.bronnen);
+    if (!bronnen.length) continue;
+    antwoorden += 1;
+    const gezien = new Set();
+    for (const b of bronnen) {
+      const dom = domeinVan(b.url);
+      if (!dom || gezien.has(dom)) continue;
+      if (eigen && (dom === eigen || dom.endsWith('.' + eigen))) continue;
+      gezien.add(dom);
+      const rec = perDomein.get(dom) || { domein: dom, antwoorden: 0, vragen: new Set(), genoemd: 0, url: schoneUrl(b.url), titel: b.titel };
+      rec.antwoorden += 1;
+      rec.vragen.add(m.prompt_id);
+      if (waar(m.genoemd)) rec.genoemd += 1;
+      perDomein.set(dom, rec);
+    }
+  }
+  if (!antwoorden) return { status: 'leeg', dagen: BRON_DAGEN, antwoorden: 0, kansen: [], aanbieders: [] };
+  const lijst = [...perDomein.values()].filter((r) => r.antwoorden >= BRON_MIN_ANTWOORDEN).sort((a, b) => b.antwoorden - a.antwoorden);
+  const metSoort = lijst.map((r) => ({ ...r, soort: soortVan.get(r.domein) || '' }));
+  const ingedeeld = metSoort.some((r) => r.soort);
+  const kansen = metSoort
+    .filter((r) => BRON_ACTIES[r.soort])
+    .slice(0, BRON_MAX_KANSEN)
+    .map((r) => ({ domein: r.domein, soort: r.soort, label: BRON_ACTIES[r.soort].label, antwoorden: r.antwoorden, vragen: r.vragen.size, genoemd: r.genoemd, url: r.url, titel: r.titel, actie: BRON_ACTIES[r.soort].actie }));
+  const aanbieders = metSoort
+    .filter((r) => (ingedeeld ? r.soort === 'aanbieder' : true))
+    .slice(0, 5)
+    .map((r) => ({ domein: r.domein, antwoorden: r.antwoorden, vragen: r.vragen.size }));
+  return { status: ingedeeld ? 'ok' : 'indeling_volgt', dagen: BRON_DAGEN, antwoorden, kansen, aanbieders };
+}
+
+async function getAiBronnen(klantNaam) {
+  const dag = new Date(Date.now() - BRON_DAGEN * 86400000).toISOString().slice(0, 10);
+  const klantFilter = { columnName: 'klant', condition: 'eq', value: klantNaam };
+  const [metingen, domeinen, klantRijen] = await Promise.all([
+    n8nTabel(METINGEN_TABLE_ID, [klantFilter, { columnName: 'datum', condition: 'gte', value: dag }]),
+    optioneleTabel(BRON_DOMEINEN_TABLE_ID, [{ columnName: 'domein', condition: 'neq', value: '' }]),
+    optioneleTabel(CLIENTS_TABLE_ID, [{ columnName: 'client_name', condition: 'eq', value: klantNaam }])
+  ]);
+  return bouwBronnen(metingen, domeinen, (klantRijen[0] || {}).ai_domein);
+}
+
 async function getAiAntwoord(klantNaam, promptId) {
   const overzicht = bouwOverzicht(await n8nRows(klantNaam));
   if (overzicht.status !== 'ok') return { status: 'leeg' };
@@ -708,4 +777,4 @@ async function getAiIntern(klantNaam) {
   return bouwIntern(await n8nRows(klantNaam));
 }
 
-module.exports = { n8nTabel, schoneUrl, getAiZichtbaarheid, getAiIntern, getAiVragen, getAiGoogle, bouwGoogle, getAiAntwoord, getAiVragenMaand, bouwOverzicht, bouwIntern, bouwVragen, bouwBewegingen, bouwAntwoord, bouwVragenMaand, parseBronnen, merkTermen, bouwKernWijzigingen, bouwAiKansen, bouwVraagKansen, weekLabel };
+module.exports = { getAiBronnen, bouwBronnen, n8nTabel, schoneUrl, getAiZichtbaarheid, getAiIntern, getAiVragen, getAiGoogle, bouwGoogle, getAiAntwoord, getAiVragenMaand, bouwOverzicht, bouwIntern, bouwVragen, bouwBewegingen, bouwAntwoord, bouwVragenMaand, parseBronnen, merkTermen, bouwKernWijzigingen, bouwAiKansen, bouwVraagKansen, weekLabel };

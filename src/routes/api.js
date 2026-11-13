@@ -514,6 +514,18 @@ router.get('/:clientId/ai-zichtbaarheid/google', requireLogin, async (req, res) 
   }
 });
 
+// Bronnen die AI aanhaalt, met per bron wat wij ermee doen.
+router.get('/:clientId/ai-zichtbaarheid/bronnen', requireLogin, async (req, res) => {
+  try {
+    const config = getClient(req.params.clientId);
+    const settings = await settingsService.getClientSettings(req.params.clientId, config);
+    if (!settings.aiZichtbaarheid) return res.json({ beschikbaar: false });
+    res.json({ beschikbaar: true, ...(await aiZichtbaarheidService.getAiBronnen(config.naam)) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Het antwoord van ChatGPT en Gemini op een vraag in de laatste gemeten week, zodat
 // de klant ziet in welk antwoord het merk stond. Daarin staan ook andere bedrijven.
 router.get('/:clientId/ai-zichtbaarheid/vragen/:promptId', requireLogin, async (req, res) => {
