@@ -103,3 +103,4 @@ mark.ai-merk { background: #fff1a8; color: inherit; padding: 0 2px; border-radiu
 .ai-g-stuk { display: grid; gap: 4px; }
 .ai-g-stuk strong { font-size: 22px; }
 .ai-g-stuk span { font-size: 13px; color: var(--text-faint); }
+#aiVragenBlok > * + *, #aiGoogleBlok > * + * { margin-top: 16px; }

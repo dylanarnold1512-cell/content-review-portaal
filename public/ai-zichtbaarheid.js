@@ -244,16 +244,18 @@
     }
   }
 
+  function googleLeeg() {
+    return U().kaart({ titel: 'Google AI Overviews', inhoud: U().legeStand({ soort: 'wacht', titel: 'De eerste Google meting volgt', tekst: 'Google toont boven de zoekresultaten steeds vaker een eigen AI antwoord. Elke maandag stellen wij jullie belangrijkste vragen ook aan Google. Zodra de eerste meting binnen is, zie je hier bij hoeveel zoekopdrachten Google een AI antwoord toont, en of jullie merk en website daarin staan.' }) });
+  }
+
   async function laadGoogle() {
     const blok = el('aiGoogleBlok');
     if (!blok) return;
     try {
       const data = await apiAi(`/${clientId}/ai-zichtbaarheid/google`);
-      const html = data.beschikbaar === false ? '' : googleBlok(data);
-      if (!html) { blok.remove(); return; }
-      blok.innerHTML = html;
+      blok.innerHTML = (data.beschikbaar !== false && googleBlok(data)) || googleLeeg();
     } catch (err) {
-      blok.remove();
+      blok.innerHTML = googleLeeg();
     }
   }
 
@@ -289,8 +291,9 @@
     const kop = V().kop({ titel: 'AI zichtbaarheid', tekst: 'Steeds meer mensen stellen hun vraag aan ChatGPT of Gemini in plaats van aan Google. Wij stellen elke week dezelfde vragen aan beide en tellen hoe vaak jullie merk in het antwoord voorkomt.',
       acties: data.status === 'ok' ? `<span class="p-ov-chip"><i class="p-ov-punt"></i>Laatste meting: ${esc(data.laatsteWeek.label)}</span>` : '' });
     if (data.status !== 'ok') {
-      inhoud.innerHTML = V().wereld({ kop, hoofdstukken: V().hoofdstuk({ nr: 1, titel: 'De eerste meting volgt', inhoud: U().legeStand({ soort: 'wacht', titel: 'De eerste meting volgt', tekst: data.melding || 'Zodra de eerste volledige week is gemeten, zie je hier de resultaten.' }) }) });
+      inhoud.innerHTML = V().wereld({ kop, hoofdstukken: V().hoofdstuk({ nr: 1, titel: 'De eerste meting volgt', inhoud: U().legeStand({ soort: 'wacht', titel: 'De eerste meting volgt', tekst: data.melding || 'Zodra de eerste volledige week is gemeten, zie je hier de resultaten.' }) }) + V().hoofdstuk({ nr: 2, titel: 'Ook in Google', lead: 'Google toont boven de zoekresultaten steeds vaker een eigen AI antwoord. Ook daar meten wij of jullie merk genoemd wordt.', inhoud: '<div id="aiGoogleBlok"></div>' }) });
       V().activeer(inhoud.querySelector('[data-v-wereld]'));
+      laadGoogle();
       return;
     }
     const antw = data.platformen.reduce((t, p) => t + p.antwoorden, 0);
@@ -325,7 +328,8 @@
     lijst.push({ titel: 'Wat het oplevert', lead: 'Komen er mensen via een AI assistent op de site, en nemen die contact op?', inhoud: opbrengstHtml(data.conversie) });
     const kansen = kansenBlok(data.kansen) + vraagKansenBlok(data.vraagKansen);
     lijst.push({ titel: 'Wat wij ermee doen', lead: 'Signalen uit de meting en wat wij daarna doen.', inhoud: (kansen || U().legeStand({ soort: 'klaar', titel: 'Geen aandachtspunten', tekst: 'Zodra de meting iets laat zien om op te volgen, staat het hier.' })) });
-    lijst.push({ titel: 'Elke vraag apart', lead: 'Alle vragen die wij stelden en wat de AI antwoordde.', inhoud: '<div id="aiGoogleBlok"></div><div id="aiVragenBlok"></div><p class="ai-voet">Het gaat om vragen die wij zelf hebben opgesteld. AI antwoorden verschillen van keer tot keer, dus het gaat om het grote beeld.</p>' });
+    lijst.push({ titel: 'Ook in Google', lead: 'Google toont boven de zoekresultaten steeds vaker een eigen AI antwoord. Ook daar meten wij of jullie merk genoemd wordt.', inhoud: '<div id="aiGoogleBlok"></div>' });
+    lijst.push({ titel: 'Elke vraag apart', lead: 'Alle vragen die wij stelden en wat de AI antwoordde.', inhoud: '<div id="aiVragenBlok"></div><p class="ai-voet">Het gaat om vragen die wij zelf hebben opgesteld. AI antwoorden verschillen van keer tot keer, dus het gaat om het grote beeld.</p>' });
     inhoud.innerHTML = V().wereld({ kop, hoofdstukken: lijst.map((h, i) => V().hoofdstuk({ nr: i + 1, titel: h.titel, lead: h.lead, inhoud: h.inhoud })).join('') });
     const kansenVraag = el('aiVraagKansen');
     if (kansenVraag) {
