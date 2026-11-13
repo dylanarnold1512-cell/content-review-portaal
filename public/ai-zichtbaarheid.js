@@ -65,7 +65,7 @@
       V().uitleg({ titel: 'Hoe zien we dat', inhoud: '<p>Een AI assistent noemt jullie merk of website, een lezer klikt door en komt op de site. Dat zie je hierboven. Mensen die jullie naam alleen onthouden en later zelf zoeken, tellen hier niet mee.</p>' });
   }
 
-  function trendBlok(trend, reeks, laatsteControle) {
+  function trendBlok(trend, reeks, laatsteControle, google) {
     if (!trend.length) return '';
     const rijen = trend.map((w) => {
       const balk = (p) => {
@@ -74,7 +74,11 @@
         return `<div class="ai-balk-rij"><span class="ai-balk-naam">${p === 'chatgpt' ? 'ChatGPT' : 'Gemini'}</span><span class="ai-balk"><span class="ai-balk-vul" style="width:${pct}%"></span></span><span class="ai-balk-waarde">${pct}%</span></div>`;
       };
       const markering = w.kernVervangen ? `<div class="ai-markering">Vanaf deze week ${w.kernVervangen === 1 ? 'is 1 vaste vraag' : `zijn ${w.kernVervangen} vaste vragen`} vervangen. Vergelijk met eerdere weken daarom met enige voorzichtigheid.</div>` : (w.kernUitgebreid ? `<div class="ai-markering">Vanaf deze week meten we ${w.kernUitgebreid === 1 ? '1 vaste vraag' : `${w.kernUitgebreid} vaste vragen`} meer. Daarmee dekken we meer onderwerpen. Vergelijk met eerdere weken daarom met enige voorzichtigheid.</div>` : '');
-      return `<div class="ai-trend-week"><div class="ai-trend-label">${esc(w.label)}</div>${balk('chatgpt')}${balk('gemini')}${markering}</div>`;
+      const gw = google && google.status === 'ok' ? (google.trend || []).find((x) => x.weekStart === w.weekStart) : null;
+      const googleBalk = gw && gw.metOverzicht
+        ? (() => { const pct = Math.round((gw.genoemd / gw.metOverzicht) * 100); return `<div class="ai-balk-rij"><span class="ai-balk-naam">Google</span><span class="ai-balk"><span class="ai-balk-vul" style="width:${pct}%"></span></span><span class="ai-balk-waarde">${pct}%</span></div>`; })()
+        : '';
+      return `<div class="ai-trend-week"><div class="ai-trend-label">${esc(w.label)}</div>${balk('chatgpt')}${balk('gemini')}${googleBalk}${markering}</div>`;
     }).join('');
     const basis = reeks === 'kern'
       ? 'Dit verloop is gebaseerd op een vaste set kernvragen, zodat de weken goed vergelijkbaar zijn. Elk kwartaal controleren wij of die vragen nog bij jullie aanbod en de zoekopdrachten passen.'
@@ -125,6 +129,21 @@
     if (!n) return '<span class="ai-nvt">geen</span>';
     const url = v.urls[0];
     return url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 48))}</a>` : `${n} keer`;
+  }
+
+  // Google als derde ring naast ChatGPT en Gemini. Het percentage is: bij hoeveel van de AI overzichten
+  // die Google toonde staat jullie merk erin. Google toont niet bij elke zoekopdracht een overzicht.
+  function googleRing(google) {
+    const info = 'Wij stellen elke maandag dezelfde zoekopdrachten ook aan Google. Google toont niet bij elke zoekopdracht een eigen AI overzicht. Dit is het percentage van die overzichten waarin jullie merk genoemd wordt. In het totaal hierboven tellen alleen ChatGPT en Gemini mee.';
+    if (google && google.status === 'ok' && google.nu && google.nu.metOverzicht) {
+      const n = google.nu;
+      const pct = (n.genoemd / n.metOverzicht) * 100;
+      return V().ring(pct, 'Google AI', n.genoemd + ' van de ' + n.metOverzicht + ' AI overzichten. Google toonde er een bij ' + n.metOverzicht + ' van ' + n.vragen + ' zoekopdrachten', info);
+    }
+    const sub = google && google.status === 'ok'
+      ? 'Google toonde deze week bij geen enkele van onze zoekopdrachten een AI overzicht'
+      : 'Elke maandag meten wij ook wat Google zelf als AI antwoord toont. De eerste meting volgt';
+    return '<div class="v-ring v-ring-wacht v-in" data-v-tilt><svg viewBox="0 0 100 100" role="img" aria-label="Google AI: nog geen meting"><circle class="v-ring-baan" cx="50" cy="50" r="42" fill="none" stroke-width="9"/><text x="50" y="56" text-anchor="middle" style="font-size:15px">Straks</text></svg><b>Google AI' + (U() ? U().infoKnop(info, 'Google AI') : '') + '</b><span>' + esc(sub) + '</span></div>';
   }
 
   // Google AI Overviews: apart van ChatGPT en Gemini, want Google toont niet bij elke zoekopdracht een overzicht.
@@ -248,15 +267,8 @@
     return U().kaart({ titel: 'Google AI Overviews', inhoud: U().legeStand({ soort: 'wacht', titel: 'De eerste Google meting volgt', tekst: 'Google toont boven de zoekresultaten steeds vaker een eigen AI antwoord. Elke maandag stellen wij jullie belangrijkste vragen ook aan Google. Zodra de eerste meting binnen is, zie je hier bij hoeveel zoekopdrachten Google een AI antwoord toont, en of jullie merk en website daarin staan.' }) });
   }
 
-  async function laadGoogle() {
-    const blok = el('aiGoogleBlok');
-    if (!blok) return;
-    try {
-      const data = await apiAi(`/${clientId}/ai-zichtbaarheid/google`);
-      blok.innerHTML = (data.beschikbaar !== false && googleBlok(data)) || googleLeeg();
-    } catch (err) {
-      blok.innerHTML = googleLeeg();
-    }
+  function googleBlokOfLeeg(google) {
+    return (google && google.beschikbaar !== false && googleBlok(google)) || googleLeeg();
   }
 
   async function laadVragen() {
@@ -283,17 +295,16 @@
     }
   }
 
-  function teken(data) {
+  function teken(data, google) {
     const inhoud = el('aiZichtbaarheidInhoud');
     if (!inhoud) return;
     const tab = el('aiZichtbaarheidTab');
     if (tab) tab.classList.add('v-tab');
-    const kop = V().kop({ titel: 'AI zichtbaarheid', tekst: 'Steeds meer mensen stellen hun vraag aan ChatGPT of Gemini in plaats van aan Google. Wij stellen elke week dezelfde vragen aan beide en tellen hoe vaak jullie merk in het antwoord voorkomt.',
+    const kop = V().kop({ titel: 'AI zichtbaarheid', tekst: 'Steeds meer mensen stellen hun vraag aan ChatGPT of Gemini in plaats van aan Google, en Google toont zelf ook steeds vaker een AI antwoord. Wij stellen elke week dezelfde vragen aan alle drie en tellen hoe vaak jullie merk in het antwoord voorkomt.',
       acties: data.status === 'ok' ? `<span class="p-ov-chip"><i class="p-ov-punt"></i>Laatste meting: ${esc(data.laatsteWeek.label)}</span>` : '' });
     if (data.status !== 'ok') {
-      inhoud.innerHTML = V().wereld({ kop, hoofdstukken: V().hoofdstuk({ nr: 1, titel: 'De eerste meting volgt', inhoud: U().legeStand({ soort: 'wacht', titel: 'De eerste meting volgt', tekst: data.melding || 'Zodra de eerste volledige week is gemeten, zie je hier de resultaten.' }) }) + V().hoofdstuk({ nr: 2, titel: 'Ook in Google', lead: 'Google toont boven de zoekresultaten steeds vaker een eigen AI antwoord. Ook daar meten wij of jullie merk genoemd wordt.', inhoud: '<div id="aiGoogleBlok"></div>' }) });
+      inhoud.innerHTML = V().wereld({ kop, hoofdstukken: V().hoofdstuk({ nr: 1, titel: 'De eerste meting volgt', inhoud: U().legeStand({ soort: 'wacht', titel: 'De eerste meting volgt', tekst: data.melding || 'Zodra de eerste volledige week is gemeten, zie je hier de resultaten.' }) }) + V().hoofdstuk({ nr: 2, titel: 'Google AI', lead: 'Google toont boven de zoekresultaten steeds vaker een eigen AI antwoord. Ook daar meten wij of jullie merk genoemd wordt.', inhoud: googleBlokOfLeeg(google) }) });
       V().activeer(inhoud.querySelector('[data-v-wereld]'));
-      laadGoogle();
       return;
     }
     const antw = data.platformen.reduce((t, p) => t + p.antwoorden, 0);
@@ -309,15 +320,14 @@
     }).join('');
     const verloop = data.aantalWeken < 3
       ? U().kaart({ titel: 'Verloop per week', inhoud: U().legeStand({ soort: 'wacht', titel: 'Het verloop volgt na drie weken', tekst: 'Zo voorkomen we dat toeval als winst of verlies wordt gezien.' }) })
-      : trendBlok(data.trend, data.reeks, data.laatsteKernControle);
+      : trendBlok(data.trend, data.reeks, data.laatsteKernControle, google);
     const markt = data.clusterSoort === 'markt';
     const lijst = [];
     lijst.push({
       titel: 'Wat AI over jullie zegt',
-      lead: (totaal === 0 ? 'AI noemt jullie merk nog niet. Dat is een normaal beginpunt. Wij meten elke week en laten hier zien wat er verandert.' : 'In ' + totaal + '% van de antwoorden noemt AI jullie merk. Dit is het totaal over ChatGPT en Gemini in de laatste volledige week.') + (data.melding ? ' ' + data.melding : ''),
-      inhoud: V().raster(
-        V().stat({ label: 'Merk genoemd door AI', info: 'In hoeveel van de antwoorden die wij ophalen jullie merk genoemd wordt, over ChatGPT en Gemini samen. Een meting is een momentopname.', groot: true, waarde: totaal + '%', tel: totaal, tekst: 'In ' + gen + ' van de ' + antw + ' antwoorden werd jullie merk genoemd', extra: 'Laatste meting: ' + data.laatsteWeek.label + '. Volgende meting: ' + volgende + '. ' + data.aantalWeken + (data.aantalWeken === 1 ? ' week' : ' weken') + ' gemeten.' }) +
-        '<div class="v-kolom-stapel v-ringen">' + ringen + '</div>', 'groot') + verloop
+      lead: (totaal === 0 ? 'AI noemt jullie merk nog niet. Dat is een normaal beginpunt. Wij meten elke week en laten hier zien wat er verandert.' : 'In ' + totaal + '% van de antwoorden noemt AI jullie merk. Dit is het totaal over ChatGPT en Gemini in de laatste volledige week. Google AI staat er apart naast, want Google toont niet bij elke zoekopdracht een overzicht.') + (data.melding ? ' ' + data.melding : ''),
+      inhoud: V().raster(V().stat({ label: 'Merk genoemd door AI', info: 'In hoeveel van de antwoorden die wij ophalen jullie merk genoemd wordt, over ChatGPT en Gemini samen. Een meting is een momentopname.', groot: true, waarde: totaal + '%', tel: totaal, tekst: 'In ' + gen + ' van de ' + antw + ' antwoorden werd jullie merk genoemd', extra: 'Laatste meting: ' + data.laatsteWeek.label + '. Volgende meting: ' + volgende + '. ' + data.aantalWeken + (data.aantalWeken === 1 ? ' week' : ' weken') + ' gemeten.' }), 'auto') +
+        '<div class="v-ringen v-ringen-3">' + ringen + googleRing(google) + '</div>' + verloop + googleBlokOfLeeg(google)
     });
     if (data.clusters && data.clusters.length) {
       lijst.push({ titel: markt ? 'In welke markten' : 'Waar het over gaat', lead: markt ? 'In welke markten (talen) de AI jullie merk het vaakst noemt. De cijfers hierboven zijn het totaal over alle markten.' : 'Bij welke onderwerpen de AI jullie merk het vaakst noemt.', inhoud: V().raster(onderwerpStats(data.clusters), 'auto') });
@@ -328,7 +338,6 @@
     lijst.push({ titel: 'Wat het oplevert', lead: 'Komen er mensen via een AI assistent op de site, en nemen die contact op?', inhoud: opbrengstHtml(data.conversie) });
     const kansen = kansenBlok(data.kansen) + vraagKansenBlok(data.vraagKansen);
     lijst.push({ titel: 'Wat wij ermee doen', lead: 'Signalen uit de meting en wat wij daarna doen.', inhoud: (kansen || U().legeStand({ soort: 'klaar', titel: 'Geen aandachtspunten', tekst: 'Zodra de meting iets laat zien om op te volgen, staat het hier.' })) });
-    lijst.push({ titel: 'Ook in Google', lead: 'Google toont boven de zoekresultaten steeds vaker een eigen AI antwoord. Ook daar meten wij of jullie merk genoemd wordt.', inhoud: '<div id="aiGoogleBlok"></div>' });
     lijst.push({ titel: 'Elke vraag apart', lead: 'Alle vragen die wij stelden en wat de AI antwoordde.', inhoud: '<div id="aiVragenBlok"></div><p class="ai-voet">Het gaat om vragen die wij zelf hebben opgesteld. AI antwoorden verschillen van keer tot keer, dus het gaat om het grote beeld.</p>' });
     inhoud.innerHTML = V().wereld({ kop, hoofdstukken: lijst.map((h, i) => V().hoofdstuk({ nr: i + 1, titel: h.titel, lead: h.lead, inhoud: h.inhoud })).join('') });
     const kansenVraag = el('aiVraagKansen');
@@ -340,7 +349,6 @@
     }
     V().activeer(inhoud.querySelector('[data-v-wereld]'));
     laadVragen();
-    laadGoogle();
   }
 
   async function laad() {
@@ -348,10 +356,14 @@
     if (inhoud) inhoud.innerHTML = '<div class="p-pagina">' + U().laden([{ breedte: '40%', hoogte: 30 }, { breedte: '100%', hoogte: 120 }, { breedte: '100%', hoogte: 160 }]) + '</div>';
     const volgnr = (laad.volgnr = (laad.volgnr || 0) + 1);
     try {
-      const data = await apiAi(`/${clientId}/ai-zichtbaarheid`);
+      // Google is een extra: lukt het ophalen niet, dan tonen we de rest gewoon.
+      const [data, google] = await Promise.all([
+        apiAi(`/${clientId}/ai-zichtbaarheid`),
+        apiAi(`/${clientId}/ai-zichtbaarheid/google`).catch(() => null)
+      ]);
       // Een nieuwere aanvraag (opnieuw op de tab geklikt) wint van dit oudere antwoord.
       if (volgnr !== laad.volgnr) return;
-      teken(data);
+      teken(data, google);
     } catch (err) {
       if (volgnr !== laad.volgnr) return;
       if (inhoud) inhoud.innerHTML = '<div class="p-pagina">' + U().foutStand({ titel: 'De AI meting laadt even niet', tekst: 'De rest van het portaal werkt gewoon. Probeer het straks opnieuw.' }) + '</div>';
