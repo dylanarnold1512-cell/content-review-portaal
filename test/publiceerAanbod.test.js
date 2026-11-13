@@ -27,10 +27,11 @@ test('aanbod blijft weg bij wegklikken, bij automatisch publiceren aan en bij ei
   assert.strictEqual(A.moetAanbodTonen({ items: drie, statusValues: sv }), false);
 });
 
-test('label Nieuw: alleen als het kan, het uit staat en de klant het tabblad nog niet opende', () => {
+test('label Nieuw: bij elke klant waar het kan, tot de klant het tabblad opent', () => {
   assert.strictEqual(A.moetNieuwTonen({ stand: beschikbaar, gezien: false }), true);
   assert.strictEqual(A.moetNieuwTonen({ stand: beschikbaar, gezien: true }), false);
-  assert.strictEqual(A.moetNieuwTonen({ stand: { beschikbaar: true, aan: true }, gezien: false }), false);
+  assert.strictEqual(A.moetNieuwTonen({ stand: { beschikbaar: true, aan: true }, gezien: false }), true);
+  assert.strictEqual(A.moetNieuwTonen({ stand: { beschikbaar: true, aan: true }, gezien: true }), false);
   assert.strictEqual(A.moetNieuwTonen({ stand: { beschikbaar: false }, gezien: false }), false);
   assert.strictEqual(A.moetNieuwTonen({}), false);
 });
