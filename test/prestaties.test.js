@@ -200,3 +200,24 @@ test('Tellers tellen een getal maar een keer en bewaren de eindtekst', () => {
   assert.match(bron, /data-v-geteld/);
   assert.match(bron, /data-v-eind/);
 });
+
+test('n8nRows leest alle pagina\'s van een klant', async () => {
+  const { n8nRows } = require('../src/services/prestaties');
+  process.env.N8N_API_KEY = 'test';
+  const echteFetch = global.fetch;
+  const oproepen = [];
+  global.fetch = async (url) => {
+    oproepen.push(url);
+    const tweede = /cursor=c2/.test(url);
+    const rijen = Array.from({ length: tweede ? 40 : 250 }, (_, i) => ({ id: i }));
+    const body = JSON.stringify({ data: rijen, nextCursor: tweede ? null : 'c2' });
+    return { ok: true, status: 200, text: async () => body };
+  };
+  try {
+    const rijen = await n8nRows('tabel', { type: 'and', filters: [] }, 5000);
+    assert.equal(rijen.length, 290);
+    assert.equal(oproepen.length, 2);
+  } finally {
+    global.fetch = echteFetch;
+  }
+});

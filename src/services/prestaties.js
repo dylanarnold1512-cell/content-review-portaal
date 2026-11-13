@@ -68,20 +68,30 @@ function getApiKey() {
   return key;
 }
 
+// Leest alle rijen van een klant. n8n geeft maximaal 250 rijen per aanvraag, daarom lezen we door
+// tot er geen volgende pagina meer is. Anders raken we bij grote klanten (veel blogs maal drie
+// periodes) stilletjes rijen kwijt en lijken cijfers te verdwijnen.
 async function n8nRows(tableId, filterObj, limit) {
   const filter = encodeURIComponent(JSON.stringify(filterObj));
-  const res = await fetch(`${N8N_BASE_URL}/api/v1/data-tables/${tableId}/rows?limit=${limit}&filter=${filter}`, {
-    headers: { 'X-N8N-API-KEY': getApiKey(), 'Content-Type': 'application/json' }
-  });
-  const raw = await res.text();
-  let data = {};
-  try {
-    data = raw ? JSON.parse(raw) : {};
-  } catch (err) {
-    // niet JSON, alleen relevant als res.ok ook false is
+  const max = Math.max(Number(limit) || 250, 1);
+  const alle = [];
+  let cursor = '';
+  for (let pagina = 0; pagina < 40; pagina += 1) {
+    const url = `${N8N_BASE_URL}/api/v1/data-tables/${tableId}/rows?limit=250&filter=${filter}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
+    const res = await fetch(url, { headers: { 'X-N8N-API-KEY': getApiKey(), 'Content-Type': 'application/json' } });
+    const raw = await res.text();
+    let data = {};
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch (err) {
+      // niet JSON, alleen relevant als res.ok ook false is
+    }
+    if (!res.ok) throw new Error(`n8n data table gaf een fout (${res.status}): ${data.message || raw || res.statusText}`);
+    alle.push(...(data.data || []));
+    if (!data.nextCursor || alle.length >= max) break;
+    cursor = data.nextCursor;
   }
-  if (!res.ok) throw new Error(`n8n data table gaf een fout (${res.status}): ${data.message || raw || res.statusText}`);
-  return data.data || [];
+  return alle;
 }
 
 function perKlant(klantNaam) {
@@ -101,19 +111,19 @@ async function getPrestatiesData(klantNaam, periodeKeuze) {
   const periode = kiesPeriode(periodeKeuze);
   const [overzichtAlle, blogsAlle, weken, indexatie, conversiesAlle, kansenRijen, effectRijen, verbeterRijen, totalenAlle, cpcRijen, merkAlle, faqItems] = await Promise.all([
     n8nRows(TABLES.overzicht, perKlant(klantNaam), 20),
-    n8nRows(TABLES.blogs, perKlant(klantNaam), 250),
+    n8nRows(TABLES.blogs, perKlant(klantNaam), 5000),
     n8nRows(TABLES.weken, perKlant(klantNaam), 60),
     // Indexatie is een extra. Ontbreekt de tabel of de data, dan werkt de rest gewoon.
-    n8nRows(TABLES.indexatie, perKlant(klantNaam), 250).catch(() => []),
-    extra('conversies', TABLES.conversies, perKlant(klantNaam), 250),
+    n8nRows(TABLES.indexatie, perKlant(klantNaam), 5000).catch(() => []),
+    extra('conversies', TABLES.conversies, perKlant(klantNaam), 5000),
     // Kansen zijn een extra. Ontbreekt de tabel of de data, dan gelden de oude regels.
     n8nRows(TABLES.kansen, perKlant(klantNaam), 100).catch(() => []),
     // Effecten zijn een extra. Ontbreekt de tabel of de data, dan verschijnt het blok niet.
-    n8nRows(TABLES.effecten, perKlant(klantNaam), 250).catch(() => []),
-    n8nRows(TABLES.verbeteringen, perKlant(klantNaam), 250).catch(() => []),
+    n8nRows(TABLES.effecten, perKlant(klantNaam), 5000).catch(() => []),
+    n8nRows(TABLES.verbeteringen, perKlant(klantNaam), 5000).catch(() => []),
     // Extra metingen (30-10-2026). Ontbreken ze, dan verschijnen de tegels niet.
     extra('conversie_totalen', TABLES.conversieTotalen, perKlant(klantNaam), 20),
-    n8nRows(TABLES.paginaCpc, perKlant(klantNaam), 250).catch(() => []),
+    n8nRows(TABLES.paginaCpc, perKlant(klantNaam), 5000).catch(() => []),
     n8nRows(TABLES.merk, perKlant(klantNaam), 20).catch(() => []),
     laadFaqItems(klantNaam)
   ]);
@@ -603,4 +613,4 @@ async function getPrestaties(klantNaam, periode) {
   return bouwPrestaties({ ...data, klantNaam });
 }
 
-module.exports = { conversieWoorden, getPrestaties, getPrestatiesData, bouwPrestaties, positieLabel, REGELS, PERIODES, kiesPeriode, rijenVanPeriode, schoonPad, cpcKaart };
+module.exports = { n8nRows, conversieWoorden, getPrestaties, getPrestatiesData, bouwPrestaties, positieLabel, REGELS, PERIODES, kiesPeriode, rijenVanPeriode, schoonPad, cpcKaart };
