@@ -18,6 +18,7 @@ const TABLE_ID = process.env.N8N_AI_SAMENVATTING_TABLE_ID || 'PO71b1z9NwtgTFoO';
 
 const PROMPTS_TABLE_ID = process.env.N8N_AI_PROMPTS_TABLE_ID || 'fOe0eUDOQ7FNaL1r';
 const METINGEN_TABLE_ID = process.env.N8N_AI_METINGEN_TABLE_ID || 'IRsXYL5ndnD6Yy7m';
+const GOOGLE_TABLE_ID = process.env.N8N_AI_GOOGLE_TABLE_ID || 'pkdY2ZoRt12SSZPT';
 const KERN_WIJZIGINGEN_TABLE_ID = process.env.N8N_AI_KERN_WIJZIGINGEN_TABLE_ID || 'SeItyAsQZfNQXZ3t';
 const KANSEN_TABLE_ID = process.env.N8N_KANSEN_TABLE_ID || 'C0ASGyrj8nT1zXOS';
 const KOPPELINGEN_TABLE_ID = process.env.N8N_AI_VRAAG_PAGINAS_TABLE_ID || 'ZWXBXwyJNBhRbk8e';
@@ -548,6 +549,49 @@ async function getAiVragen(klantNaam) {
   return { status: 'ok', week, vragen: bouwVragen(prompts, metingen, week.start), bewegingen: bouwBewegingen(prompts, metingen, week.start) };
 }
 
+// Google AI Overviews: eigen tabel, los van ChatGPT en Gemini. Geen overzicht bij een zoekopdracht
+// is geen fout en telt niet als "niet genoemd": we tellen apart bij hoeveel vragen Google een
+// overzicht toont en in hoeveel daarvan het merk staat.
+function bouwGoogle(prompts, metingen) {
+  const perWeek = new Map();
+  for (const m of metingen || []) {
+    if (!m || m.fout || !m.prompt_id || !m.datum) continue;
+    const w = maandagVan(m.datum);
+    if (!w) continue;
+    const week = perWeek.get(w) || new Map();
+    // Per vraag telt de nieuwste meting in die week.
+    week.set(m.prompt_id, m);
+    perWeek.set(w, week);
+  }
+  const weken = [...perWeek.keys()].sort();
+  if (!weken.length) return { status: 'leeg', trend: [], vragen: [] };
+  const cijfers = (week) => {
+    const rijen = [...week.values()];
+    const met = rijen.filter((r) => waar(r.overzicht_getoond));
+    return { vragen: rijen.length, metOverzicht: met.length, genoemd: met.filter((r) => waar(r.genoemd)).length, geciteerd: met.filter((r) => waar(r.geciteerd)).length };
+  };
+  const trend = weken.slice(-8).map((w) => ({ weekStart: w, label: weekLabel(w), ...cijfers(perWeek.get(w)) }));
+  const laatste = weken[weken.length - 1];
+  const naam = new Map((prompts || []).map((p) => [p.prompt_id, p]));
+  const vragen = [...perWeek.get(laatste).values()]
+    .filter((r) => waar(r.overzicht_getoond))
+    .map((r) => {
+      const pr = naam.get(r.prompt_id) || {};
+      return { id: r.prompt_id, vraag: pr.prompt || '', onderwerp: pr.cluster || '', genoemd: waar(r.genoemd), geciteerd: waar(r.geciteerd), url: schoneUrl(String(r.geciteerde_urls || '').split('\n').map((u) => u.trim()).find((u) => /^https?:\/\//i.test(u)) || '') };
+    })
+    .sort((a, b) => (Number(b.genoemd) - Number(a.genoemd)) || (Number(b.geciteerd) - Number(a.geciteerd)) || String(a.vraag).localeCompare(String(b.vraag), 'nl'));
+  const vorige = trend.length > 1 ? trend[trend.length - 2] : null;
+  return { status: 'ok', week: { start: laatste, label: weekLabel(laatste) }, nu: trend[trend.length - 1], vorige, trend, vragen };
+}
+
+async function getAiGoogle(klantNaam) {
+  const klantFilter = { columnName: 'klant', condition: 'eq', value: klantNaam };
+  const metingen = await optioneleTabel(GOOGLE_TABLE_ID, [klantFilter]);
+  if (!metingen.length) return { status: 'leeg', trend: [], vragen: [] };
+  const prompts = await optioneleTabel(PROMPTS_TABLE_ID, [klantFilter]);
+  return bouwGoogle(prompts, metingen);
+}
+
 // Kernwijzigingen en kansen zijn extra: lukt het ophalen niet (tabel bestaat nog niet), dan blijft de rest werken.
 async function optioneleTabel(tabelId, filters) {
   try {
@@ -664,4 +708,4 @@ async function getAiIntern(klantNaam) {
   return bouwIntern(await n8nRows(klantNaam));
 }
 
-module.exports = { n8nTabel, schoneUrl, getAiZichtbaarheid, getAiIntern, getAiVragen, getAiAntwoord, getAiVragenMaand, bouwOverzicht, bouwIntern, bouwVragen, bouwBewegingen, bouwAntwoord, bouwVragenMaand, parseBronnen, merkTermen, bouwKernWijzigingen, bouwAiKansen, bouwVraagKansen, weekLabel };
+module.exports = { n8nTabel, schoneUrl, getAiZichtbaarheid, getAiIntern, getAiVragen, getAiGoogle, bouwGoogle, getAiAntwoord, getAiVragenMaand, bouwOverzicht, bouwIntern, bouwVragen, bouwBewegingen, bouwAntwoord, bouwVragenMaand, parseBronnen, merkTermen, bouwKernWijzigingen, bouwAiKansen, bouwVraagKansen, weekLabel };
