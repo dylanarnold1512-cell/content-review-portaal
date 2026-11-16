@@ -161,7 +161,7 @@ function renderSlotPageHtml(paginaRuw, opts) {
       )
     : galerij.html;
   const metFormulier = applyFormulierMarker(htmlTemplate, page.clientId, rootClass, opts);
-  const metReviews = pasReviewsWidgetToe(metFormulier.html, { profile: (clients[page.clientId] || {}).profile, rootClass, naarWordPress: naarWp });
+  const metReviews = pasReviewsWidgetToe(metFormulier.html, { profile: (clients[page.clientId] || {}).profile, rootClass, naarWordPress: naarWp, template: page.template });
   const body = renderSlotTemplate(metReviews.html, slotData, { verborgenItems: overrides.itemSets, forPreview });
   // Het FAQ schema mag alleen tekst bevatten die ook echt op de pagina staat.
   const zichtbareSlotData = filterSlotData(slotData, overrides.itemSets, naSecties.verborgenLijsten);

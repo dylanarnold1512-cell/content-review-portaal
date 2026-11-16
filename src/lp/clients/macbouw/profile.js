@@ -28,6 +28,15 @@ const profile = {
   // Aantal offertebalken (CTA) op de pagina, 16-10-2026: standaard 1 (halverwege). Met 2 komt er ook een balk direct na
   // de klantervaringen (src/lp/formulierCta.js). Dylan miste bij MAC Bouw nog een CTA in het tweede deel van de pagina.
   ctaBalken: { aantal: 2 },
+  // Google recensies (16-11-2026, Dylan): Trustindex widget van mac-bouw.nl. Alleen op campagnepagina's (campagne, campagne-2, ...),
+  // en op de plek van de eigen reviewsectie ("Wat opdrachtgevers vertellen"). Locatiegerichte pagina's blijven ongewijzigd.
+  reviewsWidget: {
+    plugin: 'trustindex',
+    shortcode: '[trustindex no-registration=google]',
+    titel: 'Wat opdrachtgevers vertellen',
+    alleenCampagne: true,
+    vervangReviews: true
+  },
   // SEO plugin op de klantsite (Yoast SEO, vastgesteld 25-09-2026 in de HTML van mac-bouw.nl). Bepaalt in welke
   // velden de metatitel en metabeschrijving worden opgeslagen bij publiceren (src/lp/wordpress.js). Let op: Yoast
   // laat die velden standaard niet via de REST API toe, zie SEO_REST_SNIPPET in wordpress.js.
