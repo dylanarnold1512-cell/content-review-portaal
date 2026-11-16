@@ -107,7 +107,7 @@ function schoonProfiel(invoer) {
   if (i.reviewsWidget !== undefined) {
     const w = i.reviewsWidget && typeof i.reviewsWidget === 'object' ? i.reviewsWidget : {};
     const shortcode = tekst(w.shortcode, 200);
-    uit.reviewsWidget = shortcode && /^\[[^\]]+\]$/.test(shortcode) ? { plugin: tekst(w.plugin, 40) || 'grw', shortcode, ...(tekst(w.titel, 80) ? { titel: tekst(w.titel, 80) } : {}) } : null;
+    uit.reviewsWidget = shortcode && /^\[[^\]]+\]$/.test(shortcode) ? { plugin: tekst(w.plugin, 40) || 'grw', shortcode, ...(tekst(w.titel, 80) ? { titel: tekst(w.titel, 80) } : {}), ...(w.alleenCampagne === true ? { alleenCampagne: true } : {}), ...(w.vervangReviews === true ? { vervangReviews: true } : {}) } : null;
   }
   // Automatisch live zetten (23-10-2026): alleen bewaren als het is meegestuurd. Werkt pas na 5 live pagina's, zie klaarVoorLive.js.
   if (i.autoLive !== undefined) uit.autoLive = i.autoLive === true;

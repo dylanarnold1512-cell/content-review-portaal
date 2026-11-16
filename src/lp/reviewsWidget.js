@@ -6,6 +6,16 @@
 // Instellen per klant: profile.reviewsWidget = { plugin: 'grw', shortcode: '[grw id=2306]', titel?: 'Wat klanten zeggen' }.
 // Het sjabloon bepaalt de plek met {{reviewsWidget}}. Staat die marker er niet in, dan komt het blok vlak voor het laatste
 // onderdeel van de pagina (meestal het contactblok).
+//
+// Twee extra opties (16-11-2026, MAC Bouw met Trustindex):
+//  - alleenCampagne: true  de widget komt alleen op pagina's met een campagnesjabloon (blueprintId campagne, campagne-2, ...).
+//    Andere pagina's van de klant, bijvoorbeeld locatiegerichte SEO pagina's, krijgen niets en houden hun eigen reviews.
+//  - vervangReviews: true  staat er geen marker in het sjabloon, dan neemt de widget de plek in van de bestaande
+//    reviewsectie (met de eigen reviews van de klant) in plaats van er een tweede reviewblok bij te zetten.
+
+const { vindSecties } = require('./overrides');
+const { vindReviewSectie } = require('./formulierCta');
+const { isCampagneBlueprintId } = require('./campagneKennis');
 
 const MARKER_RE = /\{\{\s*reviewsWidget\s*\}\}/g;
 
@@ -33,14 +43,21 @@ function detecteerReviewWidget(html) {
   return null;
 }
 
-function getConfig(profile) {
+function isCampagneSjabloon(template) {
+  return !!template && (template.paginaSoort === 'campagne' || isCampagneBlueprintId(template.id));
+}
+
+// template is optioneel: zonder sjabloon (oude aanroepen) geldt alleenCampagne niet.
+function getConfig(profile, template) {
   const w = profile && profile.reviewsWidget;
-  return w && typeof w.shortcode === 'string' && w.shortcode.trim() ? w : null;
+  if (!(w && typeof w.shortcode === 'string' && w.shortcode.trim())) return null;
+  if (w.alleenCampagne && template !== undefined && !isCampagneSjabloon(template)) return null;
+  return w;
 }
 
 // Zet het blok in de HTML. naarWordPress: de echte shortcode; anders een placeholder. Geeft { html, css }.
-function pasReviewsWidgetToe(html, { profile, rootClass, naarWordPress }) {
-  const config = getConfig(profile);
+function pasReviewsWidgetToe(html, { profile, rootClass, naarWordPress, template }) {
+  const config = getConfig(profile, template);
   MARKER_RE.lastIndex = 0;
   const heeftMarker = MARKER_RE.test(html);
   MARKER_RE.lastIndex = 0;
@@ -57,9 +74,14 @@ function pasReviewsWidgetToe(html, { profile, rootClass, naarWordPress }) {
 .${rootClass} .lp-reviews-placeholder { padding: 24px; border: 2px dashed var(--lp-border, #ccc); border-radius: var(--lp-radius, 8px); text-align: center; opacity: .75; }
 </style>`;
   if (heeftMarker) return { html: html.replace(MARKER_RE, blok), css };
+  if (config.vervangReviews) {
+    const secties = vindSecties(html);
+    const i = vindReviewSectie(html, secties);
+    if (i >= 0) return { html: html.slice(0, secties[i].start) + blok + html.slice(secties[i].end), css };
+  }
   const laatste = html.lastIndexOf('<section');
   if (laatste === -1) return { html, css: '' };
   return { html: html.slice(0, laatste) + blok + '\n' + html.slice(laatste), css };
 }
 
-module.exports = { detecteerReviewWidget, pasReviewsWidgetToe, getConfig, PLUGINS };
+module.exports = { detecteerReviewWidget, pasReviewsWidgetToe, getConfig, isCampagneSjabloon, PLUGINS };
