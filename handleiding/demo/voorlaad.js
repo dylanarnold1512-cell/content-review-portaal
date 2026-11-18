@@ -17,7 +17,11 @@ const TABELLEN = {
   ZO8PIIwot7d0ODgX: d.conversieRijen(),
   XPI7gsMhDIEoBc8o: d.conversieTotalen(),
   PO71b1z9NwtgTFoO: d.aiRijen(),
-  uLdHsmHxDy1A0HU2: d.rapportRijen()
+  uLdHsmHxDy1A0HU2: d.rapportRijen(),
+  '42vYfT6ktan72bpa': [d.clientRij()],
+  uXuHu6NGcQuu8WRq: d.autoPublicatieRijen(),
+  pkdY2ZoRt12SSZPT: d.googleRijen(),
+  fOe0eUDOQ7FNaL1r: d.promptRijen()
 };
 
 const nep = http.createServer((req, res) => {
