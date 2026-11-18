@@ -130,7 +130,7 @@ ul.punten li b { color: var(--ink); }
         <h2>Zo worden jullie gevonden.</h2>
         <ul class="punten">
           <li><b>In Google:</b> {{strategieGoogle}}</li>
-          <li><b>In ChatGPT en Gemini:</b> {{strategieAI}}</li>
+          <li><b>In ChatGPT, Gemini en Google AI:</b> {{strategieAI}}</li>
           <li><b>Zakelijk:</b> {{strategieZakelijk}}</li>
         </ul>
       </div>
@@ -168,7 +168,7 @@ ul.punten li b { color: var(--ink); }
     <!--if:pagr-->
     <div class="kaart"><div class="klein">Pagr.</div><div class="waarde">{{paginasPerMaand}} pagina's per maand</div><p>Landingspagina's per dienst en plaats, in de stijl van jullie website. Jullie hoeven niets goed te keuren.</p></div>
     <!--endif-->
-    <div class="kaart"><div class="klein">Meting</div><div class="waarde">Google en AI</div><p>Cijfers uit Google elke dag bijgewerkt en elke week een meting in ChatGPT en Gemini.</p></div>
+    <div class="kaart"><div class="klein">Meting</div><div class="waarde">Google en AI</div><p>Cijfers uit Google elke dag bijgewerkt en elke week een meting in ChatGPT, Gemini en Google AI.</p></div>
   </div>
 
   <div class="label" style="margin-top:2mm">Wat er de komende weken gebeurt</div>
@@ -178,7 +178,7 @@ ul.punten li b { color: var(--ink); }
     <!--if:blogr-->
     <div class="regel"><span class="wanneer">{{volgendeBlogDatum}}</span><p><b>De volgende blog.</b> {{volgendeBlogTitel}}. Je krijgt een mail zodra hij klaar is.</p></div>
     <!--endif-->
-    <div class="regel"><span class="wanneer">Elke week</span><p><b>Nieuwe AI meting.</b> We stellen dezelfde vragen aan ChatGPT en Gemini en tellen hoe vaak jullie bedrijf in het antwoord voorkomt.</p></div>
+    <div class="regel"><span class="wanneer">Elke week</span><p><b>Nieuwe AI meting.</b> We stellen dezelfde vragen aan ChatGPT, Gemini en Google AI en tellen hoe vaak jullie bedrijf in het antwoord voorkomt.</p></div>
     <div class="regel"><span class="wanneer">Elke maand</span><p><b>Je maandrapport.</b> Het verschijnt op de 4e, met een terugblik en een vooruitblik.</p></div>
   </div>
 
@@ -234,7 +234,7 @@ ul.punten li b { color: var(--ink); }
     <div class="stap"><span class="nr">2</span><div><h3>Lees de blog</h3><p>Let op of alles klopt over jullie bedrijf: diensten, werkgebied en wat jullie wel en niet doen.</p></div></div>
     <div class="stap"><span class="nr">3</span><div><h3>Kies onderaan: Goedkeuren of Afwijzen met feedback</h3><p>Goedgekeurd? Dan plaatsen wij de blog op jullie website. Feedback? Schrijf in gewone woorden wat anders moet. Wij passen de blog aan en sturen hem opnieuw ter review.</p></div></div>
   </div>
-  <div class="regie"><p><b>Er gaat nooit iets live zonder jullie akkoord.</b> Blijft een blog liggen, dan sturen we na een week en na twee weken een herinnering.</p></div>
+  <div class="regie"><p><b>Standaard gaat er niets live zonder jullie akkoord.</b> Blijft een blog liggen, dan sturen we na een week en na twee weken een herinnering. Liever minder nalopen? Lees dan het onderdeel Publiceren.</p></div>
   <!--endif-->
 </section>
 
@@ -277,7 +277,7 @@ ul.punten li b { color: var(--ink); }
     <div class="rij">
       <div>
         <h2>Noemt ChatGPT of Gemini jullie bedrijf?</h2>
-        <p>Steeds meer mensen stellen hun vraag aan AI in plaats van aan Google. Wij stellen elke week dezelfde vragen aan ChatGPT en Gemini en tellen hoe vaak jullie bedrijf voorkomt. Zo zie je of jullie zichtbaarheid groeit.</p>
+        <p>Steeds meer mensen stellen hun vraag aan AI in plaats van aan Google. Wij stellen elke week dezelfde vragen aan ChatGPT, Gemini en Google AI en tellen hoe vaak jullie bedrijf voorkomt. Google toont niet bij elke zoekopdracht een AI antwoord, dus dat tellen we apart. Je ziet ook welke websites AI als bron gebruikt en welke vragen er per week bijkwamen of wegvielen.</p>
         <div class="tip"><p>De eerste meting volgt in de eerste week. Tot dan staat hier een melding.</p></div>
       </div>
       <div class="venster uitsnede" style="max-height:58mm"><div class="balk"><i></i><i></i><i></i><span>Ai zichtbaarheid</span></div><img src="schermen/ai.png" alt=""></div>
@@ -344,6 +344,40 @@ ul.punten li b { color: var(--ink); }
 </section>
 
 
+<!--if:blogr-->
+<!-- 5b. Publiceren -->
+<section class="page">
+  <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>{{p6}}</span></div>
+  <div class="label">Instellingen</div>
+  <h1>Zelf goedkeuren, of automatisch live.</h1>
+  <p class="inleiding">Jullie kiezen hoeveel je zelf nakijkt. Je kunt altijd wisselen, ook later.</p>
+
+  <div class="blok">
+    <span class="tab">Publiceren</span>
+    <div class="rij">
+      <div>
+        <h2>Laat blogs automatisch live gaan.</h2>
+        <p>Met één schakelaar zet je automatisch publiceren aan of uit. Staat hij uit, dan keur je elke blog zelf goed, zoals bij Blogs beschreven. Staat hij aan, dan plaatsen wij blogs na onze eigen controle op jullie website.</p>
+        <ul class="punten">
+          <li><b>Met inkijktijd:</b> de blog staat eerst 24, 48 of 72 uur voor je klaar (standaard 48). Doe je niets, dan gaat hij daarna vanzelf live.</li>
+          <li><b>Direct na controle:</b> de blog gaat bij de eerstvolgende publicatie live. Je krijgt een mail zodra hij online staat.</li>
+        </ul>
+      </div>
+      <div class="venster uitsnede" style="max-height:78mm"><div class="balk"><i></i><i></i><i></i><span>Publiceren</span></div><img src="schermen/publiceren.png" alt=""></div>
+    </div>
+  </div>
+
+  <div class="kaarten drie">
+    <div class="kaart"><div class="klein">Controle</div><div class="waarde">12 punten per blog</div><p>Feiten, spelling, bronnen, verboden woorden en meer. Per blog zie je het controlerapport.</p></div>
+    <div class="kaart"><div class="klein">Meekijken</div><div class="waarde">Even tegenhouden</div><p>Bij inkijktijd krijg je een mail met een knop om de blog tegen te houden. Dan wacht hij weer op jouw beoordeling.</p></div>
+    <div class="kaart"><div class="klein">Publicatie</div><div class="waarde">Elke dag 11:00</div><p>Blogs gaan altijd rond dat moment live. Een mail per blog, nooit een aparte weekmail.</p></div>
+  </div>
+
+  <div class="regie"><p><b>Je houdt de regie.</b> In elke mail zie je ook wat we de afgelopen twee weken extra deden, zoals interne links en aangevulde blogs. Staat automatisch publiceren uit, dan blijft alles zoals eerder beschreven: niets gaat live zonder jouw akkoord.</p></div>
+  <div class="voet">Jullie keuze staat in het tabblad Publiceren in het menu. Niet zeker wat je wilt? Begin met zelf goedkeuren en kies later.</div>
+</section>
+<!--endif-->
+
 <!-- 6. Wat we van jullie vragen -->
 <section class="page">
   <div class="kop"><span>Handleiding {{klant}} door Advertisr.</span><span>{{nrVragen}}</span></div>
@@ -357,7 +391,10 @@ ul.punten li b { color: var(--ink); }
   </div>
 
   <div class="label">Daarna, als je wilt</div>
-  <div class="kaarten drie">
+  <div class="kaarten twee">
+    <!--if:blogr-->
+    <div class="kaart"><div class="klein">Publiceren</div><div class="waarde">Kiezen hoe blogs live gaan</div><p>Zelf goedkeuren of automatisch publiceren, in het tabblad Publiceren.</p></div>
+    <!--endif-->
     <div class="kaart"><div class="klein">Foto's</div><div class="waarde">Eigen werk uploaden</div><p>Sleep projectfoto's naar de Beeldbank.</p></div>
     <div class="kaart"><div class="klein">Kennis</div><div class="waarde">Extra informatie</div><p>Voeg een folder of werkwijze toe in het Kennisdocument.</p></div>
     <div class="kaart"><div class="klein">Ideeën</div><div class="waarde">Onderwerpen aandragen</div><p>Weet je een vraag van klanten? Geef hem door en wij nemen hem mee in de planning.</p></div>

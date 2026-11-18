@@ -82,6 +82,53 @@ function rapportRijen() {
   }));
 }
 
+
+// Clients rij van de demoklant: alleen wat het tabblad Publiceren nodig heeft (automatisch publiceren aan, met inkijktijd).
+function clientRij() {
+  return { client_name: NAAM, portaal_slug: SLUG, auto_publiceren: 'ja', publiceer_modus: 'inkijk', inkijk_uren: 48 };
+}
+
+// Blogs die voor automatisch publiceren zijn ingepland. De page_id's zijn die van items() (review-1 en review-2).
+function autoPublicatieRijen() {
+  return [
+    { klant: NAAM, page_id: 'review-1', titel: 'Schutting vervangen: wanneer is het zover en wat komt erbij kijken?', modus: 'inkijk', status: 'gepland', klaar_op: dag(VANDAAG, -1) + 'T08:00:00.000Z', live_op: dag(VANDAAG, 1) + 'T11:00:00.000Z' },
+    { klant: NAAM, page_id: 'review-2', titel: 'Terrasreiniging voor een VvE: planning en hinder beperken', modus: 'inkijk', status: 'gepland', klaar_op: dag(VANDAAG, 0) + 'T08:00:00.000Z', live_op: dag(VANDAAG, 2) + 'T11:00:00.000Z' }
+  ];
+}
+
+// AI vragen en Google AI Overviews metingen (aparte tabel, een meting per vraag per week).
+const PROMPTS = [
+  ['k1', 'Welke bestrating is het beste voor een oprit?', 'Sierbestrating'],
+  ['k2', 'Wat kost een schutting laten plaatsen?', 'Schuttingen'],
+  ['k3', 'Hoe laat ik mijn terras professioneel reinigen?', 'Terrasreiniging'],
+  ['k4', 'Wanneer is een tuin klaar voor aanleg?', 'Tuinaanleg'],
+  ['k5', 'Hoe herstel ik verzakte bestrating?', 'Herstel'],
+  ['k6', 'Welk klusbedrijf kan een VvE helpen met terrein onderhoud?', 'VvE en bedrijven']
+];
+
+function promptRijen() {
+  return PROMPTS.map(([id, prompt, cluster]) => ({ klant: NAAM, prompt_id: id, prompt, cluster, soort: 'kern', actief: true }));
+}
+
+function googleRijen() {
+  const start = dag(VANDAAG, -7 * 5 - ((new Date(VANDAAG + 'T00:00:00Z').getUTCDay() + 6) % 7));
+  // Per week: bij welke vragen Google een overzicht toonde, en in welke daarvan het merk staat (aantallen groeien).
+  const getoond = [3, 3, 4, 4, 4, 5];
+  const genoemd = [0, 0, 1, 1, 2, 3];
+  const geciteerd = [0, 0, 0, 1, 1, 2];
+  const rijen = [];
+  for (let w = 0; w < 6; w += 1) {
+    const datum = dag(start, w * 7);
+    PROMPTS.forEach(([id], i) => {
+      const toont = i < getoond[w];
+      const noemt = toont && i < genoemd[w];
+      const cit = toont && i < geciteerd[w];
+      rijen.push({ klant: NAAM, prompt_id: id, datum, overzicht_getoond: toont, genoemd: noemt, geciteerd: cit, geciteerde_urls: cit ? SITE + '/' + LIVE[i % LIVE.length][3] + '/' : '', fout: '' });
+    });
+  }
+  return rijen;
+}
+
 function items() {
   const mk = (id, titel, status, cluster, datum, kw, sec, extra = {}) => ({ id, titel, status, categorie: cluster, cta: '', seoTitle: titel, seoDescription: 'Lees wat je vooraf moet weten en hoe wij dit aanpakken.', publicatiedatum: datum, opmerkingenKlant: '', wordpressPostId: '', liveUrl: '', mainKeyword: kw, slug: '', secundaireKeywords: sec, zoekintentie: 'Commercieel', cluster, clicks30d: null, impressions30d: null, avgPosition30d: null, pageviews30d: null, strategieOnderbouwing: '', topKeywords30d: '', intentie: '', bestaandeUrl: '', laatstGewijzigd: VANDAAG + 'T07:00:00.000Z', ...extra });
   const lijst = [];
@@ -98,4 +145,4 @@ const BLOG_TEKST = {
   'review-1': ['Een schutting gaat jaren mee, maar niet eeuwig. Scheve palen, rottende planken en losse onderplaten zijn tekenen dat vervanging dichterbij komt. In deze blog lees je waar je op let en wat wij doen als we een schutting vervangen.', 'Wanneer vervang je een schutting?', 'Meestal begint het bij de palen. Zijn ze zacht bij de grond of staat de schutting scheef, dan is herstel vaak niet genoeg. Wij kijken eerst naar de staat van palen, planken en onderplaten en bespreken met je wat past.', 'Wat gebeurt er met de oude schutting?', 'Wij verwijderen de oude schutting en voeren hem af, zodat je tuin schoon wordt opgeleverd. Daarna zetten we de nieuwe palen in de juiste maat en hoogte.', 'Hout of beton?', 'Hout oogt warm en is eenvoudig aan te passen. Hout-beton combineert betonpalen en onderplaten met houten schermen en is stevig bij de grond.']
 };
 
-module.exports = { NAAM, SLUG, SITE, VANDAAG, items, blogRijen, overzichtRij, wekenRijen, conversieRijen, conversieTotalen, aiRijen, rapportRijen, BLOG_TEKST, LIVE };
+module.exports = { clientRij, autoPublicatieRijen, promptRijen, googleRijen, NAAM, SLUG, SITE, VANDAAG, items, blogRijen, overzichtRij, wekenRijen, conversieRijen, conversieTotalen, aiRijen, rapportRijen, BLOG_TEKST, LIVE };
