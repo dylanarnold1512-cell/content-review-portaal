@@ -76,7 +76,8 @@ function summarizePage(page, fields) {
     zoekvolume: readProperty(page, fields.searchVolume || 'Zoekvolume'),
     keywordBron: readProperty(page, fields.keywordSource || 'Keyword bron'),
     controle: readProperty(page, fields.check || 'Controle'),
-    verrijktOp: readProperty(page, fields.enrichedOn || 'Verrijkt op')
+    verrijktOp: readProperty(page, fields.enrichedOn || 'Verrijkt op'),
+    gemaaktOp: page.created_time || ''
   };
 }
 
@@ -297,6 +298,21 @@ async function getPerformanceLog(clientId, days = 90) {
     .reverse(); // weer oplopend van oud naar nieuw voor de grafiek
 }
 
+// Aantal ideeën dat deze maand al is aangedragen (voor de limiet per maand). Een idee telt mee als het
+// deze maand is aangemaakt en nog Idee is, of als het deze maand is verrijkt.
+async function telIdeeenDezeMaand(clientId) {
+  const config = getClient(clientId);
+  const maand = new Date().toISOString().slice(0, 7);
+  const items = await listAllPages(clientId);
+  const ids = new Set();
+  for (const it of items) {
+    const nieuwIdee = it.status === config.statusValues.idea && String(it.gemaaktOp || '').slice(0, 7) === maand;
+    const verrijkt = String(it.verrijktOp || '').slice(0, 7) === maand;
+    if (nieuwIdee || verrijkt) ids.add(it.id);
+  }
+  return ids.size;
+}
+
 module.exports = {
   listAllPages,
   listItems,
@@ -306,5 +322,6 @@ module.exports = {
   createIdea,
   listIdeaProposals,
   decideIdeaProposal,
-  getPerformanceLog
+  getPerformanceLog,
+  telIdeeenDezeMaand
 };
