@@ -157,7 +157,12 @@ function bouwControle({ rij, clientId, portaalStatus, portaalStatusIngesteld }) 
   voeg(geldigeMails(w.notification_email), true, `Reviewmail gaat naar ${w.notification_email}.`, 'Geen geldig e-mailadres voor de reviewmail. Zonder dit wordt er geen mail verstuurd.');
   voeg(!leeg(w.contact_naam), false, `Aanhef: Beste ${w.contact_naam}.`, 'Geen contactnaam, de mail begint met de bedrijfsnaam.');
   voeg(typeof w.blogs_per_maand === 'number' && w.blogs_per_maand > 0, true, `${w.blogs_per_maand} blogs per maand.`, 'Blogs per maand is niet ingevuld.');
-  voeg(!leeg(w.wp_url) && !leeg(w.wp_username) && g.wp_app_password, true, 'WordPress gegevens zijn ingevuld.', 'WordPress website, gebruikersnaam of applicatiewachtwoord ontbreekt.');
+  const cms = String(rij.cms_type || '').trim().toLowerCase();
+  if (!cms || cms === 'wordpress') {
+    voeg(!leeg(w.wp_url) && !leeg(w.wp_username) && g.wp_app_password, true, 'WordPress gegevens zijn ingevuld.', 'WordPress website, gebruikersnaam of applicatiewachtwoord ontbreekt.');
+  } else {
+    voeg(!leeg(rij.cms_config) && !leeg(rij.cms_token), true, `Koppeling met ${cms} is ingevuld.`, `De koppeling met ${cms} is niet compleet: cms_config of cms_token ontbreekt in de Clients rij.`);
+  }
   voeg(g.notion_database_id && g.notion_token, true, 'Notion database en token zijn ingevuld.', 'Notion database of token ontbreekt in de Clients rij.');
   voeg(!leeg(w.taal), false, `Taal: ${w.taal}.`, 'Taal is niet ingevuld.');
   voeg(!leeg(w.doelgroep) && !leeg(w.tone_of_voice) && !leeg(w.diensten), false, 'Doelgroep, tone of voice en diensten zijn ingevuld.', 'Doelgroep, tone of voice of diensten ontbreekt, de blogs worden dan algemener.');
