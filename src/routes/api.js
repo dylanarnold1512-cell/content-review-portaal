@@ -1,6 +1,7 @@
 const express = require('express');
 const { getClient } = require('../config/clients');
 const notionService = require('../services/notion');
+const workflowGegevensService = require('../services/workflowGegevens');
 const settingsService = require('../services/settings');
 const kennisdocumentService = require('../services/kennisdocument');
 const klantvragenService = require('../services/klantvragen');
@@ -358,6 +359,18 @@ router.post('/:clientId/ideas', requireLogin, async (req, res) => {
     const settings = await settingsService.getClientSettings(req.params.clientId, config);
     if (!settings.ideaEnrichmentEnabled) {
       return res.status(400).json({ error: 'Ideeën aandragen staat uit voor deze klant.' });
+    }
+    // Limiet per maand (Clients.ideeen_per_maand, standaard 1): elk idee moet bijdragen aan de vindbaarheid.
+    let limiet = 1;
+    try {
+      const rij = await workflowGegevensService.zoekRij(req.params.clientId, config.naam);
+      const lim = parseInt(rij && rij.ideeen_per_maand, 10);
+      if (Number.isFinite(lim) && lim >= 0) limiet = lim;
+    } catch (e) { /* standaard 1 */ }
+    const aantal = await notionService.telIdeeenDezeMaand(req.params.clientId);
+    if (aantal >= limiet) {
+      const wat = limiet === 1 ? 'één idee' : limiet + ' ideeën';
+      return res.status(400).json({ error: 'Je hebt deze maand al ' + (aantal === 1 ? 'een idee' : aantal + ' ideeën') + ' aangedragen. Per maand kun je ' + wat + ' aandragen, zodat elk idee echt bijdraagt aan de vindbaarheid. Volgende maand kun je weer een nieuw idee aandragen.' });
     }
     const titel = (req.body?.titel || '').trim();
     if (!titel) {
