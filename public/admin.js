@@ -854,6 +854,9 @@ function ideeKaart(p, klantId) {
           <div><span class="seo-label">SEO titel</span>${escapeHtmlAdmin(p.seoTitle)}</div>
           <div><span class="seo-label">Meta omschrijving</span>${escapeHtmlAdmin(p.seoDescription)}</div>
           <div><span class="seo-label">Voorgestelde publicatiedatum</span>${escapeHtmlAdmin(p.publicatiedatum)}</div>
+          ${p.keywordBron ? `<div><span class="seo-label">Keyword bron</span>${escapeHtmlAdmin(p.keywordBron)}</div>` : ''}
+          ${typeof p.zoekvolume === 'number' ? `<div><span class="seo-label">Zoekvolume per maand</span>${p.zoekvolume}</div>` : ''}
+          ${(p.controle && p.controle !== 'Geen bijzonderheden') ? `<div class="proposal-overlap"><span class="seo-label">Controle</span>${escapeHtmlAdmin(p.controle)}</div>` : ''}
           ${(p.overlap && p.overlap.length) ? `<div class="proposal-overlap"><span class="seo-label">Mogelijke dubbeling</span>${p.overlap.map((o) => `${escapeHtmlAdmin(o.titel)} (${escapeHtmlAdmin(o.status)}, ${o.reden === 'zelfde' ? 'zelfde hoofdkeyword' : 'overlappend hoofdkeyword'})`).join('<br>')}</div>` : ''}
           ${p.intentie ? `<div><span class="seo-label">Intentie</span>${escapeHtmlAdmin(p.intentie)}</div>` : ''}
           ${p.bestaandeUrl ? `<div><span class="seo-label">Bestaande URL</span>${escapeHtmlAdmin(p.bestaandeUrl)}</div>` : ''}
