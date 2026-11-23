@@ -71,7 +71,12 @@ function summarizePage(page, fields) {
     topKeywords30d: fields.topKeywords30d ? readProperty(page, fields.topKeywords30d) : '',
     intentie: fields.intent ? readProperty(page, fields.intent) : '',
     bestaandeUrl: fields.existingUrl ? readProperty(page, fields.existingUrl) : '',
-    laatstGewijzigd: page.last_edited_time
+    laatstGewijzigd: page.last_edited_time,
+    // Bewijs van de idee-verrijking (kolommen staan niet bij elke klant, dan blijft het leeg).
+    zoekvolume: readProperty(page, fields.searchVolume || 'Zoekvolume'),
+    keywordBron: readProperty(page, fields.keywordSource || 'Keyword bron'),
+    controle: readProperty(page, fields.check || 'Controle'),
+    verrijktOp: readProperty(page, fields.enrichedOn || 'Verrijkt op')
   };
 }
 
