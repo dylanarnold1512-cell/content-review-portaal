@@ -36,6 +36,7 @@ const gelijk = require('../lp/gelijkenis');
 const { verzamelTekst } = gelijk;
 const share = require('../lp/share');
 const { validatePage, validateTemplateStructure } = require('../lp/validator');
+const { pasMetaLengteToe } = require('../lp/metaLengte');
 const { maakControle, inOrdePunten } = require('../lp/controle');
 const { onderwerpFit } = require('../lp/onderwerpFit');
 const { wachtOpJou } = require('../lp/wachtOpJou');
@@ -1768,6 +1769,8 @@ async function maakContentVoorstel(page, { watGaatDezePaginaOver, ctaOverride } 
     : (kv
       ? 'Het klantverhaal van deze klant is nog niet goedgekeurd, dus de AI gebruikt het niet. Keur het goed bij Klantgegevens.'
       : 'Deze klant heeft nog geen klantverhaal. Zonder klantverhaal klinkt de tekst minder persoonlijk en herhaalt hij sneller. Maak het bij Klantgegevens met "Analyseer klantverhaal".');
+  // De AI schrijft de SEO titel soms een paar tekens te lang. Kort die netjes in voor de pagina wordt opgeslagen.
+  try { pasMetaLengteToe(result.slotData, blueprint.seoRegels); } catch (e) { /* inkorten mag het schrijven nooit blokkeren */ }
   return { ...result, imageWarning, linkWarning, siteTekstWarning, faqWarning, zoekvragenAantal, zoekvragenWarning, klantverhaalWarning, redactieWaarschuwing };
 }
 
@@ -2210,7 +2213,7 @@ router.post('/pages/:pageId/publish', requireLpInternal, async (req, res) => {
     if (contentIsEmpty(blueprint, content)) {
       return res.status(400).json({ error: 'Geen content JSON om te publiceren.' });
     }
-    const validation = validatePage({ blueprint, contentJson: content });
+    const validation = zonderMetaLengte(validatePage({ blueprint, contentJson: content }));
     if (!validation.ok) {
       return res.status(400).json({ error: 'Validatie faalt, nog niet gepubliceerd.', validation });
     }
@@ -2241,7 +2244,9 @@ async function zetPaginaLive(pageId) {
   const blueprint = eigenSjabloonVan(page) || await templates.getActiveTemplateByBlueprintId(page.klant, page.blueprint);
   const content = page.content;
   if (contentIsEmpty(blueprint, content)) throw new Error('Geen content om live te zetten.');
-  const validation = validatePage({ blueprint, contentJson: content });
+  // Zelfde regel als beoordeelPagina: een titel of beschrijving die iets te lang is blokkeert niet (de pagina staat dan
+  // wel als schoon klaar, maar live zetten weigerde hem vroeger toch).
+  const validation = zonderMetaLengte(validatePage({ blueprint, contentJson: content }));
   if (!validation.ok) {
     const err = new Error('De controle heeft nog fouten, de pagina is niet live gezet.');
     err.validation = validation;
