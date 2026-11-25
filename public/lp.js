@@ -1622,18 +1622,21 @@ function renderTemplatesTable() {
   // Gearchiveerde sjablonen blijven in Notion staan maar rommelen deze lijst niet meer op.
   const zichtbaar = lpState.templates.filter((t) => t.status !== 'Gearchiveerd');
   const klantNaam = (id) => ((lpState.clients || []).find((c) => c.id === id) || {}).naam || id || '';
-  const uitleg = { 'Actief': 'Bruikbaar', 'Concept': 'Nog niet bruikbaar' };
-  lijst.innerHTML = zichtbaar.map((t) => {
+  // Een woord voor de status, gelijk aan de uitleg bovenaan: Actief of Concept. Gegroepeerd per klant.
+  const rij = (t) => {
     const datum = t.laatstGewijzigd ? new Date(t.laatstGewijzigd).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : '';
     const klasse = t.status === 'Actief' ? 'wp-live' : 'wp-gepland';
     return `<div class="wp-rij lp-row" data-template-id="${t.id}" tabindex="0" role="button">
       <label class="wp-vink"><input type="checkbox" data-sel="${t.id}" aria-label="Selecteer ${(t.naam || '').replace(/"/g, '&quot;')}"></label>
-      <div class="wp-rij-hoofd"><strong>${t.naam || '(zonder naam)'}</strong><small class="wp-muted">${klantNaam(t.klant)}</small></div>
-      <span class="wp-pil ${klasse}"><span class="wp-stip"></span>${uitleg[t.status] || t.status || ''}</span>
+      <div class="wp-rij-hoofd"><strong>${t.naam || '(zonder naam)'}</strong></div>
+      <span class="wp-pil ${klasse}"><span class="wp-stip"></span>${t.status || ''}</span>
       <span class="wp-muted wp-rij-datum">${datum}</span>
       <button type="button" class="btn-plain td-rij-dup" data-dup="${t.id}">Dupliceren</button>
     </div>`;
-  }).join('') || '<p class="wp-muted">Nog geen sjablonen. Maak je eerste sjabloon met Nieuw sjabloon.</p>';
+  };
+  const klanten = [...new Set(zichtbaar.map((t) => t.klant))].sort((a, b) => klantNaam(a).localeCompare(klantNaam(b)));
+  lijst.innerHTML = klanten.map((k) => `<div class="lp-sjabloon-groep"><div class="lp-sjabloon-klant">${klantNaam(k)}</div>${zichtbaar.filter((t) => t.klant === k).map(rij).join('')}</div>`).join('')
+    || '<p class="wp-muted">Nog geen sjablonen. Maak je eerste sjabloon met Nieuw sjabloon.</p>';
   lpKoppelSelectie('lpTemplate', lijst);
   lijst.querySelectorAll('[data-dup]').forEach((b) => b.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -2639,18 +2642,35 @@ document.getElementById('lpIntakeSubmitBtn').addEventListener('click', async () 
 
 // Ingebed in de admin: de admin kiest het onderdeel via de zijbalk. Bij het laden staat het in de hash,
 // daarna komt er een bericht van de admin. Alleen berichten van dezelfde herkomst tellen.
-function lpGaNaarTab(tab) {
+// Met een klant erbij (#werkplaats?klant=hirs-installaties) opent het onderdeel meteen op die klant. Zo toont de
+// klantpagina in de admin de werkplaats en de klantgegevens van precies die klant, zonder eigen klantkeuze.
+function lpZetKlant(tab, klant) {
+  const veld = { werkplaats: 'wpKlant', klantgegevens: 'kgKlant', paginas: 'lpFilterKlant', nieuw: 'lpNewKlant' }[tab];
+  const sel = veld && document.getElementById(veld);
+  if (!sel || ![...sel.options].some((o) => o.value === klant)) return false;
+  if (sel.value !== klant) { sel.value = klant; sel.dispatchEvent(new Event('change')); }
+  return true;
+}
+function lpGaNaarTab(tab, klant) {
   const knop = document.querySelector(`#lpTabNav .tab-btn[data-lp-tab="${tab}"]`);
   if (knop) knop.click();
+  if (klant) {
+    document.documentElement.classList.add('vaste-klant');
+    // De keuzelijsten worden bij het opstarten gevuld; even wachten als ze er nog niet zijn.
+    let pogingen = 0;
+    const probeer = () => { if (!lpZetKlant(tab, klant) && pogingen++ < 40) setTimeout(probeer, 150); };
+    probeer();
+  }
 }
 function lpGaNaarTabUitHash() {
-  const tab = String(window.location.hash || '').replace(/^#/, '');
-  if (tab) lpGaNaarTab(tab);
+  const [tab, query] = String(window.location.hash || '').replace(/^#/, '').split('?');
+  const klant = new URLSearchParams(query || '').get('klant') || '';
+  if (tab) lpGaNaarTab(tab, klant);
 }
 window.addEventListener('message', (e) => {
   if (e.origin !== window.location.origin) return;
   const d = e.data;
-  if (d && d.type === 'pagr-tab' && typeof d.tab === 'string') lpGaNaarTab(d.tab);
+  if (d && d.type === 'pagr-tab' && typeof d.tab === 'string') lpGaNaarTab(d.tab, d.klant || '');
 });
 
 // Voorbeeldtekst opnieuw laten maken met de echte klantgegevens (naam, adres, telefoon, werkgebied).

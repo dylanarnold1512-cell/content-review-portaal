@@ -97,7 +97,47 @@
     ].filter(Boolean).join('\n');
   }
 
-  const model = { tellingen, aandacht, KLEUR, uitlegVan, meldingenVan, avatarKleur, kopieerTekst };
+  // Alles wat op jou wacht naast de meldingen: Pagr. pagina's, ideeën van klanten, onboarding, FAQ en backlog.
+  // Een regel per klant per soort, zodat de lijst kort blijft. Elke regel weet waar je heen moet.
+  function meervoud(n, een, meer) { return `${n} ${n === 1 ? een : meer}`; }
+  function takenVan(bron) {
+    const b = bron || {};
+    const naamVan = (id, terug) => ((b.klanten || []).find((k) => k.id === id) || {}).naam || terug || id;
+    const lijst = [];
+    for (const k of b.pagr || []) {
+      const titels = (x) => (x || []).map((p) => p.titel).filter(Boolean);
+      if ((k.controleren || []).length) lijst.push({ soort: 'pagr', klantId: k.klant, klantNaam: naamVan(k.klant, k.naam), titel: k.controleren.length === 1 ? '1 pagina wacht op jouw controle' : `${k.controleren.length} pagina's wachten op jouw controle`, sub: titels(k.controleren).join(', '), naar: { view: 'klant', tab: 'pagr' } });
+      if ((k.fout || []).length) lijst.push({ soort: 'pagr', klantId: k.klant, klantNaam: naamVan(k.klant, k.naam), titel: k.fout.length === 1 ? '1 pagina is mislukt' : `${k.fout.length} pagina's zijn mislukt`, sub: titels(k.fout).join(', '), naar: { view: 'klant', tab: 'pagr' }, ernstig: true });
+      if (k.voorstellen) lijst.push({ soort: 'pagr', klantId: k.klant, klantNaam: naamVan(k.klant, k.naam), titel: `${meervoud(k.voorstellen, 'voorstel wacht', 'voorstellen wachten')} op akkoord`, sub: 'Plan van het systeem voor de komende maand', naar: { view: 'klant', tab: 'pagr' } });
+      if (k.ideeen) lijst.push({ soort: 'pagr', klantId: k.klant, klantNaam: naamVan(k.klant, k.naam), titel: `${meervoud(k.ideeen, 'paginaidee', 'paginaideeën')} van de klant`, sub: 'Beoordelen in de werkplaats', naar: { view: 'klant', tab: 'pagr' } });
+    }
+    for (const [id, ideeen] of Object.entries(b.ideeen || {})) {
+      if (!(ideeen || []).length) continue;
+      lijst.push({ soort: 'idee', klantId: id, klantNaam: naamVan(id), titel: `${meervoud(ideeen.length, 'blogidee wacht', 'blogideeën wachten')} op jouw oordeel`, sub: ideeen.map((x) => x.titel).filter(Boolean).join(', '), naar: { view: 'klant', tab: 'ideeen' } });
+    }
+    for (const o of b.onboarding || []) {
+      const w = (o.samenvatting && o.samenvatting.wachtOpDylan) || [];
+      if (!w.length || (o.samenvatting && o.samenvatting.gereed)) continue;
+      lijst.push({ soort: 'onboarding', klantId: o.portaalId || o.clientId, klantNaam: o.klant, titel: w.length === 1 ? `Onboarding: ${w[0].titel}` : `Onboarding: ${w.length} stappen wachten op jou`, sub: w.length === 1 ? (w[0].uitkomst || 'Stap ' + w[0].nr) : w.map((r) => r.titel).join(', '), naar: { view: 'klant', tab: 'onboarding' } });
+    }
+    const faq = b.faq || [];
+    if (faq.length) lijst.push({ soort: 'faq', klantId: '', klantNaam: 'Alle klanten', titel: `${meervoud(faq.length, 'FAQ aanpassing is', 'FAQ aanpassingen zijn')} niet gelukt`, sub: faq.map((r) => r.klant).filter((x, i, a) => x && a.indexOf(x) === i).join(', '), naar: { view: 'faq' } });
+    const backlog = (b.backlog || []).filter((p) => p.status === 'Wacht op Dylan');
+    if (backlog.length) lijst.push({ soort: 'backlog', klantId: '', klantNaam: 'Blogr. en Pagr.', titel: `${meervoud(backlog.length, 'backlogpunt wacht', 'backlogpunten wachten')} op jou`, sub: backlog.slice(0, 3).map((p) => p.titel).join(', ') + (backlog.length > 3 ? ` en ${backlog.length - 3} meer` : ''), naar: { view: 'backlog' } });
+    const volgorde = { pagr: 0, idee: 1, onboarding: 2, faq: 3, backlog: 4 };
+    return lijst.map((t, i) => ({ t, i })).sort((x, y) => (Number(!x.t.ernstig) - Number(!y.t.ernstig)) || (volgorde[x.t.soort] - volgorde[y.t.soort]) || (x.i - y.i)).map((x) => x.t);
+  }
+
+  // Korte regel onder een melding: de klant, en alleen de eerste regel uit de details als die kort is. Nooit een halve zin.
+  function korteSub(m) {
+    const d = m.details || [];
+    if (!d.length) return m.klantNaam;
+    const eerste = String(d[0]);
+    if (eerste.length <= 80) return `${m.klantNaam}: ${eerste}${d.length > 1 ? ` en ${d.length - 1} meer` : ''}`;
+    return `${m.klantNaam}: ${d.length === 1 ? 'klik voor de details' : `${d.length} punten, klik voor de details`}`;
+  }
+
+  const model = { tellingen, aandacht, KLEUR, uitlegVan, meldingenVan, avatarKleur, kopieerTekst, takenVan, korteSub };
   if (typeof module !== 'undefined' && module.exports) { module.exports = model; return; }
 
   let stand = { data: null, fout: '', laden: false, filter: 'alles' };
@@ -114,14 +154,32 @@
   function meldingRij(m, i) {
     const e = escapeHtmlAdmin;
     const rood = m.niveau === 'rood';
-    const eerste = (m.details && m.details[0]) ? `: ${e(m.details[0])}${m.details.length > 1 ? ` en ${m.details.length - 1} meer` : ''}` : '';
     return `<li><button type="button" class="ck-rij" data-melding="${i}">
       ${avatar(m.klantNaam)}
-      <span class="ck-rij-tekst"><b>${e(m.tekst)}</b><span>${e(m.klantNaam)}${eerste}</span></span>
+      <span class="ck-rij-tekst"><b>${e(m.tekst)}</b><span>${e(korteSub(m))}</span></span>
       <span class="ck-soort">${e(SOORT[m.soort] || m.soort)}</span>
       <span class="p-pil ${rood ? 'p-pil-fout' : 'p-pil-let-op'}">${rood ? 'Rood' : 'Oranje'}</span>
       <svg class="p-i ck-pijl" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
     </button></li>`;
+  }
+
+  const TAAK_SOORT = { pagr: 'Pagr.', idee: 'Idee', onboarding: 'Onboarding', faq: 'FAQ', backlog: 'Backlog' };
+  function taakRij(t, i) {
+    const e = escapeHtmlAdmin;
+    return `<li><button type="button" class="ck-rij" data-taak="${i}">
+      ${t.klantId ? avatar(t.klantNaam) : '<span class="ck-av ck-av-alle" aria-hidden="true">A</span>'}
+      <span class="ck-rij-tekst"><b>${e(t.titel)}</b><span>${e(t.klantNaam)}${t.sub ? `: ${e(t.sub.length > 110 ? t.sub.slice(0, t.sub.lastIndexOf(',', 110) > 40 ? t.sub.lastIndexOf(',', 110) : 110) + ' en meer' : t.sub)}` : ''}</span></span>
+      <span class="ck-soort">${e(TAAK_SOORT[t.soort] || t.soort)}</span>
+      <span class="p-pil ${t.ernstig ? 'p-pil-fout' : 'p-pil-plan'}">${t.ernstig ? 'Mislukt' : 'Te doen'}</span>
+      <svg class="p-i ck-pijl" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+    </button></li>`;
+  }
+
+  function openTaak(t) {
+    if (!t || !t.naar) return;
+    if (t.naar.view === 'klant' && t.klantId) { gaNaar('klant', t.klantId, t.naar.tab); return; }
+    if (t.naar.view === 'backlog' && window.zetBacklogFilter) window.zetBacklogFilter({ status: 'Wacht op Dylan' });
+    gaNaar(t.naar.view);
   }
 
   function steekproefHtml(sp, klantNaam) {
@@ -159,7 +217,7 @@
           : `${tel.rood ? `<span class="p-pil p-pil-fout">${tel.rood} rood</span>` : ''}${tel.oranje ? `<span class="p-pil p-pil-let-op">${tel.oranje} oranje</span>` : ''}`);
       return `<li><button type="button" class="ck-kl" data-beheer="${e(k.id)}">
         ${avatar(k.naam)}
-        <span class="ck-rij-tekst"><b>${e(k.naam)}</b><span>${e(k.producten || '')}</span></span>
+        <span class="ck-rij-tekst"><b>${e(k.naam)}</b><span>${e(k.producten === 'Geen van beide' ? 'Eigen werk' : (k.producten || ''))}</span></span>
         <span class="ck-pillen">${pillen}</span>
       </button></li>`;
     }).join('');
@@ -177,7 +235,7 @@
     const d = stand.data;
     const kop = `
     <div class="p-ov-kop">
-      <div><h1>Cockpit</h1><p>Alleen wat aandacht vraagt. Wat goed gaat zie je hier niet.</p></div>
+      <div><h1>Cockpit</h1><p>Alles wat op jou wacht, op één plek. Wat goed gaat zie je hier niet.</p></div>
       <div class="p-ov-kop-acties ck-kop-acties">
         ${d ? kiezerHtml(d.klanten.map((k) => ({ id: k.id, naam: k.naam }))) : ''}
         ${d ? `<span class="ck-tijd">Laatst gecontroleerd om ${e(tijd(d.bijgewerkt))}</span>` : ''}
@@ -193,31 +251,40 @@
     const keuze = adminState.klantKeuze;
     const gekozen = keuze ? d.klanten.find((k) => k.id === keuze) : null;
     const alle = meldingenVan(d).filter((m) => !keuze || m.klantId === keuze);
+    const taken = takenVan(window.cockpitTakenBron ? window.cockpitTakenBron() : {}).filter((t) => !keuze || t.klantId === keuze);
     stand.meldingen = alle;
+    stand.taken = taken;
     const rood = alle.filter((m) => m.niveau === 'rood').length;
     const oranje = alle.length - rood;
-    const klantenZicht = gekozen ? [gekozen] : d.klanten;
-    const metMelding = klantenZicht.filter((k) => (k.signalen || []).some((s) => s.niveau !== 'info')).length;
     const sp = ((d.steekproef && d.steekproef.blogs) || []).filter((b) => !gekozen || b.klantNaam === gekozen.naam);
     const beoordeeld = sp.filter((b) => b.oordeel).length;
-    const zichtbaar = alle.map((m, i) => ({ m, i })).filter((x) => stand.filter === 'alles' || x.m.niveau === stand.filter);
+    // Volgorde: eerst rood, dan wat jij moet doen, dan oranje.
+    const regels = [
+      ...alle.map((m, i) => ({ soort: 'melding', m, i })).filter((x) => x.m.niveau === 'rood'),
+      ...taken.map((t, i) => ({ soort: 'taak', t, i })),
+      ...alle.map((m, i) => ({ soort: 'melding', m, i })).filter((x) => x.m.niveau !== 'rood')
+    ];
+    const past = (x) => stand.filter === 'alles'
+      || (stand.filter === 'doen' && x.soort === 'taak')
+      || (x.soort === 'melding' && x.m.niveau === stand.filter);
+    const zichtbaar = regels.filter(past);
     const knop = (id, tekst, n) => `<button type="button" class="${stand.filter === id ? 'on' : ''}" data-filter="${id}" aria-pressed="${stand.filter === id}">${tekst}${n !== undefined ? ` <span class="ck-n">${n}</span>` : ''}</button>`;
     root.innerHTML = `
     <div class="p-pagina">
       ${kop}
       <div class="ck-kpis">
-        <div class="ck-kpi ck-kpi-todo"><div class="ck-kpi-l"><span class="ck-dot ${rood ? 'ck-dot-rood' : 'ck-dot-groen'}"></span>Om weg te werken</div><div class="ck-kpi-v">${alle.length}</div><div class="ck-kpi-s">${alle.length ? `${rood} direct oppakken, ${oranje} binnenkort kijken` : 'niets open, alles draait'}</div></div>
-        <div class="ck-kpi"><div class="ck-kpi-l"><span class="ck-dot ck-dot-plan"></span>Klanten met melding</div><div class="ck-kpi-v">${metMelding}<small> van ${klantenZicht.length}</small></div><div class="ck-kpi-s">${metMelding ? 'minstens één punt open' : 'alles in orde'}</div></div>
+        <div class="ck-kpi ck-kpi-todo"><div class="ck-kpi-l"><span class="ck-dot ck-dot-plan"></span>Te doen</div><div class="ck-kpi-v">${taken.length}</div><div class="ck-kpi-s">${taken.length ? 'pagina\'s, ideeën, onboarding en backlog' : 'niets wacht op jou'}</div></div>
+        <div class="ck-kpi"><div class="ck-kpi-l"><span class="ck-dot ${rood ? 'ck-dot-rood' : 'ck-dot-groen'}"></span>Meldingen</div><div class="ck-kpi-v">${alle.length}</div><div class="ck-kpi-s">${alle.length ? `${rood} direct oppakken, ${oranje} binnenkort kijken` : 'alles draait'}</div></div>
         <div class="ck-kpi"><div class="ck-kpi-l"><span class="ck-dot ck-dot-groen"></span>Steekproef van de week</div><div class="ck-kpi-v">${beoordeeld}<small> van ${sp.length}</small></div><div class="ck-kpi-s">blogs beoordeeld</div></div>
       </div>
       ${(d.problemen || []).map((p) => `<div class="ck-probleem">${e(p)}</div>`).join('')}
       <div class="ck-kolommen">
         <section class="ck-kaart ck-hoofd" aria-labelledby="ckMKop">
           <div class="ck-kaart-kop">
-            <div><h2 id="ckMKop">Om weg te werken <span class="ck-n ck-n-groot">${alle.length}</span></h2><p>Klik op een melding voor uitleg en wat je eraan doet. Is het opgelost, dan verdwijnt hij hier vanzelf.</p></div>
-            <div class="ck-seg" role="group" aria-label="Filter op ernst">${knop('alles', 'Alles', alle.length)}${knop('rood', 'Rood', rood)}${knop('oranje', 'Oranje', oranje)}</div>
+            <div><h2 id="ckMKop">Om weg te werken</h2><p>Klik op een regel voor uitleg of om het meteen te doen. Is het opgelost, dan verdwijnt hij vanzelf.</p></div>
+            <div class="ck-seg" role="group" aria-label="Filter">${knop('alles', 'Alles', regels.length)}${knop('doen', 'Te doen', taken.length)}${knop('rood', 'Rood', rood)}${knop('oranje', 'Oranje', oranje)}</div>
           </div>
-          ${zichtbaar.length ? `<ul class="ck-lijst">${zichtbaar.map((x) => meldingRij(x.m, x.i)).join('')}</ul>` : `<div class="ck-leeg">${alle.length ? 'Geen meldingen met dit filter.' : 'Geen enkele melding. Alles draait.'}</div>`}
+          ${zichtbaar.length ? `<ul class="ck-lijst">${zichtbaar.map((x) => (x.soort === 'taak' ? taakRij(x.t, x.i) : meldingRij(x.m, x.i))).join('')}</ul>` : `<div class="ck-leeg">${regels.length ? 'Niets met dit filter.' : 'Niets dat op jou wacht. Alles draait.'}</div>`}
         </section>
         <div class="ck-zij">
           ${steekproefHtml(d.steekproef, gekozen && gekozen.naam)}
@@ -226,6 +293,7 @@
       </div>
       <details class="ck-uitleg-blok"><summary>Wat wordt er gecontroleerd</summary>
         <ul>
+          <li><b>Te doen:</b> Pagr. pagina's die op jouw controle wachten of mislukt zijn, voorstellen en ideeën van klanten, blogideeën ter beoordeling, onboardingstappen die op jou wachten, FAQ aanpassingen die niet gelukt zijn en backlogpunten die op jou wachten.</li>
           <li><b>Techniek:</b> blogs op Fout of vastgelopen, geplande blogs die te laat zijn, een planning die leegloopt, de laatste publicatie, mislukte n8n runs in 7 dagen, workflows die niet meer draaien, prestatiedata die niet meer wordt bijgewerkt en de kritieke punten uit de Clients tabel.</li>
           <li><b>Blog:</b> per gepubliceerde blog van de laatste 4 maanden: na 21 dagen nog niet in Google of geblokkeerd, geen interne link, geen tussenkoppen, geen SEO titel of omschrijving, geen Live URL en geen uitgelichte afbeelding.</li>
           <li><b>Kwaliteit:</b> 3 of meer QA afkeuringen in 14 dagen, herschrijvingen na feedback die de controle niet halen, en een klant die 40% of meer van de blogs afwijst (60 dagen, vanaf 3 beoordelingen).</li>
@@ -307,6 +375,7 @@
       bewaarOordeel(Number(i), 'niet goed', root.querySelector(`[data-sp-tekst="${i}"]`).value);
     }));
     root.querySelectorAll('[data-melding]').forEach((b) => b.addEventListener('click', () => { const m = (stand.meldingen || [])[Number(b.dataset.melding)]; if (m) openMelding(m); }));
+    root.querySelectorAll('[data-taak]').forEach((b) => b.addEventListener('click', () => openTaak((stand.taken || [])[Number(b.dataset.taak)])));
     root.querySelectorAll('[data-filter]').forEach((b) => b.addEventListener('click', () => { stand.filter = b.dataset.filter; teken(); }));
     root.querySelectorAll('[data-ververs]').forEach((b) => b.addEventListener('click', () => laadCockpit(true)));
     root.querySelectorAll('[data-bekijk]').forEach((b) => b.addEventListener('click', () => bekijkAlsKlant(b.dataset.bekijk)));
@@ -316,9 +385,9 @@
   function zetTeller() {
     const el = document.getElementById('cockpitTeller');
     if (!el) return;
-    const n = aandacht(stand.data);
+    const n = aandacht(stand.data) + takenVan(window.cockpitTakenBron ? window.cockpitTakenBron() : {}).length;
     el.textContent = n ? String(n) : '';
-    el.title = n ? `${n} ${n === 1 ? 'melding' : 'meldingen'} in de cockpit` : '';
+    el.title = n ? `${n} ${n === 1 ? 'punt' : 'punten'} in de cockpit` : '';
     el.classList.toggle('hidden', !n);
   }
 
@@ -361,6 +430,7 @@
     return { fout: '', meldingen: meldingenVan({ klanten: [k], gedeeld: { signalen: [] } }), bijgewerkt: stand.data.bijgewerkt, tijd: tijd(stand.data.bijgewerkt) };
   };
   window.renderCockpit = teken;
+  window.zetCockpitTeller = zetTeller;
   window.laadCockpit = laadCockpit;
   window.bekijkAlsKlant = bekijkAlsKlant;
   // Elke 10 minuten opnieuw, gelijk met de cache op de server.

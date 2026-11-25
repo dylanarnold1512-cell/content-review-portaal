@@ -3,7 +3,26 @@
 (function () {
   const e = (t) => escapeHtmlAdmin(String(t === undefined || t === null ? '' : t));
   const MAANDEN = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
-  const STATUS = { wacht: ['Wacht op n8n', 'p-pil-neutraal'], bezig: ['Bezig', 'p-pil-let-op'], klaar: ['Klaar', 'p-pil-goed'], fout: ['Fout', 'p-pil-fout'] };
+  const STATUS = { wacht: ['Wacht op n8n', 'p-pil-neutraal'], verstuurd: ['Verstuurd', 'p-pil-neutraal'], bezig: ['Bezig', 'p-pil-let-op'], klaar: ['Klaar', 'p-pil-goed'], fout: ['Fout', 'p-pil-fout'] };
+
+  // Zonder uitvoering in n8n na een kwartier: verstuurd, de uitkomst staat in n8n. Zo blijft er niets eindeloos op wachten staan.
+  function statusVanStart(s, nu) {
+    if (s.status !== 'wacht') return s.status;
+    const oud = (nu || Date.now()) - new Date(s.gestart).getTime() > 15 * 60 * 1000;
+    return oud ? 'verstuurd' : 'wacht';
+  }
+
+  // Dezelfde klant en maand die binnen vijf minuten vaker is gestart, telt als een start (de nieuwste blijft staan).
+  function voegStartsSamen(starts) {
+    const uit = [];
+    (starts || []).forEach((s) => {
+      const vorige = uit[uit.length - 1];
+      const zelfde = vorige && vorige.organisatieId === s.organisatieId && vorige.klant === s.klant && vorige.maand === s.maand
+        && Math.abs(new Date(vorige.gestart) - new Date(s.gestart)) < 5 * 60 * 1000;
+      if (zelfde) vorige.keer = (vorige.keer || 1) + 1; else uit.push({ ...s, keer: 1 });
+    });
+    return uit;
+  }
   const staat = { config: null, org: '', klant: '', maand: 0, jaar: 0, waarden: {}, notities: '', bezig: false, melding: null, starts: [], timer: null, context: '', rapportTekst: '', rapportCijfers: {}, rapportNaam: '', vorigNaam: '', leesMelding: null, puntenTekst: '', punten: [], pakket: null, opties: {}, pakketBezig: false, pakketMelding: null, invoerOpen: false, mailWens: '', voorbeelden: [], voorbeeldKlant: '', nieuweMail: '', voorbeeldMelding: null };
 
   function vorigeMaand() {
@@ -58,7 +77,7 @@
   function lijstHtml() {
     if (!staat.starts.length) return '<p class="rs-hint">Nog geen rapportages gestart vanuit het portaal.</p>';
     return `<table class="rs-tabel"><thead><tr><th>Klant</th><th>Maand</th><th>Gestart</th><th>Status</th></tr></thead><tbody>
-      ${staat.starts.map((s, i) => { const st = STATUS[s.status] || STATUS.wacht; return `<tr class="rs-klik" data-start="${i}" tabindex="0" role="button" title="Klik om deze invoer over te nemen in het formulier"><td>${e(s.klant)}<small>${e(s.organisatie)}</small></td><td>${e(s.maand)}</td><td>${e(tijd(s.gestart))}</td><td><span class="p-pil ${st[1]}">${e(st[0])}</span></td></tr>`; }).join('')}
+      ${voegStartsSamen(staat.starts).map((s) => { const st = STATUS[statusVanStart(s)] || STATUS.wacht; const i = staat.starts.findIndex((x) => x.gestart === s.gestart && x.klant === s.klant); return `<tr class="rs-klik" data-start="${i}" tabindex="0" role="button" title="${statusVanStart(s) === 'verstuurd' ? 'Er is geen uitvoering in n8n gevonden. Kijk in n8n of de rapportage is gemaakt. ' : ''}Klik om deze invoer over te nemen in het formulier"><td>${e(s.klant)}<small>${e(s.organisatie)}</small></td><td>${e(s.maand)}</td><td>${e(tijd(s.gestart))}${s.keer > 1 ? `<small>${s.keer} keer gestart</small>` : ''}</td><td><span class="p-pil ${st[1]}">${e(st[0])}</span></td></tr>`; }).join('')}
     </tbody></table>`;
   }
 

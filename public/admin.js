@@ -44,14 +44,17 @@ document.getElementById('adminLogoutBtn').addEventListener('click', async () => 
 });
 
 // ---- Navigatie: een eigen adres per scherm (#klanten, #nieuw, #ideeen, #klant/<id>/<tabblad>) ----
+// Een klant heeft één pagina met alles: Pagr. (de werkplaats) en Klantgegevens staan hier, niet meer los in het menu.
 const KLANT_TABS = [
   { id: 'overzicht', titel: 'Overzicht' },
-  { id: 'onboarding', titel: 'Onboarding' },
-  { id: 'instellingen', titel: 'Instellingen' },
+  { id: 'pagr', titel: 'Pagr.' },
   { id: 'ideeen', titel: 'Ideeën' },
-  { id: 'merkprofiel', titel: 'Merkprofiel opbouwen' }
+  { id: 'gegevens', titel: 'Klantgegevens' },
+  { id: 'merkprofiel', titel: 'Merkprofiel opbouwen' },
+  { id: 'instellingen', titel: 'Instellingen' },
+  { id: 'onboarding', titel: 'Onboarding' }
 ];
-const VIEW_TITELS = { cockpit: 'Cockpit', klanten: 'Alle klanten', nieuw: 'Nieuwe klant', ideeen: 'Ideeën', faq: 'FAQ\'s', rapportstart: 'Rapportages', backlog: 'Backlog', pagr: 'Pagr.', klant: 'Klant' };
+const VIEW_TITELS = { cockpit: 'Cockpit', klanten: 'Klanten', nieuw: 'Nieuwe klant', ideeen: 'Ideeën', faq: 'FAQ logboek', rapportstart: 'Rapportages', backlog: 'Backlog', pagr: 'Pagr.', klant: 'Klant' };
 const PAGR_TABS = ['overzicht', 'werkplaats', 'nieuw', 'sjablonen', 'paginas', 'kloon', 'vervang', 'klantgegevens'];
 let huidig = { view: 'cockpit', klantId: '', tab: 'instellingen' };
 
@@ -68,7 +71,7 @@ function leesHash() {
 
 // Een klant in onboarding opent op het tabblad Onboarding, een klant die klaar is op Instellingen.
 function beginTab(klantId) {
-  const o = adminState.onboarding[klantId];
+  const o = onboardingVan(zoekKlant(klantId)) || adminState.onboarding[klantId];
   return o && !o.samenvatting.gereed ? 'onboarding' : 'overzicht';
 }
 
@@ -96,11 +99,22 @@ document.querySelectorAll('#adminNav [data-view]').forEach((btn) => {
   btn.addEventListener('click', () => gaNaar(btn.dataset.view, '', btn.dataset.pagrTab));
 });
 
-// Alle klanten: die uit het portaal, plus klanten die alleen in de onboarding staan (nog niet in clients.js).
+// De onboarding van een klant. Eerst op Client ID, dan op naam: een klant die al in het portaal stond
+// (bijvoorbeeld Hostel Roots als roots) kan een onboarding hebben onder een ander Client ID.
+function naamSleutel(naam) { return String(naam || '').trim().toLowerCase(); }
+function onboardingVan(c) {
+  if (!c) return null;
+  if (adminState.onboarding[c.id]) return adminState.onboarding[c.id];
+  const naam = naamSleutel(c.naam);
+  return Object.values(adminState.onboarding).find((o) => naamSleutel(o.klant) === naam) || null;
+}
+
+// Alle klanten: die uit het portaal, plus klanten die alleen in de onboarding staan (nog niet in het portaal).
+// Een onboarding met dezelfde naam als een bestaande klant hoort bij die klant en komt er niet nog eens bij.
 function alleKlanten() {
   const lijst = adminState.clients.map((c) => ({ ...c }));
   Object.values(adminState.onboarding).forEach((o) => {
-    if (!lijst.some((c) => c.id === o.clientId)) lijst.push({ id: o.clientId, naam: o.klant, alleenOnboarding: true });
+    if (!lijst.some((c) => c.id === o.clientId || naamSleutel(c.naam) === naamSleutel(o.klant))) lijst.push({ id: o.clientId, naam: o.klant, alleenOnboarding: true });
   });
   return lijst;
 }
@@ -118,9 +132,10 @@ function toonScherm() {
     document.getElementById('view' + naam).classList.toggle('hidden', naam.toLowerCase() !== (view === 'klant' ? 'klant' : view));
   });
   document.querySelectorAll('#adminNav [data-view]').forEach((btn) => {
+    const pagrTab = tab === 'nieuw' ? 'paginas' : tab;
     const actief = view === 'pagr'
-      ? btn.dataset.view === 'pagr' && btn.dataset.pagrTab === tab
-      : btn.dataset.view === view || (view === 'klant' && btn.dataset.view === 'klanten');
+      ? btn.dataset.view === 'pagr' && btn.dataset.pagrTab === pagrTab
+      : btn.dataset.view === view || (['klant', 'nieuw', 'ideeen'].includes(view) && btn.dataset.view === 'klanten');
     btn.classList.toggle('active', actief);
     if (actief) btn.setAttribute('aria-current', 'page'); else btn.removeAttribute('aria-current');
   });
@@ -203,6 +218,13 @@ window.addEventListener('message', (e) => {
   if (e.origin !== window.location.origin) return;
   const d = e.data;
   // De Pagr. omgeving wisselde zelf van tab (bijvoorbeeld via een knop in de Werkplaats): het menu links volgt.
+  const hoofdFrame = document.getElementById('pagrFrame');
+  const bronFrame = [...document.querySelectorAll('iframe.ad-pagr-frame')].find((f) => f.contentWindow === e.source);
+  if (d && d.type === 'pagr-hoogte' && Number.isFinite(d.hoogte) && bronFrame) {
+    bronFrame.style.height = Math.max(400, d.hoogte + 8) + 'px';
+    return;
+  }
+  if (bronFrame && bronFrame !== hoofdFrame) { if (d && d.type === 'pagr-gewijzigd') ververWachtTeller(); return; }
   if (d && d.type === 'pagr-tab-actief' && PAGR_TABS.includes(d.tab) && huidig && huidig.view === 'pagr' && huidig.tab !== d.tab) {
     pagrVanFrame = d.tab;
     window.location.hash = `#pagr/${d.tab}`;
@@ -261,6 +283,14 @@ function heeftBlogr(c) {
   const p = c.producten || 'Blogr.';
   return p === 'Blogr.' || p === 'Beide';
 }
+function productLabel(c) {
+  const p = c.producten || 'Blogr.';
+  if (p === 'Geen van beide') return c.internAutomatisering ? 'Eigen werk' : 'Geen product';
+  return p;
+}
+function heeftPagr(c) {
+  return ['Pagr.', 'Beide'].includes(c.producten) || Boolean(c.internAutomatisering);
+}
 const BLOG_MODULES = ['reviewEnabled', 'performanceEnabled', 'ideaEnrichmentEnabled', 'merkprofielNaarKennisdocument'];
 
 function statusVanKlant(c) {
@@ -278,8 +308,8 @@ function wachtendeIdeeen(klantId) {
 function updateIdeeenTeller() {
   const totaal = Object.values(adminState.ideeen).reduce((n, lijst) => n + lijst.length, 0);
   const el = document.getElementById('ideeenTeller');
-  el.textContent = totaal > 0 ? String(totaal) : '';
-  el.classList.toggle('hidden', totaal === 0);
+  if (el) { el.textContent = totaal > 0 ? String(totaal) : ''; el.classList.toggle('hidden', totaal === 0); }
+  cockpitBijwerken();
 }
 
 function adminInitialen(naam) {
@@ -292,12 +322,12 @@ function adminInitialen(naam) {
 // ---- Alle klanten ----
 function renderKlanten() {
   const lijst = alleKlanten();
-  const inOnboarding = lijst.filter((c) => { const o = adminState.onboarding[c.id]; return o && !o.samenvatting.gereed; }).length;
+  const inOnboarding = lijst.filter((c) => { const o = onboardingVan(c); return o && !o.samenvatting.gereed; }).length;
   const wachtOpJou = Object.values(adminState.onboarding).reduce((n, o) => n + o.samenvatting.wachtOpDylan.length, 0);
   const ideeen = Object.values(adminState.ideeen).reduce((n, l) => n + l.length, 0);
   const f = adminState.klantFilter || (adminState.klantFilter = { product: 'alle', zoek: '' });
   const heeftMelding = (c) => {
-    const os = adminState.onboarding[c.id] && adminState.onboarding[c.id].samenvatting;
+    const os = onboardingVan(c) && onboardingVan(c).samenvatting;
     return !!((os && os.wachtOpDylan.length) || wachtendeIdeeen(c.id) > 0 || c.klantstatusIngesteld === false);
   };
   const productVan = (c) => c.producten || 'Blogr.';
@@ -309,11 +339,10 @@ function renderKlanten() {
     return true;
   });
   const rijen = zicht.map((c) => {
-    const o = adminState.onboarding[c.id];
+    const o = onboardingVan(c);
     const os = o && o.samenvatting;
     const lopend = os && !os.gereed;
-    const st = c.alleenOnboarding ? { tekst: 'Onboarding', klasse: 'p-pil-plan' } : statusVanKlant(c);
-    const aan = MODULES.filter((m) => m.kort && c[m.veld]);
+    const st = c.alleenOnboarding || (lopend && (c.klantstatus || 'actief') === 'actief' && c.klantstatusIngesteld !== false) ? { tekst: 'In onboarding', klasse: 'p-pil-plan' } : statusVanKlant(c);
     const wacht = wachtendeIdeeen(c.id);
     const meldingen = [];
     if (os && os.wachtOpDylan.length) meldingen.push(`Onboarding: ${os.wachtOpDylan.length === 1 ? os.wachtOpDylan[0].titel : os.wachtOpDylan.length + ' punten'} wacht op jou`);
@@ -322,13 +351,13 @@ function renderKlanten() {
     const open = meldingen.length
       ? `<div class="ad-tabel-open wacht">${meldingen.map(escapeHtmlAdmin).join('<br>')}</div>`
       : (lopend && os.volgende ? `<div class="ad-tabel-open">Volgende stap: ${escapeHtmlAdmin(os.volgende.titel)}</div>` : '<div class="ad-tabel-open">Niets dat op jou wacht</div>');
-    const modules = aan.length ? aan.map((m) => `<span class="p-pil p-pil-neutraal">${m.kort}</span>`).join('') : `<span class="ad-vaag">${c.alleenOnboarding ? 'Nog niet in het portaal' : 'Geen modules aan'}</span>`;
+    const product = c.alleenOnboarding ? '<span class="ad-vaag">Nog niet in het portaal</span>' : `<span class="ad-product">${escapeHtmlAdmin(productLabel(c))}</span>`;
     const voortgang = os && os.totaal ? `<span>Onboarding ${os.afgerond} van ${os.totaal} stappen</span>` : `<span>${escapeHtmlAdmin(c.id)}</span>`;
     const bekijk = c.alleenOnboarding ? '' : `<button type="button" class="p-knop" data-bekijk="${escapeHtmlAdmin(c.id)}">Bekijk als klant</button>`;
     return `
     <tr>
       <td><div class="ad-tabel-naam"><span class="ck-av" style="background:${avatarKleur(c.naam)}" aria-hidden="true">${escapeHtmlAdmin(adminInitialen(c.naam))}</span><div><b>${escapeHtmlAdmin(c.naam)}</b>${voortgang}</div></div></td>
-      <td><div class="ad-tabel-mod">${modules}</div></td>
+      <td>${product}</td>
       <td>${open}</td>
       <td><span class="p-pil ${st.klasse}">${st.tekst}</span></td>
       <td><div class="ad-tabel-acties">${bekijk}<button type="button" class="p-knop" data-klant="${escapeHtmlAdmin(c.id)}">Open</button></div></td>
@@ -353,10 +382,9 @@ function renderKlanten() {
         </div>
         <label class="ad-top-zoek" style="margin-left:0;width:260px"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input type="search" id="kZoek" placeholder="Zoek in klanten" aria-label="Zoek in klanten" value="${escapeHtmlAdmin(f.zoek)}"></label>
       </div>
-      ${rijen ? `<div class="ad-tabel-wrap"><table class="ad-tabel"><thead><tr><th>Klant</th><th>Producten</th><th>Wacht op jou</th><th>Status</th><th><span class="sr-only">Acties</span></th></tr></thead><tbody>${rijen}</tbody></table></div>` : `<div class="ck-leeg">${lijst.length ? 'Geen klanten met dit filter.' : 'Nog geen klanten.'}</div>`}
+      ${rijen ? `<div class="ad-tabel-wrap"><table class="ad-tabel"><thead><tr><th>Klant</th><th>Product</th><th>Wacht op jou</th><th>Status</th><th><span class="sr-only">Acties</span></th></tr></thead><tbody>${rijen}</tbody></table></div>` : `<div class="ck-leeg">${lijst.length ? 'Geen klanten met dit filter.' : 'Nog geen klanten.'}</div>`}
     </section>
     ${adminState.onboardingFout ? `<p class="admin-footnote">De onboarding kon niet worden geladen: ${escapeHtmlAdmin(adminState.onboardingFout)}</p>` : ''}
-    <p class="admin-footnote">Nieuwe klant nog niet in de lijst met modules? Voeg 'm toe in <code>src/config/clients.js</code>, dan verschijnt hij daar vanzelf. Dit is stap 11 van de onboarding.</p>
   </div>`;
   const root = document.getElementById('viewKlanten');
   root.querySelectorAll('[data-klant]').forEach((k) => k.addEventListener('click', () => gaNaar('klant', k.dataset.klant)));
@@ -376,11 +404,20 @@ function renderKlant(c, tab) {
     return;
   }
   const st = c.alleenOnboarding ? { tekst: 'Onboarding', klasse: 'p-pil-plan' } : statusVanKlant(c);
-  const zichtbareTabs = c.alleenOnboarding ? KLANT_TABS.filter((t) => t.id === 'onboarding') : KLANT_TABS.filter((t) => t.id !== 'ideeen' || heeftBlogr(c));
+  const o = onboardingVan(c);
+  const toonTab = (t) => {
+    if (t.id === 'ideeen') return heeftBlogr(c);
+    if (t.id === 'pagr' || t.id === 'gegevens') return heeftPagr(c);
+    if (t.id === 'onboarding') return Boolean(o);
+    return true;
+  };
+  const zichtbareTabs = c.alleenOnboarding ? KLANT_TABS.filter((t) => t.id === 'onboarding') : KLANT_TABS.filter(toonTab);
   if (c.alleenOnboarding && tab !== 'onboarding') tab = 'onboarding';
-  if (tab === 'ideeen' && !heeftBlogr(c)) tab = 'overzicht';
+  if (!zichtbareTabs.some((t) => t.id === tab)) tab = (zichtbareTabs[0] || { id: 'overzicht' }).id;
   const tabs = zichtbareTabs.map((t) => {
-    const teller = t.id === 'ideeen' && wachtendeIdeeen(c.id) ? `<span class="p-teller">${wachtendeIdeeen(c.id)}</span>` : '';
+    const pagrW = (adminState.pagrWacht || []).find((k) => k.klant === c.id);
+    const aantal = t.id === 'ideeen' ? wachtendeIdeeen(c.id) : t.id === 'pagr' ? (pagrW ? pagrW.totaal : 0) : t.id === 'onboarding' && o && !o.samenvatting.gereed ? o.samenvatting.wachtOpDylan.length : 0;
+    const teller = aantal ? `<span class="p-teller">${aantal}</span>` : '';
     return `<button type="button" class="ad-tab${t.id === tab ? ' active' : ''}" data-tab="${t.id}">${t.titel}${teller}</button>`;
   }).join('');
   root.innerHTML = `
@@ -406,6 +443,13 @@ function renderKlant(c, tab) {
   if (tab === 'instellingen') renderInstellingen(c, inhoud);
   if (tab === 'ideeen') { inhoud.innerHTML = ideeenHtml([c], true); bindIdeeen(inhoud); }
   if (tab === 'merkprofiel') renderMerkprofielBouw(c, inhoud);
+  if (tab === 'pagr') renderPagrVoorKlant(c, inhoud, 'werkplaats');
+  if (tab === 'gegevens') renderPagrVoorKlant(c, inhoud, 'klantgegevens');
+}
+
+// De Pagr. werkplaats of klantgegevens van één klant, ingebed met de klant al gekozen.
+function renderPagrVoorKlant(c, inhoud, onderdeel) {
+  inhoud.innerHTML = `<iframe class="ad-pagr-frame ad-pagr-klant" title="Pagr. ${onderdeel === 'werkplaats' ? 'werkplaats' : 'klantgegevens'} van ${escapeHtmlAdmin(c.naam)}" src="/lp#${onderdeel}?klant=${encodeURIComponent(c.id)}"></iframe>`;
 }
 
 
@@ -488,12 +532,14 @@ async function kopieer(tekst) {
 async function renderOnboarding(c, inhoud) {
   inhoud.innerHTML = '<p class="admin-footnote">Onboarding laden…</p>';
   // Stap 4 volgt het merkprofiel: even de status opvragen, dan werkt de server de stap bij.
-  if (adminState.onboarding[c.id]) await adminApi('/profiel/status?klant=' + encodeURIComponent(c.naam)).catch(() => {});
+  const bestaand = onboardingVan(c);
+  const onbId = bestaand ? bestaand.clientId : c.id;
+  if (bestaand) await adminApi('/profiel/status?klant=' + encodeURIComponent(c.naam)).catch(() => {});
   mpVorige = '';
   mpInline = null;
   let data;
   try {
-    data = await adminApi(`/onboarding/${encodeURIComponent(c.id)}`);
+    data = await adminApi(`/onboarding/${encodeURIComponent(onbId)}`);
   } catch (err) {
     inhoud.innerHTML = `<p class="admin-footnote">De onboarding kon niet worden geladen: ${escapeHtmlAdmin(err.message)}</p>`;
     return;
@@ -530,7 +576,7 @@ async function renderOnboarding(c, inhoud) {
     });
     return;
   }
-  adminState.onboarding[c.id] = { clientId: c.id, klant: data.klant, samenvatting: data.samenvatting };
+  adminState.onboarding[onbId] = { clientId: onbId, klant: data.klant, samenvatting: data.samenvatting };
   const sm = data.samenvatting;
   const wacht = sm.wachtOpDylan.map((r) => `<li><span>Stap ${r.nr}. ${escapeHtmlAdmin(r.titel)}${r.uitkomst ? ': ' + escapeHtmlAdmin(r.uitkomst) : ''}</span></li>`).join('');
   const fasen = Object.keys(ONB_FASEN).map((code) => {
@@ -565,7 +611,10 @@ async function renderOnboarding(c, inhoud) {
     <div><b>Verder in de chat</b><span>Plak deze zin in een nieuwe chat in het project. Claude leest de stand en gaat door.</span><code>${escapeHtmlAdmin(data.chatZin)}</code></div>
     <button type="button" class="p-knop p-knop-hoofd" id="onbKopieer">Kopieer zin</button>
   </section>
+  ${(!c.alleenOnboarding && heeftBlogr(c)) ? '<div id="onbControle" class="wg-houder"></div>' : ''}
   ${fasen}`;
+  const onbControle = inhoud.querySelector('#onbControle');
+  if (onbControle) laadWorkflowGegevens(c, onbControle, { alleenControle: true });
   document.getElementById('onbKopieer').addEventListener('click', async (e) => {
     const ok = await kopieer(data.chatZin);
     e.target.textContent = ok ? 'Gekopieerd' : 'Kopiëren lukt niet, selecteer de zin';
@@ -654,16 +703,17 @@ function renderInstellingen(c, inhoud) {
   if (wgHouder) laadWorkflowGegevens(c, wgHouder);
 }
 
-async function laadWorkflowGegevens(c, houder) {
+async function laadWorkflowGegevens(c, houder, opties) {
   try {
     const data = await adminApi(`/klantgegevens/${encodeURIComponent(c.id)}`);
-    tekenWorkflowGegevens(c, houder, data);
+    tekenWorkflowGegevens(c, houder, data, opties);
   } catch (err) {
     houder.innerHTML = `<section class="p-kaart ad-blok"><div class="ad-regel"><div class="ad-regel-tekst"><b>Gegevens voor de workflows</b><span>Kon de gegevens niet ophalen: ${escapeHtmlAdmin(err.message)}</span></div></div></section>`;
   }
 }
 
-function tekenWorkflowGegevens(c, houder, data) {
+function tekenWorkflowGegevens(c, houder, data, opties) {
+  const opt = opties || {};
   const kritiekOpen = data.controle.filter((r) => !r.ok && r.kritiek).length;
   const adviesOpen = data.controle.filter((r) => !r.ok && !r.kritiek).length;
   const kop = kritiekOpen
@@ -673,6 +723,11 @@ function tekenWorkflowGegevens(c, houder, data) {
     <header class="ad-blok-kop"><h2>Controle voor livegang ${kop}</h2><p>Dit komt uit de Clients tabel in n8n. Pas hieronder aan wat ontbreekt.${adviesOpen ? ` Er ${adviesOpen === 1 ? 'is' : 'zijn'} ${adviesOpen} ${adviesOpen === 1 ? 'aandachtspunt' : 'aandachtspunten'}.` : ''}</p></header>
     <ul class="wg-controle">${data.controle.map((r) => `<li class="${r.ok ? 'ok' : (r.kritiek ? 'fout' : 'let-op')}"><span aria-hidden="true">${r.ok ? '&#10003;' : '!'}</span>${escapeHtmlAdmin(r.tekst)}</li>`).join('')}</ul>
   </section>`;
+  const o = onboardingVan(c);
+  const inOnboarding = Boolean(o && !o.samenvatting.gereed);
+  if (opt.alleenControle) { houder.innerHTML = controle; return; }
+  // Na de livegang staat de controle niet meer bovenaan Instellingen, tenzij er iets kritieks open is.
+  const toonControle = !data.gevonden || kritiekOpen > 0 || inOnboarding;
   if (!data.gevonden) { houder.innerHTML = controle; return; }
   const groepen = data.groepen.map((g) => {
     const velden = g.velden.map((v) => {
@@ -695,12 +750,12 @@ function tekenWorkflowGegevens(c, houder, data) {
     const geheimen = (g.geheimen || []).map((x) => `<div class="ad-regel wg-regel"><div class="ad-regel-tekst"><b>${x.label}</b><span>Wordt om veiligheidsredenen niet getoond en niet via het portaal aangepast.</span></div><span class="p-pil ${data.geheimen[x.veld] ? 'p-pil-goed' : 'p-pil-let-op'}">${data.geheimen[x.veld] ? 'Ingevuld' : 'Ontbreekt'}</span></div>`).join('');
     return `<section class="p-kaart ad-blok"><header class="ad-blok-kop"><h2>${g.titel}</h2></header>${velden}${geheimen}</section>`;
   }).join('');
-  houder.innerHTML = controle + groepen;
+  houder.innerHTML = (toonControle ? controle : '') + groepen;
   const opslaan = async (veld, waarde, terug) => {
     try {
       await adminApi(`/klantgegevens/${encodeURIComponent(c.id)}`, { method: 'POST', body: JSON.stringify({ field: veld, value: waarde }) });
       renderError('');
-      await laadWorkflowGegevens(c, houder);
+      await laadWorkflowGegevens(c, houder, opt);
     } catch (err) {
       if (terug) terug();
       renderError(err.message);
@@ -874,14 +929,17 @@ function ideeenHtml(klanten, metKop) {
   if (!metFunctie.length) {
     return `<p class="admin-footnote">${klanten.length === 1 ? 'Deze klant heeft' : 'Geen enkele klant heeft'} ideeën aandragen niet aanstaan.</p>`;
   }
-  return metFunctie.map((c) => {
+  // Op het algemene scherm alleen klanten met ideeën: geen rij lege kopjes.
+  const metIdeeen = klanten.length === 1 ? metFunctie : metFunctie.filter((c) => (adminState.ideeen[c.id] || []).length);
+  if (!metIdeeen.length) return '<div class="p-kaart ck-leeg">Geen ideeën ter beoordeling. Nieuwe ideeën van klanten komen ook in de Cockpit.</div>';
+  return metIdeeen.map((c) => {
     const lijst = adminState.ideeen[c.id] || [];
     const kaarten = lijst.length
       ? lijst.map((p) => ideeKaart(p, c.id)).join('')
       : `<p class="admin-footnote">Geen ideeën ter beoordeling${klanten.length === 1 ? '' : ' voor ' + escapeHtmlAdmin(c.naam)}.</p>`;
     return `
     <div class="proposal-client-block">
-      ${metFunctie.length > 1 || !metKop ? `<div class="proposal-client-name">${escapeHtmlAdmin(c.naam)}</div>` : ''}
+      ${metIdeeen.length > 1 || !metKop ? `<div class="proposal-client-name">${escapeHtmlAdmin(c.naam)}</div>` : ''}
       <div class="proposal-list">${kaarten}</div>
     </div>`;
   }).join('');
@@ -913,9 +971,8 @@ function bindIdeeen(root) {
 function updateFaqTeller() {
   const n = (adminState.faq.mislukt || []).length;
   const el = document.getElementById('faqTeller');
-  if (!el) return;
-  el.textContent = n > 0 ? String(n) : '';
-  el.classList.toggle('hidden', n === 0);
+  if (el) { el.textContent = n > 0 ? String(n) : ''; el.classList.toggle('hidden', n === 0); }
+  cockpitBijwerken();
 }
 
 function faqRegel(r, mislukt) {
@@ -938,7 +995,7 @@ function faqHtml(naam) {
     ? `<section class="p-kaart ad-blok"><header class="ad-blok-kop"><h2>Niet gelukt</h2><p>Hier is niets op de site veranderd. De reden staat erbij.</p></header>${mislukt.map((r) => faqRegel(r, true)).join('')}</section>`
     : '';
   const recent = toegepast.length
-    ? `<section class="p-kaart ad-blok"><header class="ad-blok-kop"><h2>Aangepast</h2><p>De nulmeting staat erbij. De AI meting laat na 4 en 8 weken zien of het merk vaker wordt genoemd. De oude tekst staat in het Activity Log.</p></header>${toegepast.map((r) => faqRegel(r, false)).join('')}</section>`
+    ? `<section class="p-kaart ad-blok"><header class="ad-blok-kop"><h2>Aangepast</h2><p>De nulmeting staat erbij. De AI meting laat na 4 en 8 weken zien of het merk vaker wordt genoemd. De oude tekst staat in het logboek van de pagina.</p></header>${toegepast.map((r) => faqRegel(r, false)).join('')}</section>`
     : '<p class="admin-footnote">Er zijn nog geen FAQ aanpassingen gedaan.</p>';
   return aandacht + recent;
 }
@@ -1006,35 +1063,50 @@ async function loadSettings() {
   }
 }
 
-// Teller bij Werkplaats in het menu: hoeveel pagina's wachten er op jou (alleen klanten met de Pagr. module).
+// Pagr. pagina's die op jou wachten (alleen klanten met betaald Pagr.). Komen in de Cockpit bij Te doen.
 async function ververWachtTeller() {
-  const el = document.getElementById('wachtTeller');
-  if (!el) return;
   try {
     const res = await fetch('/api/lp/wacht-op-jou');
     const data = await res.json().catch(() => ({}));
-    const n = res.ok ? Number(data.totaal) || 0 : 0;
-    el.textContent = String(n);
-    el.classList.toggle('hidden', !n);
-    el.title = (data.klanten || []).map((k) => {
-      const delen = [];
-      if (k.controleren && k.controleren.length) delen.push(`${k.controleren.length} te controleren`);
-      if (k.fout && k.fout.length) delen.push(`${k.fout.length} mislukt`);
-      if (k.voorstellen) delen.push(`${k.voorstellen} ${k.voorstellen === 1 ? 'voorstel' : 'voorstellen'}`);
-      if (k.ideeen) delen.push(`${k.ideeen} ${k.ideeen === 1 ? 'idee van de klant' : 'ideeën van de klant'}`);
-      return `${k.naam}: ${delen.join(', ') || k.totaal}`;
-    }).join('\n');
-  } catch (e) { el.classList.add('hidden'); }
+    adminState.pagrWacht = res.ok ? (data.klanten || []) : [];
+  } catch (e) { adminState.pagrWacht = []; }
+  cockpitBijwerken();
+}
+
+// Backlogpunten die op jou wachten, voor de Cockpit.
+async function laadBacklogVoorCockpit() {
+  try {
+    const data = await adminApi('/backlog');
+    adminState.backlog = data.punten || [];
+  } catch (e) { adminState.backlog = []; }
+  cockpitBijwerken();
+}
+
+// De bronnen voor Te doen in de Cockpit, uit wat de admin al geladen heeft.
+window.cockpitTakenBron = function () {
+  const klanten = alleKlanten();
+  const onboarding = Object.values(adminState.onboarding).map((o) => {
+    const k = klanten.find((c) => c.id === o.clientId) || klanten.find((c) => naamSleutel(c.naam) === naamSleutel(o.klant));
+    return { ...o, portaalId: k ? k.id : o.clientId };
+  });
+  return { pagr: adminState.pagrWacht || [], ideeen: adminState.ideeen, klanten, onboarding, faq: (adminState.faq && adminState.faq.mislukt) || [], backlog: adminState.backlog || [] };
+};
+
+function cockpitBijwerken() {
+  if (window.zetCockpitTeller) window.zetCockpitTeller();
+  if (huidig.view === 'cockpit' && window.renderCockpit) window.renderCockpit();
 }
 setInterval(ververWachtTeller, 5 * 60 * 1000);
 
 async function startAdmin() {
   ververWachtTeller();
+  laadBacklogVoorCockpit();
   laadCockpit();
   await loadOnboarding();
   await loadSettings();
   await loadIdeaProposals();
   await loadFaq();
+  cockpitBijwerken();
 }
 
 const INTAKE_STATUS_OPTIONS = ['Nieuw', 'In behandeling', 'Afgerond', 'Fout'];

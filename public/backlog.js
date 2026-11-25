@@ -189,6 +189,11 @@
     }));
   }
 
+  // Vanuit de Cockpit: open de backlog meteen op een filter, bijvoorbeeld Wacht op jou.
+  window.zetBacklogFilter = function (f) {
+    staat.filter = { zoek: '', toonKlaar: false, ...(f || {}) };
+  };
+
   window.renderBacklog = async function () {
     const root = document.getElementById('viewBacklog');
     if (!staat.punten) root.innerHTML = '<div class="p-pagina"><p class="bl-leeg">Laden</p></div>';

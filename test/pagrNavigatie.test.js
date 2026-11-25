@@ -7,13 +7,20 @@ const lees = (f) => fs.readFileSync(path.join(__dirname, '..', 'public', f), 'ut
 
 // Nieuwe pagina staat bewust niet meer in het menu (design 23-10-2026): je start hem met de knop in de werkplaats.
 // Bouwen met chat is geen eigen onderdeel meer (24-10-2026): bijsturen met chat zit op elk paginascherm.
-test('de admin zijbalk heeft een onderdeel per LP tab', () => {
+// Menu 25-11-2026: het Pagr. overzicht zit in de Cockpit, werkplaats en klantgegevens op de klantpagina.
+test('de admin zijbalk heeft alleen de algemene Pagr. onderdelen, de rest zit op de klantpagina', () => {
   const html = lees('admin.html');
-  ['overzicht', 'werkplaats', 'sjablonen', 'paginas', 'kloon', 'vervang', 'klantgegevens'].forEach((tab) => {
+  ['sjablonen', 'paginas', 'kloon', 'vervang'].forEach((tab) => {
     assert.ok(html.includes(`data-pagr-tab="${tab}"`), tab);
-    // Elke tab bestaat ook echt als knop in de LP.
     assert.ok(lees('lp.html').includes(`data-lp-tab="${tab}"`), tab);
   });
+  ['overzicht', 'werkplaats', 'klantgegevens'].forEach((tab) => {
+    assert.ok(!html.includes(`data-pagr-tab="${tab}"`), tab);
+    assert.ok(lees('lp.html').includes(`data-lp-tab="${tab}"`), tab);
+  });
+  const admin = lees('admin.js');
+  assert.ok(admin.includes('/lp#${onderdeel}?klant='));
+  assert.ok(lees('lp.js').includes("new URLSearchParams(query || '').get('klant')"));
 });
 
 test('de admin kent de Pagr. tabs in de hash en stuurt ze door naar de LP', () => {
