@@ -103,9 +103,27 @@ test('kop van de werkplaats: pillen met automatisch live, plan en meting', () =>
   const { wpKopPillen } = require('../public/lp-werkplaats.js');
   const pages = [{ status: 'Gepubliceerd' }, { status: 'Gepubliceerd' }];
   const t = wpKopPillen({ automatisering: true, pagr: true, plan: true, paginasPerMaand: 2, autoLive: false, autoPlan: true, paginameting: true }, pages).map((x) => x.tekst);
-  assert.deepEqual(t, ['Pagr. aan, automatisering draait', "2 pagina's per maand", "Automatisch live uit: 2 van 5 live pagina's", 'Planning: het systeem plant zelf', 'Paginameting aan']);
+  assert.deepEqual(t, ['Pagr. aan, automatisering draait', "2 pagina's per maand", 'Live zetten doe jij']);
   const aan = wpKopPillen({ automatisering: true, pagr: true, autoLive: true, paginameting: false }, pages).map((x) => x.tekst);
-  assert.ok(aan.includes("Automatisch live aan vanaf 5 live pagina's (nu 2)"));
+  assert.ok(aan.includes("Live zetten doe jij tot 5 live pagina's (nu 2)"));
+  assert.ok(aan.includes('Paginameting uit'));
+  const vijf = Array.from({ length: 5 }, () => ({ status: 'Gepubliceerd' }));
+  assert.ok(wpKopPillen({ automatisering: true, pagr: true, autoLive: true, paginameting: true }, vijf).map((x) => x.tekst).includes('Live zetten gaat automatisch'));
+});
+
+test('maand: live telt op livedatum, open werk telt altijd mee', () => {
+  const { wpMaandTelling } = require('../public/lp-werkplaats.js');
+  const nu = new Date('2026-11-25T10:00:00Z');
+  const t = wpMaandTelling([
+    { status: 'Gepubliceerd', liveDatum: '2026-11-11', aangemaakt: '2026-10-20' },
+    { status: 'Gepubliceerd', liveDatum: '2026-11-23', aangemaakt: '2026-10-28' },
+    { status: 'Gepubliceerd', liveDatum: '2026-10-28' },
+    { status: 'Content klaar' },
+    { status: 'Formulier ingevuld' },
+    { status: 'Fout' },
+    { status: 'Idee' }
+  ], nu);
+  assert.deepEqual(t, { live: 2, controle: 1, maak: 1, fout: 1 });
 });
 
 test('na akkoord: drie stappen, live hangt af van automatisch live', () => {

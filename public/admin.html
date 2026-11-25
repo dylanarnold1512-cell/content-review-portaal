@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="/portaal.css">
 <link rel="stylesheet" href="/admin.css">
 <link rel="stylesheet" href="/backlog.css">
+<link rel="stylesheet" href="/admin-rust.css">
 <style>.ad-pagr-frame{display:block;width:100%;height:calc(100vh - 8px);border:0;background:transparent;color-scheme:light}</style>
 </head>
 <body>
@@ -36,36 +37,24 @@
     </div>
     <nav class="p-nav" id="adminNav" aria-label="Onderdelen van het beheer">
       <div class="p-nav-groep">
-        <div class="p-nav-label">Klanten</div>
-        <button type="button" class="p-nav-item active" data-view="cockpit"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>Cockpit<span class="p-teller hidden" id="cockpitTeller" aria-label="Klanten die aandacht vragen"></span></button>
-        <button type="button" class="p-nav-item" data-view="klanten"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg>Alle klanten</button>
-        <button type="button" class="p-nav-item" data-view="nieuw"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Nieuwe klant</button>
+        <button type="button" class="p-nav-item active" data-view="cockpit"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>Cockpit<span class="p-teller hidden" id="cockpitTeller" aria-label="Wat op jou wacht"></span></button>
+        <button type="button" class="p-nav-item" data-view="klanten"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg>Klanten</button>
       </div>
       <div class="p-nav-groep">
         <div class="p-nav-label">Pagr.</div>
-        <button type="button" class="p-nav-item" data-view="pagr" data-pagr-tab="overzicht"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h8"/></svg>Overzicht<span class="p-teller hidden" id="wachtTeller" aria-label="Wacht op jou"></span></button>
-        <button type="button" class="p-nav-item" data-view="pagr" data-pagr-tab="werkplaats"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h8"/></svg>Werkplaats per klant</button>
+        <button type="button" class="p-nav-item" data-view="pagr" data-pagr-tab="paginas"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Pagina's</button>
         <button type="button" class="p-nav-item" data-view="pagr" data-pagr-tab="sjablonen"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Sjablonen</button>
-        <button type="button" class="p-nav-item" data-view="pagr" data-pagr-tab="paginas"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Alle pagina's</button>
-        <button type="button" class="p-nav-item" data-view="pagr" data-pagr-tab="klantgegevens"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/></svg>Klantgegevens</button>
       </div>
       <div class="p-nav-groep">
-        <div class="p-nav-label">Eigen werk</div>
-        <button type="button" class="p-nav-item" data-view="pagr" data-pagr-tab="kloon"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>Kopie van WordPress</button>
+        <div class="p-nav-label">Gereedschap</div>
+        <button type="button" class="p-nav-item" data-view="pagr" data-pagr-tab="kloon"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>Festivalpagina maken</button>
         <button type="button" class="p-nav-item" data-view="pagr" data-pagr-tab="vervang"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h6"/></svg>Bulk bijwerken</button>
+        <button type="button" class="p-nav-item" data-view="faq"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/></svg>FAQ logboek</button>
       </div>
       <div class="p-nav-groep">
-        <div class="p-nav-label">Paid Ads</div>
+        <div class="p-nav-label">Werk</div>
         <button type="button" class="p-nav-item" data-view="rapportstart"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>Rapportages</button>
-      </div>
-      <div class="p-nav-groep">
-        <div class="p-nav-label">Ontwikkeling</div>
-        <button type="button" class="p-nav-item" data-view="backlog"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>Backlog<span class="p-teller hidden" id="backlogTeller" aria-label="Wacht op jou"></span></button>
-      </div>
-      <div class="p-nav-groep">
-        <div class="p-nav-label">Beoordelen</div>
-        <button type="button" class="p-nav-item" data-view="ideeen"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>Ideeën<span class="p-teller hidden" id="ideeenTeller" aria-label="Ideeën ter beoordeling"></span></button>
-        <button type="button" class="p-nav-item" data-view="faq"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/></svg>FAQ's<span class="p-teller hidden" id="faqTeller" aria-label="FAQ aanpassingen die niet gelukt zijn"></span></button>
+        <button type="button" class="p-nav-item" data-view="backlog"><svg class="p-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>Backlog</button>
       </div>
     </nav>
     <div class="p-side-voet">
@@ -103,7 +92,7 @@
 
     <div id="viewFaq" class="tab-panel hidden">
       <div class="p-pagina">
-        <div class="p-ov-kop"><div><h1>FAQ aanpassingen</h1><p>Vragen waarbij AI het merk niet noemt vervangen een algemene vraag in de FAQ van een pagina of blog, met een antwoord uit het kennisdocument. Je krijgt er een melding van in Telegram.</p></div><div class="p-ov-kop-acties" id="faqKiezer"></div></div>
+        <div class="p-ov-kop"><div><h1>FAQ logboek</h1><p>Vragen waarbij AI het merk niet noemt vervangen een algemene vraag in de FAQ van een pagina of blog, met een antwoord uit het kennisdocument. Wat niet lukt, komt ook in de Cockpit.</p></div><div class="p-ov-kop-acties" id="faqKiezer"></div></div>
         <div id="faqVoorstellen"></div>
       </div>
     </div>

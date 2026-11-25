@@ -345,3 +345,28 @@ test('avatarKleur is stabiel per naam en kopieerTekst bevat de melding en de uit
   assert.match(tekst, /- Blog X/);
   assert.match(tekst, /https:\/\/n8n\.example\/run\/1/);
 });
+
+test('takenVan: Pagr., ideeën, onboarding, FAQ en backlog als korte regels, mislukt eerst', () => {
+  const t = model.takenVan({
+    klanten: [{ id: 'hirs-installaties', naam: 'Hirs Installaties' }, { id: 'schuijt-klussenbedrijf', naam: 'Schuijt Klussenbedrijf' }],
+    pagr: [{ klant: 'hirs-installaties', naam: 'Hirs Installaties', controleren: [{ id: 'a', titel: 'Ventilatie Haarlem' }], fout: [{ id: 'b', titel: 'Badkamer' }], ideeen: 0, voorstellen: 2, totaal: 4 }],
+    ideeen: { 'schuijt-klussenbedrijf': [{ titel: 'Bestraten' }, { titel: 'VvE onderhoud' }] },
+    onboarding: [{ clientId: 'hostel-roots', portaalId: 'roots', klant: 'Hostel Roots', samenvatting: { gereed: false, wachtOpDylan: [{ nr: 7, titel: 'Kennisdocument', uitkomst: 'naar klant' }] } }],
+    faq: [{ klant: 'Schuijt Klussenbedrijf' }],
+    backlog: [{ titel: 'Een', status: 'Wacht op Dylan' }, { titel: 'Twee', status: 'Open' }]
+  });
+  assert.equal(t[0].titel, '1 pagina is mislukt');
+  assert.equal(t[0].ernstig, true);
+  assert.deepEqual(t.map((x) => x.soort), ['pagr', 'pagr', 'pagr', 'idee', 'onboarding', 'faq', 'backlog']);
+  assert.equal(t.find((x) => x.soort === 'onboarding').klantId, 'roots');
+  assert.equal(t.find((x) => x.soort === 'idee').titel, '2 blogideeën wachten op jouw oordeel');
+  assert.equal(t.find((x) => x.soort === 'backlog').titel, '1 backlogpunt wacht op jou');
+  assert.deepEqual(model.takenVan({}), []);
+});
+
+test('korteSub: nooit een halve zin onder een melding', () => {
+  assert.equal(model.korteSub({ klantNaam: 'PPExport', details: ['Kort punt', 'Twee'] }), 'PPExport: Kort punt en 1 meer');
+  const lang = 'x'.repeat(120);
+  assert.equal(model.korteSub({ klantNaam: 'PPExport', details: [lang, 'b', 'c'] }), 'PPExport: 3 punten, klik voor de details');
+  assert.equal(model.korteSub({ klantNaam: 'PPExport', details: [] }), 'PPExport');
+});

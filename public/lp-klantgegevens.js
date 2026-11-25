@@ -62,7 +62,7 @@
     const lijst = $('kgFeiten');
     lijst.innerHTML = '';
     k.feiten.forEach((f) => lijst.appendChild(feitRij(f)));
-    $('kgBron').textContent = k.inNotion ? 'Staat in Notion' : (k.inCode ? 'Nu nog uit de code. Na opslaan staat het in Notion.' : '');
+    $('kgBron').textContent = k.inNotion ? 'Staat in Notion' : (k.inCode ? 'Nog niet opgeslagen. Na opslaan staat het vast.' : '');
     const vars = (k.wordpressVariabelen || []).filter(Boolean).join(', ');
     $('kgTechniekTekst').textContent = vars
       ? `WordPress gegevens, formulier, SEO plugin en kleuren en lettertypen staan niet hier. De WordPress variabelen op Render zijn: ${vars}.`
