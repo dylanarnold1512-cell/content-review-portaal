@@ -403,8 +403,8 @@ function renderKlant(c, tab) {
     root.querySelector('[data-terug]').addEventListener('click', () => gaNaar('klanten'));
     return;
   }
-  const st = c.alleenOnboarding ? { tekst: 'Onboarding', klasse: 'p-pil-plan' } : statusVanKlant(c);
   const o = onboardingVan(c);
+  const st = c.alleenOnboarding || (o && !o.samenvatting.gereed && (c.klantstatus || 'actief') === 'actief' && c.klantstatusIngesteld !== false) ? { tekst: 'In onboarding', klasse: 'p-pil-plan' } : statusVanKlant(c);
   const toonTab = (t) => {
     if (t.id === 'ideeen') return heeftBlogr(c);
     if (t.id === 'pagr' || t.id === 'gegevens') return heeftPagr(c);
@@ -720,7 +720,7 @@ function tekenWorkflowGegevens(c, houder, data, opties) {
     ? `<span class="p-pil p-pil-let-op">${kritiekOpen} ${kritiekOpen === 1 ? 'punt' : 'punten'} open voor livegang</span>`
     : `<span class="p-pil p-pil-goed">Klaar voor livegang</span>`;
   const controle = `<section class="p-kaart ad-blok">
-    <header class="ad-blok-kop"><h2>Controle voor livegang ${kop}</h2><p>Dit komt uit de Clients tabel in n8n. Pas hieronder aan wat ontbreekt.${adviesOpen ? ` Er ${adviesOpen === 1 ? 'is' : 'zijn'} ${adviesOpen} ${adviesOpen === 1 ? 'aandachtspunt' : 'aandachtspunten'}.` : ''}</p></header>
+    <header class="ad-blok-kop"><h2>Controle voor livegang ${kop}</h2><p>Uit de klantgegevens in n8n. Pas bij Instellingen aan wat ontbreekt.${adviesOpen ? ` Er ${adviesOpen === 1 ? 'is' : 'zijn'} ${adviesOpen} ${adviesOpen === 1 ? 'aandachtspunt' : 'aandachtspunten'}.` : ''}</p></header>
     <ul class="wg-controle">${data.controle.map((r) => `<li class="${r.ok ? 'ok' : (r.kritiek ? 'fout' : 'let-op')}"><span aria-hidden="true">${r.ok ? '&#10003;' : '!'}</span>${escapeHtmlAdmin(r.tekst)}</li>`).join('')}</ul>
   </section>`;
   const o = onboardingVan(c);

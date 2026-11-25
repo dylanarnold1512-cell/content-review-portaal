@@ -187,6 +187,8 @@
   }
   html.ingebed .lp-h1 { font-size: clamp(26px, 2.6vw, 36px); letter-spacing: -0.03em; }
   html.ingebed .wp-kolommen-leeg { display: block; padding: 4px 0; }
+  /* Onderweg heeft vier kolommen: Live staat in de tabel eronder. */
+  @media (min-width: 1101px) { #wpOnderweg.wp-kolommen { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
   .wp-fouttekst { color: #c42b3c; }
   .lp-sjabloon-groep + .lp-sjabloon-groep { margin-top: 14px; }
   .lp-sjabloon-klant { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #9a9db5; padding: 6px 4px; }
