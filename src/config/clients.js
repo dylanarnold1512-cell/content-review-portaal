@@ -261,11 +261,41 @@ const clients = [
   {
     id: 'roots',
     naam: 'Hostel Roots',
-    producten: 'Pagr.',
+    producten: 'Beide',
+    notionTokenEnv: 'NOTION_TOKEN_ROOTS',
+    performanceV2: true,
+    databaseId: '425de069ee18816ea38fe30a9d5ef2d9', // "Hostel Roots Content Planning"
+    // Shared klant met Blogr. en Pagr., onboarding Blogr. gestart op 27-11-2026. Dylan is de reviewer (logt in met
+    // PORTAL_PASSWORD_ROOTS) tot de eerste blog gecontroleerd is, daarna krijgt Marion de reviewlink via
+    // notification_email in de Clients tabel.
+    reviewEnabled: true,
+    ideaEnrichmentEnabled: false,
     loginPasswordEnv: 'PORTAL_PASSWORD_ROOTS',
-    reviewEnabled: false,
-    performanceEnabled: false,
-    ideaEnrichmentEnabled: false
+    fields: {
+      title: 'Titel',
+      status: 'Status',
+      category: 'Cluster',
+      publishDate: 'Publicatiedatum',
+      customerNotes: 'Opmerkingen',
+      wordpressPostId: 'WP post ID',
+      liveUrl: 'Live URL',
+      mainKeyword: 'Hoofdkeyword',
+      secondaryKeywords: 'Secundaire keywords',
+      searchIntent: 'Zoekintentie',
+      cluster: 'Cluster',
+      seoTitle: 'SEO Meta Title',
+      seoDescription: 'SEO Meta Description',
+      slug: 'Slug'
+    },
+    statusValues: {
+      review: 'Ter review',
+      approved: 'Goedgekeurd',
+      rejected: 'Afgewezen',
+      published: 'Gepubliceerd',
+      idea: 'Idee',
+      planned: 'Gepland',
+      generating: 'In generatie'
+    }
   }
 ];
 
