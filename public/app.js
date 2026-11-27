@@ -725,6 +725,7 @@ async function renderDetail() {
         <button class="btn btn-approve" id="approveBtn">Goedkeuren</button>
         <button class="btn btn-reject" id="rejectToggle">Afwijzen met feedback</button>
       </div>
+      <p class="goedkeur-uitleg" id="goedkeurUitleg"></p>
       <div class="reject-box" id="rejectBox">
         <p class="reject-hint">Selecteer een stuk tekst hierboven en voeg er een gerichte opmerking aan toe. Algemene opmerkingen kun je hieronder kwijt.</p>
         <div class="annotation-list" id="annotationList"></div>
@@ -750,6 +751,7 @@ async function renderDetail() {
       <div><span class="seo-label">Beschrijving in Google</span>${item.seoDescription || '—'}</div>
       <div><span class="seo-label">Knop onder de blog</span>${item.cta || '—'}</div>
     </div>
+    ${item.status === state.statusValues.approved ? '<p class="goedgekeurd-melding" id="goedgekeurdMelding" role="status"></p>' : ''}
     <div id="publicatieBlok"></div>
     ${feedbackBlock}
     ${strategyBlock}
@@ -757,6 +759,7 @@ async function renderDetail() {
     ${actionsBlock}
   `;
 
+  if (window.Goedkeuren) window.Goedkeuren.toon(item, () => api(`/${state.clientId}/items/${item.id}`));
   if (window.Publiceren) window.Publiceren.vulDetail(item, state);
 
   const approveBtn = document.getElementById('approveBtn');
@@ -766,6 +769,7 @@ async function renderDetail() {
       try {
         await api(`/${state.clientId}/items/${item.id}/approve`, { method: 'POST' });
         if (window.Publiceren && window.Publiceren.aanbodNaGoedkeuren) window.Publiceren.aanbodNaGoedkeuren(item.id);
+        if (window.Goedkeuren) window.Goedkeuren.netGoedgekeurd(item.id);
         await loadItems();
       } catch (err) {
         alert(err.message);

@@ -306,6 +306,9 @@ body {
 .btn-approve:hover { background: #f21f39; }
 .btn-reject { background: var(--panel); color: var(--text); border: 1px solid var(--border); }
 .btn-reject:hover { border-color: var(--text-faint); }
+.goedkeur-uitleg { margin: -8px 0 18px; font-size: 13px; line-height: 1.5; color: var(--text-muted); }
+.goedgekeurd-melding { margin: 0 0 16px; font-size: 14px; font-weight: 600; line-height: 1.5; background: var(--gray-soft); padding: 12px 16px; border-radius: 12px; }
+.goedkeur-uitleg:empty, .goedgekeurd-melding:empty { display: none; }
 .reject-box { display: none; margin-bottom: 18px; }
 .reject-box.open { display: block; }
 .reject-box textarea { width: 100%; min-height: 80px; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; font-family: inherit; font-size: 13.5px; background: var(--bg); }

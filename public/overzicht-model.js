@@ -252,7 +252,7 @@
   }
 
   function statusTekst(s) {
-    if (s.stand === 'actie') return 'Lees ze en keur goed of geef een opmerking. Daarna plannen wij ze in.' + (s.volgendeBlog ? ' Een blog gaat pas live na jouw akkoord.' : '');
+    if (s.stand === 'actie') return 'Lees ze en keur goed of geef een opmerking. Na jouw akkoord gaat een blog bij de eerstvolgende publicatie live. Op de knop staat wanneer dat is.' + (s.volgendeBlog ? ' Een blog gaat pas live na jouw akkoord.' : '');
     if (s.stand === 'storing') return 'Je ziet de laatst bekende cijfers. Wij proberen het automatisch opnieuw en Advertisr krijgt er een melding van. Blogs en planning lopen gewoon door.';
     if (s.stand === 'nieuw') return 'In de eerste weken bouwen wij jullie merkprofiel en de eerste blogs. Hieronder zie je welke stap nu loopt en wat we van jou nodig hebben.';
     if (s.autoAan) return 'Automatisch publiceren staat aan: wij plaatsen gecontroleerde blogs zelf. Ondertussen volgen we de cijfers in Google en in AI assistenten.';
