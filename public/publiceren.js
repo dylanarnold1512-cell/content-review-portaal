@@ -114,7 +114,7 @@
       ? '<div class="pb-sectie"><span class="pb-label" id="pbManier">Hoe wil je publiceren?</span><div class="pb-standen" role="group" aria-labelledby="pbManier">' + standen + '</div>' +
         (k.modus === 'inkijk' ? '<div class="pb-veld"><span class="pb-label" id="pbUren">Inkijktijd</span><div class="pb-segment" role="group" aria-labelledby="pbUren">' + uren + '</div><span class="pb-hulp">Zo lang staat de blog voor je klaar voordat hij live gaat.</span></div>' : '') +
         '<div class="pb-voorbeeld">' + ICOON.agenda + '<span><b>Voorbeeld</b> ' + esc(voorbeeld) + '</span></div></div>'
-      : '<div class="pb-uit">' + ICOON.info + '<span>Je krijgt een mail zodra er een blog klaarstaat. Pas na jouw akkoord gaat hij live. Reageer je niet, dan sturen we na 7 en 14 dagen een herinnering.</span></div>';
+      : '<div class="pb-uit">' + ICOON.info + '<span>Je krijgt een mail zodra er een blog klaarstaat. Pas na jouw akkoord gaat hij live. Op de knop Goedkeuren staat wanneer dat is. Reageer je niet, dan sturen we na 7 en 14 dagen een herinnering.</span></div>';
 
     return '<section class="p-kaart pb-keuze' + (aan ? ' pb-keuze-aan' : '') + '">' +
       '<div class="pb-schakel-rij"><div class="pb-schakel-tekst"><h3 class="pb-schakel-titel" id="pbTitel">Laat blogs automatisch live gaan</h3><p>' +
@@ -273,6 +273,12 @@
     return '<details class="p-kaart pb-rapport"><summary><span class="pb-rapport-kop">' + ICOON.schild + '<span><b>Controlerapport</b><span>Gecontroleerd op 12 punten voordat deze blog live mag</span></span></span>' + PortaalUI.pil('12 van 12 in orde', 'goed') + '</summary><div class="pb-rapport-inhoud">' + controleLijst() + '</div></details>';
   }
 
+  // Alleen als goedkeuren de blog echt eerder online zet, noemen we dat, met het moment erbij.
+  function eerderZin(naGoedkeuren, gepland) {
+    if (!naGoedkeuren || !naGoedkeuren.moment || Date.parse(naGoedkeuren.moment) >= gepland.getTime() - 3600000) return '';
+    return 'Keur je hem nu goed, dan gaat hij ' + naGoedkeuren.tekst + ' al live. ';
+  }
+
   async function vulDetail(item, state) {
     const doel = el('publicatieBlok');
     if (!doel || !item) return;
@@ -300,7 +306,7 @@
       const verstreken = Math.min(100, Math.max(0, ((totaal - ms / 3600000) / totaal) * 100));
       const wanneer = uur >= 48 ? 'over ' + Math.round(uur / 24) + ' dagen' : uur >= 1 ? 'over ' + uur + ' uur' : 'binnen het uur';
       aftel = '<section class="p-kaart pb-aftel"><div class="pb-aftel-tekst"><div class="pb-aftel-label">Automatisch publiceren staat aan</div><h3 class="pb-aftel-titel">Deze blog gaat ' + esc(wanneer) + ' live</h3>' +
-        '<div class="pb-aftel-sub">Live ' + esc(dagTijd(live)) + '. Alles is in orde, dus je hoeft niets te doen. Eerder online? Keur hem hieronder goed. Iets aanpassen? Wijs hem af met je feedback.</div>' +
+        '<div class="pb-aftel-sub">Live ' + esc(dagTijd(live)) + '. Alles is in orde, dus je hoeft niets te doen. ' + esc(eerderZin(item.liveNaGoedkeuren, live)) + 'Iets aanpassen? Wijs hem af met je feedback.</div>' +
         '<div class="pb-aftel-balk" role="img" aria-label="Inkijktijd voor ' + Math.round(verstreken) + ' procent verstreken"><i style="width:' + verstreken.toFixed(0) + '%"></i></div></div>' +
         '<div class="pb-aftel-knoppen"><button type="button" class="p-knop" id="pbTegenhouden">' + ICOON.pauze + 'Even tegenhouden</button></div></section>';
     } else if (b.status === 'tegengehouden') {

@@ -11,6 +11,7 @@ const rapportenService = require('../services/rapporten');
 const aiZichtbaarheidService = require('../services/aiZichtbaarheid');
 const beeldbankService = require('../services/beeldbank');
 const publicerenService = require('../services/publiceren');
+const publicatieMoment = require('../services/publicatieMoment');
 const documentTekst = require('../services/documentTekst');
 const lpNotion = require('../lp/notion');
 const lpTemplates = require('../lp/templates');
@@ -254,9 +255,23 @@ router.get('/:clientId/rapporten/:maand/pdf', requireLogin, async (req, res) => 
   }
 });
 
+// Het moment waarop een (net) goedgekeurde blog live gaat. Lukt het lezen van de klantrij niet,
+// dan rekenen we zonder vertraging: het blog zelf moet altijd te zien zijn.
+async function liveNaGoedkeuren(clientId, goedgekeurdOp) {
+  let vertragingUren = 0;
+  try {
+    const rij = await workflowGegevensService.zoekRij(clientId, getClient(clientId).naam);
+    vertragingUren = Number(rij && rij.publicatie_vertraging_uren) || 0;
+  } catch (err) { /* zonder vertraging */ }
+  return publicatieMoment.volgendePublicatie({ clientId, vertragingUren, goedgekeurdOp });
+}
+
 router.get('/:clientId/items/:pageId', requireLogin, async (req, res) => {
   try {
     const item = await notionService.getItemDetail(req.params.clientId, req.params.pageId);
+    const sv = getClient(req.params.clientId).statusValues || {};
+    if (sv.review && item.status === sv.review) item.liveNaGoedkeuren = await liveNaGoedkeuren(req.params.clientId);
+    else if (sv.approved && item.status === sv.approved) item.liveNaGoedkeuren = await liveNaGoedkeuren(req.params.clientId, item.laatstGewijzigd);
     res.json(item);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -271,7 +286,7 @@ router.post('/:clientId/items/:pageId/approve', requireLogin, async (req, res) =
       return res.status(400).json({ error: 'Review staat uit voor deze klant.' });
     }
     await notionService.approveItem(req.params.clientId, req.params.pageId);
-    res.json({ ok: true });
+    res.json({ ok: true, liveNaGoedkeuren: await liveNaGoedkeuren(req.params.clientId) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
